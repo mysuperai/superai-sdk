@@ -1,0 +1,5 @@
+BASE_URL = 'https://api.super.ai/v1'
+BASE_FOLDER = '~/.superaiapiclient'
+COGNITO_REGION = 'us-east-1'
+COGNITO_USERPOOL_ID = 'us-east-1_hwjZuxqbI'
+COGNITO_CLIENT_ID = '6vt1a0uflonucrknj6sl0q3vc2'

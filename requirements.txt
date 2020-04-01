@@ -1,0 +1,4 @@
+boto3>=1.9
+requests>=2.22
+Click>=7.0
+warrant>=0.6
