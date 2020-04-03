@@ -35,9 +35,9 @@ superai config --api-key <API-KEY>
 ### Python example
 
 ```python
-import superai as su
+import superai as ai
 
-client = su.Client("super.AI_API_KEY")
+client = ai.Client("API-KEY")
 
 client.create_jobs(api_id="APP_ID",
 		callback_url='http://www.example.com/callback',
