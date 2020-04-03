@@ -39,7 +39,7 @@ import superai as ai
 
 client = ai.Client("API-KEY")
 
-client.create_jobs(api_id="APP_ID",
+client.create_jobs(app_id="APP_ID",
 		callback_url='http://www.example.com/callback',
 		inputs=[{"data_url":"http://i.imgur.com/XOJbalC.jpg"}]
 )
