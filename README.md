@@ -7,13 +7,18 @@ Use this library to interact with super.AI API
 - The CLI included in this package uses Python 3. On systems that have both Python 2 and Python 3 installed, you may need to replace the calls to `python` and `pip` below with `python3` and `pip3`, respectively.
 - Dependencies in this package rely on the clang build tools on Mac OS. If you have recently updated or installed XCode, you may be required to run `sudo xcodebuild -license` before following the instructions below.
 
+## Install
+```
+pip install superai
+```
+
 ## Build
 
 ```
 python setup.py bdist_wheel
 ```
 
-## Install
+## Install build
 
 ```
 pip install --upgrade dist/superai_api_client-0.0.1-py3-none-any.whl
