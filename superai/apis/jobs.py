@@ -20,7 +20,7 @@ class JobsApiMixin(ABC):
         :param inputs: List of objects that represent the input of the job (based on the particular app type)
         :param inputsFileUrl: URL of json file containing list of input objects
         :param metadata: Object you can attach to job
-        :return: Confirmation message of submission
+        :return: Confirmation message of submission, batch id of submission, uuid of job if len(input) == 1
         """
         body_json = {}
         if callbackUrl is not None:
@@ -42,6 +42,17 @@ class JobsApiMixin(ABC):
         :return: Dict with job data
         """
         uri = f'jobs/{job_id}'
+        return self.request(uri, method='GET', required_api_key=True)
+
+    def fetch_batch_job(self, app_id: str, batch_id: str) -> dict:
+        """
+        Get Batch of submitted jobs given batch id and application id
+
+        :param app_id: Application id
+        :param batch_id: Batch id
+        :return: Dict with batch data
+        """
+        uri = f'apps/{app_id}/{batch_id}'
         return self.request(uri, method='GET', required_api_key=True)
 
     def get_job_response(self, job_id: str) -> dict:
