@@ -21,7 +21,7 @@ python setup.py bdist_wheel
 ## Install build
 
 ```
-pip install --upgrade dist/superai_api_client-0.0.1-py3-none-any.whl
+pip install --upgrade dist/superai-{version}-py3-none-any.whl
 ```
 
 ## Usage

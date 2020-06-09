@@ -44,9 +44,9 @@ class JobsApiMixin(ABC):
         uri = f'jobs/{job_id}'
         return self.request(uri, method='GET', required_api_key=True)
 
-    def fetch_job_batch(self, app_id: str, batch_id: str) -> dict:
+    def fetch_batch_job(self, app_id: str, batch_id: str) -> dict:
         """
-        Get Job Batch given batch id and application id
+        Get Batch of submitted jobs given batch id and application id
 
         :param app_id: Application id
         :param batch_id: Batch id
