@@ -87,6 +87,16 @@ def fetch_job(ctx, job_id: str):
     print(f'Fetching job {job_id}')
     print(client.fetch_job(job_id))
 
+@client.command(name='fetch_batches_job')
+@click.option('--app_id', '-a', help='App id', required=True)
+@click.pass_context
+def fetch_batches_job(ctx, app_id: str):
+    """
+    Get Batch given app id and batch id
+    """
+    client = ctx.obj['client']
+    print(f'Fetching batches {app_id}')
+    print(client.fetch_batches_job(app_id))
 
 @client.command(name='fetch_batch_job')
 @click.option('--app_id', '-a', help='App id', required=True)

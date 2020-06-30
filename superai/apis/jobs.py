@@ -44,6 +44,16 @@ class JobsApiMixin(ABC):
         uri = f'jobs/{job_id}'
         return self.request(uri, method='GET', required_api_key=True)
 
+    def fetch_batches_job(self, app_id) -> dict:
+        """
+        Get not processed Batches of submitted jobs given application id
+
+        :param app_id: Application id
+        :return: Dict with batch data
+        """
+        uri = f'apps/{app_id}/batches'
+        return self.request(uri, method='GET', required_api_key=True)
+
     def fetch_batch_job(self, app_id: str, batch_id: str) -> dict:
         """
         Get Batch of submitted jobs given batch id and application id
@@ -52,7 +62,7 @@ class JobsApiMixin(ABC):
         :param batch_id: Batch id
         :return: Dict with batch data
         """
-        uri = f'apps/{app_id}/{batch_id}'
+        uri = f'apps/{app_id}/batches/{batch_id}'
         return self.request(uri, method='GET', required_api_key=True)
 
     def get_job_response(self, job_id: str) -> dict:
