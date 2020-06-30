@@ -92,7 +92,7 @@ def fetch_job(ctx, job_id: str):
 @click.pass_context
 def fetch_batches_job(ctx, app_id: str):
     """
-    Get Batch given app id and batch id
+    Get not processed Batches given app id
     """
     client = ctx.obj['client']
     print(f'Fetching batches {app_id}')
