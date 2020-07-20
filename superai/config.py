@@ -1,4 +1,5 @@
-BASE_URL = 'https://api.super.ai/v1'
+# BASE_URL = 'https://api.super.ai/v1'
+BASE_URL = 'http://0.0.0.0:5000/dp_builder'
 BASE_FOLDER = '~/.superaiapiclient'
 COGNITO_REGION = 'us-east-1'
 COGNITO_USERPOOL_ID = 'us-east-1_hwjZuxqbI'
