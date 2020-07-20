@@ -1,103 +1,11 @@
-from typing import Optional
-import requests
-from typing import List, Generator, Dict
-import names
+from superai.apis.dp_instance import DataProgramInstance
+from superai.apis.dp_template import DataProgramTemplate
 
-from superai.apis.template import TemplateApiMixin
-from superai.config import BASE_URL
-from superai.exceptions import SuperAIError
+class DataProgram(DataProgramTemplate):
 
-
-class DataProgram():
-
-    def __init__(self, dp_definition: Dict, name: str=None, description: str=None):
-        assert "input_schema" in dp_definition
-        assert "output_schema" in dp_definition
-
-        self.dp_definition = dp_definition
-        self.__dict__.update(dp_definition)
-        self.workflows = []
-        self.task_templates = []
-
-        if name is None:
-            self.name = names.get_first_name()
-
-        self.description = description
-
-        # look in ~/.netrc file to find token
-        # if not assume not logged in
-        # self.api_key = api_key
-        # self.auth_token = auth_token
-        # self.base_url = BASE_URL
-
-        self.__template_object = self.__create_template(
-            input_schema=dp_definition['input_schema'],
-            output_schema=dp_definition['input_schema'],
-            parameter_schema=dp_definition.get('parameter_schema'),
-            name=self.name,
-            description=self.description
-        )
-        assert "id" in self.__template_object
-        self.template_id = self.__template_object["id"]
+    def __call__(self, *args, quality=None, cost=None, latency=None, **kwargs):
+        instance = DataProgramInstance(self.template_id, quality=quality, cost=cost, latency=latency, **kwargs)
+        return instance
 
 
-    def __create_template(self, input_schema: Dict, output_schema: Dict, parameter_schema: Dict=None, name: str=None,
-                        description: str=None) -> Dict:
-        """
-        Create a data program template
-        :param input_schema:
-        :param output_schema:
-        :param parameter_schema:
-        :return:
-        """
-        body_json = {
-            "input_schema": input_schema,
-            "output_schema": output_schema,
-        }
-        if parameter_schema is not None:
-            body_json['parameter_schema'] = parameter_schema
-        if name is not None:
-            body_json['name'] = name
-        if description is not None:
-            body_json['description'] = description
-        uri = f'template'
-        return self._request(uri, method='POST', body_params=body_json, required_api_key=False)
-
-    def _request(self, endpoint: str, method: str = 'GET', query_params: dict = None, body_params: dict = None,
-                required_api_key: bool = False, required_auth_token: bool = False) -> Optional[dict]:
-        headers = {}
-        if required_api_key and self.api_key:
-            headers['API-KEY'] = self.api_key
-        if required_auth_token and self.auth_token:
-            headers['AUTH-TOKEN'] = self.auth_token
-        resp = requests.request(method, f'{BASE_URL}/{endpoint}', params=query_params, json=body_params, headers=headers)
-        try:
-            resp.raise_for_status()
-            if resp.status_code == 204:
-                return None
-            else:
-                return resp.json()
-        except requests.exceptions.HTTPError as http_e:
-            try:
-                message = http_e.response.json()['message']
-            except:
-                message = http_e.response.text
-            raise SuperAIError(message, http_e.response.status_code)
-
-    def label(self, inputs: List, quality=None, cost=None, latency=None) -> Dict:
-        """
-        :param inputs:
-        :return:
-        """
-        body_json = {
-            "inputs": inputs,
-        }
-        if quality is not None:
-            body_json['quality'] = quality
-        if cost is not None:
-            body_json['cost'] = cost
-        if latency is not None:
-            body_json['latency'] = latency
-        uri = f'template/{self.template_id}/job'
-        return self._request(uri, method='POST', body_params=body_json, required_api_key=False)
 
