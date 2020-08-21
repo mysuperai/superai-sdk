@@ -1,52 +1,90 @@
-# super.AI API Client
+# Super.AI API client
 
-Use this library to interact with super.AI API
+The super.AI Python library provides access to the super.AI API via Python and our command line interface (CLI). Full details on our API are listed in our [API reference](https://super.ai/reference).
 
-## Preliminary - please read.
+In this README, you will find the following sections:
 
-- The CLI included in this package uses Python 3. On systems that have both Python 2 and Python 3 installed, you may need to replace the calls to `python` and `pip` below with `python3` and `pip3`, respectively.
-- Dependencies in this package rely on the clang build tools on Mac OS. If you have recently updated or installed XCode, you may be required to run `sudo xcodebuild -license` before following the instructions below.
+- [Installation](#installation)
+- [CLI usage](#cli-usage)
+- [CLI commands](#cli-commands)
+- [Python usage](#python-usage)
 
-## Install
+## Installation
+
+In your terminal, run:
+
 ```
 pip install superai
 ```
 
-## Build
+### Requirements
 
+- Python 3.6 or later. On systems that have both Python 2 and Python 3 installed, you may need to replace the call to `pip` with `pip3`.
+- Dependencies in this package rely on the Clang build tools on MacOS. If you have recently updated or installed XCode, you may have to run `sudo xcodebuild -license` prior to installation.
+- A super.AI account.
+
+## CLI usage
+
+Installing the API client provides access to the `superai` command from within your terminal.
+
+```bash
+superai [command]
+
+# Run `--help` for detailed information about CLI commands, including required and optional flags
+superai [command] --help
 ```
-python setup.py bdist_wheel
+
+### Logging in
+
+In order to use the CLI, you need to pass us your API key. Use the following command to do this:
+
+```bash
+superai login --username {username}
 ```
 
-## Install build
+Replace `{username}` with your super.AI account username.
 
+When prompted, enter your password and press enter. You should see a confirmation like this:
+
+```bash
+Api key {api-key} was set
 ```
-pip install --upgrade dist/superai-{version}-py3-none-any.whl
+
+If you created your account through Google Sign-In you will need to manually set your API key:
+
+1. Find your API key in the [super.AI dashboard](https://super.ai/dashboard/) by hovering over the profile icon in the lower left of the screen, then heading to **API keys**. You can copy the key by clicking on the copy (insert icon here) button.
+2. Provide your API key to the client using the following command (replacing `{api-key}` with your actual API key): `sh superai config --api-key {api-key}`
+
+### Logging out
+
+You can log out and thereby remove your API key by running the following command:
+
+```bash
+superai logout
 ```
 
-## Usage
+## CLI commands
 
-### CLI
+- `create_jobs`
+- `list_jobs`
+- `fetch_job`
+- `get_job_responses`
+- `cancel_job`
+- `download_jobs`
+- `fetch_batch_job`
+- `fetch_batches_job`
+- `create_ground_truth`
+- `list_ground_truth_data`
+- `get_ground_truth_data`
+- `update_ground_truth`
+- `delete_ground_truth_data`
 
-Before you can interact with the API, you will need to register at [super.ai](https://super.ai) and log in to the CLI tool. For more information, please follow the instructions provided by:
+If you're new to using a CLI, our [Getting started with the CLI page](https://super.ai/docs/getting-started-with-the-cli) can show you the ropes.
 
-```
-superai --help
-```
-Note: If you signed-up using Google you need to set api-key manually using:
-```
-superai config --api-key <API-KEY>
-```
-### Python example
+## Python usage
 
-```python
-import superai as ai
+This client allows you to run Python scripts on your machine to automate your work processes. For example, you can use a script like this to submit data points for processing to a project that takes image inputs, replacing any `{variables}` where necessary:
 
-client = ai.Client("API-KEY")
-
-client.create_jobs(app_id="APP_ID",
-		callback_url='http://www.example.com/callback',
-		inputs=[{"data_url":"http://i.imgur.com/XOJbalC.jpg"}]
-)
-
+```bash
+import superai as aiclient = ai.Client("{api-key}")client.create_jobs(    app_id="{project-id}",    inputs=[{"image_url":"https://cdn.super.ai/cool-bulldog.jpg"},{"image_url":"https://cdn.super.ai/hot-dog-01.jpeg"}])
 ```
