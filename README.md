@@ -21,7 +21,7 @@ pip install superai
 
 - Python 3.6 or later. On systems that have both Python 2 and Python 3 installed, you may need to replace the call to `pip` with `pip3`.
 - Dependencies in this package rely on the Clang build tools on MacOS. If you have recently updated or installed XCode, you may have to run `sudo xcodebuild -license` prior to installation.
-- A super.AI account.
+- A super.AI account
 
 ## CLI usage
 
@@ -52,8 +52,8 @@ Api key {api-key} was set
 
 If you created your account through Google Sign-In you will need to manually set your API key:
 
-1. Find your API key in the [super.AI dashboard](https://super.ai/dashboard/) by hovering over the profile icon in the lower left of the screen, then heading to **API keys**. You can copy the key by clicking on the copy (insert icon here) button.
-2. Provide your API key to the client using the following command (replacing `{api-key}` with your actual API key): `sh superai config --api-key {api-key}`
+1. Find your API key in the [super.AI dashboard](https://super.ai/dashboard/) by hovering over the profile icon in the lower left of the screen, then heading to **API keys**. You can copy the key by clicking on the copy button.
+2. Provide your API key to the client using the following command (replacing `{api-key}` with your actual API key): `superai config --api-key {api-key}`
 
 ### Logging out
 
@@ -85,6 +85,13 @@ If you're new to using a CLI, our [Getting started with the CLI page](https://su
 
 This client allows you to run Python scripts on your machine to automate your work processes. For example, you can use a script like this to submit data points for processing to a project that takes image inputs, replacing any `{variables}` where necessary:
 
-```bash
-import superai as aiclient = ai.Client("{api-key}")client.create_jobs(    app_id="{project-id}",    inputs=[{"image_url":"https://cdn.super.ai/cool-bulldog.jpg"},{"image_url":"https://cdn.super.ai/hot-dog-01.jpeg"}])
+```python
+import superai as ai
+
+client = ai.Client("{api-key}")
+
+client.create_jobs(
+    app_id="{project-id}",
+    inputs=[{"image_url":"https://cdn.super.ai/cool-bulldog.jpg"},{"image_url":"https://cdn.super.ai/hot-dog-01.jpeg"}]
+)
 ```
