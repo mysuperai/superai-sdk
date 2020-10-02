@@ -7,7 +7,8 @@ class GroundTruthApiMixin(ABC):
     def request(self, uri, method, body_params=None, query_params=None, required_api_key=False):
         pass
 
-    def create_ground_truth(self, app_id: str, input_json: dict = None, label: dict = None, tag: str = None) -> dict:
+    def create_ground_truth(self, app_id: str, input_json: dict = None, label: dict = None, tag: str = None,
+                            metadata: dict = None) -> dict:
         """
         Submit fresh ground truth data
         :param app_id: Application instance id
@@ -23,6 +24,8 @@ class GroundTruthApiMixin(ABC):
             body_json['label'] = label
         if tag is not None:
             body_json['tag'] = tag
+        if metadata:
+            body_json['metadata'] = metadata
         uri = f'apis/{app_id}/baselineData'
         return self.request(uri, 'POST', body_params=body_json, required_api_key=True)
 
@@ -62,7 +65,6 @@ class GroundTruthApiMixin(ABC):
             q_params['size'] = size
         return self.request(uri, 'GET', required_api_key=True, query_params=q_params)
 
-
     def get_all_ground_truth_data(self, app_id: str) -> Generator[dict, None, None]:
         """
         Generator that retrieves all ground truth data given an application id
@@ -76,7 +78,6 @@ class GroundTruthApiMixin(ABC):
             for gtd in paginated_ground_truth['content']:
                 yield gtd
             page = page + 1
-
 
     def get_ground_truth_data(self, ground_truth_data_id: str) -> dict:
         """
