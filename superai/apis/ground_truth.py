@@ -15,6 +15,7 @@ class GroundTruthApiMixin(ABC):
         :param input_json: Input that should match input schema of data program
         :param label: Label, or output that should match output schema of data program
         :param tag: Tag to identify ground truth data
+        :param metadata: Metadata of ground truth
         :return: Ground truth data object
         """
         body_json = {}
@@ -30,13 +31,14 @@ class GroundTruthApiMixin(ABC):
         return self.request(uri, 'POST', body_params=body_json, required_api_key=True)
 
     def update_ground_truth(self, ground_truth_data_id: str, input_json: dict = None, label: dict = None,
-                            tag: str = None) -> dict:
+                            tag: str = None, metadata: dict = None) -> dict:
         """
         Upload (patch) ground truth data
         :param ground_truth_data_id: Id of ground truth data
         :param input_json: Input that should match input schema of data program
         :param label: Label, or output that should match output schema of data program
         :param tag: Tag to identify ground truth data
+        :param metadata: Metadata of ground truth
         :return: Updated ground truth data object
         """
         body_json = {}
@@ -46,6 +48,8 @@ class GroundTruthApiMixin(ABC):
             body_json['label'] = label
         if tag is not None:
             body_json['tag'] = tag
+        if metadata is not None:
+            body_json['metadata'] = metadata
         uri = f'baselineData/{ground_truth_data_id}'
         return self.request(uri, 'PATCH', body_params=body_json, required_api_key=True)
 
