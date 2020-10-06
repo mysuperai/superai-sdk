@@ -202,9 +202,9 @@ def download_jobs(ctx, app_id: str, created_start_date: datetime,
 @click.option('--input_json', '-i', help='Input json of ground truth', required=True)
 @click.option('--label', '-l', help='Label (or output) json of ground truth', required=True)
 @click.option('--tag', '-t', help='Tag ground truth data')
-@click.option('--metadata', '-t', help='Metadata json')
+@click.option('--metadata', '-m', help='Metadata json')
 @click.pass_context
-def create_ground_truth(ctx, app_id: str, input_json: dict = None, label: dict = None, tag: str = None,
+def create_ground_truth(ctx, app_id: str, input_json: str = None, label: str = None, tag: str = None,
                         metadata: str = None):
     """
     Submit fresh ground truth data
@@ -213,6 +213,7 @@ def create_ground_truth(ctx, app_id: str, input_json: dict = None, label: dict =
     print("Submitting fresh ground truth data")
     input_dict = None
     metadata_dict = None
+    label_dict = None
     if input_json is not None:
         try:
             input_dict = json.loads(input_json)
@@ -225,7 +226,13 @@ def create_ground_truth(ctx, app_id: str, input_json: dict = None, label: dict =
         except:
             print("Couldn't load metadata json of ground truth")
             exit()
-    print(client.create_ground_truth(app_id, input_dict, label, tag, metadata_dict))
+    if label is not None:
+        try:
+            label_dict = json.loads(label)
+        except:
+            print("Couldn't load label json of ground truth")
+            exit()
+    print(client.create_ground_truth(app_id, input_dict, label_dict, tag, metadata_dict))
 
 
 @client.command(name='update_ground_truth')
@@ -233,14 +240,37 @@ def create_ground_truth(ctx, app_id: str, input_json: dict = None, label: dict =
 @click.option('--input_json', '-i', help='Input json of ground truth')
 @click.option('--label', '-l', help='Label (or output) json of ground truth')
 @click.option('--tag', '-t', help='Tag ground truth data')
+@click.option('--metadata', '-m', help='Metadata json')
 @click.pass_context
-def update_ground_truth(ctx, ground_truth_data_id: str, input_json: dict = None, label: dict = None, tag: str = None):
+def update_ground_truth(ctx, ground_truth_data_id: str, input_json: str = None, label: str = None, tag: str = None,
+                        metadata: str = None):
     """
     Update (patch) ground truth data
     """
     client = ctx.obj['client']
     print(f"Updating ground truth data {ground_truth_data_id}")
-    print(client.update_ground_truth(ground_truth_data_id, input_json, label, tag))
+    input_dict = None
+    metadata_dict = None
+    label_dict = None
+    if input_json is not None:
+        try:
+            input_dict = json.loads(input_json)
+        except:
+            print("Couldn't load input json of ground truth")
+            exit()
+    if metadata is not None:
+        try:
+            metadata_dict = json.loads(metadata)
+        except:
+            print("Couldn't load metadata json of ground truth")
+            exit()
+    if label is not None:
+        try:
+            label_dict = json.loads(label)
+        except:
+            print("Couldn't load label json of ground truth")
+            exit()
+    print(client.update_ground_truth(ground_truth_data_id, input_dict, label_dict, tag, metadata_dict))
 
 
 @client.command(name='list_ground_truth_data')
