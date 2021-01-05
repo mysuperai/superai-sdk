@@ -35,7 +35,7 @@ REQUIRES = [
 
 BUILD_REQUIRES = [
     "awscli>=1.18.163",
-    "bumpversion>=0.6.0",
+    "bump2version~=1.0.1",
     "setuptools>=50.3.2",
     "Sphinx>=3.2.1",
     "wheel>=0.35.1",
