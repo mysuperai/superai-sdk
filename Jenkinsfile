@@ -5,4 +5,4 @@ library identifier: 'superai-sdk-automation@main', retriever: modernSCM(
      remote       : 'https://github.com/mysuperai/superai-sdk-automation.git',
      credentialsId: 'sueprai-ci-github-token'])
 
-buildPipeline(this, [name: "superai-sdk"])
+buildPipeline(this, [name: "superai-sdk", git_url: "${env.GIT_URL}"])
