@@ -1,27 +1,30 @@
 import json
-import os
 import signal
 import sys
 from datetime import datetime
+from pprint import pprint
 from typing import List
 
+import click
 from botocore.exceptions import ClientError
 from warrant import Cognito
-from superai.config import BASE_FOLDER, COGNITO_USERPOOL_ID, COGNITO_CLIENT_ID, COGNITO_REGION
+
+from superai import __version__
 from superai.client import Client
-import click
+from superai.config import settings, list_env_configs, set_env_config, get_config_dir
+from superai.log import logger
+from superai.utils import load_api_key, save_api_key
+
+BASE_FOLDER = get_config_dir()
+COGNITO_USERPOOL_ID = settings.get("cognito", {}).get("userpool_id")
+COGNITO_CLIENT_ID = settings.get("cognito", {}).get("client_id")
+COGNITO_REGION = settings.get("cognito", {}).get("region")
+
+log = logger.get_logger(__name__)
 
 
 def _signal_handler(s, f):
     sys.exit(1)
-
-
-def save_api_key(api_key: str):
-    api_key_file = os.path.expanduser(f'{BASE_FOLDER}/apikey')
-    if not os.path.exists(os.path.dirname(api_key_file)):
-        os.makedirs(os.path.dirname(api_key_file))
-    with open(api_key_file, 'w') as f:
-        f.write(api_key)
 
 
 @click.group()
@@ -29,12 +32,50 @@ def cli():
     pass
 
 
-def load_api_key() -> str:
-    api_key_file = os.path.expanduser(f'{BASE_FOLDER}/apikey')
-    with open(api_key_file) as f:
-        api_key = f.readline()
-    return api_key
+@cli.command()
+@click.option("--verbose/--no-verbose", "-vvv", help="Verbose output", default=False)
+def info(verbose):
+    """ Print CLI Configuration """
+    click.echo("=================")
+    click.echo("Super.AI CLI Info:")
+    click.echo("=================")
+    click.echo("Version: {}".format(__version__))
+    click.echo("Environment: {}".format(settings.current_env))
+    if verbose:
+        click.echo(pprint(settings.as_dict(env=settings.current_env)))
 
+
+
+@cli.group()
+@click.pass_context
+def env(ctx):
+    """
+    super.AI Config operations
+    """
+    pass
+
+@env.command(name="list")
+@click.pass_context
+def env_list(ctx):
+    """
+
+    :param ctx:
+    :return:
+    """
+    list_env_configs(printInConsole=True)
+
+@env.command(name="set")
+@click.option("--api-key", help="Your super.AI API KEY", required=False)
+@click.option("--environment", "-e", help="Set environment", required=False)
+@click.pass_context
+def env_set(ctx, api_key, environment):
+    """
+    Set configuration
+    """
+    if environment:
+        set_env_config(name=environment)
+    if api_key:
+        save_api_key(api_key)
 
 @cli.group()
 @click.pass_context
