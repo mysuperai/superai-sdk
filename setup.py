@@ -25,6 +25,7 @@ REQUIRES = [
     "genson>=1.2.2",
     "jinja2>=2.11.2",
     "joblib>=0.17.0",
+    "jsonmerge~=1.7.0",
     "jsonpickle>=1.4.1",
     "pyyaml>=5.3.1",
     "requests>=2.22",

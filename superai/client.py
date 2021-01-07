@@ -6,9 +6,10 @@ from superai.apis.auth import AuthApiMixin
 from superai.apis.data import DataApiMixin
 from superai.apis.jobs import JobsApiMixin
 from superai.apis.ground_truth import GroundTruthApiMixin
-from superai.config import BASE_URL
+from superai.config import get_config_dir
 from superai.exceptions import SuperAIError
 
+BASE_URL = get_config_dir()
 
 class Client(JobsApiMixin, AuthApiMixin, GroundTruthApiMixin, DataApiMixin):
 
