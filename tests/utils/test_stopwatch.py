@@ -30,4 +30,4 @@ def test_stopwatch(caplog):
 
     assert f'{__name__}' in caplog.text, "Module name is logged using stopwatch"
     assert f'{fibonacci.__name__}()' in caplog.text, "Function name is logged using stopwatch"
-    assert f'elapsed time: 0 ms' in caplog.text, "Elapsed time logged using stopwatch"
+    assert f'elapsed time: ' in caplog.text, "Elapsed time logged using stopwatch"
