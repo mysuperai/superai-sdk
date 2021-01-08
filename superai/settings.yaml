@@ -1,0 +1,81 @@
+default:
+  name: "default"
+  agent:
+    file: None
+    host: "@jinja https://bapi{{this.suffix | lower}}.super.ai"
+    websocket: "@jinja wss://bapi{{this.suffix | lower}}.super.ai/agent"
+  backend: "ws"
+  base_folder: "~/.superaiapiclient"
+  base_url: "@jinja https://api{{this.suffix | lower}}.super.ai/v1"
+  build_manifest: "build_manifest.yml"
+  cognito:
+    client_id: "41t3in8ao7fesog76qtskpkkev"
+    region: "us-east-1"
+    userpool_id: "us-east-1_I7r6GCG5K"
+  dependency_version: "sandbox"
+  hatchery_build_folder: ".hatchery"
+  log:
+    level: 20 #INFO=20, DEBUG=10
+    console: true
+    format: "%(asctime)s - %(levelname)s - %(filename)s - %(threadName)s - [%(name)s:%(funcName)s:%(lineno)s] - %(message)s"
+  memo_bucket: "memoization"
+  project_root: "@jinja {{this.current_env | dirname | abspath}}"
+  s3_bucket: "superai-dataprogrammer-us-west-1"
+  sentry:
+    dsn: "https://75d951bdeaaa4f61a4c21bdedeae2eb1@o274021.ingest.sentry.io/5550494"
+    active: false
+  suffix: "<<<default>>>"
+
+local:
+  name: "local"
+  agent:
+    host: "http://127.0.0.1:5001"
+    websocket: "wss:////127.0.0.1:5002"
+  base_url: "http://127.0.0.1:5000/v1"
+
+dev:
+  name: "dev"
+  cognito:
+    client_id: "41t3in8ao7fesog76qtskpkkev"
+    region: "us-east-1"
+    userpool_id: "us-east-1_I7r6GCG5K"
+  dependency_version: "dev"
+  log:
+    level: 10 #INFO=20, DEBUG=10
+    console: true
+  suffix: "-dev"
+
+testing:
+  name: "test"
+  suffix: "-test"
+
+sandbox:
+  name: "sandbox"
+  cognito:
+    client_id: "2569ain8phd454q0lmos9rppdb"
+    region: "us-east-1"
+    userpool_id: "us-east-1_DN7c2e5gq"
+  dependency_version: "sandbox"
+  log:
+    level: 10 #INFO=20, DEBUG=10
+    console: true
+  sentry:
+    dsn: "https://cb2ab930c9654a688596eeb1915e4113@o274021.ingest.sentry.io/5550494"
+    active: false
+  suffix: "-sandbox"
+
+prod:
+  name: "prod"
+  cognito:
+    client_id: "6vt1a0uflonucrknj6sl0q3vc2"
+    region: "us-east-1"
+    userpool_id: "us-east-1_hwjZuxqbI"
+  log:
+    level: 20 #INFO=20, DEBUG=10
+    console: true
+    filename: null
+    format: "%(asctime)s - %(levelname)s - %(filename)s - %(threadName)s - [%(name)s:%(funcName)s] - %(message)s"
+  sentry:
+    dsn: "https://7f2c20f36b85436cbfc9d6df719eec71@o274021.ingest.sentry.io/5550494"
+    active: true
+  suffix: ""

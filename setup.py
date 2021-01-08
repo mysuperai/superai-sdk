@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 NAME = "superai"
-VERSION = "0.0.6"
+VERSION = "0.0.7"
 # To install the library, run the following
 #
 # python setup.py install
@@ -25,6 +25,7 @@ REQUIRES = [
     "genson>=1.2.2",
     "jinja2>=2.11.2",
     "joblib>=0.17.0",
+    "jsonmerge~=1.7.0",
     "jsonpickle>=1.4.1",
     "pyyaml>=5.3.1",
     "requests>=2.22",
@@ -35,7 +36,7 @@ REQUIRES = [
 
 BUILD_REQUIRES = [
     "awscli>=1.18.163",
-    "bumpversion>=0.6.0",
+    "bump2version~=1.0.1",
     "setuptools>=50.3.2",
     "Sphinx>=3.2.1",
     "wheel>=0.35.1",
