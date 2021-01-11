@@ -3,7 +3,6 @@ from typing import List
 
 
 class AuthApiMixin(ABC):
-
     @abstractmethod
     def request(self, uri, method, body_params=None, query_params=None, required_auth_token=False):
         pass
@@ -13,5 +12,5 @@ class AuthApiMixin(ABC):
         Get api-keys of authenticated user
         :return List with api-keys of authenticated user:
         """
-        uri = 'users/apiKeys'
-        return self.request(uri, method='GET', required_auth_token=True)
+        uri = "users/apiKeys"
+        return self.request(uri, method="GET", required_auth_token=True)

@@ -1,17 +1,21 @@
-from datetime import datetime
-from typing import List, Generator
-
 from abc import ABC, abstractmethod
+from datetime import datetime
+from typing import Generator, List
 
 
 class JobsApiMixin(ABC):
-
     @abstractmethod
     def request(self, uri, method, body_params=None, query_params=None, required_api_key=False):
         pass
 
-    def create_jobs(self, app_id: str, callbackUrl: str = None, inputs: List[dict] = None, inputsFileUrl: str = None,
-                    metadata: dict = None) -> dict:
+    def create_jobs(
+        self,
+        app_id: str,
+        callbackUrl: str = None,
+        inputs: List[dict] = None,
+        inputsFileUrl: str = None,
+        metadata: dict = None,
+    ) -> dict:
         """
         Submit jobs
 
@@ -24,15 +28,15 @@ class JobsApiMixin(ABC):
         """
         body_json = {}
         if callbackUrl is not None:
-            body_json['callbackUrl'] = callbackUrl
+            body_json["callbackUrl"] = callbackUrl
         if inputs is not None:
-            body_json['inputs'] = inputs
+            body_json["inputs"] = inputs
         if inputsFileUrl is not None:
-            body_json['inputsFileUrl'] = inputsFileUrl
+            body_json["inputsFileUrl"] = inputsFileUrl
         if metadata is not None:
-            body_json['metadata'] = metadata
-        uri = f'apps/{app_id}/jobs'
-        return self.request(uri, method='POST', body_params=body_json, required_api_key=True)
+            body_json["metadata"] = metadata
+        uri = f"apps/{app_id}/jobs"
+        return self.request(uri, method="POST", body_params=body_json, required_api_key=True)
 
     def fetch_job(self, job_id: str) -> dict:
         """
@@ -41,8 +45,8 @@ class JobsApiMixin(ABC):
         :param job_id: Job id
         :return: Dict with job data
         """
-        uri = f'jobs/{job_id}'
-        return self.request(uri, method='GET', required_api_key=True)
+        uri = f"jobs/{job_id}"
+        return self.request(uri, method="GET", required_api_key=True)
 
     def fetch_batches_job(self, app_id) -> dict:
         """
@@ -51,8 +55,8 @@ class JobsApiMixin(ABC):
         :param app_id: Application id
         :return: Dict with batch data
         """
-        uri = f'apps/{app_id}/batches'
-        return self.request(uri, method='GET', required_api_key=True)
+        uri = f"apps/{app_id}/batches"
+        return self.request(uri, method="GET", required_api_key=True)
 
     def fetch_batch_job(self, app_id: str, batch_id: str) -> dict:
         """
@@ -62,8 +66,8 @@ class JobsApiMixin(ABC):
         :param batch_id: Batch id
         :return: Dict with batch data
         """
-        uri = f'apps/{app_id}/batches/{batch_id}'
-        return self.request(uri, method='GET', required_api_key=True)
+        uri = f"apps/{app_id}/batches/{batch_id}"
+        return self.request(uri, method="GET", required_api_key=True)
 
     def get_job_response(self, job_id: str) -> dict:
         """
@@ -71,8 +75,8 @@ class JobsApiMixin(ABC):
         :param job_id:
         :return: Dict with job response
         """
-        uri = f'jobs/{job_id}/response'
-        return self.request(uri, method='GET', required_api_key=True)
+        uri = f"jobs/{job_id}/response"
+        return self.request(uri, method="GET", required_api_key=True)
 
     def cancel_job(self, job_id: str) -> dict:
         """
@@ -82,13 +86,22 @@ class JobsApiMixin(ABC):
         :return: Dict with job data
         """
 
-        uri = f'jobs/{job_id}/cancel'
-        return self.request(uri, method='POST', required_api_key=True)
+        uri = f"jobs/{job_id}/cancel"
+        return self.request(uri, method="POST", required_api_key=True)
 
-    def list_jobs(self, app_id: str, page: int = None, size: int = None, sortBy: str = 'id', orderBy: str = 'asc',
-                  createdStartDate: datetime = None, createdEndDate: datetime = None,
-                  completedStartDate: datetime = None, completedEndDate: datetime = None,
-                  statusIn: List[str] = None) -> dict:
+    def list_jobs(
+        self,
+        app_id: str,
+        page: int = None,
+        size: int = None,
+        sortBy: str = "id",
+        orderBy: str = "asc",
+        createdStartDate: datetime = None,
+        createdEndDate: datetime = None,
+        completedStartDate: datetime = None,
+        completedEndDate: datetime = None,
+        statusIn: List[str] = None,
+    ) -> dict:
         """
         Get a paginated list of jobs (without job responses) given an application id
         :param app_id: Application id
@@ -103,31 +116,37 @@ class JobsApiMixin(ABC):
         :param statusIn: Status of jobs
         :return: Paginated list of dicts with jobs data
         """
-        uri = f'apps/{app_id}/jobs'
+        uri = f"apps/{app_id}/jobs"
         query_params = {}
         if page is not None:
-            query_params['page'] = page
+            query_params["page"] = page
         if size is not None:
-            query_params['size'] = size
+            query_params["size"] = size
         if sortBy is not None:
-            query_params['sortBy'] = sortBy
+            query_params["sortBy"] = sortBy
         if orderBy is not None:
-            query_params['orderBy'] = orderBy
+            query_params["orderBy"] = orderBy
         if createdStartDate is not None:
-            query_params['createdStartDate'] = createdStartDate.strftime('%Y-%m-%dT%H:%M:%SZ')
+            query_params["createdStartDate"] = createdStartDate.strftime("%Y-%m-%dT%H:%M:%SZ")
         if createdEndDate is not None:
-            query_params['createdEndDate'] = createdEndDate.strftime('%Y-%m-%dT%H:%M:%SZ')
+            query_params["createdEndDate"] = createdEndDate.strftime("%Y-%m-%dT%H:%M:%SZ")
         if completedStartDate is not None:
-            query_params['completedStartDate'] = completedStartDate.strftime('%Y-%m-%dT%H:%M:%SZ')
+            query_params["completedStartDate"] = completedStartDate.strftime("%Y-%m-%dT%H:%M:%SZ")
         if completedEndDate is not None:
-            query_params['completedEndDate'] = completedEndDate.strftime('%Y-%m-%dT%H:%M:%SZ')
+            query_params["completedEndDate"] = completedEndDate.strftime("%Y-%m-%dT%H:%M:%SZ")
         if statusIn is not None:
-            query_params['statusIn'] = statusIn
-        return self.request(uri, method='GET', query_params=query_params, required_api_key=True)
+            query_params["statusIn"] = statusIn
+        return self.request(uri, method="GET", query_params=query_params, required_api_key=True)
 
-    def download_jobs(self, app_id: str, createdStartDate: datetime = None, createdEndDate: datetime = None,
-                      completedStartDate: datetime = None, completedEndDate: datetime = None,
-                      statusIn: List[str] = None) -> str:
+    def download_jobs(
+        self,
+        app_id: str,
+        createdStartDate: datetime = None,
+        createdEndDate: datetime = None,
+        completedStartDate: datetime = None,
+        completedEndDate: datetime = None,
+        statusIn: List[str] = None,
+    ) -> str:
         """
         Trigger processing of jobs responses that is sent to customer email once is finished.
         :param app_id: Application id
@@ -138,24 +157,31 @@ class JobsApiMixin(ABC):
         :param statusIn: Status of jobs
         :return: 'Task is processing' string
         """
-        uri = f'apps/{app_id}/job_responses'
+        uri = f"apps/{app_id}/job_responses"
         query_params = {}
         if createdStartDate is not None:
-            query_params['createdStartDate'] = createdStartDate.strftime('%Y-%m-%dT%H:%M:%SZ')
+            query_params["createdStartDate"] = createdStartDate.strftime("%Y-%m-%dT%H:%M:%SZ")
         if createdEndDate is not None:
-            query_params['createdEndDate'] = createdEndDate.strftime('%Y-%m-%dT%H:%M:%SZ')
+            query_params["createdEndDate"] = createdEndDate.strftime("%Y-%m-%dT%H:%M:%SZ")
         if completedStartDate is not None:
-            query_params['completedStartDate'] = completedStartDate.strftime('%Y-%m-%dT%H:%M:%SZ')
+            query_params["completedStartDate"] = completedStartDate.strftime("%Y-%m-%dT%H:%M:%SZ")
         if completedEndDate is not None:
-            query_params['completedEndDate'] = completedEndDate.strftime('%Y-%m-%dT%H:%M:%SZ')
+            query_params["completedEndDate"] = completedEndDate.strftime("%Y-%m-%dT%H:%M:%SZ")
         if statusIn is not None:
-            query_params['statusIn'] = statusIn
-        return self.request(uri, method='POST', query_params=query_params, required_api_key=True)
+            query_params["statusIn"] = statusIn
+        return self.request(uri, method="POST", query_params=query_params, required_api_key=True)
 
-    def get_all_jobs(self, app_id: str, sortBy: str = 'id', orderBy: str = 'asc', createdStartDate: datetime = None,
-                     createdEndDate: datetime = None,
-                     completedStartDate: datetime = None, completedEndDate: datetime = None,
-                     statusIn: List[str] = None) -> Generator[dict, None, None]:
+    def get_all_jobs(
+        self,
+        app_id: str,
+        sortBy: str = "id",
+        orderBy: str = "asc",
+        createdStartDate: datetime = None,
+        createdEndDate: datetime = None,
+        completedStartDate: datetime = None,
+        completedEndDate: datetime = None,
+        statusIn: List[str] = None,
+    ) -> Generator[dict, None, None]:
         """
         Generator that retrieves all jobs (without job responses) given an application id
         :param app_id: Application id
@@ -169,12 +195,20 @@ class JobsApiMixin(ABC):
         :return: Generator that yields complete list of dicts with jobs data
         """
         page = 0
-        paginated_jobs = {'pages': 1}
-        while page <= paginated_jobs['pages'] - 1:
-            paginated_jobs = self.list_jobs(app_id, page=page, size=500, sortBy=sortBy, orderBy=orderBy,
-                                            createdStartDate=createdStartDate, createdEndDate=createdEndDate,
-                                            completedStartDate=completedStartDate, completedEndDate=completedEndDate,
-                                            statusIn=statusIn)
-            for job in paginated_jobs['jobs']:
+        paginated_jobs = {"pages": 1}
+        while page <= paginated_jobs["pages"] - 1:
+            paginated_jobs = self.list_jobs(
+                app_id,
+                page=page,
+                size=500,
+                sortBy=sortBy,
+                orderBy=orderBy,
+                createdStartDate=createdStartDate,
+                createdEndDate=createdEndDate,
+                completedStartDate=completedStartDate,
+                completedEndDate=completedEndDate,
+                statusIn=statusIn,
+            )
+            for job in paginated_jobs["jobs"]:
                 yield job
             page = page + 1

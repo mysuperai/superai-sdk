@@ -1,7 +1,9 @@
-import time
 import logging
+import time
 from functools import wraps
-from superai.log import  logger
+
+from superai.log import logger
+
 
 def retry(exceptions, tries=5, delay=1, backoff=2, logger=logging):
     """
@@ -25,9 +27,7 @@ def retry(exceptions, tries=5, delay=1, backoff=2, logger=logging):
                 try:
                     return f(*args, **kwargs)
                 except exceptions as e:
-                    msg = "{}, Retrying {} in {} seconds... {} tries left".format(
-                        e, f, mdelay, mtries
-                    )
+                    msg = "{}, Retrying {} in {} seconds... {} tries left".format(e, f, mdelay, mtries)
                     if logger:
                         logger.warning(msg)
                     else:
@@ -47,10 +47,12 @@ def stopwatch(f):
     def _decorator_func(*args, **kwargs):
         start_time = int(round(time.time() * 1000))
         log = logging.getLogger(f.__module__)
-        extra_args = {
-            "func_name_override": f.__name__
-        }
+        extra_args = {"func_name_override": f.__name__}
         return_val = f(*args, **kwargs)
-        log.info('{}() elapsed time: {} ms.'.format(f.__name__ , int(round(time.time() * 1000) - start_time)), extra=extra_args)
+        log.info(
+            "{}() elapsed time: {} ms.".format(f.__name__, int(round(time.time() * 1000) - start_time)),
+            extra=extra_args,
+        )
         return return_val
+
     return _decorator_func
