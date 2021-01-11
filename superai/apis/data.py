@@ -1,12 +1,12 @@
-from abc import ABC, abstractmethod
-from typing import List, BinaryIO, Generator
 import requests
+from abc import ABC, abstractmethod
+from typing import BinaryIO, Generator, List
 
 from superai.exceptions import SuperAIStorageError
 
 
 class DataApiMixin(ABC):
-    _resource = 'data'
+    _resource = "data"
 
     @abstractmethod
     def request(self, uri, method, body_params=None, query_params=None, required_api_key=False):
@@ -16,8 +16,16 @@ class DataApiMixin(ABC):
     def resource(self):
         return self._resource
 
-    def list_data(self, data_ids: List[str] = None, paths: List[str] = None, recursive: bool = False,
-                  signedUrl: bool = False, secondsTtl: int = 600, page: int = None, size: int = None) -> dict:
+    def list_data(
+        self,
+        data_ids: List[str] = None,
+        paths: List[str] = None,
+        recursive: bool = False,
+        signedUrl: bool = False,
+        secondsTtl: int = 600,
+        page: int = None,
+        size: int = None,
+    ) -> dict:
         """
         Get a paginated list of datasets, that can be filtered using an array of ids xor and array of paths
         :param data_ids: Array of data ids
@@ -31,21 +39,27 @@ class DataApiMixin(ABC):
         """
         query_params = {}
         if data_ids is not None:
-            query_params['dataId'] = data_ids
+            query_params["dataId"] = data_ids
         elif paths is not None:
-            query_params['paths'] = paths
-            query_params['recursive'] = recursive
-        query_params['signedUrl'] = signedUrl
+            query_params["paths"] = paths
+            query_params["recursive"] = recursive
+        query_params["signedUrl"] = signedUrl
         if signedUrl:
-            query_params['secondsTtl'] = secondsTtl
+            query_params["secondsTtl"] = secondsTtl
         if page is not None:
-            query_params['page'] = page
+            query_params["page"] = page
         if size is not None:
-            query_params['size'] = size
-        return self.request(self.resource, method='GET', query_params=query_params, required_api_key=True)
+            query_params["size"] = size
+        return self.request(self.resource, method="GET", query_params=query_params, required_api_key=True)
 
-    def get_all_data(self, data_ids: List[str] = None, paths: List[str] = None, recursive: bool = False,
-                     signedUrl: bool = False, secondsTtl: int = 600) -> Generator[dict, None, None]:
+    def get_all_data(
+        self,
+        data_ids: List[str] = None,
+        paths: List[str] = None,
+        recursive: bool = False,
+        signedUrl: bool = False,
+        secondsTtl: int = 600,
+    ) -> Generator[dict, None, None]:
         """
         Generator that retrieves all data filtered using an array of ids xor and array of paths
         :param data_ids: Array of data ids
@@ -56,11 +70,18 @@ class DataApiMixin(ABC):
         :return: Generator that yields complete list of dicts with data objects
         """
         page = 0
-        paginated_data = {'last': False}
-        while not paginated_data['last']:
-            paginated_data = self.list_data(data_ids=data_ids, paths=paths, recursive=recursive, signedUrl=signedUrl,
-                                            secondsTtl=secondsTtl, page=page, size=500)
-            for d in paginated_data['content']:
+        paginated_data = {"last": False}
+        while not paginated_data["last"]:
+            paginated_data = self.list_data(
+                data_ids=data_ids,
+                paths=paths,
+                recursive=recursive,
+                signedUrl=signedUrl,
+                secondsTtl=secondsTtl,
+                page=page,
+                size=500,
+            )
+            for d in paginated_data["content"]:
                 yield d
             page = page + 1
 
@@ -71,9 +92,10 @@ class DataApiMixin(ABC):
         :param secondsTtl: Time to live for signed url
         :return: Dict with signedUrl of dataset
         """
-        uri = f'{self.resource}/url'
-        return self.request(uri, method='GET', query_params={'path': path, 'secondsTtl': secondsTtl},
-                            required_api_key=True)
+        uri = f"{self.resource}/url"
+        return self.request(
+            uri, method="GET", query_params={"path": path, "secondsTtl": secondsTtl}, required_api_key=True
+        )
 
     def delete_data(self, path: str) -> dict:
         """
@@ -81,7 +103,7 @@ class DataApiMixin(ABC):
         :param path: Dataset's path
         :return: Dict with details of deleted dataset
         """
-        return self.request(self.resource, method='DELETE', query_params={'path': path}, required_api_key=True)
+        return self.request(self.resource, method="DELETE", query_params={"path": path}, required_api_key=True)
 
     def upload_data(self, path: str, description: str, mimeType: str, file: BinaryIO) -> dict:
         """
@@ -92,18 +114,23 @@ class DataApiMixin(ABC):
         :param file: Binary File value
         :return: Dataset created/updated
         """
-        dataset = self.request(self.resource, method='POST',
-                               query_params={'path': path, 'description': description, 'mimeType': mimeType,
-                                             'uploadUrl': True}, required_api_key=True)
+        dataset = self.request(
+            self.resource,
+            method="POST",
+            query_params={"path": path, "description": description, "mimeType": mimeType, "uploadUrl": True},
+            required_api_key=True,
+        )
         try:
-            resp = requests.put(dataset.pop('uploadUrl'), data=file.read())
+            resp = requests.put(dataset.pop("uploadUrl"), data=file.read())
             if resp.status_code == 200 or resp.status_code == 201:
                 return dataset
             else:
                 raise SuperAIStorageError(
                     f'File {str(file)} referenced by dataset {dataset["path"]} couldn\'t be uploaded to super.AI '
-                    f'Storage')
+                    f"Storage"
+                )
         except Exception as e:
             raise SuperAIStorageError(
                 f'File {str(file)} referenced by dataset {dataset["path"]} couldn\'t be uploaded to super.AI Storage '
-                f'Error: {str(e)}')
+                f"Error: {str(e)}"
+            )
