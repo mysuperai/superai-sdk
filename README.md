@@ -96,14 +96,15 @@ client.create_jobs(
 )
 ```
 
-## Creating a data program
+# Creating a data program
 
-### Requirements
+## Requirements
 - Have a superai `dataprogrammer` account. Please [contact us](mailto:dataprogramer@super.ai) to create an account. 
 - Install superai in dataprogramming mode `pip install superai[dp]`. 
     - Note if you are using zsh you need to use `pip install 'superai[dp]'` because zsh uses square brackets for globbing / pattern matching. 
+- Install the [ai_marketplace_hub](https://github.com/Canotic/ai-marketplace-hub) library. 
 
-### Usage
+## Usage
 
 Creating a basic super AI is a easy as:
 1. Create a template name
