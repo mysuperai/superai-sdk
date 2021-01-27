@@ -41,7 +41,7 @@ class DataApiMixin(ABC):
         if data_ids is not None:
             query_params["dataId"] = data_ids
         elif paths is not None:
-            query_params["paths"] = paths
+            query_params["path"] = paths
             query_params["recursive"] = recursive
         query_params["signedUrl"] = signedUrl
         if signedUrl:
