@@ -101,7 +101,7 @@ client.create_jobs(
 ### Requirements
 - Have a superai `dataprogrammer` account. Please [contact us](mailto:dataprogramer@super.ai) to create an account. 
 - Install superai in dataprogramming mode `pip install superai[dp]`. 
-    - Note if you are using zsh you need to use `pip install 'superai[dp]` because zsh uses square brackets for globbing / pattern matching. 
+    - Note if you are using zsh you need to use `pip install 'superai[dp]'` because zsh uses square brackets for globbing / pattern matching. 
 
 ### Usage
 
