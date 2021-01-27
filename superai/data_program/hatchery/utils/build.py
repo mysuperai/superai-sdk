@@ -25,10 +25,6 @@ def get_build_manifest(name: str = "default"):
 ---
 agent:
   s3: piggy/Agent-{0}.jar
-
-pips:
-  s3:
-    - pips/ai_marketplace_hub-{0}-py2.py3-none-any.whl
 """.format(
             settings.dependency_version
         )
@@ -106,24 +102,24 @@ def get_binaries(base_path=settings.s3_bucket, manifest=settings.build_manifest,
         _config = safe_load(f)
         log.debug(Fore.BLUE + f"BUILD_MANIFEST: {_config}" + Style.RESET_ALL)
 
-        if not _config.get("agent") or not _config.get("pips"):
+        if not _config.get("agent"):
             raise ValueError("build_manifest.yml needs to have agent and pips")
 
         if _config.get("agent").get("local") and _config.get("agent").get("s3"):
             raise ValueError("Agent file can be either local or in s3 but not both")
 
-        if _config["pips"].get("local"):
+        if _config.get("pips", {}).get("local"):
             for _file in _config["pips"]["local"]:
                 copy_local(_file)
 
-        if _config["pips"].get("s3"):
+        if _config.get("pips", {}).get("s3"):
             for _file in _config["pips"]["s3"]:
                 copy_from_s3(base_path, _file, force_copy=force_download)
 
-        if _config["agent"].get("local"):
+        if _config.get("agent", {}).get("local"):
             agent_location = copy_local(_config["agent"]["local"])
 
-        if _config["agent"].get("s3"):
+        if _config.get("agent", {}).get("s3"):
             agent_location = copy_from_s3(base_path, _config["agent"]["s3"], force_copy=force_download)
 
     log.info(Fore.LIGHTBLACK_EX + f"Agent location set to {agent_location}" + Style.RESET_ALL)
