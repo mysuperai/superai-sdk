@@ -17,6 +17,7 @@
 **Components**
 - [ ] CLI
 - [ ] APIs
+- [ ] DataProgram SDK
 
 **How should the PR be classified in the release notes? Choose one:**
 - [ ] `breaking-change` - The PR will be mentioned in the "Breaking Changes" section

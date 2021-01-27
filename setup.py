@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 NAME = "superai"
-VERSION = "0.0.7.build1"
+VERSION = "0.1.0.alpha1.build1"
 # To install the library, run the following
 #
 # python setup.py install
@@ -16,11 +16,10 @@ VERSION = "0.0.7.build1"
 # http://pypi.python.org/pypi/setuptools
 
 REQUIRES = [
-    "names",  # TODO: Remove in next versions
-    "boto3>=1.16",
-    "click>=7.0",
-    "colorama>=0.4.4",
-    "dynaconf>=3.1.2",
+    "boto3~=1.16",
+    "click~=7.0",
+    "colorama~=0.4.3",
+    "dynaconf~=3.1.2",
     "futures-then>=0.1.1",
     "genson>=1.2.2",
     "jinja2>=2.11.2",
@@ -35,13 +34,16 @@ REQUIRES = [
 ]
 
 BUILD_REQUIRES = [
-    "awscli>=1.18.163",
     "bump2version~=1.0.1",
     "setuptools>=50.3.2",
     "Sphinx>=3.2.1",
+    "twine~=3.2.0",
     "wheel>=0.35.1",
 ]
-DEV_REQUIRES = [
+DP_REQUIRES = [
+    "ai-marketplace-hub~=0.10.18",  # TODO: Rename to superai-schema
+    "awscli>=1.18.163",
+    "superai-dataclient~=0.0.1",
 ]
 TEST_REQUIRES = [
     "deepdiff>=4.0.7",
@@ -62,9 +64,9 @@ setup(
     keywords=["super.AI API"],
     install_requires=REQUIRES,
     extras_require={
-        "build": BUILD_REQUIRES,
-        "dev": DEV_REQUIRES,
-        "test": TEST_REQUIRES,
+        "build": DP_REQUIRES + BUILD_REQUIRES,
+        "dp": DP_REQUIRES,
+        "test": TEST_REQUIRES + DP_REQUIRES,
     },
     packages=find_packages(),
     include_package_data=True,

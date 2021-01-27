@@ -21,7 +21,7 @@ pip install superai
 
 - Python 3.6 or later. On systems that have both Python 2 and Python 3 installed, you may need to replace the call to `pip` with `pip3`.
 - Dependencies in this package rely on the Clang build tools on MacOS. If you have recently updated or installed XCode, you may have to run `sudo xcodebuild -license` prior to installation.
-- A super.AI account
+- A [super.AI](https://super.ai/) account
 
 ## CLI usage
 
@@ -95,3 +95,58 @@ client.create_jobs(
     inputs=[{"image_url":"https://cdn.super.ai/cool-bulldog.jpg"},{"image_url":"https://cdn.super.ai/hot-dog-01.jpeg"}]
 )
 ```
+
+## Creating a data program
+
+### Requirements
+- Have a superai `dataprogrammer` account. Please [contact us](mailto:dataprogramer@super.ai) to create an account. 
+- Install superai in dataprogramming mode `pip install superai[dp]`
+
+### Usage
+
+Creating a basic super AI is a easy as:
+1. Create a template name
+2. Define the input, output and paremeter schemas
+3. Instantiate a SuperAI class
+4. *Optional*: Label some data yourself
+```python
+import uuid
+
+import ai_marketplace_hub.universal_schema.data_types as dt
+
+from superai import SuperAI, Worker
+
+# 1) Create a template name (it has to be unique across super.ai)
+# Using uuid.getnode() to get a unique name for your first template
+TEMPLATE_NAME = "MyFirstDataProgramTemplate" + str(uuid.getnode())
+
+# 2) Define input, output and parameter schema
+dp_definition = {
+    "input_schema": dt.bundle(mnist_image_url=dt.IMAGE),
+    "parameter_schema": dt.bundle(instructions=dt.TEXT, choices=dt.array_to_schema(dt.TEXT, 0)),
+    "output_schema": dt.bundle(mnist_class=dt.EXCLUSIVE_CHOICE),
+}
+
+# 3) Create a SuperAI
+superAI = SuperAI(
+    template_name=TEMPLATE_NAME,
+    dp_definition=dp_definition,
+    params={
+        "instructions": "My simple instruction",
+        "choices": [f"{i}" for i in range(10)],
+    },
+)
+
+# 4) Label some data
+mnist_urls = [
+    "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png",
+    "https://superai-public.s3.amazonaws.com/example_imgs/digits/1one.png",
+    "https://superai-public.s3.amazonaws.com/example_imgs/digits/2two.png",
+    "https://superai-public.s3.amazonaws.com/example_imgs/digits/3three.png",
+]
+inputs = [{"mnist_image_url": url} for url in mnist_urls]
+
+labels = superAI.process(inputs=inputs, worker=Worker.me, open_browser=True)
+```
+
+You can find more examples in docs/examples

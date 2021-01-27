@@ -137,7 +137,6 @@ validators = [
         "AGENT.HOST",
         "AGENT.WEBSOCKET",
         "BACKEND",
-        "BASE_FOLDER",
         "BASE_URL",
         "BUILD_MANIFEST",
         "COGNITO.CLIENT_ID",

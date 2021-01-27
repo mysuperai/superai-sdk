@@ -35,16 +35,17 @@ def load_api_key() -> str:
     # First load from env variable
     api_key = settings.get("user", {}).get("api_key")
 
-    # Try to load from file (higher priority)
-    try:
-        with open(_api_key_file) as f:
-            api_key = f.readline()
-            log.debug(f"Using api_key from {_api_key_file}")
-    except Exception as e:
-        log.debug(
-            f"Error loading api_key from file: {_api_key_file}. Using user__api_key from "
-            f"{BASE_FOLDER}/.secrets.yaml?: {api_key is None}"
-        )
+    # Try to load from file (lower priority)
+    if not api_key:
+        try:
+            with open(_api_key_file) as f:
+                api_key = f.readline()
+                log.debug(f"Using api_key from {_api_key_file}")
+        except Exception as e:
+            log.debug(
+                f"Error loading api_key from file: {_api_key_file}. Using user__api_key from "
+                f"{BASE_FOLDER}/.secrets.yaml?: {api_key is None}"
+            )
 
     if not api_key:
         warnings.warn("Api key is not initialized. Run superai login --username <email> to retrieve your api key")

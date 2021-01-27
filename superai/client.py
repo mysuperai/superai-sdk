@@ -1,17 +1,20 @@
-import requests
 from typing import Optional
+
+import requests
 
 from superai.apis.auth import AuthApiMixin
 from superai.apis.data import DataApiMixin
 from superai.apis.ground_truth import GroundTruthApiMixin
+from superai.apis.instance import InstanceApiMixin
 from superai.apis.jobs import JobsApiMixin
+from superai.apis.template import TemplateApiMixin
 from superai.config import settings
 from superai.exceptions import SuperAIError
 
 BASE_URL = settings.get("base_url")
 
 
-class Client(JobsApiMixin, AuthApiMixin, GroundTruthApiMixin, DataApiMixin):
+class Client(JobsApiMixin, AuthApiMixin, GroundTruthApiMixin, DataApiMixin, TemplateApiMixin, InstanceApiMixin):
     def __init__(self, api_key: str = None, auth_token: str = None, base_url: str = None):
         self.api_key = api_key
         self.auth_token = auth_token
@@ -34,6 +37,7 @@ class Client(JobsApiMixin, AuthApiMixin, GroundTruthApiMixin, DataApiMixin):
             headers["API-KEY"] = self.api_key
         if required_auth_token and self.auth_token:
             headers["AUTH-TOKEN"] = self.auth_token
+
         resp = requests.request(
             method, f"{self.base_url}/{endpoint}", params=query_params, json=body_params, headers=headers
         )
