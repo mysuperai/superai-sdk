@@ -105,6 +105,7 @@ client.create_jobs(
 - Install superai in dataprogramming mode `pip install superai[dp]`. 
     - Note if you are using zsh you need to use `pip install 'superai[dp]'` because zsh uses square brackets for globbing / pattern matching. 
 - Install the [ai_marketplace_hub](https://github.com/Canotic/ai-marketplace-hub) library. 
+- Install the [data client](https://github.com/Canotic/superai-dataclient) library. 
 
 ## Usage
 
