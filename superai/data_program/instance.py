@@ -5,13 +5,14 @@ from typing import Dict, List, Union
 
 from colorama import Fore, Style
 
+from superai.client import Client
 from superai.log import logger
+from superai.utils import load_api_key
+from superai.config import settings
 from .base import DataProgramBase
 from .task import Worker
 from .template import Template
 from .utils import IgnoreInAgent
-from .. import Client
-from ..utils import load_api_key
 
 log = logger.get_logger(__name__)
 
@@ -98,10 +99,6 @@ class SuperAI:
         uuid: str = None,
     ) -> Dict:
         """
-        TODO: 1. How can we find out that the DP has an active backend or if we need to run a local one?
-                -> We could monitor ECS tasks created from containers. We would need to monitor this using a cron job
-                or a lambda and store this information into a DB (probably turbine). The problem is that even with this
-                information we won't know if the ECS is having any issues processing jobs
         Create a data program instance.
         :param parameters:
         :param performance:
@@ -119,7 +116,7 @@ class SuperAI:
         body_json["appName"] = name if name else f"{self.template.name}"
         if parameters is not None:
             # TODO: Send only schema values until the rest of the infrastructure supports self contained schemas (definition_v1,v2)
-            body_json["appParams"] = self._extract_schema_values(parameters)
+            body_json["appParams"] = self._sanitize_params(parameters)
         if performance is not None:
             body_json["appMetrics"] = (
                 {"metrics": performance}
@@ -140,7 +137,7 @@ class SuperAI:
             return self.client.create_superai(body=body_json)
 
     # TODO: Implementation
-    def _extract_schema_values(self, parameters):
+    def _sanitize_params(self, parameters):
         """
 
         Given the following json-schema object:
@@ -183,12 +180,6 @@ class SuperAI:
 
         return parameters
 
-    def run_thread(self):
-        # TODO:
-        #  1. Get template object
-        #  2. Invoke run() on template to deploy local
-        pass
-
     @IgnoreInAgent
     def process(
         self,
@@ -213,7 +204,7 @@ class SuperAI:
                 labels.append(self.client.create_jobs(app_id=self.instance_uuid, inputs=[input], worker=worker))
         log.info(f"Labels response: {labels}")
 
-        url = f"https://dev.super.ai/dashboard/projects/{self.instance_uuid}"
+        url = self.get_url()
         if open_browser:
             url = f"{url}/tasks" if worker == worker.me else f"{url}/jobs"
             log.info(Fore.BLUE + f"Open {url} to see your jobs" + Style.RESET_ALL)
@@ -225,3 +216,8 @@ class SuperAI:
         log.info(f"Click here to go to your Dashboard: {Fore.BLUE}{url}{Style.RESET_ALL}/jobs")
 
         return labels
+
+    def get_url(self):
+        current_env = settings.current_env
+        prefix = f"{current_env}." if current_env is not "prod" else ""
+        return f"https://{prefix}super.ai/dashboard/projects/{self.instance_uuid}"
