@@ -104,8 +104,6 @@ client.create_jobs(
   - Run `aws codeartifact login --tool pip --domain superai --repository pypi-us-east-1`
   - Install superai in dataprogramming mode `pip install  pip install "superai[dp]>=0.1.0.alpha1"`. 
       - Note if you are using zsh you need to use `pip install 'superai[dp]'` because zsh uses square brackets for globbing / pattern matching. 
-  - Install the [ai_marketplace_hub](https://github.com/Canotic/ai-marketplace-hub) library. 
-  - Install the [data client](https://github.com/Canotic/superai-dataclient) library. 
 
 ## Usage
 
