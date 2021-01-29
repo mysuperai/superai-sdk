@@ -1,6 +1,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-__version__ = "0.1.0.alpha1.build9"
+__version__ = "0.1.0.alpha1.build10"
 
 # Client comes first
 from .client import *
