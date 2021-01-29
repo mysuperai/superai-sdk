@@ -101,7 +101,7 @@ client.create_jobs(
 # Creating a data program
 
 ## Requirements
-  - Have a superai `dataprogrammer` account. Please [contact us](mailto:dataprogramer@super.ai) to create an account. 
+  - Have a superai `dataprogrammer` account. Please [contact us](mailto:dataprogrammer@super.ai) to create an account. 
   - Run `pip install awscli` and configure it using the [AWS tutorial](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html)
   - Run `aws codeartifact login --tool pip --domain superai --repository pypi-us-east-1`
   - Install superai in dataprogramming mode `pip install superai[dp]>=0.1.0.alpha1`. 
