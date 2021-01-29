@@ -4,20 +4,22 @@ import ai_marketplace_hub.universal_schema.data_types as dt
 
 from superai import SuperAI, Worker
 
-# Using uuid.getnode() to get a unique name for your first template
-TEMPLATE_NAME = "MyFirstDataProgramTemplate" + str(uuid.getnode())
-
+# Defining the template interface
 dp_definition = {
     "input_schema": dt.bundle(mnist_image_url=dt.IMAGE),
     "parameter_schema": dt.bundle(instructions=dt.TEXT, choices=dt.array_to_schema(dt.TEXT, 0)),
     "output_schema": dt.bundle(mnist_class=dt.EXCLUSIVE_CHOICE),
 }
 
+# Using uuid.getnode() to get a unique name for your first template
+TEMPLATE_NAME = "MyFirstDataProgramTemplate" + str(uuid.getnode())
+
+# Creating a SuperAI.
 superAI = SuperAI(
     template_name=TEMPLATE_NAME,
     dp_definition=dp_definition,
     params={
-        "instructions": "My simple instruction",
+        "instructions": "My simple instructions",
         "choices": [f"{i}" for i in range(10)],
     },
 )

@@ -219,5 +219,5 @@ class SuperAI:
 
     def get_url(self):
         current_env = settings.current_env
-        prefix = f"{current_env}." if current_env is not "prod" else ""
+        prefix = f"{current_env}." if current_env != "prod" else ""
         return f"https://{prefix}super.ai/dashboard/projects/{self.instance_uuid}"
