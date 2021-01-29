@@ -17,6 +17,8 @@ In your terminal, run:
 pip install superai
 ```
 
+**Note**: If you want to create a data program yourself follow these installation [instructions](#Creating-a-data-program)
+
 ### Requirements
 
 - Python 3.6 or later. On systems that have both Python 2 and Python 3 installed, you may need to replace the call to `pip` with `pip3`.
@@ -102,8 +104,8 @@ client.create_jobs(
   - Have a superai `dataprogrammer` account. Please [contact us](mailto:dataprogramer@super.ai) to create an account. 
   - Run `pip install awscli` and configure it using the [AWS tutorial](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html)
   - Run `aws codeartifact login --tool pip --domain superai --repository pypi-us-east-1`
-  - Install superai in dataprogramming mode `pip install  pip install "superai[dp]>=0.1.0.alpha1"`. 
-      - Note if you are using zsh you need to use `pip install 'superai[dp]'` because zsh uses square brackets for globbing / pattern matching. 
+  - Install superai in dataprogramming mode `pip install superai[dp]>=0.1.0.alpha1`. 
+      - Note if you are using zsh you need to use `pip install "superai[dp]>=0.1.0.alpha1"` because zsh uses square brackets for globbing / pattern matching. 
 
 ## Usage
 
@@ -119,18 +121,48 @@ import ai_marketplace_hub.universal_schema.data_types as dt
 
 from superai import SuperAI, Worker
 
-# 1) Create a template name (it has to be unique across super.ai)
-# Using uuid.getnode() to get a unique name for your first template
-TEMPLATE_NAME = "MyFirstDataProgramTemplate" + str(uuid.getnode())
 
-# 2) Define input, output and parameter schema
+# 1) First we need to create the interface of our template. We do this using schemas that define
+#    the input, output and parameter types. In this template we are specifying that its input has
+#    to be a dictionary that with `key`:mnist_image_url and its value is an image url e.g. 
+#    {"mnist_image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}.
+
+#    An an example of the parameters that validate against the parameters schema is:
+#    params={
+#        "instructions": "My simple instruction",
+#        "choices": ["0","1"]
+#    }
+#    
+#    Finally as output this template is going to generate an object of type exclusive choice that 
+#    looks like: {
+#       "mnist_class": {
+#         "choices": [
+#           {
+#             "tag": "0",
+#             "value": "0"
+#           },
+#           {
+#             "tag": "1",
+#             "value": "1"
+#           }
+#         ],
+#         "selection": {
+#           "tag": "0",
+#           "value": "0"
+#         }
+#       }
+#     }
 dp_definition = {
     "input_schema": dt.bundle(mnist_image_url=dt.IMAGE),
     "parameter_schema": dt.bundle(instructions=dt.TEXT, choices=dt.array_to_schema(dt.TEXT, 0)),
     "output_schema": dt.bundle(mnist_class=dt.EXCLUSIVE_CHOICE),
 }
 
-# 3) Create a SuperAI
+# 2) Create a template name (it has to be unique across super.ai)
+# Using uuid.getnode() to get a unique name for your first template
+TEMPLATE_NAME = "MyFirstDataProgramTemplate" + str(uuid.getnode())
+
+# 3) Create a SuperAI project by defining the template parameter values
 superAI = SuperAI(
     template_name=TEMPLATE_NAME,
     dp_definition=dp_definition,
@@ -140,7 +172,10 @@ superAI = SuperAI(
     },
 )
 
-# 4) Label some data
+# 4) Now we are ready to test our SuperAI, so let's submit some jobs for processing. One you run the 
+#    following lines a new browser window will open (because we are passing `open_browser=True` as an 
+#    argument to the process function, and a couple of seconds afterwards you should be able to annotate
+#    the images yourself
 mnist_urls = [
     "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png",
     "https://superai-public.s3.amazonaws.com/example_imgs/digits/1one.png",

@@ -5,18 +5,20 @@ import ai_marketplace_hub.universal_schema.task_schema_functions as df
 
 from superai import SuperAI, Template, Worker, Task
 
-# Using uuid.getnode() to get a unique name for your first template
-TEMPLATE_NAME = "MyFirstWorkflow" + str(uuid.getnode())
-
+# Defining the template interface
 dp_definition = {
     "input_schema": dt.bundle(mnist_image_url=dt.IMAGE),
     "parameter_schema": dt.bundle(instructions=dt.TEXT, choices=dt.array_to_schema(dt.TEXT, 0)),
     "output_schema": dt.bundle(mnist_class=dt.EXCLUSIVE_CHOICE),
 }
 
+# Using uuid.getnode() to get a unique name for your first template
+TEMPLATE_NAME = "MyFirstWorkflow" + str(uuid.getnode())
+
+# Creating a template object
 dp_template = Template(name=TEMPLATE_NAME, definition=dp_definition, add_basic_workflow=False)
 
-
+# Here we create our first workflow function
 def my_workflow(inputs, params, **kwargs):
     """
     Simple hello world MNIST workflow
@@ -47,9 +49,12 @@ def my_workflow(inputs, params, **kwargs):
 
     return {"mnist_class": task2.output.get("values", [])[0].get("schema_instance")}
 
-
+# Registering the workflow function to the template
 dp_template.add_workflow(my_workflow, name="my_mnist_workflow_1", default=True)
 
+
+#------------------------------------------------------------------------------------
+# Create a new SuperAI project
 superAI = SuperAI(
     template=dp_template,
     name="FirstSuperAIWorfklow",
@@ -57,13 +62,15 @@ superAI = SuperAI(
         "instructions": "Select the appropriate class for the MNIST image",
         "choices": ["0", "1", "2", "3"],
     },
-    performance={"quality": {"f1": 0.9}},
 )
 
+# Send some data for labeling
 mnist_urls = [
     "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png",
-    "https://superai-public.s3.amazonaws.com/example_imgs/digits/1one.png",
+    "https://superai-public.s3.amazonaws.com/example_imgs/RandomBitmap.png",
+    "https://superai-public.s3.amazonaws.com/example_imgs/Brain.jpg",
 ]
+
 inputs = [{"mnist_image_url": url} for url in mnist_urls]
 
 labels = superAI.process(inputs=inputs, worker=Worker.me, open_browser=True)
