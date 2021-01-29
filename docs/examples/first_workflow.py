@@ -49,11 +49,12 @@ def my_workflow(inputs, params, **kwargs):
 
     return {"mnist_class": task2.output.get("values", [])[0].get("schema_instance")}
 
+
 # Registering the workflow function to the template
 dp_template.add_workflow(my_workflow, name="my_mnist_workflow_1", default=True)
 
 
-#------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------
 # Create a new SuperAI project
 superAI = SuperAI(
     template=dp_template,

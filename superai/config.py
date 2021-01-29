@@ -125,11 +125,12 @@ def init_config(
 
     dot_env_file = os.path.join(root_dir, ".env")
     if not os.path.exists(dot_env_file):
-        env_in_order = ["prod", "sandbox", "stg", "dev"]
+        env_in_order = ["prod", "sandbox", "stg", "dev", "testing"]
         envs = list_env_configs()
         for e in env_in_order:
-            if e in envs: set_env_config(name=e)
-        raise SuperAIConfigurationError(f"Defaults not found, available envs are: {envs.keys()}")
+            if e in envs:
+                set_env_config(name=e)
+        warnings.warn(f"Defaults not found, available envs are: {envs.keys()}")
 
 
 init_config()
