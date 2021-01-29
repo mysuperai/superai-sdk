@@ -64,7 +64,6 @@ def list_env_configs(printInConsole=True, log: Logger = None) -> Dict:
 
     with open(os.path.expanduser(f"{__config_path__}"), "r") as f:
         envs = yaml.safe_load(f)
-        print(envs)
         envs.pop("default") if envs.get("default") else None
         if printInConsole:
             for config in list(envs):
