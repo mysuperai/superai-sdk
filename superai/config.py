@@ -8,6 +8,7 @@ import yaml
 from dynaconf import Dynaconf, Validator
 from jsonmerge import merge
 
+from superai.exceptions import SuperAIConfigurationError
 from superai.log import logger
 
 local = pathlib.Path(__file__).parent.absolute()
@@ -63,7 +64,8 @@ def list_env_configs(printInConsole=True, log: Logger = None) -> Dict:
 
     with open(os.path.expanduser(f"{__config_path__}"), "r") as f:
         envs = yaml.safe_load(f)
-        envs.pop("default")
+        print(envs)
+        envs.pop("default") if envs.get("default") else None
         if printInConsole:
             for config in list(envs):
                 # Default and testing environments are not relevant thus hidden from the output
@@ -123,7 +125,11 @@ def init_config(
 
     dot_env_file = os.path.join(root_dir, ".env")
     if not os.path.exists(dot_env_file):
-        set_env_config(name="prod")
+        env_in_order = ["prod", "sandbox", "stg", "dev"]
+        envs = list_env_configs()
+        for e in env_in_order:
+            if e in envs: set_env_config(name=e)
+        raise SuperAIConfigurationError(f"Defaults not found, available envs are: {envs.keys()}")
 
 
 init_config()

@@ -15,3 +15,9 @@ class SuperAIAuthenticationError(Exception):
     def __init__(self, message: str):
         self.message = message
         super(Exception, self).__init__(f"super.AI Api Key not found: {self.message}")
+
+
+class SuperAIConfigurationError(Exception):
+    def __init__(self, message: str):
+        self.message = message
+        super(Exception, self).__init__(f"super.AI Configuration error: {self.message}")
