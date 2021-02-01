@@ -1,3 +1,4 @@
+import shutil
 from os import makedirs
 from pathlib import Path
 
@@ -17,7 +18,8 @@ def agent_file_path():
     jar_file.touch()
     yield jar_file
     jar_file.unlink()
-    build_folder.rmdir()
+    shutil.rmtree(build_folder.absolute())
+    assert not build_folder.exists()
 
 
 # TODO: Inject configuration variables otherwise this test is going to fail when then endpoints change

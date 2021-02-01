@@ -21,6 +21,12 @@ base_dir = Path(get_config_dir()).expanduser()
 
 
 def _mv_file(src: Path, dst: Path = None) -> Optional[Path]:
+    """
+    Moves a file from the src path to dst path. If dst path already exists this method will raise an exception
+    :param src: Source path
+    :param dst: Destination path
+    :return: New file path (dst path)
+    """
     # Nothing to do
     if not src:
         return
@@ -41,7 +47,12 @@ def _mv_file(src: Path, dst: Path = None) -> Optional[Path]:
     return tmp_file_path
 
 
-def _setup_file(file_path: Path) -> Path:
+def _create_tmp_file(file_path: Path) -> Path:
+    """
+    Makes a tmp file of the path in the file_path argument.
+    :param file_path: File path to create a tmp file
+    :return: Tmp file path
+    """
     makedirs(base_dir.absolute(), exist_ok=True)
     f_path = Path(file_path).expanduser().absolute()
     tmp = _mv_file(f_path)
@@ -53,8 +64,14 @@ def _setup_file(file_path: Path) -> Path:
 
 @pytest.fixture()
 def with_secrets_file():
+    """
+    Moves {settings_folder}/.secrets.yaml file if exists to a tmp location and puts them back once the test using this
+    fixture are run
+
+    :return: None
+    """
     s_path = Path(__secrets_path).expanduser().absolute()
-    tmp = _setup_file(s_path)
+    tmp = _create_tmp_file(s_path)
     yield str(s_path.absolute())
     s_path.unlink()
     if tmp:
@@ -64,8 +81,14 @@ def with_secrets_file():
 
 @pytest.fixture()
 def with_settings_file():
+    """
+    Moves {settings_folder}/settings.yaml file if exists to a tmp location and puts them back once the test using this
+    fixture are run
+
+    :return: None
+    """
     s_path = Path(__settings_path).expanduser().absolute()
-    tmp = _setup_file(s_path)
+    tmp = _create_tmp_file(s_path)
     yield str(s_path.absolute())
     s_path.unlink()
     if tmp:
@@ -75,9 +98,15 @@ def with_settings_file():
 
 @pytest.fixture()
 def with_dotenv_file():
+    """
+    Moves {settings_folder}/.env file if exists to a tmp location and puts them back once the test using this
+    fixture are run
+
+    :return: None
+    """
     dot_env_path = base_dir / ".env"
     s_path = Path(dot_env_path).expanduser().absolute()
-    tmp = _setup_file(s_path)
+    tmp = _create_tmp_file(s_path)
     yield str(s_path.absolute())
     s_path.unlink()
     if tmp:

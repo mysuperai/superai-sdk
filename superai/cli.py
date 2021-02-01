@@ -2,9 +2,10 @@ import click
 import json
 import signal
 import sys
+import yaml
 from botocore.exceptions import ClientError
 from datetime import datetime
-from pprint import pprint
+import pprint
 from typing import List
 from warrant import Cognito
 
@@ -38,10 +39,10 @@ def info(verbose):
     click.echo("=================")
     click.echo("Super.AI CLI Info:")
     click.echo("=================")
-    click.echo("Version: {}".format(__version__))
-    click.echo("Environment: {}".format(settings.current_env))
+    click.echo("VERSION: {}".format(__version__))
+    click.echo("ENVIRONMENT: {}".format(settings.current_env))
     if verbose:
-        click.echo(pprint(settings.as_dict(env=settings.current_env)))
+        click.echo(yaml.dump(settings.as_dict(env=settings.current_env), default_flow_style=False))
 
 
 @cli.group()
