@@ -1,9 +1,9 @@
 ---
 name: Feature request
-about: Suggest an idea for this project
-title: ''
-labels: ''
-assignees: ''
+about: Suggest an idea to improve superai
+title: "[FEATURE REQUEST]"
+labels: feature request
+assignees: engarpe
 
 ---
 
