@@ -106,7 +106,8 @@ client.create_jobs(
 
 ## Installation  
   1. Create a virtualenv (we recommend to use [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv) or conda)
-  2. Run `pip install awscli~=1.18.163`
+  2. Run `aws codeartifact login --tool pip --domain superai --repository pypi-us-east-1`
+  3. Run `pip install awscli~=1.18.163`
 
 ------
 # REMOVE SECTION BEFORE RELEASE
