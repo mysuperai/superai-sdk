@@ -6,9 +6,9 @@ from typing import Dict, List, Union
 from colorama import Fore, Style
 
 from superai.client import Client
-from superai.log import logger
-from superai.utils import load_api_key
 from superai.config import settings
+from superai.log import logger
+from superai.utils import load_api_key, load_auth_token, load_id_token
 from .base import DataProgramBase
 from .task import Worker
 from .template import Template
@@ -40,7 +40,9 @@ class SuperAI:
         self.__dict__.update(kwargs)
         self.template: Template = template
         self.template_name = template_name
-        self.client = client if client else Client(api_key=load_api_key())
+        self.client = (
+            client if client else Client(api_key=load_api_key(), auth_token=load_auth_token(), id_token=load_id_token())
+        )
         # If the template_name is not specified we assume that the data programmer's intention is to create a basic data
         # program template in order to quickly check how the data annotation works. Therefore we create a template from
         # the dp_definition

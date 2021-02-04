@@ -258,6 +258,7 @@ class WorkflowApiMixin(ABC):
             query_params=query_params,
             body_params=body_params,
             required_api_key=True,
+            required_auth_token=True,
         )
         return response
 

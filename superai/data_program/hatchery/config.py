@@ -12,7 +12,7 @@ class BuildConfig(object):
         build_folder: str = ".hatchery",
         clean_build: bool = False,
         agent: dict = settings.agent,
-        api_key: str = load_api_key(),
+        api_key: str = None,
         version: str = "0.1",
     ):
         self._excluded_keys = []
@@ -21,7 +21,7 @@ class BuildConfig(object):
         self.build_folder = build_folder
         self.clean_build = clean_build
         self.agent = agent
-        self.api_key = api_key
+        self.api_key = api_key or load_api_key()
         self.version = version
         self.validate()
 

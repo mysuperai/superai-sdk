@@ -67,6 +67,7 @@ superai logout
 
 ## CLI commands
 
+- `login`
 - `create_jobs`
 - `list_jobs`
 - `fetch_job`
@@ -101,25 +102,41 @@ client.create_jobs(
 # Creating a data program
 
 ## Requirements
-  - Have a superai `dataprogrammer` account. Please [contact us](mailto:dataprogrammer@super.ai) to create an account. 
-  - Run `pip install awscli` and configure it using the [AWS tutorial](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html)
-  - Run `aws codeartifact login --tool pip --domain superai --repository pypi-us-east-1`
-  - Install superai in dataprogramming mode `pip install superai[dp]>=0.1.0.alpha1`. 
+  - Have a superai `dataprogrammer` account. Please [contact us](mailto:dataprogrammer@super.ai) to create an account.
+
+## Installation  
+  1. Create a virtualenv (we recommend to use [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv) or conda)
+  2. Run `pip install awscli~=1.18.163`
+
+------
+# REMOVE SECTION BEFORE RELEASE
+  1. Make sure that you can open the [codeartifact](https://console.aws.amazon.com/codesuite/codeartifact/d/185169359328/superai/r/pypi-us-east-1/p/pypi/superai/versions?package-versions-meta=eyJmIjp7fSwicyI6e30sIm4iOjIwLCJpIjowfQ&region=us-east-1#) UI in aws. If not contact Enrique
+  2. Configure your awscli using your internal superai credentials
+  3. Run `aws codeartifact login --tool pip --domain superai --repository pypi-us-east-1`
+  4. Run `pip install "superai~=0.1.0.a1.dev12"`
+  5. Skip the next step and continue directly with `superai login..` **AND** in the last step execute `pip install superai[dp]~=0.1.0.a1.dev12` 
+
+------
+  3. Run `pip install "superai>=0.1.0.a1"`  
+  4. Run `superai login -u <user_email>`
+  5. Verify that pip was configured correctly by opening your pip configuration `pip config --user edit --editor vim`. If the configuration was successful you should see a value set in the index_url
+  6. Install superai in dataprogramming mode `pip install superai[dp]>=0.1.0.a1`. 
       - Note if you are using zsh you need to use `pip install "superai[dp]>=0.1.0.alpha1"` because zsh uses square brackets for globbing / pattern matching. 
 
 ## Usage
 
 Creating a basic super AI is a easy as:
-1. Create a template name
-2. Define the input, output and paremeter schemas
-3. Instantiate a SuperAI class
-4. *Optional*: Label some data yourself
+  1. Create a template name
+  2. Define the input, output and paremeter schemas
+  3. Instantiate a SuperAI class
+  4. *Optional*: Label some data yourself
+
 ```python
 import uuid
 
 import ai_marketplace_hub.universal_schema.data_types as dt
 
-from superai import SuperAI, Worker
+from superai.data_program import SuperAI, Worker
 
 
 # 1) First we need to create the interface of our template. We do this using schemas that define

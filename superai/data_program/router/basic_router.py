@@ -21,6 +21,7 @@ from superai.data_program.protocol.task import (
 from superai.data_program.router import Router
 from superai.log import logger
 from superai.utils import load_api_key
+from superai.utils import load_auth_token, load_id_token
 
 log = logger.get_logger(__name__)
 
@@ -47,7 +48,9 @@ class BasicRouter(Router):
             **kwargs,
         )
         self.workflows = workflows
-        self.client = client if client else Client(api_key=load_api_key())
+        self.client = (
+            client if client else Client(api_key=load_api_key(), auth_token=load_auth_token(), id_token=load_id_token())
+        )
 
         assert len(self.workflows) > 0, "Router must have at least one workflow"
 

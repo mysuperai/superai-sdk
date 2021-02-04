@@ -3,7 +3,7 @@ import uuid
 import ai_marketplace_hub.universal_schema.data_types as dt
 import ai_marketplace_hub.universal_schema.task_schema_functions as df
 
-from superai import SuperAI, Template, Worker, Task
+from superai.data_program import SuperAI, Template, Worker, Task
 
 # Defining the template interface
 dp_definition = {

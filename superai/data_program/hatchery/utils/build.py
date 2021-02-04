@@ -168,7 +168,8 @@ def copy_from_s3(bucket: str, filename: str, force_copy: bool = True):
     import boto3
     import botocore
 
-    s3 = boto3.resource("s3")
+    session = boto3.session.Session(profile_name="superai")
+    s3 = session.resource("s3")
 
     filename = filename.strip()
     filePath = Path(filename)
@@ -207,9 +208,10 @@ def create_agent_run_command(
     force_schema: bool = False,
     host: str = settings.agent.host,
     websocket: str = settings.agent.websocket,
-    api_key: str = load_api_key(),
+    api_key: str = None,
 ):
     """ Generate piggy command line to execute target script """
+    api_key = api_key or load_api_key()
     piggy_agent_path = Path(settings.agent.file)
     if not piggy_agent_path.is_file():
         piggy_agent_path = Path(settings.hatchery_build_folder) / settings.agent.file

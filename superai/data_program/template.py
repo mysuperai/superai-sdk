@@ -14,7 +14,7 @@ from superai.data_program.protocol.task import task as task
 from superai.data_program.router import BasicRouter, Router
 from superai.data_program.utils import parse_dp_definition
 from superai.log import logger
-from superai.utils import load_api_key
+from superai.utils import load_api_key, load_auth_token, load_id_token
 
 log = logger.get_logger(__name__)
 
@@ -35,7 +35,9 @@ class Template(DataProgramBase):
             self.__load_template_definition()
         assert "input_schema" in definition
         assert "output_schema" in definition
-        self.client = client if client else Client(api_key=load_api_key())
+        self.client = (
+            client if client else Client(api_key=load_api_key(), auth_token=load_auth_token(), id_token=load_id_token())
+        )
         # FIXME: Needs to register default_workflow, and workflows... not the router
         self.__dict__.update(definition)
         self.dp_definition = definition

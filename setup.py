@@ -16,7 +16,7 @@ VERSION = "0.1.0.alpha1.dev13"
 # http://pypi.python.org/pypi/setuptools
 
 REQUIRES = [
-    "boto3~=1.16",
+    "boto3~=1.16.0",
     "click~=7.0",
     "colorama~=0.4.3",
     "dynaconf~=3.1.2",
@@ -42,7 +42,7 @@ BUILD_REQUIRES = [
 ]
 DP_REQUIRES = [
     "ai-marketplace-hub~=0.10.18",  # TODO: Rename to superai-schema
-    "awscli>=1.18.163",
+    "awscli~=1.18.163",
     "superai-dataclient~=0.0.1",
 ]
 TEST_REQUIRES = [

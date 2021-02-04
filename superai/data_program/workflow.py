@@ -9,7 +9,7 @@ from superai.data_program.protocol.task import (
     workflow,
 )
 from superai.data_program.utils import parse_dp_definition
-from superai.utils import load_api_key
+from superai.utils import load_api_key, load_auth_token, load_id_token
 
 
 class Workflow:
@@ -44,7 +44,9 @@ class Workflow:
         self._description = description
         self._dp_definition = dp_definition
         self._prefix = prefix
-        self._client = client if client else Client(api_key=load_api_key())
+        self._client = (
+            client if client else Client(api_key=load_api_key(), auth_token=load_auth_token(), id_token=load_id_token())
+        )
         self.kwargs = kwargs
         (
             self._input_schema,

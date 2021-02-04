@@ -377,11 +377,12 @@ def get_job_project_name():
         return "LITTLE_PIGGY"
 
 
-def get_job_tag(api_key=load_api_key()):
+def get_job_tag(api_key: str = None):
     """
 
     :return: current job tag #
     """
+    api_key = api_key or load_api_key()
     raise NotImplementedError("Fetching job tag is not supported")
 
 

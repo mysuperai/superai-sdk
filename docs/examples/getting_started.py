@@ -2,7 +2,7 @@ import uuid
 
 import ai_marketplace_hub.universal_schema.data_types as dt
 
-from superai import SuperAI, Worker
+from superai.data_program import SuperAI, Worker
 
 # Defining the template interface
 dp_definition = {

@@ -134,8 +134,7 @@ def multiple_hero_task(num_heroes=1, agreement_score=True, **resend_task_kwargs)
     sent_heroes = []
     responses = []
     for i in range(num_heroes):
-        result = resend_task(excluded_ids=sent_heroes,
-                             **resend_task_kwargs)
+        result = resend_task(excluded_ids=sent_heroes, **resend_task_kwargs)
         responses.append(result.response())
         sent_heroes.append(result.hero())
     if agreement_score:
