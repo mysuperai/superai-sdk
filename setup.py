@@ -16,10 +16,10 @@ VERSION = "0.1.0.alpha1.dev18"
 # http://pypi.python.org/pypi/setuptools
 
 REQUIRES = [
-    "boto3~=1.16.0",
-    "click~=7.0",
-    "colorama~=0.4.3",
-    "dynaconf~=3.1.2",
+    "boto3>=1.16",
+    "click>=7.0",
+    "colorama>=0.4.3",
+    "dynaconf>=3.1.2",
     "futures-then>=0.1.1",
     "genson>=1.2.2",
     "jinja2>=2.11.2",
