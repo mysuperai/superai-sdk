@@ -19,7 +19,7 @@ REQUIRES = [
     "names",  # TODO: Remove in next versions
     "boto3>=1.16",
     "click>=7.0",
-    "colorama>=0.4.4",
+    "colorama>=0.4.3",
     "dynaconf>=3.1.2",
     "futures-then>=0.1.1",
     "genson>=1.2.2",
