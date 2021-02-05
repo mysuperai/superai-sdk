@@ -137,7 +137,7 @@ import uuid
 
 import ai_marketplace_hub.universal_schema.data_types as dt
 
-from superai.data_program import SuperAI
+from superai.data_program import SuperAI, Worker
 
 
 # 1) First we need to create the interface of our template. We do this using schemas that define
