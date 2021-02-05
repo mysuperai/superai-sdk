@@ -103,6 +103,7 @@ client.create_jobs(
 
 ## Requirements
   - Have a superai `dataprogrammer` account. Please [contact us](mailto:dataprogrammer@super.ai) to create an account.
+  - Make sure you have python `3.8.5`. Python `3.9` won't work!
 
 ## Installation  
   1. Create a virtualenv (we recommend to use [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv) or conda)
@@ -136,7 +137,7 @@ import uuid
 
 import ai_marketplace_hub.universal_schema.data_types as dt
 
-from superai.data_program import SuperAI, Worker
+from superai.data_program import SuperAI
 
 
 # 1) First we need to create the interface of our template. We do this using schemas that define
