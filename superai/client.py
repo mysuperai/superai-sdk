@@ -9,7 +9,7 @@ from superai.apis.instance import InstanceApiMixin
 from superai.apis.jobs import JobsApiMixin
 from superai.apis.template import TemplateApiMixin
 from superai.config import settings
-from superai.exceptions import SuperAIAuthorizationError, SuperAIError
+from superai.exceptions import SuperAIAuthorizationError, SuperAIEntityDuplicatedError, SuperAIError
 
 BASE_URL = settings.get("base_url")
 
@@ -60,5 +60,9 @@ class Client(JobsApiMixin, AuthApiMixin, GroundTruthApiMixin, DataApiMixin, Temp
             if http_e.response.status_code == 401:
                 raise SuperAIAuthorizationError(
                     message, http_e.response.status_code, endpoint=f"{self.base_url}/{endpoint}"
+                )
+            elif http_e.response.status_code == 409:
+                raise SuperAIEntityDuplicatedError(
+                    message, http_e.response.status_code, base_url=self.base_url, endpoint=endpoint
                 )
             raise SuperAIError(message, http_e.response.status_code)

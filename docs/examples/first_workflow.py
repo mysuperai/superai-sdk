@@ -8,7 +8,7 @@ from superai.data_program import SuperAI, Template, Worker, Task
 # Defining the template interface
 dp_definition = {
     "input_schema": dt.bundle(mnist_image_url=dt.IMAGE),
-    "parameter_schema": dt.bundle(instructions=dt.TEXT, choices=dt.array_to_schema(dt.TEXT, 0)),
+    "parameter_schema": dt.bundle(instructions=dt.TEXT, choices=dt.array_to_schema(dt.TEXT, min_items=0)),
     "output_schema": dt.bundle(mnist_class=dt.EXCLUSIVE_CHOICE),
 }
 

@@ -26,6 +26,7 @@ REQUIRES = [
     "joblib>=0.17.0",
     "jsonmerge~=1.7.0",
     "jsonpickle>=1.4.1",
+    "pip>=19.1",
     "pyyaml>=5.3.1",
     "requests>=2.22",
     "sentry-sdk>=0.19.4",
@@ -34,6 +35,7 @@ REQUIRES = [
 ]
 
 BUILD_REQUIRES = [
+    "black",
     "bump2version~=1.0.1",
     "setuptools>=50.3.2",
     "Sphinx>=3.2.1",

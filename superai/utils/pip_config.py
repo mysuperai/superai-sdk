@@ -43,12 +43,15 @@ def get_codeartifact_token(domain="superai", aws_profile="superai"):
 
 def set_index_url(
     token: str,
-    pip_config_level: str = "user",
+    pip_config_level: str = "site",
     repo="pypi-us-east-1",
     domain="superai",
     owner_id="185169359328",
     region="us-east-1",
 ):
+    supported_leves = ["site", "user", "global"]
+    if not pip_config_level in supported_leves:
+        raise AttributeError(f"pip config level {pip_config_level} unsupported. Use one of {supported_leves}")
     cmd = f"pip config set --{pip_config_level} global.index-url https://aws:{token}@{domain}-{owner_id}.d.codeartifact.{region}.amazonaws.com/pypi/{repo}/simple/"
     stdout = _execute(cmd)
     log.debug(f"Configuring pip: {cmd}")
