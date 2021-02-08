@@ -19,7 +19,7 @@ class SuperAIEntityDuplicatedError(Exception):
         self.error_code = error_code
         self.message = message
         super(Exception, self).__init__(
-            f"Entity duplicated on resource: {endpoint}. API returned {str(self.error_code)} on endpoint: {base_url/endpoint}: {self.message}"
+            f"Entity duplicated on resource: {endpoint}. API returned {str(self.error_code)} on endpoint: {base_url}/{endpoint}: {self.message}"
         )
 
 

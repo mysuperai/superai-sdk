@@ -14,12 +14,12 @@ from random import randint
 
 import requests
 import sentry_sdk
-from ai_marketplace_hub.universal_schema.data_types import (
+from superai_schema.universal_schema.data_types import (
     get_current_version_id,
     list_to_schema,
     validate,
 )
-from ai_marketplace_hub.universal_schema.task_schema_functions import text
+from superai_schema.universal_schema.task_schema_functions import text
 
 # from canotic.ai import sagemaker_runtime as sm # TODO: Remove dependency
 from colorama import Fore, Style

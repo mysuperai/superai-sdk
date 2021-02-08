@@ -42,11 +42,13 @@ BUILD_REQUIRES = [
     "twine~=3.2.0",
     "wheel>=0.35.1",
 ]
+
 DP_REQUIRES = [
-    "ai-marketplace-hub~=0.10.18",  # TODO: Rename to superai-schema
     "awscli~=1.18.163",
-    "superai-dataclient~=0.0.1",
+    "superai-dataclient~=0.1.0",
+    "superai-schema~=0.0.1",
 ]
+
 TEST_REQUIRES = [
     "deepdiff>=4.0.7",
     "tox>=2.9.1",

@@ -1,5 +1,5 @@
-import ai_marketplace_hub.universal_schema.data_types as dt
-from ai_marketplace_hub.universal_schema.data_types import validate
+import superai_schema.universal_schema.data_types as dt
+from superai_schema.universal_schema.data_types import validate
 
 
 def get_exclusive_choice_tag(schema_instance):

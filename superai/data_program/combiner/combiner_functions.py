@@ -1,6 +1,6 @@
 from collections import Counter
 
-import ai_marketplace_hub.universal_schema.task_schema_functions as df
+import superai_schema.universal_schema.task_schema_functions as df
 
 from superai.data_program.combiner.schema_getters import get_exclusive_choice_tag, get_multiple_choice_tags
 

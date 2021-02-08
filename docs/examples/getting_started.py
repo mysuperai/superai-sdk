@@ -1,6 +1,6 @@
 import uuid
 
-import ai_marketplace_hub.universal_schema.data_types as dt
+import superai_schema.universal_schema.data_types as dt
 
 from superai.data_program import SuperAI, Worker
 

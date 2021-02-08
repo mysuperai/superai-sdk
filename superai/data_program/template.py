@@ -3,8 +3,8 @@ import inspect
 import os
 from typing import Callable, Dict, List, Optional
 
-from ai_marketplace_hub.generators import dynamic_generator
-from ai_marketplace_hub.universal_schema import task_schema_functions as df
+from superai_schema.generators import dynamic_generator
+from superai_schema.universal_schema import task_schema_functions as df
 
 from superai import Client
 from superai.data_program import Workflow

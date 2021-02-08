@@ -2,7 +2,7 @@ import logging
 import os
 from typing import Dict, List
 
-import ai_marketplace_hub.universal_schema.data_types as dt
+import superai_schema.universal_schema.data_types as dt
 from colorama import Fore, Style
 
 from superai import Client

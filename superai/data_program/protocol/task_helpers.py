@@ -1,4 +1,4 @@
-import ai_marketplace_hub.universal_schema.task_schema_functions as df
+import superai_schema.universal_schema.task_schema_functions as df
 from superai.data_program.combiner.agreement_scores import (
     agreement_basic,
     agreement_exclusive_choice,
