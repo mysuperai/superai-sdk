@@ -103,11 +103,12 @@ client.create_jobs(
 
 ## Requirements
   - Have a superai `dataprogrammer` account. Please [contact us](mailto:dataprogrammer@super.ai) to create an account.
-  - Make sure you have python `3.8.5`. Python `3.9` won't work!
+  - Make sure you are running python >= `3.6` and < `3.9`. Python `3.9.1` is not yet supported.
 
 ## Installation  
   1. Create a virtualenv (we recommend to use [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv) or conda)
-  2. Run `pip install awscli~=1.18.163`
+  2. Run `pip install --upgrade pip`
+  3. Run `pip install --upgrade "awscli~=1.18.163"`
 
 ------
 # REMOVE SECTION BEFORE RELEASE
@@ -121,7 +122,7 @@ client.create_jobs(
   3. Run `pip install "superai>=0.1.0.a1"`  
   4. Run `superai login -u <user_email>`
   5. Verify that pip was configured correctly by opening your pip configuration `pip config --user edit --editor vim`. If the configuration was successful you should see a value set in the index_url
-  6. Install superai in dataprogramming mode `pip install superai[dp]>=0.1.0.a1`. 
+  6. Install superai in dataprogramming mode `pip install superai[dp]>=0.1.0.alpha1`. 
       - Note if you are using zsh you need to use `pip install "superai[dp]>=0.1.0.alpha1"` because zsh uses square brackets for globbing / pattern matching. 
 
 ## Usage
