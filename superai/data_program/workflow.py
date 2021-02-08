@@ -32,9 +32,9 @@ class Workflow:
         :param dict dp_definition: A dictionary that can contain the following keys:
             'input_schema', 'output_schema', 'parameter_schema'
 
-        :param string prefix: Workflow name prefix which is the data program template name
+        :param string prefix: Workflow name prefix which is the data program name
         :param boolean measure: Should this workflow be measured # TODO: Do we want to expose this here?
-        :param boolean is_gold: Is this the gold workflow? DEFAULT false. If a data program template has no gold
+        :param boolean is_gold: Is this the gold workflow? DEFAULT false. If a data program has no gold
             workflow specified then the _basic method is chosen as gold worfklow. If the _basic is not available then
              a random workflow is chosen. # TODO: Do we want to expose this here?
         :param boolean is_default: Is this the default method. DEFAULT: _basic method

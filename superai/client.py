@@ -5,16 +5,16 @@ import requests
 from superai.apis.auth import AuthApiMixin
 from superai.apis.data import DataApiMixin
 from superai.apis.ground_truth import GroundTruthApiMixin
-from superai.apis.instance import InstanceApiMixin
+from superai.apis.project import ProjectApiMixin
 from superai.apis.jobs import JobsApiMixin
-from superai.apis.template import TemplateApiMixin
+from superai.apis.data_program import DataProgramApiMixin
 from superai.config import settings
 from superai.exceptions import SuperAIAuthorizationError, SuperAIEntityDuplicatedError, SuperAIError
 
 BASE_URL = settings.get("base_url")
 
 
-class Client(JobsApiMixin, AuthApiMixin, GroundTruthApiMixin, DataApiMixin, TemplateApiMixin, InstanceApiMixin):
+class Client(JobsApiMixin, AuthApiMixin, GroundTruthApiMixin, DataApiMixin, DataProgramApiMixin, ProjectApiMixin):
     def __init__(self, api_key: str = None, auth_token: str = None, id_token: str = None, base_url: str = None):
         self.api_key = api_key
         self.auth_token = auth_token

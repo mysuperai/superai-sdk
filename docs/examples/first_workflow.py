@@ -3,20 +3,20 @@ import uuid
 import superai_schema.universal_schema.data_types as dt
 import superai_schema.universal_schema.task_schema_functions as df
 
-from superai.data_program import SuperAI, Template, Worker, Task
+from superai.data_program import Project, DataProgram, Worker, Task
 
-# Defining the template interface
+# Defining the dataprogram interface
 dp_definition = {
     "input_schema": dt.bundle(mnist_image_url=dt.IMAGE),
     "parameter_schema": dt.bundle(instructions=dt.TEXT, choices=dt.array_to_schema(dt.TEXT, min_items=0)),
     "output_schema": dt.bundle(mnist_class=dt.EXCLUSIVE_CHOICE),
 }
 
-# Using uuid.getnode() to get a unique name for your first template
-TEMPLATE_NAME = "MyFirstWorkflow" + str(uuid.getnode())
+# Using uuid.getnode() to get a unique name for your first dataprogram
+DP_NAME = "MyFirstWorkflow" + str(uuid.getnode())
 
-# Creating a template object
-dp_template = Template(name=TEMPLATE_NAME, definition=dp_definition, add_basic_workflow=False)
+# Creating a dataprogram object
+dp = DataProgram(name=DP_NAME, definition=dp_definition, add_basic_workflow=False)
 
 # Here we create our first workflow function
 def my_workflow(inputs, params, **kwargs):
@@ -25,7 +25,7 @@ def my_workflow(inputs, params, **kwargs):
     :param inputs:
     :return:
     """
-    print(f"{dp_template.name}.my_workflow: Arguments: inputs {inputs} params: {params}, **kwargs: {kwargs} ")
+    print(f"{dp.name}.my_workflow: Arguments: inputs {inputs} params: {params}, **kwargs: {kwargs} ")
 
     task1 = Task(name="is_number")
     task1_inputs = [
@@ -50,14 +50,14 @@ def my_workflow(inputs, params, **kwargs):
     return {"mnist_class": task2.output.get("values", [])[0].get("schema_instance")}
 
 
-# Registering the workflow function to the template
-dp_template.add_workflow(my_workflow, name="my_mnist_workflow_1", default=True)
+# Registering the workflow function to the dataprogram
+dp.add_workflow(my_workflow, name="my_mnist_workflow_1", default=True)
 
 
 # ------------------------------------------------------------------------------------
-# Create a new SuperAI project
-superAI = SuperAI(
-    template=dp_template,
+# Create a new Project project
+project = Project(
+    dataprogram=dp,
     name="FirstSuperAIWorfklow",
     params={
         "instructions": "Select the appropriate class for the MNIST image",
@@ -74,4 +74,4 @@ mnist_urls = [
 
 inputs = [{"mnist_image_url": url} for url in mnist_urls]
 
-labels = superAI.process(inputs=inputs, worker=Worker.me, open_browser=True)
+labels = project.process(inputs=inputs, worker=Worker.me, open_browser=True)

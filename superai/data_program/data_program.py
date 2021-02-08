@@ -19,7 +19,7 @@ from superai.utils import load_api_key, load_auth_token, load_id_token
 log = logger.get_logger(__name__)
 
 
-class Template(DataProgramBase):
+class DataProgram(DataProgramBase):
     def __init__(
         self,
         name: str,
@@ -31,8 +31,6 @@ class Template(DataProgramBase):
         **kwargs,
     ):
         super().__init__(add_basic_workflow=add_basic_workflow)
-        if kwargs.get("load_template"):
-            self.__load_template_definition()
         assert "input_schema" in definition
         assert "output_schema" in definition
         self.client = (
@@ -64,7 +62,7 @@ class Template(DataProgramBase):
         #  2. Link to code repository
 
         self.__template_object = self.__create_template()
-        log.info(f"Template created {self.qualified_name}")
+        log.info(f"DataProgram created {self.qualified_name}")
 
     @property
     def gold_workflow(self) -> str:
@@ -112,9 +110,9 @@ class Template(DataProgramBase):
         """
             TODO: 1.Handle versions: This means that the API should a) Find if a tempalte with the same name exists,
                         b) if the templat exists, check that the input and output schema are the same and if so then
-                        simply return the existing template. If the input or output schema are different, create a new
-                        template with and increase the version
-        Create a data program template
+                        simply return the existing dataprogram. If the input or output schema are different, create a new
+                        dataprogram with and increase the version
+        Create a data program dataprogram
         :param input_schema:
         :param output_schema:
         :param parameter_schema:
@@ -138,7 +136,7 @@ class Template(DataProgramBase):
             description=self.description,
         )
         # TODO:
-        #  1. When duplicated template exists Nacelle responds with:
+        #  1. When duplicated dataprogram exists Nacelle responds with:
         #     requests.exceptions.HTTPError: 400 Client Error: BAD REQUEST for url:
         #     http://0.0.0.0:5000/v1/templates/jennifer_pvf.router
         #     -> Should respond with a meaningful response
@@ -350,6 +348,3 @@ class Template(DataProgramBase):
             body = {"workflows": workflow_list}
             template_udpate = self.client.update_template(template_name=self.name, body=body)
             assert workflow.qualified_name in template_udpate.get("dpWorkflows")
-
-    def __load_template_definition(self):
-        pass

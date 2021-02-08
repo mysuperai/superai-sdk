@@ -33,9 +33,9 @@ class WorkflowApiMixin(ABC):
     def get_workflow(self, workflow_name, **kwargs):
         """Fetch a given resource
 
-        :param str workflow_name: The template identifier (required)
+        :param str workflow_name: The workflow identifier (required)
         :param str x_fields: An optional fields mask
-        :return: Template
+        :return: DataProgram
         """
 
         all_params = ["workflow_name", "x_fields"]
@@ -49,7 +49,7 @@ class WorkflowApiMixin(ABC):
                 raise TypeError("Got an unexpected keyword argument '%s'" " to method get_template" % key)
             params[key] = val
         del params["kwargs"]
-        # verify the required parameter 'template_name' is set
+        # verify the required parameter 'workflow_name' is set
         if "workflow_name" not in params or params["workflow_name"] is None:
             raise ValueError("Missing the required parameter `workflow_name` when calling `get_template`")
 
@@ -196,7 +196,7 @@ class WorkflowApiMixin(ABC):
         reraise=True,
     )
     def put_workflow(self, workflow_name, body, **kwargs):
-        """Create or update a template given its full qualified name
+        """Create or update a workflow given its full qualified name
 
         If the workflow already exists and it is owned by  somebody else then if will throw a 409
 
@@ -220,7 +220,7 @@ class WorkflowApiMixin(ABC):
         # verify the required parameter 'body' is set
         if "body" not in params or params["body"] is None:
             raise ValueError("Missing the required parameter `body` when calling `update_template`")
-        # verify the required parameter 'template_name' is set
+        # verify the required parameter 'workflow_name' is set
         if "workflow_name" not in params or params["workflow_name"] is None:
             raise ValueError("Missing the required parameter `workflow_name` when calling `update_template`")
 

@@ -11,31 +11,31 @@ from superai.apis.workflow import WorkflowApiMixin
 from superai.log import logdecorator
 
 
-class TemplateApiMixin(WorkflowApiMixin):
+class DataProgramApiMixin(WorkflowApiMixin):
     @abstractmethod
     def request(self, uri, method, body_params=None, query_params=None, required_api_key=False):
         pass
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        Fore.CYAN + "Template get {template_name:s}" + Style.RESET_ALL,
+        Fore.CYAN + "DataProgram get {template_name:s}" + Style.RESET_ALL,
     )
     @logdecorator.log_on_end(
         logging.DEBUG,
-        Fore.CYAN + "Template get {template_name:s} {result!s}" + Style.RESET_ALL,
+        Fore.CYAN + "DataProgram get {template_name:s} {result!s}" + Style.RESET_ALL,
     )
     @logdecorator.log_exception(
         logging.ERROR,
-        Fore.RED + "Error on Template get {template_name:s} {e!r}" + Style.RESET_ALL,
+        Fore.RED + "Error on DataProgram get {template_name:s} {e!r}" + Style.RESET_ALL,
         on_exceptions=Exception,
         reraise=True,
     )
     def get_template(self, template_name, **kwargs):
-        """Fetch a data program template
+        """Fetch a data program dataprogram
 
-        :param str template_name: The data program template name (required)
+        :param str template_name: The data program dataprogram name (required)
         :param str x_fields: An optional fields mask
-        :return: Template
+        :return: DataProgram
         """
 
         template_name = f"{template_name}.router" if not "." in template_name else template_name
@@ -44,11 +44,11 @@ class TemplateApiMixin(WorkflowApiMixin):
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        Fore.CYAN + "Template list" + Style.RESET_ALL,
+        Fore.CYAN + "DataProgram list" + Style.RESET_ALL,
     )
     @logdecorator.log_exception(
         logging.ERROR,
-        Fore.RED + "Error on Template list {e!r}" + Style.RESET_ALL,
+        Fore.RED + "Error on DataProgram list {e!r}" + Style.RESET_ALL,
         on_exceptions=Exception,
         reraise=True,
     )
@@ -71,52 +71,52 @@ class TemplateApiMixin(WorkflowApiMixin):
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        Fore.CYAN + "Template update {template_name:s} with body {body}" + Style.RESET_ALL,
+        Fore.CYAN + "DataProgram update {template_name:s} with body {body}" + Style.RESET_ALL,
     )
     @logdecorator.log_on_end(
-        logging.DEBUG, Fore.CYAN + "Template update {template_name:s} {result!s}" + Style.RESET_ALL
+        logging.DEBUG, Fore.CYAN + "DataProgram update {template_name:s} {result!s}" + Style.RESET_ALL
     )
     @logdecorator.log_exception(
         logging.ERROR,
-        Fore.RED + "Error on Template update {template_name:s} {e!r}" + Style.RESET_ALL,
+        Fore.RED + "Error on DataProgram update {template_name:s} {e!r}" + Style.RESET_ALL,
         on_exceptions=Exception,
         reraise=True,
     )
     def update_template(self, template_name, body, **kwargs):
-        """Create or update a template given its full qualified name
+        """Create or update a dataprogram given its full qualified name
 
-        If the template already exists and it is owned by  somebody else then if will throw a 409
+        If the dataprogram already exists and it is owned by  somebody else then if will throw a 409
 
-        :param Template body: (required)
-        :param str template_name: The template identifier (required)
+        :param DataProgram body: (required)
+        :param str template_name: The dataprogram identifier (required)
         :param str x_fields: An optional fields mask
-        :return: Template
+        :return: DataProgram
         """
         template_name = f"{template_name}.router" if not "." in template_name else template_name
         return self.update_workflow(workflow_name=template_name, body=body, **kwargs)
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        Fore.CYAN + "Template create {template_name:s} with body {body}" + Style.RESET_ALL,
+        Fore.CYAN + "DataProgram create {template_name:s} with body {body}" + Style.RESET_ALL,
     )
     @logdecorator.log_on_end(
-        logging.DEBUG, Fore.CYAN + "Template create {template_name:s} {result!s}" + Style.RESET_ALL
+        logging.DEBUG, Fore.CYAN + "DataProgram create {template_name:s} {result!s}" + Style.RESET_ALL
     )
     @logdecorator.log_exception(
         logging.ERROR,
-        Fore.RED + "Error on Template create {template_name:s} {e!r}" + Style.RESET_ALL,
+        Fore.RED + "Error on DataProgram create {template_name:s} {e!r}" + Style.RESET_ALL,
         on_exceptions=Exception,
         reraise=True,
     )
     def create_template(self, body, template_name, **kwargs):
-        """Create or update a template given its full qualified name
+        """Create or update a dataprogram given its full qualified name
 
-        If the template already exists and it is owned by  somebody else then if will throw a 409
+        If the dataprogram already exists and it is owned by  somebody else then if will throw a 409
 
-        :param Template body: (required)
-        :param str template_name: The template identifier (required)
+        :param DataProgram body: (required)
+        :param str template_name: The dataprogram identifier (required)
         :param str x_fields: An optional fields mask
-        :return: Template
+        :return: DataProgram
         """
         template_name = f"{template_name}.router" if not "." in template_name else template_name
         return self.create_workflow(workflow_name=template_name, body=body, **kwargs)

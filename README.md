@@ -127,9 +127,9 @@ client.create_jobs(
 ## Usage
 
 Creating a basic super AI is a easy as:
-  1. Create a template name
+  1. Create a data program name
   2. Define the input, output and paremeter schemas
-  3. Instantiate a SuperAI class
+  3. Instantiate a Project class
   4. *Optional*: Label some data yourself
 
 ```python
@@ -137,11 +137,10 @@ import uuid
 
 import superai_schema.universal_schema.data_types as dt
 
-from superai.data_program import SuperAI, Worker
+from superai.data_program import Project, Worker
 
-
-# 1) First we need to create the interface of our template. We do this using schemas that define
-#    the input, output and parameter types. In this template we are specifying that its input has
+# 1) First we need to create the interface of our data program. We do this using schemas that define
+#    the input, output and parameter types. In this data program we are specifying that its input has
 #    to be a dictionary that with `key`:mnist_image_url and its value is an image url e.g. 
 #    {"mnist_image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}.
 
@@ -151,7 +150,7 @@ from superai.data_program import SuperAI, Worker
 #        "choices": ["0","1"]
 #    }
 #    
-#    Finally as output this template is going to generate an object of type exclusive choice that 
+#    Finally as output this data program is going to generate an object of type exclusive choice that 
 #    looks like: {
 #       "mnist_class": {
 #         "choices": [
@@ -176,13 +175,13 @@ dp_definition = {
     "output_schema": dt.bundle(mnist_class=dt.EXCLUSIVE_CHOICE),
 }
 
-# 2) Create a template name (it has to be unique across super.ai)
-# Using uuid.getnode() to get a unique name for your first template
-TEMPLATE_NAME = "MyFirstDataProgramTemplate" + str(uuid.getnode())
+# 2) Create a data program name (it has to be unique across super.ai)
+# Using uuid.getnode() to get a unique name for your first 
+DP_NAME = "MyFirstDataProgram" + str(uuid.getnode())
 
-# 3) Create a SuperAI project by defining the template parameter values
-superAI = SuperAI(
-    template_name=TEMPLATE_NAME,
+# 3) Create a Project project by defining the data pogram parameter values
+superAI = Project(
+    dp_name=DP_NAME,
     dp_definition=dp_definition,
     params={
         "instructions": "My simple instruction",
@@ -190,7 +189,7 @@ superAI = SuperAI(
     },
 )
 
-# 4) Now we are ready to test our SuperAI, so let's submit some jobs for processing. One you run the 
+# 4) Now we are ready to test our Project, so let's submit some jobs for processing. One you run the 
 #    following lines a new browser window will open (because we are passing `open_browser=True` as an 
 #    argument to the process function, and a couple of seconds afterwards you should be able to annotate
 #    the images yourself

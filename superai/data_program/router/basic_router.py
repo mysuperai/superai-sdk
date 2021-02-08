@@ -54,7 +54,7 @@ class BasicRouter(Router):
 
         assert len(self.workflows) > 0, "Router must have at least one workflow"
 
-        # FIXME: This should happen in template
+        # FIXME: This should happen in dataprogram
         self.default_wf = default_wf
         self.gold_wf = gold_wf
         if not default_wf and len(self.workflows) == 1:
@@ -126,7 +126,7 @@ class BasicRouter(Router):
 
             elif job_type in ("DEFAULT", "ONBOARDING", "COLLABORATOR"):
                 # Get selected method workflow
-                selected_workflow = self.client.get_superai(uuid=app_id).get("selectedWorkflow")
+                selected_workflow = self.client.get_project(uuid=app_id).get("selectedWorkflow")
                 if selected_workflow:
                     # Send job
                     job_response = send_workflow_job(
@@ -141,7 +141,7 @@ class BasicRouter(Router):
                 else:
                     logging.warning(
                         Fore.LIGHTRED_EX + f"No selected workflow for app {app_id}. "
-                        "Falling back to template default." + Style.RESET_ALL
+                        "Falling back to dataprogram default." + Style.RESET_ALL
                     )
                     return send_workflow_job(
                         workflow=self.default_wf_name,

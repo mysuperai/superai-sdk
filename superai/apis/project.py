@@ -11,26 +11,26 @@ from colorama import Fore, Style
 from superai.log import logdecorator
 
 
-class InstanceApiMixin(ABC):
+class ProjectApiMixin(ABC):
     @abstractmethod
     def request(self, uri, method, body_params=None, query_params=None, required_api_key=False):
         pass
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        Fore.CYAN + "Instance get {uuid}" + Style.RESET_ALL,
+        Fore.CYAN + "Project get {uuid}" + Style.RESET_ALL,
     )
     @logdecorator.log_on_end(
         logging.DEBUG,
-        Fore.CYAN + "Instance get {uuid} response: {result!s}" + Style.RESET_ALL,
+        Fore.CYAN + "Project get {uuid} response: {result!s}" + Style.RESET_ALL,
     )
     @logdecorator.log_exception(
         logging.ERROR,
-        Fore.RED + "Error on Instance get {uuid} {e!r}" + Style.RESET_ALL,
+        Fore.RED + "Error on Project get {uuid} {e!r}" + Style.RESET_ALL,
         on_exceptions=Exception,
         reraise=True,
     )
-    def get_superai(self, uuid, **kwargs):
+    def get_project(self, uuid, **kwargs):
         """Fetch a given resource
 
         :param str workflow_name: The superai identifier (required)
@@ -84,15 +84,15 @@ class InstanceApiMixin(ABC):
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        Fore.CYAN + "Instance get selected workflow {uuid:s}" + Style.RESET_ALL,
+        Fore.CYAN + "Project get selected workflow {uuid:s}" + Style.RESET_ALL,
     )
     @logdecorator.log_on_end(
         logging.DEBUG,
-        Fore.CYAN + "Instance get selected workflow {uuid:s} response: {result!s}" + Style.RESET_ALL,
+        Fore.CYAN + "Project get selected workflow {uuid:s} response: {result!s}" + Style.RESET_ALL,
     )
     @logdecorator.log_exception(
         logging.ERROR,
-        Fore.RED + "Error on Instance get selected workflow {uuid:s} {e!r}" + Style.RESET_ALL,
+        Fore.RED + "Error on Project get selected workflow {uuid:s} {e!r}" + Style.RESET_ALL,
         on_exceptions=Exception,
         reraise=True,
     )
@@ -163,7 +163,7 @@ class InstanceApiMixin(ABC):
         on_exceptions=Exception,
         reraise=True,
     )
-    def list_superais(self, **kwargs):
+    def list_projects(self, **kwargs):
         """List all superAIs (Tags param is mock)
 
         :param int page:
@@ -249,27 +249,27 @@ class InstanceApiMixin(ABC):
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        Fore.CYAN + "Instance update {workflow_name:s} with body {body}" + Style.RESET_ALL,
+        Fore.CYAN + "Project update {workflow_name:s} with body {body}" + Style.RESET_ALL,
     )
     @logdecorator.log_on_end(
         logging.DEBUG,
-        Fore.CYAN + "Instance update {workflow_name:s} response: {result!s}" + Style.RESET_ALL,
+        Fore.CYAN + "Project update {workflow_name:s} response: {result!s}" + Style.RESET_ALL,
     )
     @logdecorator.log_exception(
         logging.ERROR,
-        Fore.RED + "Error on Instance update {workflow_name:s} {e!r}" + Style.RESET_ALL,
+        Fore.RED + "Error on Project update {workflow_name:s} {e!r}" + Style.RESET_ALL,
         on_exceptions=Exception,
         reraise=True,
     )
-    def update_superai(self, uuid, body, **kwargs):
+    def update_project(self, uuid, body, **kwargs):
         """Update a superai given its full qualified name
 
         If the superai already exists and it is owned by  somebody else then if will throw a 409
 
-        :param SuperAI body: (required)
-        :param str uuid: The SuperAI identifier (required)
+        :param Project body: (required)
+        :param str uuid: The Project identifier (required)
         :param str x_fields: An optional fields mask
-        :return: SuperAI updated
+        :return: Project updated
         """
 
         all_params = ["body", "uuid", "x_fields"]
@@ -328,26 +328,26 @@ class InstanceApiMixin(ABC):
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        Fore.CYAN + "Instance update with body {body}" + Style.RESET_ALL,
+        Fore.CYAN + "Project update with body {body}" + Style.RESET_ALL,
     )
     @logdecorator.log_on_end(
         logging.DEBUG,
-        Fore.CYAN + "Instance update response: {result!s}" + Style.RESET_ALL,
+        Fore.CYAN + "Project update response: {result!s}" + Style.RESET_ALL,
     )
     @logdecorator.log_exception(
         logging.ERROR,
-        Fore.RED + "Error on Instance update {e!r}" + Style.RESET_ALL,
+        Fore.RED + "Error on Project update {e!r}" + Style.RESET_ALL,
         on_exceptions=Exception,
         reraise=True,
     )
-    def create_superai(self, body, **kwargs):
+    def create_project(self, body, **kwargs):
         """Update a superai given its uuid
 
-        If the template already exists and it is owned by  somebody else then if will throw a 409
+        If the dataprogram already exists and it is owned by  somebody else then if will throw a 409
 
-        :param Template body: (required)
+        :param DataProgram body: (required)
         :param str x_fields: An optional fields mask
-        :return: SuperAI
+        :return: Project
         """
 
         all_params = ["body", "x_fields"]
