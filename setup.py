@@ -31,6 +31,7 @@ REQUIRES = [
     "requests>=2.22",
     "sentry-sdk>=0.19.4",
     "scikit-learn>=0.23.2",
+    "sgqlc>=12.1",
     "warrant>=0.6",
 ]
 
