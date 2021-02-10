@@ -64,7 +64,7 @@ class TaskTemplate(DataProgramBase):
         # uri = f'workflow/{workflow_id}/task'
         # return self._request(uri, method='POST', body_params=body_json, required_api_key=False)
 
-    def label(self, inputs: List, quality=None, cost=None, latency=None) -> Dict:
+    def process(self, inputs: List, quality=None, cost=None, latency=None) -> Dict:
         """
         :param inputs:
         :return:
@@ -78,5 +78,5 @@ class TaskTemplate(DataProgramBase):
             body_json["cost"] = cost
         if latency is not None:
             body_json["latency"] = latency
-        uri = f"task_template/{self.task_template_id}/label"
+        uri = f"task_template/{self.task_template_id}/process"
         return self._request(uri, method="POST", body_params=body_json, required_api_key=False)

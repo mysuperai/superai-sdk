@@ -54,7 +54,7 @@ class TaskInstance(DataProgramBase):
         uri = f"task_template/{task_template_id}/instance"
         return self._request(uri, method="POST", body_params=body_json, required_api_key=False)
 
-    def label(self, inputs: List[Dict]) -> Dict:
+    def process(self, inputs: List[Dict]) -> Dict:
         """
         :param inputs:
         :return:
@@ -66,5 +66,5 @@ class TaskInstance(DataProgramBase):
             body_json["cost"] = self.cost
         if self.latency is not None:
             body_json["latency"] = self.latency
-        uri = f"task_instance/{self.task_instance_id}/label"
+        uri = f"task_instance/{self.task_instance_id}/process"
         return self._request(uri, method="POST", body_params=body_json, required_api_key=False)

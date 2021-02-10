@@ -227,10 +227,9 @@ class DataProgram(DataProgramBase):
                 # task1 = Task(task_definition)
 
                 # TODO:
-                #  1. <SOLVED> Do we need to support Task.label? -> No we won't send labels via API
-                #  2. <PARTIAL> Traverse input schema and feed task correctly
-                #  3. <PARTIAL> Traverse params schema and get instructions
-                #  4. What if the expected field doesn't exist? Fail fast on validation
+                #  1. <PARTIAL> Traverse input schema and feed task correctly
+                #  2. <PARTIAL> Traverse params schema and get instructions
+                #  3. What if the expected field doesn't exist? Fail fast on validation
 
                 # FIXME: This implementation is not production ready, won't generalize
                 input_schema = self.__template_object.get("inputSchema")

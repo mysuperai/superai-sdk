@@ -33,7 +33,7 @@ def my_workflow(inputs, params, **kwargs):
         df.image(inputs.get("mnist_image_url")),
     ]
     task1_outputs = [df.exclusive_choice(choices=["yes", "no"])]
-    task1.label(task_inputs=task1_inputs, task_outputs=task1_outputs)
+    task1.process(task_inputs=task1_inputs, task_outputs=task1_outputs)
     task1_response = task1.output.get("values", [])[0].get("schema_instance")
 
     if task1_response.get("selection", {}).get("value") == "yes":

@@ -26,9 +26,9 @@ class Task:
         return self._task_future_result.response()
 
     def __call__(self, task_inputs=None, task_outputs=None, quality=None, cost=None, latency=None, **kwargs):
-        self.label(task_inputs, task_outputs, quality=None, cost=None, latency=None, **kwargs)
+        self.process(task_inputs, task_outputs, quality=None, cost=None, latency=None, **kwargs)
 
-    def label(self, task_inputs=None, task_outputs=None, quality=None, cost=None, latency=None, **kwargs):
+    def process(self, task_inputs=None, task_outputs=None, quality=None, cost=None, latency=None, **kwargs):
         for n_tries in range(self.max_attempts):
             self._task_future = task(
                 input=task_inputs,
