@@ -109,17 +109,8 @@ client.create_jobs(
   1. Create a virtualenv (we recommend to use [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv) or conda)
   2. Run `pip install --upgrade pip`
   3. Run `pip install --upgrade "awscli~=1.18.163"`
-
-------
-# REMOVE SECTION BEFORE RELEASE
-  1. Make sure that you can open the [codeartifact](https://console.aws.amazon.com/codesuite/codeartifact/d/185169359328/superai/r/pypi-superai/p/pypi/superai/versions) UI in aws. If not contact Enrique
-  2. Configure your awscli using your internal superai credentials
-  3. Run `aws codeartifact login --tool pip --domain superai --repository pypi-superai`
-  4. Run `pip install "superai~=0.1.0.a1.dev12"`
-  5. Skip the next step and continue directly with `superai login..` **AND** in the last step execute `pip install superai[dp]~=0.1.0.a1.dev12` 
-
-------
-  3. Run `pip install "superai>=0.1.0.a1"`  
+  4. Run `pip install "superai>=0.1.0.a1"`
+  5. Run `superai env set -e sandbox` 
   4. Run `superai login -u <user_email>`
   5. Verify that pip was configured correctly by opening your pip configuration `pip config --user edit --editor vim`. If the configuration was successful you should see a value set in the index_url
   6. Install superai in dataprogramming mode `pip install superai[dp]>=0.1.0.alpha1`. 
