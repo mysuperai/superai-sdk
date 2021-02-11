@@ -197,6 +197,7 @@ def init_config(
         for e in env_in_order:
             if e in envs:
                 set_env_config(name=e)
+                return
         warnings.warn(f"Defaults not found, available envs are: {envs.keys()}")
 
 

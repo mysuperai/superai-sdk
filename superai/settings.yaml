@@ -57,7 +57,7 @@ sandbox:
     userpool_id: "us-east-1_DN7c2e5gq"
   dependency_version: "sandbox"
   log:
-    level: 10 #INFO=20, DEBUG=10
+    level: 20 #INFO=20, DEBUG=10
     console: true
   suffix: "-sandbox"
 
