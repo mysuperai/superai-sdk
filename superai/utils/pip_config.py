@@ -3,6 +3,7 @@ import subprocess
 
 import boto3
 
+from colorama import Fore, Style
 from superai.exceptions import SuperAIConfigurationError
 from superai.log import logger
 
@@ -56,15 +57,18 @@ def set_index_url(
     stdout = _execute(cmd)
     log.debug(f"Configuring pip: {cmd}")
     log.info(f"pip configuration set: {stdout}")
+    return cmd
 
 
 def pip_configure(
-    pip_config_level: str = "site", repo="pypi-superai", domain="superai", owner_id="185169359328", region="us-east-1"
+    pip_config_level: str = "site", repo:str="pypi-superai", domain:str="superai", owner_id:str="185169359328", region="us-east-1", show_pip:bool=False
 ):
     try:
         token = get_codeartifact_token(domain=domain)
-        set_index_url(
+        pip_cmd = set_index_url(
             token, pip_config_level=pip_config_level, repo=repo, domain=domain, owner_id=owner_id, region=region
         )
+        if show_pip:
+            print(f"{Fore.BLUE}Copy/Paste the following command to configure pip manually:{Style.RESET_ALL}\n{Fore.CYAN}{pip_cmd}{Style.RESET_ALL}")
     except Exception as e:
         raise SuperAIConfigurationError(str(e))

@@ -460,7 +460,8 @@ def config(api_key):
 @cli.command()
 @click.option("--username", "-u", help="super.AI Username", required=True)
 @click.option("--password", "-p", prompt=True, hide_input=True)
-def login(username, password):
+@click.option("--show-pip/--no-show-pip", "-pip", default=False, help="Shows how to set pip configuration manually")
+def login(username, password, show_pip):
     """
     Use username and password to get super.AI api key.
     """
@@ -498,7 +499,7 @@ def login(username, password):
         aws_credentials = client.get_awskeys()
         if aws_credentials:
             save_aws_credentials(aws_credentials)
-            pip_configure()
+            pip_configure(show_pip=show_pip)
     except SuperAIAuthorizationError as authorization_error:
         logger.debug(f"ERROR Authorization: {str(authorization_error)}")
         remove_aws_credentials()

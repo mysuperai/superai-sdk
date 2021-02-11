@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 NAME = "superai"
-VERSION = "0.1.0.alpha0.dev3"
+VERSION = "0.1.0.alpha0.dev4"
 # To install the library, run the following
 #
 # python setup.py install
@@ -16,18 +16,18 @@ VERSION = "0.1.0.alpha0.dev3"
 # http://pypi.python.org/pypi/setuptools
 
 REQUIRES = [
-    "boto3>=1.16",
+    "boto3>=1.15",
     "click>=7.0",
-    "colorama>=0.4.3",
+    "colorama>=0.3.0",
     "dynaconf>=3.1.2",
     "futures-then>=0.1.1",
     "genson>=1.2.2",
     "jinja2>=2.11.2",
     "joblib>=0.17.0",
-    "jsonmerge~=1.7.0",
+    "jsonmerge>=1.7.0",
     "jsonpickle>=1.4.1",
     "pip>=19.1",
-    "pyyaml>=5.3.1",
+    "pyyaml>=3.13",
     "requests>=2.22",
     "sentry-sdk>=0.19.4",
     "scikit-learn>=0.23.2",
@@ -36,10 +36,10 @@ REQUIRES = [
 
 BUILD_REQUIRES = [
     "black",
-    "bump2version~=1.0.1",
+    "bump2version>=1.0.0",
     "setuptools>=50.3.2",
     "Sphinx>=3.2.1",
-    "twine~=3.2.0",
+    "twine>=3.2.0",
     "wheel>=0.35.1",
 ]
 
