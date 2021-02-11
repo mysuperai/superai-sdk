@@ -112,9 +112,9 @@ client.create_jobs(
 
 ------
 # REMOVE SECTION BEFORE RELEASE
-  1. Make sure that you can open the [codeartifact](https://console.aws.amazon.com/codesuite/codeartifact/d/185169359328/superai/r/pypi-us-east-1/p/pypi/superai/versions?package-versions-meta=eyJmIjp7fSwicyI6e30sIm4iOjIwLCJpIjowfQ&region=us-east-1#) UI in aws. If not contact Enrique
+  1. Make sure that you can open the [codeartifact](https://console.aws.amazon.com/codesuite/codeartifact/d/185169359328/superai/r/pypi-superai/p/pypi/superai/versions) UI in aws. If not contact Enrique
   2. Configure your awscli using your internal superai credentials
-  3. Run `aws codeartifact login --tool pip --domain superai --repository pypi-us-east-1`
+  3. Run `aws codeartifact login --tool pip --domain superai --repository pypi-superai`
   4. Run `pip install "superai~=0.1.0.a1.dev12"`
   5. Skip the next step and continue directly with `superai login..` **AND** in the last step execute `pip install superai[dp]~=0.1.0.a1.dev12` 
 

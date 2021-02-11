@@ -44,7 +44,7 @@ def get_codeartifact_token(domain="superai", aws_profile="superai"):
 def set_index_url(
     token: str,
     pip_config_level: str = "site",
-    repo="pypi-us-east-1",
+    repo="pypi-superai",
     domain="superai",
     owner_id="185169359328",
     region="us-east-1",
@@ -59,7 +59,7 @@ def set_index_url(
 
 
 def pip_configure(
-    pip_config_level: str = "site", repo="pypi-us-east-1", domain="superai", owner_id="185169359328", region="us-east-1"
+    pip_config_level: str = "site", repo="pypi-superai", domain="superai", owner_id="185169359328", region="us-east-1"
 ):
     try:
         token = get_codeartifact_token(domain=domain)
