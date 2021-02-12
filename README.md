@@ -109,7 +109,7 @@ client.create_jobs(
   1. Create a virtualenv (we recommend to use [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv) or conda)
   2. Run `pip install --upgrade pip==20.1.1`
   3. Run `pip install "awscli"`
-  4. Run `pip install --upgrade "superai>=0.1.0.a1"`
+  4. Run `pip install --upgrade "superai>=0.1.0.alpha1"`
   5. Run `superai env set -e sandbox` 
   6. Run `superai login -u <user_email>`
   7. Verify that the pip was configured correctly by running `pip config get global.index-url`
