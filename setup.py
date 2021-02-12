@@ -29,8 +29,9 @@ REQUIRES = [
     "pip>=19.1",
     "pyyaml>=3.13",
     "requests>=2.22",
-    "sentry-sdk>=0.19.4",
     "scikit-learn>=0.23.2",
+    "sentry-sdk>=0.19.4",
+    "six",
     "warrant>=0.6",
 ]
 
