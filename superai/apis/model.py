@@ -68,7 +68,6 @@ def delete_model(id):
     op = Operation(mutation_root)
     op.delete_meta_ai_model_by_pk(id=id).__fields__("name", "version", "id", "endpoint")
     data = sess(op)
-    print(data)
     return (op + data).delete_meta_ai_model_by_pk.id
 
 
@@ -77,10 +76,13 @@ def get_active_model(app_id):
     op = Operation(query_root)
     op.meta_ai_app_by_pk(id=app_id).model.__fields__("name", "version", "id", "endpoint")
     data = sess(op)
-    return (op + data).meta_ai_app_by_pk.model
+    try:
+        output =  (op + data).meta_ai_app_by_pk.model
+        return output
+    except AttributeError as e:
+        logger.info(f"No active model for app_id: {app_id}")
 
-
-def upsert_app_mapping(app_id, model_id):
+def set_active_model(app_id, model_id):
     sess = MetaAISession(app_id=app_id)
     op = Operation(mutation_root)
     insert_input = meta_ai_app_insert_input(id=app_id, model_id=model_id)
@@ -93,42 +95,49 @@ def upsert_app_mapping(app_id, model_id):
     data = sess(op)
     return (op + data).insert_meta_ai_app_one
 
-def deactivate_model(id):
-    sess = MetaAISession()
+def deactivate_app(app_id):
+    sess = MetaAISession(app_id=app_id)
     op = Operation(mutation_root)
-    op.delete_meta_ai_app_by_pk(id=id).__fields__("name", "version", "id", "endpoint")
+    op.delete_meta_ai_app_by_pk(id=app_id).__fields__("id")
     data = sess(op)
-    print(data)
-    return (op + data).delete_meta_ai_model_by_pk.id
-
+    output =  (op + data).delete_meta_ai_app_by_pk.id
+    if output == app_id:
+        logger.info(f"Deactivated model for app_id: {app_id}")
+        return output
 
 if __name__ == "__main__":
-    sess = MetaAISession()
-    m_id = "8220ada2-24fc-4466-85ca-1bbf757d6f92"
-    other_m = "ccf0bee2-f029-43f2-8db8-380024db6b1e"
-    m = get_model(m_id)
-    print(m)
-    m = get_all_models()
-    print(m)
+    #sess = MetaAISession()
+    #m_id = "8220ada2-24fc-4466-85ca-1bbf757d6f92"
+    other_m = "bd90c609-eb6a-4d51-aa34-06c3dab6917c"
+    #m = get_model(m_id)
+    #print(m)
+    #m = get_all_models()
+    #print(m)
 
     # m = get_app("f771605e-7ae6-4431-82f6-4d5651226f44")
     # print(m)
     # a = get_apps()
     # print(a)
 
-    a = add_model("AddedModel")
-    print(a)
-    b = update_model(a, name="ChangedModel", version=2)
-    print(b)
-    c = delete_model(a)
-    print(c)
-
-    active = get_active_model(app_id)
+    #a = add_model("AddedModel")
+    #print(a)
+    #b = update_model(a, name="ChangedModel", version=2)
+    #print(b)
+    #c = delete_model(a)
+    #print(c)
+    new_app = "ef83890f-baf7-407d-8ecc-1e5676c089a9"
+    active = get_active_model(new_app)
     print(active)
+    active = set_active_model(new_app, other_m)
+    print(active)
+    active = deactivate_app(new_app)
+    active = set_active_model(new_app, other_m)
+    print(active)
+    
 
-    new_active = upsert_app_mapping(app_id, other_m)
-    print(new_active)
-    new_active = upsert_app_mapping(app_id, m_id)
+    #new_active = upsert_app_mapping(app_id, other_m)
+    #print(new_active)
+    #new_active = upsert_app_mapping(app_id, m_id)
     # op = Operation(query_root)
     # op.meta_ai_model_by_pk(id=m_id)
     # data = sess(op)
