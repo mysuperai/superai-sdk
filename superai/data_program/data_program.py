@@ -172,19 +172,19 @@ class DataProgram(DataProgramBase):
         self, workflow: Callable, name: str = None, description: str = None, default: bool = False, gold: bool = False
     ) -> Dict:
         """
-        TODO: Check that the workflow function can take inputs and params arguments
-         inspect.getfullargspec(workflow).args is one option
+        Assuming that if the _basic workflow is not deployed then the first workflow added will be the default and gold workflow
         :param workflow:
         :param name:
         :param description:
         :return:
         """
-        # TODO: Assuming that if the _basic workflow is not deployed then the first workflow added will be the
-        #  on-boarder and gold workflow
+        # TODO: Check that the workflow function can take inputs and params arguments
+        #          inspect.getfullargspec(workflow).args is one option
+
         kkwargs = dict()
         if not self.add_basic_workflow and len(self.workflows) < 1:
-            kkwargs["is_default"] = (True,)
-            kkwargs["is_gold"] = (True,)
+            default = True
+            gold = True
 
         workflow = Workflow(
             prefix=self.name,
@@ -331,7 +331,7 @@ class DataProgram(DataProgramBase):
         self.__add_basic_workflow()
 
         if not self.router:
-            self.router = BasicRouter(prefix=self.name, workflows=self.workflows)
+            self.router = BasicRouter(client=self.client, dataprorgam=self)
 
     def start(self):
         self.__init_router()

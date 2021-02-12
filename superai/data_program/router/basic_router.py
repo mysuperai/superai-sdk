@@ -1,6 +1,9 @@
 import logging
 import os
 from typing import Dict, List
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from superai.data_program import DataProgram
 
 import superai_schema.universal_schema.data_types as dt
 from colorama import Fore, Style
@@ -28,49 +31,31 @@ log = logger.get_logger(__name__)
 
 class BasicRouter(Router):
     def __init__(
-        self,
-        workflows: List[Workflow],
-        prefix: str = os.getenv("WF_PREFIX"),
-        name: str = "router",
-        client: Client = None,
-        dp_definition: Dict = None,
-        default_wf: Workflow = None,
-        gold_wf: Workflow = None,
-        **kwargs,
+            self,
+            name: str = 'router',  # Can't get overriden for now
+            client: Client = None,
+            dataprorgam: 'DataProgram' = None,
+            **kwargs,
     ):
         # TODO: Enable measurer and notify
         super().__init__(
-            prefix=prefix,
             name=name,
             client=client,
-            dp_definition=dp_definition,
-            workflows=workflows,
+            dataprorgam=dataprorgam,
             **kwargs,
         )
-        self.workflows = workflows
         self.client = (
             client if client else Client(api_key=load_api_key(), auth_token=load_auth_token(), id_token=load_id_token())
         )
+        self.default_wf = dataprorgam.default_workflow
+        self.gold_wf = dataprorgam.gold_workflow
+        self.workflows = dataprorgam.workflows
 
         assert len(self.workflows) > 0, "Router must have at least one workflow"
-
-        # FIXME: This should happen in dataprogram
-        self.default_wf = default_wf
-        self.gold_wf = gold_wf
-        if not default_wf and len(self.workflows) == 1:
-            self.default_wf = self.workflows[0]
-        if not gold_wf and len(self.workflows) == 1:
-            self.gold_wf = self.workflows[0]
-
-        assert (
-            self.default_wf in workflows
-        ), f"default_wf has to be one of the registered workflows, but was {default_wf}"
-        assert self.gold_wf in workflows, f"gold_wf has to be one of the registered workflows, but was {gold_wf}"
-
         assert self.default_wf is not None, "No default method registered."
         assert self.gold_wf is not None, "No gold method registered."
 
-        self.prefix = prefix
+        self.prefix = dataprorgam.name
 
         self.input_schema = self.workflows[0].input_schema
         self.parameter_schema = self.workflows[0].parameter_schema
