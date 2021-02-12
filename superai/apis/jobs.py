@@ -15,6 +15,7 @@ class JobsApiMixin(ABC):
         inputs: List[dict] = None,
         inputsFileUrl: str = None,
         metadata: dict = None,
+        worker: str = None,
     ) -> dict:
         """
         Submit jobs
@@ -35,6 +36,9 @@ class JobsApiMixin(ABC):
             body_json["inputsFileUrl"] = inputsFileUrl
         if metadata is not None:
             body_json["metadata"] = metadata
+        if worker is not None:
+            body_json["labeler"] = worker
+
         uri = f"apps/{app_id}/jobs"
         return self.request(uri, method="POST", body_params=body_json, required_api_key=True)
 

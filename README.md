@@ -17,11 +17,13 @@ In your terminal, run:
 pip install superai
 ```
 
+**Note**: If you want to create a data program yourself follow these installation [instructions](#Creating-a-data-program)
+
 ### Requirements
 
 - Python 3.6 or later. On systems that have both Python 2 and Python 3 installed, you may need to replace the call to `pip` with `pip3`.
 - Dependencies in this package rely on the Clang build tools on MacOS. If you have recently updated or installed XCode, you may have to run `sudo xcodebuild -license` prior to installation.
-- A super.AI account
+- A [super.AI](https://super.ai/) account
 
 ## CLI usage
 
@@ -65,6 +67,7 @@ superai logout
 
 ## CLI commands
 
+- `login`
 - `create_jobs`
 - `list_jobs`
 - `fetch_job`
@@ -95,3 +98,103 @@ client.create_jobs(
     inputs=[{"image_url":"https://cdn.super.ai/cool-bulldog.jpg"},{"image_url":"https://cdn.super.ai/hot-dog-01.jpeg"}]
 )
 ```
+
+# Creating a data program
+
+## Requirements
+  - Have a superai `dataprogrammer` account. Please [contact us](mailto:dataprogrammer@super.ai) to create an account.
+  - Make sure you are running python >= `3.6` and < `3.9`. Python `3.9.1` is not yet supported.
+
+## Installation  
+  1. Create a virtualenv (we recommend to use [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv) or conda)
+  2. Run `pip install --upgrade pip==20.1.1`
+  3. Run `pip install "awscli"`
+  4. Run `pip install --upgrade "superai>=0.1.0.alpha1"`
+  5. Run `superai env set -e sandbox` 
+  6. Run `superai login -u <user_email>`
+  7. Verify that the pip was configured correctly by running `pip config get global.index-url`
+     If the response is empty then run `superai login --show-pip -u <user_email>` and copy/paste the 
+     `pip config set...` command as indicated
+  8. Install superai in dataprogramming mode `pip install --upgrade "superai[dp]>=0.1.0.alpha1"`
+
+## Usage
+
+Creating a basic super AI is a easy as:
+  1. Create a data program name
+  2. Define the input, output and paremeter schemas
+  3. Instantiate a Project class
+  4. *Optional*: Label some data yourself
+
+```python
+import uuid
+
+import superai_schema.universal_schema.data_types as dt
+
+from superai.data_program import Project, Worker
+
+# 1) First we need to create the interface of our data program. We do this using schemas that define
+#    the input, output and parameter types. In this data program we are specifying that its input has
+#    to be a dictionary that with `key`:mnist_image_url and its value is an image url e.g. 
+#    {"mnist_image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}.
+
+#    An an example of the parameters that validate against the parameters schema is:
+#    params={
+#        "instructions": "My simple instruction",
+#        "choices": ["0","1"]
+#    }
+#    
+#    Finally as output this data program is going to generate an object of type exclusive choice that 
+#    looks like: {
+#       "mnist_class": {
+#         "choices": [
+#           {
+#             "tag": "0",
+#             "value": "0"
+#           },
+#           {
+#             "tag": "1",
+#             "value": "1"
+#           }
+#         ],
+#         "selection": {
+#           "tag": "0",
+#           "value": "0"
+#         }
+#       }
+#     }
+dp_definition = {
+    "input_schema": dt.bundle(mnist_image_url=dt.IMAGE),
+    "parameter_schema": dt.bundle(instructions=dt.TEXT, choices=dt.array_to_schema(dt.TEXT, 0)),
+    "output_schema": dt.bundle(mnist_class=dt.EXCLUSIVE_CHOICE),
+}
+
+# 2) Create a data program name (it has to be unique across super.ai)
+# Using uuid.getnode() to get a unique name for your first 
+DP_NAME = "MyFirstDataProgram" + str(uuid.getnode())
+
+# 3) Create a Project project by defining the data pogram parameter values
+superAI = Project(
+    dp_name=DP_NAME,
+    dp_definition=dp_definition,
+    params={
+        "instructions": "My simple instruction",
+        "choices": [f"{i}" for i in range(10)],
+    },
+)
+
+# 4) Now we are ready to test our Project, so let's submit some jobs for processing. One you run the 
+#    following lines a new browser window will open (because we are passing `open_browser=True` as an 
+#    argument to the process function, and a couple of seconds afterwards you should be able to annotate
+#    the images yourself
+mnist_urls = [
+    "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png",
+    "https://superai-public.s3.amazonaws.com/example_imgs/digits/1one.png",
+    "https://superai-public.s3.amazonaws.com/example_imgs/digits/2two.png",
+    "https://superai-public.s3.amazonaws.com/example_imgs/digits/3three.png",
+]
+inputs = [{"mnist_image_url": url} for url in mnist_urls]
+
+labels = superAI.process(inputs=inputs, worker=Worker.me, open_browser=True)
+```
+
+You can find more examples in docs/examples
