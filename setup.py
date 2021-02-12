@@ -64,7 +64,7 @@ setup(
     description="super.AI API",
     author="super.AI",
     author_email="support@super.ai",
-    url="https://github.com/mysuperai/superai-api-client",
+    url="https://github.com/mysuperai/superai-sdk",
     keywords=["super.AI API"],
     install_requires=REQUIRES,
     extras_require={
