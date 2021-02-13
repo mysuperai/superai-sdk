@@ -1,6 +1,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-__version__ = "0.0.8"
+__version__ = "0.1.0.alpha1"
 
-from superai.config import settings
+# Client comes first
 from .client import *
+from superai.config import settings

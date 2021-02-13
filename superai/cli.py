@@ -2,17 +2,20 @@ import click
 import json
 import signal
 import sys
+import yaml
 from botocore.exceptions import ClientError
 from datetime import datetime
-from pprint import pprint
+import pprint
 from typing import List
 from warrant import Cognito
 
 from superai import __version__
 from superai.client import Client
 from superai.config import get_config_dir, list_env_configs, set_env_config, settings
+from superai.exceptions import SuperAIAuthorizationError
 from superai.log import logger
-from superai.utils import load_api_key, save_api_key
+from superai.utils import load_api_key, remove_aws_credentials, save_api_key, save_aws_credentials, save_cognito_user
+from superai.utils.pip_config import pip_configure
 
 BASE_FOLDER = get_config_dir()
 COGNITO_USERPOOL_ID = settings.get("cognito", {}).get("userpool_id")
@@ -38,10 +41,12 @@ def info(verbose):
     click.echo("=================")
     click.echo("Super.AI CLI Info:")
     click.echo("=================")
-    click.echo("Version: {}".format(__version__))
-    click.echo("Environment: {}".format(settings.current_env))
+    load_api_key()
+    click.echo(f"VERSION: {__version__}")
+    click.echo(f"ENVIRONMENT: {settings.current_env}")
+    click.echo(f"USER: {settings.get('user',{}).get('username')}")
     if verbose:
-        click.echo(pprint(settings.as_dict(env=settings.current_env)))
+        click.echo(yaml.dump(settings.as_dict(env=settings.current_env), default_flow_style=False))
 
 
 @cli.group()
@@ -454,8 +459,9 @@ def config(api_key):
 
 @cli.command()
 @click.option("--username", "-u", help="super.AI Username", required=True)
-@click.option("--password", prompt=True, hide_input=True)
-def login(username, password):
+@click.option("--password", "-p", prompt=True, hide_input=True)
+@click.option("--show-pip/--no-show-pip", "-pip", default=False, help="Shows how to set pip configuration manually")
+def login(username, password, show_pip):
     """
     Use username and password to get super.AI api key.
     """
@@ -480,13 +486,26 @@ def login(username, password):
             print(f"Unexpected error: {e}")
             return
 
-    client = Client(auth_token=user.access_token)
+    client = Client(auth_token=user.access_token, id_token=user.id_token)
     api_keys = client.get_apikeys()
     if len(api_keys) > 0:
-        save_api_key(api_keys[0])
+        save_api_key(api_keys[0], username=username)
+        save_cognito_user(user)
         print(f"Api key {api_keys[0]} was set")
     else:
         print(f"User {username} doesn't have any api keys")
+
+    try:
+        aws_credentials = client.get_awskeys()
+        if aws_credentials:
+            save_aws_credentials(aws_credentials)
+            pip_configure(show_pip=show_pip)
+    except SuperAIAuthorizationError as authorization_error:
+        logger.debug(f"ERROR Authorization: {str(authorization_error)}")
+        remove_aws_credentials()
+    except Exception as exception:
+        logger.debug(f"ERROR: {str(exception)}")
+        remove_aws_credentials()
 
 
 @cli.command()
