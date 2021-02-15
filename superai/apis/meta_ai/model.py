@@ -5,7 +5,7 @@ from superai.log import logger
 from superai.utils.apikey_manager import load_api_key
 
 log = logger.get_logger(__name__)
-from superai.apis.meta_ai_schema import (
+from superai.apis.meta_ai.meta_ai_schema import (
     meta_ai_app_on_conflict,
     meta_ai_app_update_column,
     query_root,
@@ -15,6 +15,7 @@ from superai.apis.meta_ai_schema import (
     meta_ai_model_pk_columns_input,
     meta_ai_app_insert_input,
     meta_ai_app_constraint,
+    meta_ai_visibility_enum
 )
 
 app_id = "f771605e-7ae6-4431-82f6-4d5651226f44"
@@ -43,11 +44,21 @@ def get_model(id):
     return (op + data).meta_ai_model_by_pk
 
 
-def add_model(name: str, version: int = 1, metadata: str = None, endpoint: str = ""):
+def add_model(
+    name: str,
+    description: str = "",
+    version: int = 1,
+    metadata: str = None,
+    endpoint: str = "",
+    visibility: meta_ai_visibility_enum = "PRIVATE",
+):
     sess = MetaAISession()
     op = Operation(mutation_root)
     op.insert_meta_ai_model_one(
-        object=meta_ai_model_insert_input(name=name, version=version, metadata=metadata, endpoint=endpoint)
+        object=meta_ai_model_insert_input(
+            name=name, description=description, version=version, metadata=metadata, endpoint=endpoint,
+            visibility=visibility
+        )
     ).__fields__("name", "version", "id", "endpoint")
     data = sess(op)
     return (op + data).insert_meta_ai_model_one.id
@@ -77,67 +88,67 @@ def get_active_model(app_id):
     op.meta_ai_app_by_pk(id=app_id).model.__fields__("name", "version", "id", "endpoint")
     data = sess(op)
     try:
-        output =  (op + data).meta_ai_app_by_pk.model
+        output = (op + data).meta_ai_app_by_pk.model
         return output
     except AttributeError as e:
         logger.info(f"No active model for app_id: {app_id}")
+
 
 def set_active_model(app_id, model_id):
     sess = MetaAISession(app_id=app_id)
     op = Operation(mutation_root)
     insert_input = meta_ai_app_insert_input(id=app_id, model_id=model_id)
     conflict_handler = meta_ai_app_on_conflict(
-        constraint=meta_ai_app_constraint('app_to_model_pkey'), update_columns=['modelId'], where=None
+        constraint=meta_ai_app_constraint("app_to_model_pkey"), update_columns=["modelId"], where=None
     )
-    op.insert_meta_ai_app_one(
-        object=insert_input, on_conflict=conflict_handler
-    ).__fields__("id", "model_id")
+    op.insert_meta_ai_app_one(object=insert_input, on_conflict=conflict_handler).__fields__("id", "model_id")
     data = sess(op)
     return (op + data).insert_meta_ai_app_one
+
 
 def deactivate_app(app_id):
     sess = MetaAISession(app_id=app_id)
     op = Operation(mutation_root)
     op.delete_meta_ai_app_by_pk(id=app_id).__fields__("id")
     data = sess(op)
-    output =  (op + data).delete_meta_ai_app_by_pk.id
+    output = (op + data).delete_meta_ai_app_by_pk.id
     if output == app_id:
         logger.info(f"Deactivated model for app_id: {app_id}")
         return output
 
+
 if __name__ == "__main__":
-    #sess = MetaAISession()
-    #m_id = "8220ada2-24fc-4466-85ca-1bbf757d6f92"
+    # sess = MetaAISession()
+    # m_id = "8220ada2-24fc-4466-85ca-1bbf757d6f92"
     other_m = "bd90c609-eb6a-4d51-aa34-06c3dab6917c"
-    #m = get_model(m_id)
-    #print(m)
-    #m = get_all_models()
-    #print(m)
+    # m = get_model(m_id)
+    # print(m)
+    # m = get_all_models()
+    # print(m)
 
     # m = get_app("f771605e-7ae6-4431-82f6-4d5651226f44")
     # print(m)
     # a = get_apps()
     # print(a)
 
-    #a = add_model("AddedModel")
-    #print(a)
-    #b = update_model(a, name="ChangedModel", version=2)
-    #print(b)
-    #c = delete_model(a)
-    #print(c)
-    new_app = "ef83890f-baf7-407d-8ecc-1e5676c089a9"
-    active = get_active_model(new_app)
-    print(active)
-    active = set_active_model(new_app, other_m)
-    print(active)
-    active = deactivate_app(new_app)
-    active = set_active_model(new_app, other_m)
-    print(active)
-    
+    a = add_model("AddedModel")
+    print(a)
+    # b = update_model(a, name="ChangedModel", version=2)
+    # print(b)
+    c = delete_model(a)
+    print(c)
+    #new_app = "ef83890f-baf7-407d-8ecc-1e5676c089a9"
+    #active = get_active_model(new_app)
+    #print(active)
+    #active = set_active_model(new_app, other_m)
+    #print(active)
+    #active = deactivate_app(new_app)
+    #active = set_active_model(new_app, other_m)
+    #print(active)
 
-    #new_active = upsert_app_mapping(app_id, other_m)
-    #print(new_active)
-    #new_active = upsert_app_mapping(app_id, m_id)
+    # new_active = upsert_app_mapping(app_id, other_m)
+    # print(new_active)
+    # new_active = upsert_app_mapping(app_id, m_id)
     # op = Operation(query_root)
     # op.meta_ai_model_by_pk(id=m_id)
     # data = sess(op)
