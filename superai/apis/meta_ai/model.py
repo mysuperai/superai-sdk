@@ -20,6 +20,7 @@ from superai.apis.meta_ai.meta_ai_schema import (
     query_root,
 )
 
+
 class ModelApiMixin(ABC):
     _resource = "model"
 
@@ -36,13 +37,11 @@ class ModelApiMixin(ABC):
         data = self.sess.perform_op(op)
         return (op + data).meta_ai_model
 
-
     def get_model(self, id):
         op = Operation(query_root)
         op.meta_ai_model_by_pk(id=id).__fields__("name", "version", "id", "endpoint")
         data = self.sess.perform_op(op)
         return (op + data).meta_ai_model_by_pk
-
 
     def add_model(
         self,
@@ -68,7 +67,6 @@ class ModelApiMixin(ABC):
         log.info(f"Created new model: {data}")
         return (op + data).insert_meta_ai_model_one.id
 
-
     def update_model(self, id, **kwargs):
         op = Operation(mutation_root)
         op.update_meta_ai_model_by_pk(
@@ -76,7 +74,6 @@ class ModelApiMixin(ABC):
         ).__fields__("name", "version", "id", "endpoint", "description")
         data = self.sess.perform_op(op)
         return (op + data).update_meta_ai_model_by_pk.id
-
 
     def delete_model(self, id):
         op = Operation(mutation_root)

@@ -15,7 +15,9 @@ from superai.exceptions import SuperAIAuthorizationError, SuperAIEntityDuplicate
 BASE_URL = settings.get("base_url")
 
 
-class Client(JobsApiMixin, AuthApiMixin, GroundTruthApiMixin, DataApiMixin, DataProgramApiMixin, ProjectApiMixin, ModelApiMixin):
+class Client(
+    JobsApiMixin, AuthApiMixin, GroundTruthApiMixin, DataApiMixin, DataProgramApiMixin, ProjectApiMixin, ModelApiMixin
+):
     def __init__(self, api_key: str = None, auth_token: str = None, id_token: str = None, base_url: str = None):
         self.api_key = api_key
         self.auth_token = auth_token

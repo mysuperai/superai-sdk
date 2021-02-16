@@ -43,7 +43,7 @@ BUILD_REQUIRES = [
     "Sphinx>=3.2.1",
     "twine>=3.2.0",
     "wheel>=0.35.1",
-    "sagemaker>=1.64.1"
+    "sagemaker>=1.64.1",
 ]
 
 DP_REQUIRES = [
