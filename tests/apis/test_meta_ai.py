@@ -1,8 +1,13 @@
-import superai.apis.meta_ai as api
+from superai.apis.meta_ai import ModelApiMixin
 import uuid
 import pytest
 
-def test_model_creation():
+
+@pytest.fixture()
+def api():
+    yield ModelApiMixin()
+
+def test_model_creation(api):
     id = uuid.uuid4()
     a = api.add_model(f"TestModel-{id}" )
     assert a is not None
@@ -13,7 +18,7 @@ def test_model_creation():
 
 
 @pytest.fixture()
-def model():
+def model(api):
     id = uuid.uuid4()
     a = api.add_model(f"TestModel-{id}")
     assert a is not None
@@ -22,7 +27,7 @@ def model():
     assert a == c
 
 
-def test_model_retrieval(model):
+def test_model_retrieval(api, model):
     m = api.get_model(model)
     assert "name" in m
 
