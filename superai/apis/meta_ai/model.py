@@ -1,31 +1,23 @@
-
-from sgqlc.endpoint.requests import RequestsEndpoint
 from sgqlc.operation import Operation
-from superai.config import settings
 from superai.log import logger
-from superai.utils.apikey_manager import load_api_key
+
+from .session import MetaAISession
 
 log = logger.get_logger(__name__)
 
 from superai.apis.meta_ai.meta_ai_schema import (
-    meta_ai_app_constraint, meta_ai_app_insert_input, meta_ai_app_on_conflict,
-    meta_ai_app_update_column, meta_ai_assignment_enum, meta_ai_model_insert_input,
-    meta_ai_model_pk_columns_input, meta_ai_model_set_input,
-    meta_ai_visibility_enum, mutation_root, query_root)
-
-
-class MetaAISession(RequestsEndpoint):
-    def __init__(self, app_id=None, timeout=20):
-        base_url = settings.get("meta_ai_base")
-        headers = {"x-api-key": load_api_key(), "x-app-id": app_id}
-        super().__init__(base_url, headers, timeout=timeout)
-
-    def perform_op(self, op):
-        data = self(op)
-        if data.get("errors", False):
-            raise Exception(f"GraphQL Query Exception: {data}")
-        else:
-            return data
+    meta_ai_app_constraint,
+    meta_ai_app_insert_input,
+    meta_ai_app_on_conflict,
+    meta_ai_app_update_column,
+    meta_ai_assignment_enum,
+    meta_ai_model_insert_input,
+    meta_ai_model_pk_columns_input,
+    meta_ai_model_set_input,
+    meta_ai_visibility_enum,
+    mutation_root,
+    query_root,
+)
 
 
 def get_all_models():
@@ -61,11 +53,11 @@ def add_model(
             version=version,
             metadata=metadata,
             endpoint=endpoint,
-            visibility=visibility
+            visibility=visibility,
         )
     ).__fields__("name", "version", "id", "endpoint", "description")
     data = sess.perform_op(op)
-    logger.info(f"Created new model: {data}")
+    log.info(f"Created new model: {data}")
     return (op + data).insert_meta_ai_model_one.id
 
 
@@ -87,16 +79,18 @@ def delete_model(id):
     return (op + data).delete_meta_ai_model_by_pk.id
 
 
-def get_active_model(app_id, assignment:meta_ai_assignment_enum):
+def get_active_model(app_id, assignment: meta_ai_assignment_enum):
     sess = MetaAISession(app_id=app_id)
     op = Operation(query_root)
-    op.meta_ai_app(id=app_id, assigned=assignment, active=True).model.__fields__("name", "version", "id", "endpoint", "description", "active")
+    op.meta_ai_app(id=app_id, assigned=assignment, active=True).model.__fields__(
+        "name", "version", "id", "endpoint", "description", "active"
+    )
     data = sess.perform_op(op)
     try:
         output = (op + data).meta_ai_app.model
         return output
     except AttributeError as e:
-        logger.info(f"No active model for app_id: {app_id}")
+        log.info(f"No active model for app_id: {app_id}")
 
 
 def set_active_model(app_id, model_id):
@@ -118,5 +112,5 @@ def deactivate_app(app_id):
     data = sess.perform_op(op)
     output = (op + data).delete_meta_ai_app_by_pk.id
     if output == app_id:
-        logger.info(f"Deactivated model for app_id: {app_id}")
+        log.info(f"Deactivated model for app_id: {app_id}")
         return output

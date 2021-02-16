@@ -1,10 +1,10 @@
-from superai.apis.meta_ai import model as api
+import superai.apis.meta_ai as api
 import uuid
 import pytest
 
 def test_model_creation():
     id = uuid.uuid4()
-    a = api.add_model(f"TestModel-{id}")
+    a = api.add_model(f"TestModel-{id}" )
     assert a is not None
     b = api.update_model(a, name=f"ChangedTestModel-{id}", version=2)
     assert a == b
