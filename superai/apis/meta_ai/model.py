@@ -20,12 +20,19 @@ class MetaAISession(RequestsEndpoint):
         headers = {"x-api-key": load_api_key(), "x-app-id": app_id}
         super().__init__(base_url, headers, timeout=timeout)
 
+    def perform_op(self, op):
+        data = self(op)
+        if data.get("errors", False):
+            raise Exception(f"GraphQL Query Exception: {data}")
+        else:
+            return data
+
 
 def get_all_models():
     sess = MetaAISession()
     op = Operation(query_root)
     op.meta_ai_model().__fields__("name", "version", "id", "endpoint")
-    data = sess(op)
+    data = sess.perform_op(op)
     return (op + data).meta_ai_model
 
 
@@ -33,7 +40,7 @@ def get_model(id):
     sess = MetaAISession()
     op = Operation(query_root)
     op.meta_ai_model_by_pk(id=id).__fields__("name", "version", "id", "endpoint")
-    data = sess(op)
+    data = sess.perform_op(op)
     return (op + data).meta_ai_model_by_pk
 
 
@@ -57,7 +64,7 @@ def add_model(
             visibility=visibility,
         )
     ).__fields__("name", "version", "id", "endpoint")
-    data = sess(op)
+    data = sess.perform_op(op)
     return (op + data).insert_meta_ai_model_one.id
 
 
@@ -67,7 +74,7 @@ def update_model(id, **kwargs):
     op.update_meta_ai_model_by_pk(
         _set=meta_ai_model_set_input(**kwargs), pk_columns=meta_ai_model_pk_columns_input(id=id)
     ).__fields__("name", "version", "id", "endpoint")
-    data = sess(op)
+    data = sess.perform_op(op)
     return (op + data).update_meta_ai_model_by_pk.id
 
 
@@ -75,7 +82,7 @@ def delete_model(id):
     sess = MetaAISession()
     op = Operation(mutation_root)
     op.delete_meta_ai_model_by_pk(id=id).__fields__("name", "version", "id", "endpoint")
-    data = sess(op)
+    data = sess.perform_op(op)
     return (op + data).delete_meta_ai_model_by_pk.id
 
 
@@ -83,7 +90,7 @@ def get_active_model(app_id):
     sess = MetaAISession(app_id=app_id)
     op = Operation(query_root)
     op.meta_ai_app_by_pk(id=app_id).model.__fields__("name", "version", "id", "endpoint")
-    data = sess(op)
+    data = sess.perform_op(op)
     try:
         output = (op + data).meta_ai_app_by_pk.model
         return output
@@ -99,7 +106,7 @@ def set_active_model(app_id, model_id):
         constraint=meta_ai_app_constraint("app_to_model_pkey"), update_columns=["modelId"], where=None
     )
     op.insert_meta_ai_app_one(object=insert_input, on_conflict=conflict_handler).__fields__("id", "model_id")
-    data = sess(op)
+    data = sess.perform_op(op)
     return (op + data).insert_meta_ai_app_one
 
 
@@ -107,7 +114,7 @@ def deactivate_app(app_id):
     sess = MetaAISession(app_id=app_id)
     op = Operation(mutation_root)
     op.delete_meta_ai_app_by_pk(id=app_id).__fields__("id")
-    data = sess(op)
+    data = sess.perform_op(op)
     output = (op + data).delete_meta_ai_app_by_pk.id
     if output == app_id:
         logger.info(f"Deactivated model for app_id: {app_id}")
