@@ -6,7 +6,8 @@ from superai.utils.apikey_manager import load_api_key
 class MetaAISession(RequestsEndpoint):
     def __init__(self, app_id=None, timeout=20):
         base_url = settings.get("meta_ai_base")
-        headers = {"x-api-key": load_api_key(), "x-app-id": app_id}
+        api_key = load_api_key()
+        headers = {"x-api-key": api_key, "x-app-id": app_id}
         super().__init__(base_url, headers, timeout=timeout)
 
     def perform_op(self, op):
