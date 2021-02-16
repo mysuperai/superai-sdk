@@ -36,7 +36,7 @@ class jsonb(sgqlc.types.Scalar):
 
 class meta_ai_app_constraint(sgqlc.types.Enum):
     __schema__ = meta_ai_schema
-    __choices__ = ('app_modelId_id_assigned_key', 'app_to_model_pkey')
+    __choices__ = ('app_modelId_id_assigned_key', 'app_pkey')
 
 
 class meta_ai_app_select_column(sgqlc.types.Enum):
@@ -91,7 +91,7 @@ class meta_ai_model_update_column(sgqlc.types.Enum):
 
 class meta_ai_prediction_select_column(sgqlc.types.Enum):
     __schema__ = meta_ai_schema
-    __choices__ = ('appId', 'createdAt', 'id', 'jobId', 'modelId', 'taskId')
+    __choices__ = ('appId', 'createdAt', 'id', 'jobId', 'modelId', 'taskId', 'type')
 
 
 class meta_ai_visibility_enum(sgqlc.types.Enum):
@@ -277,8 +277,10 @@ class meta_ai_app_order_by(sgqlc.types.Input):
 
 class meta_ai_app_pk_columns_input(sgqlc.types.Input):
     __schema__ = meta_ai_schema
-    __field_names__ = ('id',)
+    __field_names__ = ('assigned', 'id', 'model_id')
+    assigned = sgqlc.types.Field(sgqlc.types.non_null(meta_ai_assignment_enum), graphql_name='assigned')
     id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name='id')
+    model_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name='modelId')
 
 
 class meta_ai_app_set_input(sgqlc.types.Input):
@@ -556,11 +558,10 @@ class meta_ai_prediction_arr_rel_insert_input(sgqlc.types.Input):
 
 class meta_ai_prediction_bool_exp(sgqlc.types.Input):
     __schema__ = meta_ai_schema
-    __field_names__ = ('_and', '_not', '_or', 'app', 'app_id', 'created_at', 'id', 'instances', 'job_id', 'model', 'model_id', 'task_id')
+    __field_names__ = ('_and', '_not', '_or', 'app_id', 'created_at', 'id', 'instances', 'job_id', 'model', 'model_id', 'task_id', 'type')
     _and = sgqlc.types.Field(sgqlc.types.list_of('meta_ai_prediction_bool_exp'), graphql_name='_and')
     _not = sgqlc.types.Field('meta_ai_prediction_bool_exp', graphql_name='_not')
     _or = sgqlc.types.Field(sgqlc.types.list_of('meta_ai_prediction_bool_exp'), graphql_name='_or')
-    app = sgqlc.types.Field(meta_ai_app_bool_exp, graphql_name='app')
     app_id = sgqlc.types.Field('uuid_comparison_exp', graphql_name='appId')
     created_at = sgqlc.types.Field('timestamptz_comparison_exp', graphql_name='createdAt')
     id = sgqlc.types.Field('uuid_comparison_exp', graphql_name='id')
@@ -569,18 +570,19 @@ class meta_ai_prediction_bool_exp(sgqlc.types.Input):
     model = sgqlc.types.Field(meta_ai_model_bool_exp, graphql_name='model')
     model_id = sgqlc.types.Field('uuid_comparison_exp', graphql_name='modelId')
     task_id = sgqlc.types.Field(bigint_comparison_exp, graphql_name='taskId')
+    type = sgqlc.types.Field(meta_ai_assignment_enum_comparison_exp, graphql_name='type')
 
 
 class meta_ai_prediction_insert_input(sgqlc.types.Input):
     __schema__ = meta_ai_schema
-    __field_names__ = ('app', 'app_id', 'instances', 'job_id', 'model', 'model_id', 'task_id')
-    app = sgqlc.types.Field(meta_ai_app_obj_rel_insert_input, graphql_name='app')
+    __field_names__ = ('app_id', 'instances', 'job_id', 'model', 'model_id', 'task_id', 'type')
     app_id = sgqlc.types.Field(uuid, graphql_name='appId')
     instances = sgqlc.types.Field(meta_ai_instance_arr_rel_insert_input, graphql_name='instances')
     job_id = sgqlc.types.Field(bigint, graphql_name='jobId')
     model = sgqlc.types.Field(meta_ai_model_obj_rel_insert_input, graphql_name='model')
     model_id = sgqlc.types.Field(uuid, graphql_name='modelId')
     task_id = sgqlc.types.Field(bigint, graphql_name='taskId')
+    type = sgqlc.types.Field(meta_ai_assignment_enum, graphql_name='type')
 
 
 class meta_ai_prediction_obj_rel_insert_input(sgqlc.types.Input):
@@ -591,8 +593,7 @@ class meta_ai_prediction_obj_rel_insert_input(sgqlc.types.Input):
 
 class meta_ai_prediction_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_schema
-    __field_names__ = ('app', 'app_id', 'created_at', 'id', 'job_id', 'model', 'model_id', 'task_id')
-    app = sgqlc.types.Field(meta_ai_app_order_by, graphql_name='app')
+    __field_names__ = ('app_id', 'created_at', 'id', 'job_id', 'model', 'model_id', 'task_id', 'type')
     app_id = sgqlc.types.Field(order_by, graphql_name='appId')
     created_at = sgqlc.types.Field(order_by, graphql_name='createdAt')
     id = sgqlc.types.Field(order_by, graphql_name='id')
@@ -600,6 +601,7 @@ class meta_ai_prediction_order_by(sgqlc.types.Input):
     model = sgqlc.types.Field(meta_ai_model_order_by, graphql_name='model')
     model_id = sgqlc.types.Field(order_by, graphql_name='modelId')
     task_id = sgqlc.types.Field(order_by, graphql_name='taskId')
+    type = sgqlc.types.Field(order_by, graphql_name='type')
 
 
 class meta_ai_prediction_pk_columns_input(sgqlc.types.Input):
@@ -683,8 +685,8 @@ class meta_ai_app(sgqlc.types.Type):
     __schema__ = meta_ai_schema
     __field_names__ = ('active', 'assigned', 'assignment', 'id', 'model', 'model_id', 'predictions')
     active = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name='active')
-    assigned = sgqlc.types.Field(meta_ai_assignment_enum, graphql_name='assigned')
-    assignment = sgqlc.types.Field('meta_ai_assignment', graphql_name='assignment')
+    assigned = sgqlc.types.Field(sgqlc.types.non_null(meta_ai_assignment_enum), graphql_name='assigned')
+    assignment = sgqlc.types.Field(sgqlc.types.non_null('meta_ai_assignment'), graphql_name='assignment')
     id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name='id')
     model = sgqlc.types.Field(sgqlc.types.non_null('meta_ai_model'), graphql_name='model')
     model_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name='modelId')
@@ -782,8 +784,7 @@ class meta_ai_model_mutation_response(sgqlc.types.Type):
 
 class meta_ai_prediction(sgqlc.types.Type):
     __schema__ = meta_ai_schema
-    __field_names__ = ('app', 'app_id', 'created_at', 'id', 'instances', 'job_id', 'model', 'model_id', 'task_id')
-    app = sgqlc.types.Field(meta_ai_app, graphql_name='app')
+    __field_names__ = ('app_id', 'created_at', 'id', 'instances', 'job_id', 'model', 'model_id', 'task_id', 'type')
     app_id = sgqlc.types.Field(uuid, graphql_name='appId')
     created_at = sgqlc.types.Field(sgqlc.types.non_null(timestamptz), graphql_name='createdAt')
     id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name='id')
@@ -799,6 +800,7 @@ class meta_ai_prediction(sgqlc.types.Type):
     model = sgqlc.types.Field(sgqlc.types.non_null(meta_ai_model), graphql_name='model')
     model_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name='modelId')
     task_id = sgqlc.types.Field(bigint, graphql_name='taskId')
+    type = sgqlc.types.Field(sgqlc.types.non_null(meta_ai_assignment_enum), graphql_name='type')
 
 
 class meta_ai_prediction_mutation_response(sgqlc.types.Type):
@@ -830,7 +832,9 @@ class mutation_root(sgqlc.types.Type):
 ))
     )
     delete_meta_ai_app_by_pk = sgqlc.types.Field(meta_ai_app, graphql_name='delete_meta_ai_app_by_pk', args=sgqlc.types.ArgDict((
+        ('assigned', sgqlc.types.Arg(sgqlc.types.non_null(meta_ai_assignment_enum), graphql_name='assigned', default=None)),
         ('id', sgqlc.types.Arg(sgqlc.types.non_null(uuid), graphql_name='id', default=None)),
+        ('model_id', sgqlc.types.Arg(sgqlc.types.non_null(uuid), graphql_name='modelId', default=None)),
 ))
     )
     delete_meta_ai_instance = sgqlc.types.Field(meta_ai_instance_mutation_response, graphql_name='delete_meta_ai_instance', args=sgqlc.types.ArgDict((
@@ -955,7 +959,7 @@ class mutation_root(sgqlc.types.Type):
 class query_root(sgqlc.types.Type):
     __schema__ = meta_ai_schema
     __field_names__ = ('get_prelabel', 'meta_ai_app', 'meta_ai_app_by_pk', 'meta_ai_assignment', 'meta_ai_assignment_by_pk', 'meta_ai_instance', 'meta_ai_instance_by_pk', 'meta_ai_model', 'meta_ai_model_by_pk', 'meta_ai_prediction', 'meta_ai_prediction_by_pk', 'meta_ai_visibility', 'meta_ai_visibility_by_pk')
-    get_prelabel = sgqlc.types.Field(Prelabel, graphql_name='get_prelabel', args=sgqlc.types.ArgDict((
+    get_prelabel = sgqlc.types.Field(sgqlc.types.list_of(Prelabel), graphql_name='get_prelabel', args=sgqlc.types.ArgDict((
         ('job_id', sgqlc.types.Arg(bigint, graphql_name='jobId', default=None)),
         ('task_id', sgqlc.types.Arg(bigint, graphql_name='taskId', default=None)),
 ))
@@ -969,7 +973,9 @@ class query_root(sgqlc.types.Type):
 ))
     )
     meta_ai_app_by_pk = sgqlc.types.Field('meta_ai_app', graphql_name='meta_ai_app_by_pk', args=sgqlc.types.ArgDict((
+        ('assigned', sgqlc.types.Arg(sgqlc.types.non_null(meta_ai_assignment_enum), graphql_name='assigned', default=None)),
         ('id', sgqlc.types.Arg(sgqlc.types.non_null(uuid), graphql_name='id', default=None)),
+        ('model_id', sgqlc.types.Arg(sgqlc.types.non_null(uuid), graphql_name='modelId', default=None)),
 ))
     )
     meta_ai_assignment = sgqlc.types.Field(sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null('meta_ai_assignment'))), graphql_name='meta_ai_assignment', args=sgqlc.types.ArgDict((
@@ -1038,7 +1044,7 @@ class query_root(sgqlc.types.Type):
 class subscription_root(sgqlc.types.Type):
     __schema__ = meta_ai_schema
     __field_names__ = ('get_prelabel', 'meta_ai_app', 'meta_ai_app_by_pk', 'meta_ai_assignment', 'meta_ai_assignment_by_pk', 'meta_ai_instance', 'meta_ai_instance_by_pk', 'meta_ai_model', 'meta_ai_model_by_pk', 'meta_ai_prediction', 'meta_ai_prediction_by_pk', 'meta_ai_visibility', 'meta_ai_visibility_by_pk')
-    get_prelabel = sgqlc.types.Field(Prelabel, graphql_name='get_prelabel', args=sgqlc.types.ArgDict((
+    get_prelabel = sgqlc.types.Field(sgqlc.types.list_of(Prelabel), graphql_name='get_prelabel', args=sgqlc.types.ArgDict((
         ('job_id', sgqlc.types.Arg(bigint, graphql_name='jobId', default=None)),
         ('task_id', sgqlc.types.Arg(bigint, graphql_name='taskId', default=None)),
 ))
@@ -1052,7 +1058,9 @@ class subscription_root(sgqlc.types.Type):
 ))
     )
     meta_ai_app_by_pk = sgqlc.types.Field('meta_ai_app', graphql_name='meta_ai_app_by_pk', args=sgqlc.types.ArgDict((
+        ('assigned', sgqlc.types.Arg(sgqlc.types.non_null(meta_ai_assignment_enum), graphql_name='assigned', default=None)),
         ('id', sgqlc.types.Arg(sgqlc.types.non_null(uuid), graphql_name='id', default=None)),
+        ('model_id', sgqlc.types.Arg(sgqlc.types.non_null(uuid), graphql_name='modelId', default=None)),
 ))
     )
     meta_ai_assignment = sgqlc.types.Field(sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null('meta_ai_assignment'))), graphql_name='meta_ai_assignment', args=sgqlc.types.ArgDict((
