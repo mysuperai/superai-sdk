@@ -1,4 +1,3 @@
-# from superai.apis.meta_ai.meta_ai_schema import meta_ai_app
 # from superai.apis.meta_ai import ModelApiMixin, ProjectAiApiMixin
 # import uuid
 # import pytest
@@ -51,3 +50,12 @@
 #     inactive_models = ai_api.get_models(existing_app_id,"PRELABEL", active=False)
 #     print(inactive_models)
 #     assert a.model_id in [act.model.id for act in inactive_models]
+
+
+# def test_prelabels(ai_api):
+#     active_model = ai_api.get_models(existing_app_id,"PRELABEL", active=True)[0]
+#     assert active_model is not None
+
+# def test_view_prelabel(ai_api):
+#     instance = ai_api.view_prelabel(existing_app_id, prediction_id, 149)
+#     assert instance is not None

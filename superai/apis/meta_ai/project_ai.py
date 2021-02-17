@@ -51,7 +51,7 @@ class ProjectAiApiMixin(ABC):
             output = (op + data).meta_ai_app
             return output
         except AttributeError as e:
-            log.info(f"No models for project with id: {app_id} and assigment type {assignment}")
+            log.info(f"No models for project with id: {app_id} and assignment type {assignment}")
 
     def update_model(self, app_id: str, assignment: meta_ai_assignment_enum, model_id: str, active: bool = None):
         sess = MetaAISession(app_id=app_id)
@@ -71,3 +71,31 @@ class ProjectAiApiMixin(ABC):
         data = sess.perform_op(op)
         print(data)
         return (op + data).insert_meta_ai_app_one
+
+    def list_prelabels(self, app_id:str, model_id:str):
+        sess = MetaAISession(app_id=app_id)
+        op = Operation(query_root)
+        model = op.meta_ai_app_by_pk(id=app_id, model_id=model_id, assigned="PRELABEL").model
+        predictions = model.predictions()
+        predictions.id()
+        predictions.instances().id()
+        data = sess.perform_op(op)
+        try:
+            output = (op + data).meta_ai_app_by_pk.model.predictions
+            return output
+        except AttributeError as e:
+            log.info(f"No predictions for project with id: {app_id} and model_id:{model_id}")
+    
+    def view_prelabel(self, app_id:str, prediction_id:str, instance_id):
+        sess = MetaAISession(app_id=app_id)
+        op = Operation(query_root)
+        instance = op.meta_ai_instance_by_pk(id=instance_id, prediction_id=prediction_id)
+        instance.id()
+        instance.score()
+        instance.output()
+        data = sess.perform_op(op)
+        try:
+            output = (op + data).meta_ai_instance_by_pk
+            return output
+        except AttributeError as e:
+            log.info(f"No prelabel instance found for prediction_id:{prediction_id} and instance_id:{instance_id}")
