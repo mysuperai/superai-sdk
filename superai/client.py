@@ -1,3 +1,4 @@
+from superai.apis.meta_ai.project_ai import ProjectAiApiMixin
 from typing import Optional
 
 import requests
@@ -16,7 +17,14 @@ BASE_URL = settings.get("base_url")
 
 
 class Client(
-    JobsApiMixin, AuthApiMixin, GroundTruthApiMixin, DataApiMixin, DataProgramApiMixin, ProjectApiMixin, ModelApiMixin
+    JobsApiMixin,
+    AuthApiMixin,
+    GroundTruthApiMixin,
+    DataApiMixin,
+    DataProgramApiMixin,
+    ProjectApiMixin,
+    ProjectAiApiMixin,
+    ModelApiMixin,
 ):
     def __init__(self, api_key: str = None, auth_token: str = None, id_token: str = None, base_url: str = None):
         self.api_key = api_key
