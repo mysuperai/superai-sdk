@@ -89,6 +89,28 @@ class JobsApiMixin(ABC):
         uri = f"jobs/{job_id}/cancel"
         return self.request(uri, method="POST", required_api_key=True)
 
+    def review_job(
+            self,
+            job_id: str,
+            correct: bool = None,
+            response: dict = None,
+    ) -> dict:
+        """
+        Review job
+        :param job_id: Id or uuid of job
+        :param correct: Mark job as correct if true, incorrect if false.
+        :param response: Set job output and mark as correct.
+        :return: Return dict with (job) response, correct and baselineId if review generated ground truth
+        """
+        body_json = {}
+        if correct is not None:
+            body_json["correct"] = correct
+        if response is not None:
+            body_json["response"] = response
+
+        uri = f"/jobs/{job_id}/review"
+        return self.request(uri, method="PATCH", body_params=body_json, required_api_key=True)
+
     def list_jobs(
         self,
         app_id: str,
