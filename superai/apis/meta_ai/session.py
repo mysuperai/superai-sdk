@@ -8,6 +8,7 @@ class MetaAISession(RequestsEndpoint):
         base_url = settings.get("meta_ai_base")
         api_key = load_api_key()
         headers = {"x-api-key": api_key, "x-app-id": app_id}
+        headers = {"x-api-key": api_key, "x-app-id": app_id, "Accept-Encoding": "gzip"}
         super().__init__(base_url, headers, timeout=timeout)
 
     def perform_op(self, op):
