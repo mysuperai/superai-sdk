@@ -1,5 +1,8 @@
+import json
 from abc import ABC
-from sgqlc.operation import Operation, ArgDict
+from typing import List, Sequence, Union
+
+from sgqlc.operation import ArgDict, Operation
 from sgqlc.types import Arg
 from superai.log import logger
 
@@ -8,23 +11,26 @@ from .session import MetaAISession
 log = logger.get_logger(__name__)
 
 from superai.apis.meta_ai.meta_ai_schema import (
+    Boolean,
+    Boolean_comparison_exp,
+    String_comparison_exp,
+    meta_ai_app_bool_exp,
     meta_ai_app_constraint,
     meta_ai_app_insert_input,
     meta_ai_app_on_conflict,
     meta_ai_app_update_column,
+    meta_ai_assignment_bool_exp,
     meta_ai_assignment_enum,
+    meta_ai_instance,
+    meta_ai_instance_insert_input,
     meta_ai_model_insert_input,
     meta_ai_model_pk_columns_input,
     meta_ai_model_set_input,
+    meta_ai_prediction_insert_input,
     meta_ai_visibility_enum,
-    meta_ai_app_bool_exp,
-    meta_ai_assignment_bool_exp,
-    String_comparison_exp,
-    Boolean,
-    Boolean_comparison_exp,
     mutation_root,
-    uuid_comparison_exp,
     query_root,
+    uuid_comparison_exp,
 )
 
 
@@ -72,7 +78,7 @@ class ProjectAiApiMixin(ABC):
         print(data)
         return (op + data).insert_meta_ai_app_one
 
-    def list_prelabels(self, app_id:str, model_id:str):
+    def list_prelabels(self, app_id: str, model_id: str):
         sess = MetaAISession(app_id=app_id)
         op = Operation(query_root)
         model = op.meta_ai_app_by_pk(id=app_id, model_id=model_id, assigned="PRELABEL").model
@@ -85,8 +91,20 @@ class ProjectAiApiMixin(ABC):
             return output
         except AttributeError as e:
             log.info(f"No predictions for project with id: {app_id} and model_id:{model_id}")
-    
-    def view_prelabel(self, app_id:str, prediction_id:str, instance_id):
+
+    def list_prelabel_instances(self, app_id: str, prediction_id: str):
+        sess = MetaAISession(app_id=app_id)
+        op = Operation(query_root)
+        instance = op.meta_ai_prediction_by_pk(id=prediction_id).instances.id()
+        data = sess.perform_op(op)
+        print(data, op)
+        try:
+            output = (op + data).meta_ai_prediction_by_pk.instances
+            return output
+        except AttributeError as e:
+            log.info(f"No prelabel instances found for prediction_id:{prediction_id}.")
+
+    def view_prelabel(self, app_id: str, prediction_id: str, instance_id):
         sess = MetaAISession(app_id=app_id)
         op = Operation(query_root)
         instance = op.meta_ai_instance_by_pk(id=instance_id, prediction_id=prediction_id)
@@ -99,3 +117,50 @@ class ProjectAiApiMixin(ABC):
             return output
         except AttributeError as e:
             log.info(f"No prelabel instance found for prediction_id:{prediction_id} and instance_id:{instance_id}")
+
+    def submit_prelabel(
+        self,
+        model_output: Union[str, List[str]],
+        app_id: str,
+        job_id: int,
+        model_id: str,
+        assignment: meta_ai_assignment_enum = "PRELABEL",
+    ):
+        sess = MetaAISession(app_id=app_id)
+        if type(model_output) is list and len(model_output) > 1:
+            log.info("Multiple instances in model output.")
+        else:
+            model_output = [model_output]
+        op = Operation(mutation_root)
+        input_args = {"app_id": app_id, "model_id": model_id, "type": assignment, "job_id": job_id}
+        insert_input = meta_ai_prediction_insert_input(input_args)
+        op.insert_meta_ai_prediction_one(object=insert_input).__fields__("id")
+        data = sess.perform_op(op)
+        prediction_id = (op + data).insert_meta_ai_prediction_one.id
+
+        for instance in model_output:
+            op = Operation(mutation_root)
+            if type(instance) is str:
+                instance = json.loads(instance)
+            input_args = {"prediction_id": prediction_id}
+
+            if "output" in instance.keys():
+                input_args["output"] = instance["output"]
+            if "score" in instance.keys():
+                input_args["score"] = instance["score"]
+            insert_input = meta_ai_instance_insert_input(input_args)
+            op.insert_meta_ai_instance_one(object=insert_input).__fields__("id")
+            data = sess.perform_op(op)
+            instance_id = (op + data).insert_meta_ai_instance_one.id
+            log.debug(
+                f"Inserted output instance {instance_id} for model {model_id} under prediction_id {prediction_id}."
+            )
+
+        return prediction_id
+
+    def delete_prelabel(self, app_id, id):
+        sess = MetaAISession(app_id=app_id)
+        op = Operation(mutation_root)
+        op.delete_meta_ai_prediction_by_pk(id=id).id()
+        data = sess.perform_op(op)
+        return (op + data).delete_meta_ai_prediction_by_pk.id
