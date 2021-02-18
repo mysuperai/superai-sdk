@@ -10,7 +10,7 @@ from .session import MetaAISession
 
 log = logger.get_logger(__name__)
 
-from superai.apis.meta_ai.meta_ai_schema import (
+from superai.apis.meta_ai.meta_ai_graphql_schema import (
     Boolean,
     Boolean_comparison_exp,
     String_comparison_exp,
