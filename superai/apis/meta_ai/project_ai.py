@@ -1,33 +1,25 @@
 import json
 from abc import ABC
-from typing import List, Sequence, Union
+from typing import List, Union
 
-from sgqlc.operation import ArgDict, Operation
-from sgqlc.types import Arg
+from sgqlc.operation import Operation
+
 from superai.log import logger
-
 from .session import MetaAISession
 
 log = logger.get_logger(__name__)
 
 from superai.apis.meta_ai.meta_ai_graphql_schema import (
-    Boolean,
     Boolean_comparison_exp,
     String_comparison_exp,
     meta_ai_app_bool_exp,
     meta_ai_app_constraint,
     meta_ai_app_insert_input,
     meta_ai_app_on_conflict,
-    meta_ai_app_update_column,
     meta_ai_assignment_bool_exp,
     meta_ai_assignment_enum,
-    meta_ai_instance,
     meta_ai_instance_insert_input,
-    meta_ai_model_insert_input,
-    meta_ai_model_pk_columns_input,
-    meta_ai_model_set_input,
     meta_ai_prediction_insert_input,
-    meta_ai_visibility_enum,
     mutation_root,
     query_root,
     uuid_comparison_exp,

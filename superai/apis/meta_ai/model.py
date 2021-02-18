@@ -1,17 +1,13 @@
 from abc import ABC
-from sgqlc.operation import Operation
-from superai.log import logger
 
+from sgqlc.operation import Operation
+
+from superai.log import logger
 from .session import MetaAISession
 
 log = logger.get_logger(__name__)
 
 from superai.apis.meta_ai.meta_ai_graphql_schema import (
-    meta_ai_app_constraint,
-    meta_ai_app_insert_input,
-    meta_ai_app_on_conflict,
-    meta_ai_app_update_column,
-    meta_ai_assignment_enum,
     meta_ai_model_insert_input,
     meta_ai_model_pk_columns_input,
     meta_ai_model_set_input,

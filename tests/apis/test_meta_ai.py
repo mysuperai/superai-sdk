@@ -21,7 +21,6 @@ def before_record_cb(request):
     return request
 
 
-
 my_vcr = vcr.VCR(
     serializer="yaml",
     cassette_library_dir="fixtures/cassettes",
