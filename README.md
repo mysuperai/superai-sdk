@@ -102,11 +102,15 @@ client.create_jobs(
 # Creating a data program
 
 ## Requirements
-  - Have a superai `dataprogrammer` account. Please [contact us](mailto:dataprogrammer@super.ai) to create an account.
-  - Make sure you are running python >= `3.6` and < `3.9`. Python `3.9.1` is not yet supported.
+  - A superai `dataprogrammer` account. Please [contact us](mailto:dataprogrammer@super.ai) to create an account.
+  - Python >= `3.6` and < `3.9`. Python `3.9.1` is not yet supported.
+  - Java JRE installed. To verify if you have java install run `java --version`
+     - Installing java in [ubuntu 20-4](https://linoxide.com/ubuntu-how-to/install-java-ubuntu-20-04/), 
+       [Mac OSX](https://www.java.com/en/download/apple.jsp)
 
 ## Installation  
-  1. Create a virtualenv (we recommend to use [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv) or conda)
+  1. Create a virtualenv (we recommend to use [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv) or anaconda)
+     - **Anaconda** Run `conda install -c conda-forge pycryptodome` before the next steps
   2. Run `pip install --upgrade pip==20.1.1`
   3. Run `pip install "awscli"`
   4. Run `pip install --upgrade "superai>=0.1.0.alpha1"`
