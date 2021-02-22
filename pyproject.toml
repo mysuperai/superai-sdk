@@ -18,6 +18,6 @@ exclude = '''
     | dist
   )/
   | foo.py           # also separately exclude a file named foo.py in
-                     # the root of the project
+  | superai/apis/meta_ai/meta_ai_graphql_schema.py                   # the root of the project
 )
 '''
