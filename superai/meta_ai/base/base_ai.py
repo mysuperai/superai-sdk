@@ -6,7 +6,7 @@ from abc import ABCMeta, abstractmethod
 class BaseAI(metaclass=ABCMeta):
     """
     Represents a generic Python model that evaluates inputs and produces Data Program Project compatible outputs.
-    By subclassing :class:`~AIModel`, users can create customized SuperAI models, leveraging custom inference logic and
+    By subclassing :class:`~BaseAI`, users can create customized SuperAI models, leveraging custom inference logic and
     artifact dependencies.
     """
 
@@ -14,18 +14,18 @@ class BaseAI(metaclass=ABCMeta):
         self.initialized = False
         self.model = None
 
-    def load_context(self, context: AIModelContext):
+    def load_context(self, context: BaseAIContext):
         """
-        Loads artifacts from the specified :class:`~AIModelContext` that can be used by
-        :func:`~AIModel.predict` when evaluating inputs. When loading an MLflow model with
-        :func:`~load_pyfunc`, this method is called as soon as the :class:`~AIModel` is
+        Loads artifacts from the specified :class:`~BaseAIContext` that can be used by
+        :func:`~BaseAI.predict` when evaluating inputs. When loading an MLflow model with
+        :func:`~load_pyfunc`, this method is called as soon as the :class:`~BaseAI` is
         constructed.
 
-        The same :class:`~AIModelContext` will also be available during calls to
-        :func:`~AIModel.handle`, but it may be more efficient to override this method
+        The same :class:`~BaseAIContext` will also be available during calls to
+        :func:`~BaseAI.handle`, but it may be more efficient to override this method
         and load artifacts from the context at model load time.
 
-        :param context: A :class:`~AIModelContext` instance containing artifacts §that the model
+        :param context: A :class:`~BaseAIContext` instance containing artifacts §that the model
                         can use to perform inference.
         """
         pass
@@ -41,10 +41,10 @@ class BaseAI(metaclass=ABCMeta):
         """
         pass
 
-    def initialize(self, context: "AIModelContext"):
+    def initialize(self, context: "BaseAIContext"):
         """
-        Initialize model and loads model artifact using :func:`~AIModel.load_context`. In the base
-        func:`~AIModel.handle` implementation, this function is called during model loading time.
+        Initialize model and loads model artifact using :func:`~BaseAI.load_context`. In the base
+        func:`~BaseAI.handle` implementation, this function is called during model loading time.
 
         Post-condition is to set self.initialized to True
 
@@ -97,7 +97,7 @@ class BaseAI(metaclass=ABCMeta):
         """
         Call preprocess, inference and post-process functions
         :param data: input data
-        :param context: AIModelContext context
+        :param context: BaseAIContext context
         """
         if not self.initialized:
             self.initialize()
@@ -110,12 +110,12 @@ class BaseAI(metaclass=ABCMeta):
         return self.postprocess(model_out)
 
 
-class AIModelContext(object):
+class BaseAIContext(object):
     """
-    A collection of artifacts that a :class:`~AIModel` can use when performing inference.
-    :class:`~AIModelContext` objects are created *implicitly* by the
-    :func:`save_model() <superai.metaai.save_model>` and
-    :func:`post_model() <superai.metaai.post_model>` persistence methods, using the contents specified
+    A collection of artifacts that a :class:`~BaseAI` can use when performing inference.
+    :class:`~BaseAIContext` objects are created *implicitly* by the
+    :func:`save_model() <superai.meta_ai.save_ai>` and
+    :func:`post_model() <superai.meta_ai.post_ai>` persistence methods, using the contents specified
     by the ``artifacts`` parameter of these methods.
     """
 

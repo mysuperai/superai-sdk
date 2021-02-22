@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Dict, List, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
-    from superai.metaai import BaseAI
+    from superai.meta_ai import BaseAI
 
 
 class AI:
@@ -43,7 +43,7 @@ class AI:
         :param description: A free text description. Allows the user to describe the ai's intention.
 
         :param weights_path: Path to a file or directory containing model data. This is accessible in the
-                          :func:`BaseAI.load_weights(weights_path) <superai.metaai.base.BaseAI.load_weights>
+                          :func:`BaseAI.load_weights(weights_path) <superai.meta_ai.base.BaseAI.load_weights>
 
         :param requirements: A list of pypi requirements or the path to a requirements.txt file. If the both this
                              parameter and the :param: conda_env is specified an ValaueError is raised.
@@ -67,7 +67,7 @@ class AI:
                                 ]
                             }
 
-        :param ai_class: An instance of a subclass of :class:`~AIModel`. This class is serialized using the CloudPickle
+        :param ai_class: An instance of a subclass of :class:`~BaseAI`. This class is serialized using the CloudPickle
                          library. Any dependencies of the class should be included in one of the following locations:
 
                                 - The SuperAI library.
@@ -82,8 +82,8 @@ class AI:
         :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs are resolved
                           to absolute filesystem paths, producing a dictionary of ``<name, absolute_path>`` entries.
                           ``ai_class`` can reference these resolved entries as the ``artifacts`` property of the
-                          ``context`` parameter in :func:`AIModel.load_context() <superai.metaai.models.AIModel.load_context>`
-                          and :func:`AIModel.predict() <superai.metaai.models.AIModel.predict>`.
+                          ``context`` parameter in :func:`BaseAI.load_context() <superai.meta_ai.base.BaseAI.load_context>`
+                          and :func:`BaseAI.predict() <superai.meta_ai.base.BaseAI.predict>`.
 
                           For example, consider the following ``artifacts`` dictionary::
 
@@ -111,7 +111,7 @@ class AI:
         """
         raise NotImplementedError("Method not supported")
 
-    def transition_model_version_stage(self, version: int, stage: str, archive_existing: bool = True):
+    def transition_ai_version_stage(self, version: int, stage: str, archive_existing: bool = True):
         """
         Transitions an AI version number to the specify stage.
 
@@ -138,7 +138,7 @@ class AI:
         """
         Updates the ai_class. Running this operation will increase the ai version.
 
-        :param ai_class: An instance of a subclass of :class:`~AIModel`.
+        :param ai_class: An instance of a subclass of :class:`~BaseAI`.
         :return:
         """
         pass
@@ -150,7 +150,7 @@ class AI:
         :param version: New AI version number. If the version number already exists, this method will fail.
         :param stage: New AI stage.
         :param weights_path: New path to a file or directory containing model data.
-        :param ai_class: An instance of a subclass of :class:`~AIModel`.
+        :param ai_class: An instance of a subclass of :class:`~BaseAI`.
         :return:
         """
         pass

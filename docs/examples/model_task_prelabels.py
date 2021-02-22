@@ -4,8 +4,8 @@ import superai_schema.universal_schema.data_types as dt
 import superai_schema.universal_schema.task_schema_functions as df
 from superai_schema.universal_schema.data_types import bundle as Schema
 from superai.data_program import DataProgram, Project, Task, Worker
-from superai.metaai import AI
-from superai.metaai.base import BaseAI
+from superai.meta_ai import AI
+from superai.meta_ai.base import BaseAI
 
 from superai.data_program import Project, DataProgram, Worker, Task
 
