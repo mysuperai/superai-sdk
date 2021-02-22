@@ -2,8 +2,8 @@ import uuid
 
 import superai_schema.universal_schema.data_types as dt
 from superai.data_program import Project, Worker
-from superai.metaai import AI
-from superai.metaai.base import BaseAI
+from superai.meta_ai import AI
+from superai.meta_ai.base import BaseAI
 from superai_schema.universal_schema.data_types import bundle as Schema
 
 
@@ -54,7 +54,7 @@ ai1 = AI(
 )
 
 # Transitions version 1 to `"production"` stage
-ai1.transition_model_version_stage(version=1, stage="production")
+ai1.transition_ai_version_stage(version=1, stage="production")
 
 # Updates the weights_path and creates a new ai version
 ai1.update_weights_path(weights_path="./new_path")
