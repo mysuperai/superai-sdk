@@ -102,18 +102,18 @@ client.create_jobs(
 # Creating a data program
 
 ## Requirements
-  - A superai `dataprogrammer` account. Please [contact us](mailto:dataprogrammer@super.ai) to create an account.
-  - Python >= `3.6` and < `3.9`. Python > `3.9` is not yet supported.
-  - Java JRE installed. To verify if you have java install run `java --version`
-     - Installing java in [Ubuntu 20-4](https://linoxide.com/ubuntu-how-to/install-java-ubuntu-20-04/),
+  - A super.AI data programmer account. Please [contact us](mailto:dataprogrammer@super.ai) to create an account.
+  - Python >= `3.6` and < `3.9`. Python > `3.9` is not yet supported
+  - Java JRE installed. To verify if you have Java installed, run `java --version`. If you don't have it installed, follwing the relevant installation instructions:
+     - [Ubuntu 20-4](https://linoxide.com/ubuntu-how-to/install-java-ubuntu-20-04/),
        [Ubuntu 18-04](https://www.digitalocean.com/community/tutorials/how-to-install-java-with-apt-on-ubuntu-18-04),
        [Ubuntu 16-04](https://www.atlantic.net/hipaa-compliant-hosting/how-to-install-java-jre-jdk-ubuntu-16-04/),
        [Mac OSX](https://www.java.com/en/download/apple.jsp)
-  - **Note** If you are a windows user, you will need to install [Windows Subsystem for Linux(WSL)](https://docs.microsoft.com/en-us/windows/wsl/install-win10#manual-installation-steps)
+  - **Note** If you are a Windows user, you will need to [install Windows Subsystem for Linux(WSL)](https://docs.microsoft.com/en-us/windows/wsl/install-win10#manual-installation-steps)
 
 ## Installation  
-  1. Create a virtualenv (we recommend to use [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv) or anaconda)
-     - **Anaconda** Run `conda install -c conda-forge pycryptodome` before the next steps
+  1. Create and activate a virtual environment (we recommend using [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv) or anaconda)
+     - If you're using, Anaconda, run `conda install -c conda-forge pycryptodome` before moving on
   2. Run `pip install --upgrade pip==20.1.1`
   3. Run `pip install "awscli"`
   4. Run `pip install --upgrade "superai>=0.1.0.alpha1"`
