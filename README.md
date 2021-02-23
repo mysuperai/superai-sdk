@@ -104,7 +104,7 @@ client.create_jobs(
 ## Requirements
   - A super.AI data programmer account. Please [contact us](mailto:dataprogrammer@super.ai) to create an account.
   - Python >= `3.6` and < `3.9`. Python > `3.9` is not yet supported
-  - Java JRE installed. To verify if you have Java installed, run `java --version`. If you don't have it installed, follwing the relevant installation instructions:
+  - Java JRE installed. To verify if you have Java installed, run `java --version`. If you don't have it installed, follow the relevant installation instructions:
      - [Ubuntu 20-4](https://linoxide.com/ubuntu-how-to/install-java-ubuntu-20-04/),
        [Ubuntu 18-04](https://www.digitalocean.com/community/tutorials/how-to-install-java-with-apt-on-ubuntu-18-04),
        [Ubuntu 16-04](https://www.atlantic.net/hipaa-compliant-hosting/how-to-install-java-jre-jdk-ubuntu-16-04/),
