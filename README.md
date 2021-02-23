@@ -1,6 +1,6 @@
 # Super.AI API client
 
-The super.AI Python library provides access to the super.AI API via Python and our command line interface (CLI). Full details on our API are listed in our [API reference](https://super.ai/reference).
+The super.AI Python library provides access to the super.AI API via Python and our command line interface (CLI). Full details on our API are listed in our [API reference](https://super.ai/reference). For data programmers, we also offer the Data Program Builder.
 
 In this README, you will find the following sections:
 
@@ -8,6 +8,7 @@ In this README, you will find the following sections:
 - [CLI usage](#cli-usage)
 - [CLI commands](#cli-commands)
 - [Python usage](#python-usage)
+- [Data Program Builder](#data-program-builder)
 
 ## Installation
 
@@ -99,7 +100,9 @@ client.create_jobs(
 )
 ```
 
-# Creating a data program
+# Data Program Builder
+
+The super.AI Data Program Builder is a Python SDK that lets you create your own Data Programs. Take a look at our [full documentation](https://super.ai/docs/data-program-builder-overview).
 
 ## Requirements
   - Have a superai `dataprogrammer` account. Please [contact us](mailto:dataprogrammer@super.ai) to create an account.
