@@ -2,6 +2,7 @@ import os
 from abc import ABC, abstractmethod
 from typing import Dict, List
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from superai.data_program import DataProgram
 
@@ -15,11 +16,11 @@ log = logger.get_logger(__name__)
 
 class Router(ABC):
     def __init__(
-            self,
-            name: str = 'router',  # Can't get overriden for now
-            dataprorgam: 'DataProgram' = None,
-            client: Client = None,
-            ** kwargs,
+        self,
+        name: str = "router",  # Can't get overriden for now
+        dataprorgam: "DataProgram" = None,
+        client: Client = None,
+        **kwargs,
     ):
         """
 
@@ -28,7 +29,7 @@ class Router(ABC):
         :param prefix:
         :param name:
         """
-        if name != 'router':
+        if name != "router":
             raise AttributeError("Router name is constraint to 'router'")
 
         self.name = name

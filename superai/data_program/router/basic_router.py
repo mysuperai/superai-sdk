@@ -2,6 +2,7 @@ import logging
 import os
 from typing import Dict, List
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from superai.data_program import DataProgram
 
@@ -31,11 +32,11 @@ log = logger.get_logger(__name__)
 
 class BasicRouter(Router):
     def __init__(
-            self,
-            name: str = 'router',  # Can't get overriden for now
-            client: Client = None,
-            dataprorgam: 'DataProgram' = None,
-            **kwargs,
+        self,
+        name: str = "router",  # Can't get overriden for now
+        client: Client = None,
+        dataprorgam: "DataProgram" = None,
+        **kwargs,
     ):
         # TODO: Enable measurer and notify
         super().__init__(
