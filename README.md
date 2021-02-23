@@ -1,6 +1,6 @@
 # Super.AI API client
 
-The super.AI Python library provides access to the super.AI API via Python and our command line interface (CLI). Full details on our API are listed in our [API reference](https://super.ai/reference).
+The super.AI Python library provides access to the super.AI API via Python and our command line interface (CLI). Full details on our API are listed in our [API reference](https://super.ai/reference). For data programmers, we also offer the Data Program Builder.
 
 In this README, you will find the following sections:
 
@@ -8,6 +8,7 @@ In this README, you will find the following sections:
 - [CLI usage](#cli-usage)
 - [CLI commands](#cli-commands)
 - [Python usage](#python-usage)
+- [Data Program Builder](#data-program-builder)
 
 ## Installation
 
@@ -99,14 +100,23 @@ client.create_jobs(
 )
 ```
 
-# Creating a data program
+# Data Program Builder
+
+The super.AI Data Program Builder is a Python SDK that lets you create your own Data Programs. Take a look at our [full documentation](https://super.ai/docs/data-program-builder-overview).
 
 ## Requirements
-  - Have a superai `dataprogrammer` account. Please [contact us](mailto:dataprogrammer@super.ai) to create an account.
-  - Make sure you are running python >= `3.6` and < `3.9`. Python `3.9.1` is not yet supported.
+  - A super.AI data programmer account. Please [contact us](mailto:dataprogrammer@super.ai) to create an account.
+  - Python >= `3.6` and < `3.9`. Python > `3.9` is not yet supported.
+  - Java JRE installed. To verify if you have Java installed, run `java --version`. If you don't have it installed, follow the relevant installation instructions:
+     - [Ubuntu 20-4](https://linoxide.com/ubuntu-how-to/install-java-ubuntu-20-04/),
+       [Ubuntu 18-04](https://www.digitalocean.com/community/tutorials/how-to-install-java-with-apt-on-ubuntu-18-04),
+       [Ubuntu 16-04](https://www.atlantic.net/hipaa-compliant-hosting/how-to-install-java-jre-jdk-ubuntu-16-04/),
+       [Mac OSX](https://www.java.com/en/download/apple.jsp)
+  - **Note** If you are a Windows user, you will need to [install Windows Subsystem for Linux(WSL)](https://docs.microsoft.com/en-us/windows/wsl/install-win10#manual-installation-steps)
 
 ## Installation  
-  1. Create a virtualenv (we recommend to use [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv) or conda)
+  1. Create and activate a virtual environment (we recommend using [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv) or Anaconda)
+     - If you're using Anaconda, run `conda install -c conda-forge pycryptodome` before moving on
   2. Run `pip install --upgrade pip==20.1.1`
   3. Run `pip install "awscli"`
   4. Run `pip install --upgrade "superai>=0.1.0.alpha1"`
