@@ -103,7 +103,7 @@ client.create_jobs(
 
 ## Requirements
   - A super.AI data programmer account. Please [contact us](mailto:dataprogrammer@super.ai) to create an account.
-  - Python >= `3.6` and < `3.9`. Python > `3.9` is not yet supported
+  - Python >= `3.6` and < `3.9`. Python > `3.9` is not yet supported.
   - Java JRE installed. To verify if you have Java installed, run `java --version`. If you don't have it installed, follow the relevant installation instructions:
      - [Ubuntu 20-4](https://linoxide.com/ubuntu-how-to/install-java-ubuntu-20-04/),
        [Ubuntu 18-04](https://www.digitalocean.com/community/tutorials/how-to-install-java-with-apt-on-ubuntu-18-04),
@@ -112,8 +112,8 @@ client.create_jobs(
   - **Note** If you are a Windows user, you will need to [install Windows Subsystem for Linux(WSL)](https://docs.microsoft.com/en-us/windows/wsl/install-win10#manual-installation-steps)
 
 ## Installation  
-  1. Create and activate a virtual environment (we recommend using [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv) or anaconda)
-     - If you're using, Anaconda, run `conda install -c conda-forge pycryptodome` before moving on
+  1. Create and activate a virtual environment (we recommend using [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv) or Anaconda)
+     - If you're using Anaconda, run `conda install -c conda-forge pycryptodome` before moving on
   2. Run `pip install --upgrade pip==20.1.1`
   3. Run `pip install "awscli"`
   4. Run `pip install --upgrade "superai>=0.1.0.alpha1"`
