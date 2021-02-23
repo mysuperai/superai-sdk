@@ -6,6 +6,7 @@ default:
     websocket: "@jinja wss://bapi{{this.suffix | lower}}.super.ai/agent"
   backend: "ws"
   base_url: "@jinja https://api{{this.suffix | lower}}.super.ai/v1"
+  meta_ai_base: "@jinja https://metaai{{this.suffix | lower}}.super.ai/v1/graphql"
   build_manifest: "build_manifest.yml"
   cognito:
     client_id: "41t3in8ao7fesog76qtskpkkev"
