@@ -1,13 +1,11 @@
 import uuid
-import cv2
 
+import cv2
 import superai_schema.universal_schema.data_types as dt
 import superai_schema.universal_schema.task_schema_functions as df
-from superai import Client
-import requests
-from superai_dataclient.data_helper import DataHelper
 
-from superai.data_program import DataProgram, Task, Project, Worker
+from superai import Client
+from superai.data_program import DataProgram, Project, Task, Worker
 from superai.utils import load_api_key
 
 dp_definition = {
@@ -55,7 +53,6 @@ def single_task_workflow(inputs, params):
 
 dp.add_workflow(single_task_workflow, name="basic_vbbk", default=True)
 
-
 # ------------------------------------------------------------------------------------
 
 # Create a project
@@ -67,14 +64,12 @@ project = Project(
         "Detailed instructions are provided for each facial part below.",
         "keypoint_specs_url": "https://superai-public.s3.amazonaws.com/example_imgs/vbbk/keypoint_template.json",
     },
-    uuid="0563206c-6cb8-43c1-bced-36a48038af80",
 )
 
 # Submit data for labelling
 input_urls = [
     "https://superai-public.s3.amazonaws.com/example_imgs/vbbk/sample_eye_1.mp4",
-    # "https://superai-public.s3.amazonaws.com/example_imgs/vbbk/sample_mouth_1.mp4",
-    "data://3485/default/sample_mouth_1.mp4",
+    "https://superai-public.s3.amazonaws.com/example_imgs/vbbk/sample_mouth_1.mp4",
 ]
 job_inputs = [{"video_url": u} for u in input_urls]
 labels = project.process(inputs=job_inputs, worker=Worker.me, open_browser=True)
