@@ -15,9 +15,9 @@ class Worker(str, enum.Enum):
 
 
 class Task:
-    def __init__(self, name: str = None, max_retries: int = 0, max_attempts: int = None):
+    def __init__(self, name: str = None, max_attempts: int = 1):
         self.name = name or f"TaskName-{uuid.uuid5()}"
-        self.max_attempts = max_retries + 1 if not max_attempts else max_attempts
+        self.max_attempts = 1 if not max_attempts else max_attempts
         self._task_future = None
         self._task_future_result = None
 
