@@ -79,5 +79,5 @@ input_urls = [
     "https://superai-public.s3.amazonaws.com/example_imgs/vbbk/sample_eye_1.mp4",
     "https://superai-public.s3.amazonaws.com/example_imgs/vbbk/sample_mouth_1.mp4"
 ]
-job_inputs = [{"video_url": u for u in input_urls}]
+job_inputs = [{"video_url": u} for u in input_urls]
 labels = project.process(inputs=job_inputs, worker=Worker.me, open_browser=True)
