@@ -87,15 +87,40 @@ class DataApiMixin(ABC):
 
     def get_signed_url(self, path: str, secondsTtl: int = 600) -> dict:
         """
-        Get signed url for a dataset given its path
-        :param path: Dataset's path
-        :param secondsTtl: Time to live for signed url
-        :return: Dict with signedUrl of dataset
+        Get signed url for a dataset given its path. If the path is not a proper data path returns an unsigned URL in
+        the response object
+
+        :param path: Dataset's path e.g. `"data://.."`
+        :param secondsTtl: Time to live for signed url. Max is restricted to 7 days
+        :return: Dictionary in the form {
+                    "ownerId": int # The data owner
+                    "path": str # The data path
+                    "signedUrl": str # Signed url
+                }
         """
+        if not path.startswith("data://"):
+            return {"ownerId": -1, "path": None, "signedUrl": path}
+
         uri = f"{self.resource}/url"
         return self.request(
             uri, method="GET", query_params={"path": path, "secondsTtl": secondsTtl}, required_api_key=True
         )
+
+    def download_data(self, uri: str):
+        """
+        Downloads data given a `"data://..."` or URL path.
+
+        :param uri: Dataset's path or URL. If the URI is a `data` path then a signed URL will be generated first. If a
+                    standard URL is passed then the `requests` library is used to load the URL and return the content
+                    using response.json()
+        :return: URL content
+        """
+        signed_url = self.get_signed_url(uri) if uri.startswith("data://") else uri
+        res = requests.get(signed_url, timeout=5)
+        if res.status_code == 200:
+            return res.json()
+        else:
+            raise Exception(res.reason)
 
     def delete_data(self, path: str) -> dict:
         """

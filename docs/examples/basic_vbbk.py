@@ -3,10 +3,12 @@ import cv2
 
 import superai_schema.universal_schema.data_types as dt
 import superai_schema.universal_schema.task_schema_functions as df
+from superai import Client
+import requests
 from superai_dataclient.data_helper import DataHelper
 
 from superai.data_program import DataProgram, Task, Project, Worker
-
+from superai.utils import load_api_key
 
 dp_definition = {
     "input_schema": dt.bundle(video_url=dt.VIDEO),
@@ -23,9 +25,9 @@ dp = DataProgram(name=DP_NAME, definition=dp_definition, add_basic_workflow=Fals
 
 
 def single_task_workflow(inputs, params):
+    client = Client(api_key=load_api_key())
     # Sign video URL if it is a datasets URL
-    data_helper = DataHelper()
-    signed_url = data_helper.get_data_url(inputs["video_url"])
+    signed_url = client.get_signed_url(inputs["video_url"]).get("signedUrl")
 
     # Get video frame rate
     vid = cv2.VideoCapture(signed_url)
@@ -36,7 +38,7 @@ def single_task_workflow(inputs, params):
     # Get keypoint specs json
     # This should contain boxChoices, keypointChoices and keypointTemplates in a form compliant with
     # the VIDEO_BOUNDING_BOX_KEYPOINT schema
-    keypoint_specs = data_helper.download(params['keypoint_specs_url'])
+    keypoint_specs = client.download_data(params["keypoint_specs_url"])
 
     task = Task(name="annotate_vbbk", max_attempts=10)
     task_inputs = [
