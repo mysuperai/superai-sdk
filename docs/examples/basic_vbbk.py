@@ -38,7 +38,7 @@ def single_task_workflow(inputs, params):
     # the VIDEO_BOUNDING_BOX_KEYPOINT schema
     keypoint_specs = data_helper.download(params['keypoint_specs_url'])
 
-    task = Task(name="annotate_vbbk")
+    task = Task(name="annotate_vbbk", max_attempts=10)
     task_inputs = [
         df.text(params['instructions'])
     ]
