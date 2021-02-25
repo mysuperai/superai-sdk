@@ -19,6 +19,8 @@ dp = DataProgram(name=DP_NAME, definition=dp_definition, add_basic_workflow=Fals
 
 
 def single_task_workflow(inputs, params):
+    video_url = inputs["video_url"]
+
     # Sign video URL if it is a datasets URL
     signed_url = sign_url(inputs["video_url"])
 
@@ -37,7 +39,7 @@ def single_task_workflow(inputs, params):
     task_inputs = [df.text(params["instructions"])]
     task_outputs = [
         df.video_bounding_box_keypoint(
-            video_url=signed_url,
+            video_url=video_url,
             frame_rate=frames_per_sec,
             box_choices_obj=keypoint_specs["boxChoices"],
             keypoint_choices_obj=keypoint_specs["keypointChoices"],
