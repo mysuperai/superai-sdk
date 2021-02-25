@@ -46,7 +46,7 @@ class Project:
         # If the dp_name is not specified we assume that the data programmer's intention is to create a basic data
         # program dataprogram in order to quickly check how the data annotation works. Therefore we create a dataprogram from
         # the dp_definition
-        if not self.dataprogram:
+        if not self.dataprogram and dp_definition:
             self.dataprogram = DataProgram(name=dp_name, definition=dp_definition)
 
         # TODO: 1. Load dataprogram if exists
@@ -126,7 +126,7 @@ class Project:
             )
 
         # TODO: Add parameter
-        body_json["canoticCrowd"] = True
+        body_json["canoticCrowd"] = False
 
         # TODO: Add description support in nacelle
         # if description is not None:
