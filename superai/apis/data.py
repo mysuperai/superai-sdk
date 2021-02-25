@@ -1,6 +1,7 @@
-import requests
 from abc import ABC, abstractmethod
 from typing import BinaryIO, Generator, List
+
+import requests
 
 from superai.exceptions import SuperAIStorageError
 
@@ -87,15 +88,34 @@ class DataApiMixin(ABC):
 
     def get_signed_url(self, path: str, secondsTtl: int = 600) -> dict:
         """
-        Get signed url for a dataset given its path
-        :param path: Dataset's path
-        :param secondsTtl: Time to live for signed url
-        :return: Dict with signedUrl of dataset
+        Get signed url for a dataset given its path.
+
+        :param path: Dataset's path e.g. `"data://.."`
+        :param secondsTtl: Time to live for signed url. Max is restricted to 7 days
+        :return: Dictionary in the form {
+                    "ownerId": int # The data owner
+                    "path": str # The data path
+                    "signedUrl": str # Signed url
+                }
         """
         uri = f"{self.resource}/url"
         return self.request(
             uri, method="GET", query_params={"path": path, "secondsTtl": secondsTtl}, required_api_key=True
         )
+
+    def download_data(self, path: str, timeout: int = 5):
+        """
+        Downloads data given a `"data://..."` or URL path.
+
+        :param path: Dataset's path
+        :return: URL content
+        """
+        signed_url = self.get_signed_url(path)
+        res = requests.get(signed_url, timeout=timeout)
+        if res.status_code == 200:
+            return res.json()
+        else:
+            raise Exception(res.reason)
 
     def delete_data(self, path: str) -> dict:
         """
