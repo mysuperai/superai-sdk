@@ -58,6 +58,11 @@ class TaskExpired(Exception):
         self.message = message
 
 
+class TaskExpiredMaxRetries(Exception):
+    def __init__(self, message):
+        self.message = message
+
+
 class TaskResponseNull(Exception):
     def __init__(self, message):
         self.message = message

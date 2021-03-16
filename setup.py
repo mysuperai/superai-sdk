@@ -27,6 +27,7 @@ REQUIRES = [
     "jsonmerge>=1.7.0",
     "jsonpickle>=1.4.1",
     "pip>=19.1",
+    "rich>=10.1",
     "pyyaml>=3.13",
     "requests>=2.22",
     "scikit-learn>=0.23.2",
@@ -49,7 +50,7 @@ BUILD_REQUIRES = [
 DP_REQUIRES = [
     "awscli>=1.18.163",
     "superai-dataclient~=0.1.0",
-    "superai-schema~=0.0.1",
+    "superai-schema~=0.1",
 ]
 
 TEST_REQUIRES = [

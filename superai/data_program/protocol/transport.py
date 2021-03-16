@@ -620,6 +620,34 @@ def internal_error(error):
 
     f.result()
 
+@terminate_guard
+def expire_job(error):
+    """ Expire a job """
+    print(error)
+    seq = _context.sequence
+    _context.sequence += 1
+
+    params = {
+        "type": "EXPIRE_JOB",
+        "id": _context.id,
+        "sequence": seq,
+        "error": error,
+    }
+
+    message_for_agent = message(params)
+
+    with _pipe_lock:
+        writeln_to_pipe_and_flush(message_for_agent.to_json)
+
+    f = None
+    with _task_futures_lock:
+        if seq not in _task_futures[_context.id]:
+            _task_futures[_context.id][seq] = future()
+
+        f = _task_futures[_context.id][seq]
+
+    f.result()
+
 
 def _worklow_thread(id, suffix, response):
     _context.id = id
@@ -707,6 +735,28 @@ def _worklow_thread(id, suffix, response):
             "Qualifier task expired for Job #{} of type {}. "
             "error {}".format(_context.uuid, _context.job_type, str(error))
         )
+    except TaskExpiredMaxRetries as error:
+        logger.info(
+            "Task expired after maximum number of retries for Job #{} of type {}. "
+            "error {}".format(_context.uuid, _context.job_type, str(error))
+        )
+        if (_context.job_type and _context.job_type=='COLLABORATOR') or response.get("jobType")=='COLLABORATOR':
+            expire_job("\nEXPIRE_JOB :: {}: {}".format(type(error), error))
+            scope_level = WARN
+        else:
+            internal_error("\nINTERNAL_ERROR :: {}: {}".format(type(error), error))
+            scope_level = FATAL
+        with sentry_sdk.push_scope() as scope:
+            scope.set_tag("job_id", id)
+            scope.set_tag("job_uuid", _context.uuid)
+            scope.set_tag("app_id", _context.app_id)
+            scope.set_tag("is_child", _context.is_child)
+            scope.set_tag(
+                "job_type",
+                _context.job_type if _context.job_type else response.get("jobType"),
+            )
+            scope.set_level(scope_level)
+            sentry_sdk.capture_exception(error)
     except ChildJobInternalError as error:
         internal_error("INTERNAL_ERROR: Job {} child threw internal error".format(_context.uuid))
         with sentry_sdk.push_scope() as scope:
