@@ -10,7 +10,7 @@ from superai.data_program.combiner.combiner_functions import (
     multiple_choice_majority,
 )
 from superai.data_program.protocol.task import get_task_type, get_task_value, task
-from superai.data_program.Exceptions import TaskExpired, UnexpectedDataType, UnknownTaskStatus
+from superai.data_program.Exceptions import TaskExpired, TaskExpiredMaxRetries, UnexpectedDataType, UnknownTaskStatus
 
 CM_OFFICE_METRIC = "crowd_manager_office"
 
@@ -55,7 +55,7 @@ def resend_task(
             continue
         else:
             raise UnknownTaskStatus(str(result.status()))
-    raise TaskExpired("No crowd hero responded to task after " + str(n_resend) + "retries.")
+    raise TaskExpiredMaxRetries("No crowd hero responded to task after " + str(n_resend) + "retries.")
 
 
 def resend_task_prioritize_cm_office(
@@ -109,7 +109,7 @@ def resend_task_prioritize_cm_office(
             continue
         else:
             raise UnknownTaskStatus(str(result.status()))
-    raise TaskExpired("No crowd hero responded to task after " + str(n_resend) + "retries.")
+    raise TaskExpiredMaxRetries("No crowd hero responded to task after " + str(n_resend) + "retries.")
 
 
 def review_task(
