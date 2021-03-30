@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 NAME = "superai"
-VERSION = "0.1.0.alpha2.dev1"
+VERSION = "0.1.0.alpha3"
 # To install the library, run the following
 #
 # python setup.py install
@@ -27,6 +27,7 @@ REQUIRES = [
     "jsonmerge>=1.7.0",
     "jsonpickle>=1.4.1",
     "pip>=19.1",
+    "rich>=10.1",
     "pyyaml>=3.13",
     "requests>=2.22",
     "scikit-learn>=0.23.2",
