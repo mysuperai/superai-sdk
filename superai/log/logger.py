@@ -5,6 +5,7 @@ import itertools
 import logging
 import sys
 from logging.handlers import RotatingFileHandler
+from rich.logging import RichHandler
 from typing import List
 
 DEBUG = logging.DEBUG
@@ -13,7 +14,7 @@ ERROR = logging.ERROR
 WARNING = logging.WARNING
 DEFAULT_LOG_FILENAME = "superai.log"
 _log_format = (
-    "%(asctime)s - %(levelname)s - %(filename)s - %(threadName)s - [%(name)s:%(funcName)s:%(lineno)s] - %(message)s"
+    "%(message)s - %(threadName)s"
 )
 _date_format = "%Y-%m-%d %H:%M:%S"
 _style = "{"
@@ -32,14 +33,6 @@ def create_file_handler(
     handler = RotatingFileHandler(log_filename, maxBytes=max_bytes, backupCount=backup_count)
     handler.setFormatter(formatter)
     return handler
-
-
-def create_console_handler(log_format=_log_format, stream=sys.stdout):
-    """ Create logging to stream """
-    formatter = CustomFormatter(fmt=log_format, datefmt=_date_format)
-    console_handler = logging.StreamHandler(stream)
-    console_handler.setFormatter(formatter)
-    return console_handler
 
 
 def get_logger(name=None, propagate=True):
@@ -82,7 +75,7 @@ def init(filename=None, console=True, log_level=INFO, log_format=_log_format):
 
     log_handlers: List[logging.Handler] = []
     if console:
-        log_handlers.append(create_console_handler(log_format=log_format))
+        log_handlers.append(RichHandler(rich_tracebacks=True, omit_repeated_times=False))
     if filename is not None:
         log_handlers.append(create_file_handler(log_format=log_format, log_filename=filename))
 
