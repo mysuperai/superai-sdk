@@ -4,6 +4,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import itertools
 import logging
 import sys
+import os
 from logging.handlers import RotatingFileHandler
 from rich.logging import RichHandler
 from typing import List
@@ -14,6 +15,9 @@ ERROR = logging.ERROR
 WARNING = logging.WARNING
 DEFAULT_LOG_FILENAME = "superai.log"
 _log_format = (
+    "%(asctime)s - %(levelname)s - %(filename)s - %(threadName)s - [%(name)s:%(funcName)s:%(lineno)s] - %(message)s"
+)
+_rich_log_format = (
     "%(message)s - %(threadName)s"
 )
 _date_format = "%Y-%m-%d %H:%M:%S"
@@ -33,6 +37,18 @@ def create_file_handler(
     handler = RotatingFileHandler(log_filename, maxBytes=max_bytes, backupCount=backup_count)
     handler.setFormatter(formatter)
     return handler
+
+def create_non_cli_handler(log_format=_log_format, stream=sys.stdout):
+    """ Create logging to non-CLI console (like ECS) """
+    formatter = CustomFormatter(fmt=log_format, datefmt=_date_format)
+    console_handler = logging.StreamHandler(stream)
+    console_handler.setFormatter(formatter)
+    return console_handler
+
+def create_cli_handler():
+    """ Create logging handler for CLI with rich structured output """
+    rich_handler = RichHandler(rich_tracebacks=True, omit_repeated_times=False)
+    return rich_handler
 
 
 def get_logger(name=None, propagate=True):
@@ -75,15 +91,24 @@ def init(filename=None, console=True, log_level=INFO, log_format=_log_format):
 
     log_handlers: List[logging.Handler] = []
     if console:
-        log_handlers.append(RichHandler(rich_tracebacks=True, omit_repeated_times=False))
+        if os.getenv("ECS", False) or os.getenv("JENKINS_URL", False):
+            log_handlers.append(create_non_cli_handler(log_format=log_format))
+        else:
+            # Use Rich for CLI
+            log_handlers.append(create_cli_handler())
+            # Set Format to short type for Rich
+            log_format = _rich_log_format
+
     if filename is not None:
-        log_handlers.append(create_file_handler(log_format=log_format, log_filename=filename))
+        # Alwoys log to file with verbose format
+        log_handlers.append(create_file_handler(log_format=_log_format, log_filename=filename))
 
     for pair in itertools.product(loggers, log_handlers):
         pair[0].addHandler(pair[1])
         pair[0].setLevel(log_level)
 
-    logging.basicConfig(format=_log_format, level=log_level, handlers=log_handlers)
+    # Set Logging config based on CLI/Non/CLI Format
+    logging.basicConfig(format=log_format, level=log_level, handlers=log_handlers)
     log = get_logger(__name__)
     if log_level > logging.INFO:
         log.log(level=log_level, msg=f"super.Ai logger initialized with log_level={log_level}")
