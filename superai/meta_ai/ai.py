@@ -1,52 +1,377 @@
 from __future__ import annotations
 
-from typing import Dict, List, TYPE_CHECKING, Union
+import copy
+import datetime
+import enum
+import json
+import os
+import re
+import shutil
+import tarfile
+import time
+import traceback
+from abc import abstractmethod, ABCMeta
+from typing import Dict, List, TYPE_CHECKING, Union, Type, Optional, TypeVar
+
+import boto3
+import cloudpickle as pickle
+import docker
+import pandas as pd
+import requests
+import yaml
+from colorama import Fore, Style
+from docker.models.containers import Container
+from jinja2 import Template
+from superai import Client
+from superai.exceptions import ModelNotFoundError
+from superai.log import logger
+from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters, Config
+from superai.meta_ai.schema import Schema, SchemaParameters
+from superai.utils import retry, load_api_key, load_auth_token, load_id_token
 
 if TYPE_CHECKING:
-    from superai.meta_ai import BaseAI
+    from superai.meta_ai import BaseModel, dockerizer
+
+log = logger.get_logger(__name__)
+
+runner_script = f"""
+import json
+from superai.meta_ai.ai import AI
+
+class ModelService:
+    initialized = False
+
+    def __init__(self):
+        self.ai = None
+        
+    def initialize(self):
+        self.initialized = True
+        self.ai = AI.load_local("/home/model-server/", "/opt/ml/model/")
+        
+    def predict(self, context, data):    
+        data = json.loads(data[0]["body"].decode("utf-8"))
+        return self.ai.predict(data)
+
+    def handle(self, data, context):
+        if not self.initialized:
+            self.initialize()
+        if not data:
+            return None
+        return self.predict(context, data)
+"""
+
+server_script = """
+import subprocess
+import sys
+import shlex
+import os
+from retrying import retry
+from subprocess import CalledProcessError
+from sagemaker_inference import model_server
+
+
+def _retry_if_error(exception):
+    return isinstance(exception, CalledProcessError or OSError)
+
+
+@retry(stop_max_delay=1000 * 50,
+       retry_on_exception=_retry_if_error)
+def _start_mms():
+    os.environ['SAGEMAKER_MODEL_SERVER_WORKERS'] = "{{worker_count}}"
+    model_server.start_model_server(handler_service='/home/model-server/handler.py:ModelService.handle')
+
+
+def main():
+    if sys.argv[1] == "deploy":
+        _start_mms()
+    else:
+        subprocess.check_call(shlex.split(' '.join(sys.argv[1:])))
+
+    # prevent docker exit
+    subprocess.call(['tail', '-f', '/dev/null'])
+
+main()
+"""
+
+
+class Stage(str, enum.Enum):
+    DEV = "DEV"
+    PROD = "PROD"
+    STAGING = "STAGING"
+    LATEST = "LATEST"
+    SANDBOX = "SANDBOX"
+
+
+class Mode(str, enum.Enum):
+    LOCAL = "LOCAL"
+    AWS = "AWS"
+    KUBERNETES = "KUBERNETES"
+
+
+class DeployedPredictor(metaclass=ABCMeta):
+    Type = TypeVar("Type", bound="DeployedPredictor")
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    @abstractmethod
+    def predict(self, input_data):
+        pass
+
+
+class LocalPredictor(DeployedPredictor):
+    def __init__(self, *args, **kwargs):
+        super(LocalPredictor, self).__init__(*args, **kwargs)
+        client = docker.from_env()
+        self.container: Container = client.containers.run(
+            kwargs["image_name"],
+            detach=True,
+            volumes={
+                os.path.abspath(kwargs["weights_path"]): {
+                    "bind": "/opt/ml/model/",
+                    "mode": "rw",
+                }
+            },
+            ports={8080: 80, 8081: 8081},
+        )
+        log.info("Started container in serving mode.")
+
+    def predict(self, input, mime="application/json"):
+        url = f"http://localhost/invocations"
+        headers = {"Content-Type": mime}
+        if mime.endswith("json"):
+            res = requests.post(url, json=input, headers=headers)
+        else:
+            if os.path.exists(input):
+                with open(input, "rb") as f:
+                    payload = f.read()
+            else:
+                payload = input
+            res = requests.post(url, data=payload, headers=headers)
+        if res.status_code == 200:
+            return res.json()
+        else:
+            message = "Error , received error code {}: {}".format(res.status_code, res.text)
+            logger.error(message)
+
+
+class AWSPredictor(DeployedPredictor):
+    def __init__(self, client: Client, name: str, version: int):
+        super().__init__()
+        self.client = client
+        self.name = name
+        self.version = version
+
+    def predict(self, input, **kwargs):
+        if self.client.check_endpoint_is_available(self.name, self.version):
+            return self.client.predict_from_endpoint(self.name, self.version, input)
+        else:
+            log.error(
+                Fore.RED + "Prediction failed as endpoint does not seem to exist, please redeploy." + Style.RESET_ALL
+            )
+            raise LookupError("Endpoint does not exist, redeploy")
+
+
+class PredictorFactory(object):
+    __predictor_classes = {"local": LocalPredictor, "aws": AWSPredictor}
+
+    @staticmethod
+    def get_predictor_obj(mode: Mode, *args, **kwargs) -> "DeployedPredictor.Type":
+        """
+        Factory method to get a predictor
+        """
+        predictor_class = PredictorFactory.__predictor_classes.get(mode.lower())
+
+        if predictor_class:
+            return predictor_class(*args, **kwargs)
+        raise NotImplementedError(f"The predictor of mode:`{mode}` is not implemented yet.")
+
+
+DeployedPredictorType = TypeVar("DeployedPredictorType", bound="DeployedPredictor")
+
+
+class AITemplate:
+    def __init__(
+        self,
+        input_schema: Schema,
+        output_schema: Schema,
+        configuration: Config,
+        model_class: Optional[Type["BaseModel"]],
+        name: str,
+        description: str,
+        requirements: Optional[Union[str, List]] = None,
+        code_path: Union[str, List[str]] = None,
+        conda_env: Union[str, Dict] = None,
+        artifacts: Optional[Dict] = None,
+        client: Client = None,
+        folder_name: str = "meta_ai_models",
+        bucket_name: str = "canotic-ai",
+        parameters=None,
+    ):
+        self.input_schema = input_schema
+        self.output_schema = output_schema
+        self.configuration = configuration
+        self.requirements = requirements
+        self.name = name
+        self.description = description
+        self.code_path = code_path
+        self.conda_env = conda_env
+        self.artifacts = artifacts
+        self.client = (
+            client
+            if client
+            else Client(
+                api_key=load_api_key(),
+                auth_token=load_auth_token(),
+                id_token=load_id_token(),
+            )
+        )
+        self.folder_name = folder_name
+        self.bucket_name = bucket_name
+        self.parameters = parameters
+        if conda_env is not None and requirements is not None:
+            raise ValueError("Both `conda_env` and `requirements` cannot be passed together")
+        if model_class is None:
+            raise NotImplementedError(
+                "Ludwig like implicit model creation is not implemented yet, please provide a model_class"
+            )
+        try:
+            self.model_class: BaseModel = model_class(
+                input_schema=input_schema, output_schema=output_schema, configuration=configuration
+            )
+        except TypeError:
+            self.model_class: BaseModel = model_class
+        except Exception as e:
+            raise Exception("Something went wrong while loading model_class: ", e)
+            # Reloading model_class in cloudpickle causes recursive failures. Usage of this object is a workaround.
+        self._ai_class_dump = None
+
+    @classmethod
+    def load_local(cls, load_path: str) -> "AITemplate":
+        with open(os.path.join(load_path, "AITemplateSaveFile.json"), "r") as json_file:
+            details = json.load(json_file)
+        requirements = os.path.join(load_path, "requirements.txt") if details.get("requirements") is not None else None
+        conda_env = os.path.join(load_path, "conda.yml") if details.get("conda_env") is not None else None
+        code_path = details.get("code_path")
+        artifacts = details.get("artifacts")
+        if details.get("ai_class_path") is not None:
+            log.info(f"model_class associated. Loading it from ai_model file in {load_path}...")
+            with open(os.path.join(load_path, "ai_model"), "rb") as pickleReader:
+                ai_class = pickle.loads(pickleReader.read(), fix_imports=True)
+        else:
+            log.info(
+                f"No model_class associated, please make sure you have `ai_class_path` mentioned"
+                f" in AITemplateSaveFile.json"
+            )
+            ai_class = None
+
+        name = details["name"]
+        description = details["description"]
+        input_schema = Schema.from_json(details["input_schema"])
+        output_schema = Schema.from_json(details["output_schema"])
+        configuration = Config.from_json(details["configuration"])
+        return AITemplate(
+            input_schema,
+            output_schema,
+            configuration,
+            ai_class,
+            name,
+            description,
+            requirements,
+            code_path,
+            conda_env,
+            artifacts,
+        )
+
+    def save(self, version_save_path):
+        # cloudpickle save the model_class
+        ai_class_file = os.path.join(version_save_path, "ai_model")
+        assert not os.path.exists(
+            ai_class_file
+        ), f"Cannot overwrite locally existing model in {version_save_path}. Please update version"
+        if self._ai_class_dump is None:
+            self.model_class.model = None
+            self._ai_class_dump = pickle.dumps(self.model_class)
+        with open(ai_class_file, "wb") as ai_writer:
+            ai_writer.write(self._ai_class_dump)
+
+        # copy requirements file and conda_env
+        if self.conda_env is not None:
+            if type(self.conda_env) == dict:
+                with open(os.path.join(version_save_path, "conda.yml"), "w") as conda_file:
+                    yaml.dump(self.conda_env, conda_file, default_flow_style=False)
+            elif (
+                type(self.conda_env) == str
+                and os.path.exists(self.conda_env)
+                and (self.conda_env.endswith(".yml") or self.conda_env.endswith(".yaml"))
+            ):
+                shutil.copy(self.conda_env, os.path.join(version_save_path, "conda.yml"))
+            else:
+                raise ValueError("Make sure conda_env is a valid path to a .yml file or a dictionary.")
+        logger.info("Copying all code_path content")
+        if self.code_path is not None:
+            assert (
+                type(self.code_path) == list and type(self.code_path) != str
+            ), "Types don't match for code_path, please pass a list of strings."
+            for path in self.code_path:
+                shutil.copytree(path, os.path.join(version_save_path, os.path.basename(path)))
+        if self.requirements is not None:
+            if type(self.requirements) == str and os.path.exists(self.requirements):
+                shutil.copy(self.requirements, os.path.join(version_save_path, "requirements.txt"))
+            elif type(self.requirements) == list:
+                with open(os.path.join(version_save_path, "requirements.txt"), "w") as requirements_file:
+                    requirements_file.write("\n".join(self.requirements))
+            else:
+                raise ValueError(
+                    "Make sure requirements is a list of requirements or valid path to requirements.txt file"
+                )
+        with open(os.path.join(version_save_path, "AITemplateSaveFile.json"), "w") as ai_template_writer:
+            content = {
+                "description": self.description,
+                "input_schema": self.input_schema.to_json,
+                "output_schema": self.output_schema.to_json,
+                "configuration": self.configuration.to_json,
+                "name": self.name,
+                "requirements": os.path.join(version_save_path, "requirements.txt")
+                if self.requirements is not None
+                else None,
+                "code_path": self.code_path,
+                "conda_env": os.path.join(version_save_path, "conda.yml") if self.conda_env is not None else None,
+                "ai_class_path": ai_class_file,
+                "artifacts": self.artifacts,
+            }
+            json.dump(content, ai_template_writer, indent=1)
 
 
 class AI:
     def __init__(
         self,
-        ai_definition,
+        ai_template: AITemplate,
+        input_params: SchemaParameters,
+        output_params: SchemaParameters,
         name,
+        configuration: Optional[Config] = None,
         version: int = None,
-        stage: str = None,
-        description: str = None,
+        description: Optional[str] = None,
         weights_path: str = None,
-        requirements: Union[str, List] = None,
-        code_path: Union[str, List] = None,
-        conda_env: Union[str, Dict] = None,
-        ai_class: "BaseAI" = None,
-        artifacts: Dict = None,
+        overwrite=False,
+        **kwargs,
     ):
         """
         Create an ai with custom inference logic and optional data dependencies as an superai artifact.
 
-        :param ai_definition: A dictionary representation of the input and output schema. The dictionary requires two
-                              keys: ``input_schema`` and ``output_schema``. The following is an *example* dictionary
-                              representation of the schema:
-
-                                {
-                                    "input_schema": Schema(my_image=dt.IMAGE),
-                                    "output_schema": Schema(mnist_class=dt.EXCLUSIVE_CHOICE),
-                                }
-        :param name: Name of the AI. If the name already exsists, an exception will be raised
+        :param input_params and output_params, schema definition of the AI object
+        :param name: Name of the AI. If the name already exists, an exception will be raised
 
         :param version: AI integer version. If no version is specified the AI will get version 1
-
-        :param stage: The deployment stage. Over the course of the ai’s lifecycle, an ai evolves—from development
-                      to staging to production. You can transition a registered ai to one of the stages: Development,
-                      Staging, Production or Archived.
 
         :param description: A free text description. Allows the user to describe the ai's intention.
 
         :param weights_path: Path to a file or directory containing model data. This is accessible in the
-                          :func:`BaseAI.load_weights(weights_path) <superai.meta_ai.base.BaseAI.load_weights>
+                          :func:`BaseModel.load_weights(weights_path) <superai.meta_ai.base.BaseModel.load_weights>
 
         :param requirements: A list of pypi requirements or the path to a requirements.txt file. If the both this
-                             parameter and the :param: conda_env is specified an ValaueError is raised.
+                             parameter and the :param: conda_env is specified an ValueError is raised.
 
         :param code_path: A list of local filesystem paths to Python file dependencies (or directories containing file
                           dependencies). These files are *prepended* to the system path before the ai is loaded.
@@ -67,7 +392,7 @@ class AI:
                                 ]
                             }
 
-        :param ai_class: An instance of a subclass of :class:`~BaseAI`. This class is serialized using the CloudPickle
+        :param model_class: An instance of a subclass of :class:`~BaseModel`. This class is serialized using the CloudPickle
                          library. Any dependencies of the class should be included in one of the following locations:
 
                                 - The SuperAI library.
@@ -82,8 +407,9 @@ class AI:
         :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs are resolved
                           to absolute filesystem paths, producing a dictionary of ``<name, absolute_path>`` entries.
                           ``ai_class`` can reference these resolved entries as the ``artifacts`` property of the
-                          ``context`` parameter in :func:`BaseAI.load_context() <superai.meta_ai.base.BaseAI.load_context>`
-                          and :func:`BaseAI.predict() <superai.meta_ai.base.BaseAI.predict>`.
+                          ``context`` parameter in
+                                - :func:`BaseModel.load_context() <superai.meta_ai.base.BaseModel.load_context>`, and
+                                - :func:`BaseModel.predict() <superai.meta_ai.base.BaseModel.predict>`.
 
                           For example, consider the following ``artifacts`` dictionary::
 
@@ -96,13 +422,92 @@ class AI:
                           path via ``context.artifacts["my_file"]``.
 
                           If ``None``, no artifacts are added to the model.
+
+        :param parameters: [Optional] Parameters to be passed to the model, could be the model architecture parameters,
+                           or training parameters.
+                           For example: parameters=MyModel.params_schema.parameters(conv_layers=None,
+                                                                    num_conv_layers=None,
+                                                                    filter_size=3,
+                                                                    num_filters=32,
+                                                                    strides=(1, 1),
+                                                                    padding='valid',
+                                                                    dilation_rate=(1, 1),
+                                                                    conv_use_bias=True)
         """
-        pass
+
+        self.input_params = input_params
+        self.output_params = output_params
+        self.configuration = configuration
+        self.ai_template = ai_template
+        self.name = name
+        self.version = version
+        self.folder_name = self.ai_template.folder_name
+        self.bucket_name = self.ai_template.bucket_name
+        self.description = description
+        self.weights_path = weights_path
+        self.code_path = self.ai_template.code_path
+        self.conda_env = self.ai_template.conda_env
+        self.artifacts = self.ai_template.artifacts
+        self.parameters = self.ai_template.parameters
+        self.client = self.ai_template.client
+
+        self.overwrite = overwrite
+        self.stage: Optional[str] = None  # stage is not set by default
+        if "loaded" not in kwargs:
+            self.update_version_by_availability(kwargs.get("loaded", False))
+            self._location = self.save(overwrite=self.overwrite)
+        else:
+            assert kwargs.get("location") is not None, "Location cannot be None while loading"
+            self._location = kwargs.get("location")
+
+        self.model_class = copy.deepcopy(ai_template.model_class)
+        self.model_class.update_parameters(input_params, output_params)
+        if weights_path is not None:
+            self.model_class.load_weights(weights_path)
+
+        self.container = None
+
+    def __eq__(self, other):
+        if not isinstance(other, AI):
+            return False
+
+        compare_keys = [
+            "input_params",
+            "output_params",
+            "name",
+            "version",
+            "stage",
+            "description",
+            "artifacts",
+            "parameters",
+        ]
+        comparisons = [self.__dict__[key] == other.__dict__[key] for key in compare_keys]
+        return all(comparisons)
+
+    def __str__(self):
+        return (
+            f"{Fore.GREEN}AI model :{Style.RESET_ALL} "
+            f"\n\tName: {self.name} "
+            f"\n\tVersion: {self.version}"
+            f"\n\tDescription: {self.description}"
+            f"\n\tStage: {self.stage}"
+        )
+
+    def update_version_by_availability(self, loaded=False):
+        existing_models: List[Dict[str, str]] = self.ai_template.client.get_model_by_name(self.name)
+        if len(existing_models) and not loaded:
+            if self.version in [x["version"] for x in existing_models]:
+                latest_version: int = self.ai_template.client.get_latest_version_of_model_by_name(self.name)
+                self.version = latest_version + 1
+                log.info(
+                    f"Found an existing for the name and model in the database, "
+                    f"setting version to the latest version version: {self.version}"
+                )
 
     @classmethod
-    def load(cls, name, version: int = None, stage: str = None) -> AI:
+    def load_by_name_version(cls, name, version: int = None, stage: str = None) -> "AI":
         """
-        Loads an AI by name. If the version OR stage are specified that speicifc version will be loaded.
+        Loads an AI by name. If the version OR stage are specified that specific version will be loaded.
 
         :param name: AI name. *Required.
         :param version: An version number. *Required.
@@ -111,11 +516,146 @@ class AI:
         """
         raise NotImplementedError("Method not supported")
 
-    def transition_ai_version_stage(self, version: int, stage: str, archive_existing: bool = True):
+    @classmethod
+    def load(cls, path: str, weights_path: str = None) -> "AI":
         """
-        Transitions an AI version number to the specify stage.
+        Load an AI from a local or s3 path. If an s3 path is passed, the AI model will be downloaded from s3 directly.
 
-        :param version: AI version number. *Required.
+        if :param path is a valid path, the model will be loaded from the local path
+        if :param path is a valid s3 path, i.e. s3://bucket/prefix/some_model_path, the model will be downloaded from
+        s3, please note that you should manage the access to s3 using your AWS credentials.
+        if :param path is a valid model path i.e. prefix is model://some_name/version, or model://some_name/stage
+        then the DB will be referenced to find the relevant model and loaded.
+
+        Please note that a path can be considered valid only if there is an `AISaveFile.json` and `ai_model` file
+        present.
+
+        :return: AI class of the loaded model
+        """
+        if path.startswith("s3://"):
+            return cls.load_from_s3(path, weights_path)
+        elif path.startswith("model://"):
+            # get s3 path from db and load using cls.load_from_s3(path)
+            name = path.split("model://")[-1].split("/")[0]
+            log.info(f"Searching models with name `{name}` in database...")
+            all_models = list_models(name, raw=True, verbose=False)
+            if len(all_models):
+                match = re.search("(.*)/(.*)", path.split("model://" + name + "/")[-1])
+                if match is not None:
+                    stage, version = match.groups()
+                    if stage and version:
+                        selected = list(
+                            filter(
+                                lambda x: x["stage"] == stage and x["version"] == version,
+                                all_models,
+                            )
+                        )
+                        if len(selected):
+                            s3_path = selected[0]["modelSavePath"]
+                            return cls.load_from_s3(s3_path)
+                        else:
+                            raise ModelNotFoundError(
+                                f"No model found for the given stage {stage} and version {version}"
+                            )
+                    log.info("Returning the latest version in models")
+                    s3_path = all_models.sort(key=lambda x: x["version"], reverse=True)[0]["modelSavePath"]
+                    return cls.load_from_s3(s3_path)
+                else:
+                    # either stage or version is present
+                    # check for version
+                    ending = path.split(f"model://{name}/")[-1]
+                    if cls.is_valid_version(ending):
+                        s3_path = [entry for entry in all_models if entry["version"] == ending][0]["modelSavePath"]
+                    else:
+                        stage = ending
+                        selected_models = [entry for entry in all_models if entry["stage"] == stage]
+                        model_entry = selected_models.sort(key=lambda x: x["version"], reverse=True)[0]
+                        s3_path = model_entry["modelSavePath"]
+                        weights_path = model_entry["weightsPath"]
+                    return cls.load_from_s3(s3_path, weights_path)
+            else:
+                raise ModelNotFoundError(f"No models found for the given name : {name}")
+        else:
+            if os.path.exists(path):
+                return cls.load_local(path, weights_path)
+            else:
+                raise ValueError("Invalid path, please ensure the path exists")
+
+    @staticmethod
+    def is_valid_version(version: str) -> bool:
+        try:
+            int(version)
+            return True
+        except ValueError:
+            return False
+
+    @classmethod
+    def load_from_s3(cls, path, weights_path=None) -> "AI":
+        # TODO
+        log.info(f"Loading from s3 {path}...")
+        raise NotImplementedError("Not implemented yet")
+
+    @classmethod
+    def load_local(cls, load_path: str, weights_path: str = None) -> "AI":
+        """Load AI model stored locally.
+        :param weights_path: Location of weights.
+        :param load_path: The location of the AISave or any other matching folder
+        """
+        log.info(f"Attempting to load model from {load_path}...")
+        with open(os.path.join(load_path, "AISaveFile.json"), "r") as json_file:
+            details = json.load(json_file)
+        log.info("Verifying AISaveFile.json...")
+        input_params = details["input_params"]
+        output_params = details["output_params"]
+        configuration = details["configuration"]
+        name = details["name"]
+        version = details.get("version")
+        description = details.get("description")
+
+        log.info(Fore.GREEN + f"Loaded model from {load_path}" + Style.RESET_ALL)
+
+        ai_template = AITemplate.load_local(load_path)
+
+        return AI(
+            ai_template=ai_template,
+            input_params=input_params,
+            output_params=output_params,
+            name=name,
+            configuration=configuration,
+            version=version,
+            description=description,
+            weights_path=weights_path,
+            location=load_path,
+            loaded=True,
+        )
+
+    def _create_database_entry(self, **kwargs):
+        """
+        Add entry in the meta AI database
+        :param name: Name of the model
+        :param description: Description of model
+        :param version: Version of model
+        :param stage: Stage of model
+        :param metadata: Metadata associated with model
+        :param endpoint: Endpoint specified of the model
+        :param input_schema: Input schema followed by model
+        :param output_schema: Output schema followed by model
+        :param model_save_path: Location in S3 where the AISaveModel has to be placed
+        :param weights_path: Location of weights
+        :param visibility: Visibility of model, Default visibility: PRIVATE
+        """
+        self.client.add_model_full_entry(**kwargs)
+
+    def transition_ai_version_stage(
+        self,
+        stage: str,
+        version: Optional[int] = None,
+        archive_existing: bool = True,
+    ):
+        """
+        Transitions an AI version number to the specified stage. [Mutable]
+
+        :param version: AI version number. Can be defaulted to object version.
         :param stage: Transition ai version to new stage. *Required.
         :param archive_existing: When transitioning an AI version to a particular stage, this flag dictates whether
                                  all existing ai versions in that stage should be atomically moved to the “archived”
@@ -123,7 +663,23 @@ class AI:
                                  field is by default set to True.
         :return: Updated ai version
         """
-        pass
+        # TODO: Archive existing
+        sett_version = version if version is not None else self.version
+        assert sett_version is not None, "Cannot transition ai version with None"
+        try:
+            self.client.update_model_by_name_version(self.name, sett_version, stage=stage)
+            log.info(Fore.GREEN + f"Transitioned Model {self.name}:{sett_version} to stage:{stage}" + Style.RESET_ALL)
+            self.stage = stage
+            self.save(overwrite=True)
+            self.push()
+        except Exception as e:
+            traceback.print_exc()
+            log.info(
+                Fore.RED
+                + f"Could not update model due to reason: {e}. \nMake sure you have pushed the model"
+                + Style.RESET_ALL
+            )
+        return self
 
     def update_weights_path(self, weights_path: str):
         """
@@ -132,25 +688,450 @@ class AI:
         :param weights_path: Path to a file or directory containing model data.
         :return:
         """
-        pass
+        if self.version is not None:
+            self.version += 1
+        else:
+            self.version = 1
+        self.weights_path = weights_path
+        self._location = self.save()
+        # self.push()
+        log.info(
+            Fore.YELLOW
+            + f"AI version updated to {self.version} after updating weights. New version created in {self._location}. "
+            f"Make sure to AI.push to update in database" + Style.RESET_ALL
+        )
+        # TODO Do we return a new AI object?
 
-    def update_ai_class(self, ai_class: str):
+    def update_ai_class(self, ai_class: "BaseModel"):
         """
-        Updates the ai_class. Running this operation will increase the ai version.
+        Updates the model_class. Running this operation will increase the ai version.
 
-        :param ai_class: An instance of a subclass of :class:`~BaseAI`.
+        :param ai_class: An instance of a subclass of :class:`~BaseModel`.
         :return:
         """
-        pass
+        if self.version is not None:
+            self.version += 1
+        else:
+            self.version = 1
+        self.ai_class = ai_class
+        self._ai_class_dump = None
+        self._location = self.save(overwrite=True)
+        # self.push()
+        log.info(
+            Fore.YELLOW
+            + f"AI version updated to {self.version} after updating AI class. New version created in {self._location}. "
+            f"Make sure to AI.push to update in database." + Style.RESET_ALL
+        )
 
-    def update(self, version: int = None, stage: str = None, weights_path: str = None, ai_class=None):
+    def update(
+        self,
+        version: Optional[int] = None,
+        stage: Optional[str] = None,
+        weights_path: Optional[str] = None,
+        ai_class: Optional["BaseModel"] = None,
+    ):
         """
         Update AI.
 
         :param version: New AI version number. If the version number already exists, this method will fail.
         :param stage: New AI stage.
         :param weights_path: New path to a file or directory containing model data.
-        :param ai_class: An instance of a subclass of :class:`~BaseAI`.
+        :param ai_class: An instance of a subclass of :class:`~BaseModel`.
         :return:
         """
-        pass
+        models = self.client.get_model_by_name(self.name)
+        if version is None:
+            log.info(f"Version not specified, checking version: {self.version}")
+            version = self.version
+        if len(models) == 0:
+            raise Exception(
+                f"No models found with the name: {self.name}:{self.version}. "
+                f"Make sure you have 'AI.push'ed some models. "
+            )
+        elif version in [x["version"] for x in models]:
+            raise Exception(
+                f"Model name and version already exists. Try updating the version number. "
+                f"Hint: Try version {self.client.get_latest_version_of_model_by_name(self.name)+1}"
+            )
+        else:
+            kwargs = {}
+            if stage is not None:
+                kwargs["stage"] = stage
+            if weights_path is not None:
+                kwargs["weights_path"] = weights_path
+            if kwargs != {}:
+                self.version = version
+                self.weights_path = weights_path
+                self._location = self.save()
+                log.info(
+                    Fore.GREEN + f"Updated model {self.name}:{self.version}. "
+                    f"Make sure to AI.push to update the database" + Style.RESET_ALL
+                )
+        if ai_class is not None:
+            self._ai_class_dump = None
+            self.model_class = ai_class
+            self.save(overwrite=True)
+        log.info("AI.update complete!")
+        self.push()
+
+    def predict(self, input):
+        """
+        Predict from model_class, makes sure that predict method adheres to schema in ai_definition
+        :param input:
+        :return:
+        """
+        output = self.model_class.predict(input)
+        return output
+
+    def save(self, path: str = ".AISave", overwrite: bool = False):
+        """
+        Save the model locally
+        :param path:
+        :param overwrite:
+        :return:
+        """
+        save_path = os.path.join(path, self.name)
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+
+        if self.version is None:
+            version = "0"
+        else:
+            version = str(self.version)
+        version_save_path = os.path.join(save_path, version)
+        if not os.path.exists(version_save_path):
+            os.makedirs(version_save_path)
+        elif overwrite:
+            log.info(f"Removing existing content from path: {version_save_path}")
+            shutil.rmtree(version_save_path)
+            os.makedirs(version_save_path)
+
+        self.ai_template.save(version_save_path)
+
+        # TODO save the weights path inside the save folder if it is local. If it is S3 ignore
+        # save file information
+        with open(os.path.join(version_save_path, "AISaveFile.json"), "w") as ai_file_writer:
+            content = {
+                "input_params": self.input_params.to_json,
+                "output_params": self.output_params.to_json,
+                "configuration": self.configuration,
+                "name": self.name,
+                "version": self.version,
+                "stage": self.stage,
+                "description": self.description,
+                "weights_path": self.weights_path,
+            }
+            json.dump(content, ai_file_writer, indent=1)
+        log.info(Style.BRIGHT + f"Saved model in {version_save_path}" + Style.RESET_ALL)
+        return version_save_path
+
+    @retry(Exception, tries=5, delay=0.5, backoff=1)
+    def _upload_tarfile(self, upload_info, path):
+        log.info(f"Uploading file at {path} to {upload_info}")
+        with open(path, "rb") as f:
+            files = {"file": (path, f)}
+            upload_response = requests.post(upload_info["url"], data=upload_info["fields"], files=files)
+        if upload_response.status_code == 204:
+            log.info(Fore.GREEN + Style.BRIGHT + "Upload complete successfully" + Style.RESET_ALL)
+        else:
+            raise Exception(
+                f"Could not upload file {upload_response.status_code}: {upload_response.reason}\n"
+                f"{upload_response.text} "
+            )
+
+    def push(self) -> None:
+        """
+        Push the saved model to s3, create an entry in the database, enter the s3 URI in the database.
+        """
+        s3_client = boto3.client("s3")
+
+        path_to_tarfile = os.path.join(self._location, "AISavedModel.tar.gz")
+        with tarfile.open(path_to_tarfile, "w:gz") as tar:
+            tar.add(self._location, arcname=os.path.basename(self._location))
+        object_name = os.path.join(self.folder_name, self.name, str(self.version), "AISavedModel.tar.gz")
+        with open(path_to_tarfile, "rb") as f:
+            s3_client.upload_fileobj(f, self.bucket_name, object_name)
+        modelSavePath = os.path.join("s3://", self.bucket_name, object_name)
+        if self.weights_path is not None:
+            weights = self.weights_path if self.weights_path.startswith("s3") else None
+        else:
+            weights = None
+        self._create_database_entry(
+            name=self.name,
+            version=self.version,
+            description=self.description,
+            metadata=self.artifacts,
+            input_schema=self.input_params.to_json,
+            output_schema=self.output_params.to_json,
+            weights_path=weights,
+            model_save_path=modelSavePath,
+        )
+
+    def deploy(
+        self,
+        mode: "Mode" = Mode.LOCAL,
+        workers: int = 1,
+    ) -> "DeployedPredictor.Type":
+        """
+        Here we need to create a docker container with superai-sk installed. Then we need to create a server script
+        and prediction script, which basically calls ai.predict.
+        We need to pass the ai model inside the image, install conda env or requirements.txt as required.
+        Serve local: run the container locally using Cli (in a separate thread)
+        Serve sagemaker: create endpoint after pushing container to ECR
+
+        :param mode: Which mode to deploy.
+        :param port: Specifically for local deployment, if you want to use a specific port to do
+                        https://localhost:<port>/invocation
+        :param workers: Number of workers to use for serving.
+        """
+        if mode == Mode.LOCAL or mode == Mode.AWS:
+            self._create_dockerfile(workers)
+            self.build_image(self.name, str(self.version))
+            if mode == Mode.AWS:
+                self.push_model()
+        elif mode == Mode.KUBERNETES:
+            raise NotImplementedError()
+        else:
+            raise ValueError("Invalid Mode, should be one of ['LOCAL', 'AWS', 'KUBERNETES]")
+        # build kwargs
+        kwargs: Dict[str, Union[int, str, Client]] = {}
+        if mode == Mode.LOCAL:
+            kwargs["image_name"] = f"{self.name}:{self.version}"
+            kwargs["weights_path"] = self.weights_path
+        else:
+            kwargs = dict(client=self.client, name=self.name, version=self.version)
+            if not self.client.check_endpoint_is_available(self.name, self.version):
+                ecr_image_name = "TODO"
+                self.client.deploy(self.name, self.version, ecr_image_name)
+        # get predictor
+        predictor_obj: DeployedPredictor.Type = PredictorFactory.get_predictor_obj(mode=mode, **kwargs)
+
+        return predictor_obj
+
+    def undeploy(self) -> bool:
+        passed, reason = self.client.undeploy(self.name, self.version)
+        if passed:
+            log.info("Endpoint deleted")
+        else:
+            log.error(f"Could not delete endpoint with error {reason}")
+        return passed
+
+    @classmethod
+    def load_api(cls, model_path, mode: Mode) -> "DeployedPredictor.Type":
+        ai_object: Optional["AI"] = cls.load(model_path)
+        assert ai_object is not None, "Need an AI object associated with the class to load"
+        # TODO: If we pass a model_path like `model://...`, check if there is an endpoint entry, and check
+        #  if endpoint is serving.
+        # if endpoint is not serving:
+        return ai_object.deploy(mode)
+
+    def _create_dockerfile(self, worker_count: int = 1):
+        """
+        Build model locally. This involves docker file creation and docker build operations.
+        Note that this is supported only in local mode, running this on docker can lead to docker-in-docker problems.
+        """
+        homedir = "/home/model-server/"
+        dockerd_entrypoint = "dockerd-entrypoint.py"
+        session = boto3.Session()
+        credentials = session.get_credentials()
+
+        credentials = credentials.get_frozen_credentials()
+        aws_access_key_id = credentials.access_key
+        aws_secret_access_key = credentials.secret_key
+
+        with open(os.path.join(self._location, "handler.py"), "w") as handler_file:
+            handler_file.write(runner_script)
+
+        with open(os.path.join(self._location, dockerd_entrypoint), "w") as entry_point_file:
+            template = Template(server_script)
+            args = dict(worker_count=worker_count)
+            entry_point_file_content: str = template.render(args)
+            entry_point_file.write(entry_point_file_content)
+
+        dockerfile_content = [
+            "FROM continuumio/miniconda3",
+            "\nRUN mkdir -p /usr/share/man/man1",
+            "\nRUN apt-get update "
+            "&& apt-get -y install --no-install-recommends build-essential ca-certificates default-jdk curl "
+            "&& rm -rf /var/lib/apt/lists/*",
+            "\nLABEL com.amazonaws.sagemaker.capabilities.multi-models=true",
+            "LABEL com.amazonaws.sagemaker.capabilities.accept-bind-to-port=true",
+        ]
+        # copy contents of save folder
+        dockerfile_content.extend(
+            [
+                f"RUN mkdir -p {homedir}",
+                f"COPY . {homedir}",
+            ],
+        )
+
+        # create conda env
+        if self.conda_env is not None:
+            dockerfile_content.extend(
+                [
+                    f"RUN conda env create -f {os.path.join(homedir, 'conda.yml')}",
+                    f"""RUN echo "source activate $(head -1 {os.path.join(homedir, 'conda.yml')} | cut -d' ' -f2)" > ~/.bashrc""",
+                    f"ENV PATH /opt/conda/envs/$(head -1 {os.path.join(homedir, 'conda.yml')} | cut -d' ' -f2)/bin:$PATH",
+                ]
+            )
+            env_name = f"$(head -1 {os.path.join(homedir, 'conda.yml')} | cut -d' ' -f2)"
+        else:
+            dockerfile_content.extend(
+                [
+                    "RUN conda create -n env python=3.7.10",
+                    'RUN echo "source activate env" > ~/.bashrc',
+                    "ENV PATH /opt/conda/envs/env/bin:$PATH",
+                ]
+            )
+            env_name = "env"
+        dockerfile_content.append(
+            f'SHELL ["conda", "run", "--no-capture-output", "-n", "{env_name}", "/bin/bash", "-c"]'
+        )
+        if self.conda_env is None:
+            dockerfile_content.extend([f"WORKDIR {homedir}", "RUN pip install -r requirements.txt"])
+        # install sagemaker_inference_api requirements
+        dockerfile_content.extend(
+            [
+                f"RUN chmod +x {os.path.join(homedir, dockerd_entrypoint)}",
+                "RUN pip --no-cache-dir install multi-model-server sagemaker-inference retrying awscli~=1.18.195",
+            ]
+        )
+        # install super_ai_sdk, superai_schema
+        dockerfile_content.extend(
+            [
+                "ARG AWS_DEFAULT_REGION=us-east-1",
+                "RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true,uid=1000,gid=1000 "
+                "--mount=type=cache,target=/root/.cache/pip "
+                f"aws codeartifact login --tool pip --domain superai --repository pypi-superai",
+                "RUN pip install --no-cache-dir superai_schema superai",
+            ]
+        )
+        if self.artifacts is not None:
+            if "run" in self.artifacts:
+                dockerfile_content.extend(
+                    [
+                        f"RUN chmod +x {os.path.join(homedir, self.artifacts['run'])}",
+                        f"RUN bash {os.path.join(homedir, self.artifacts['run'])}",
+                    ]
+                )
+            dockerfile_content.extend(
+                [
+                    f'ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "{env_name}", "python",'
+                    f' "{os.path.join(homedir, dockerd_entrypoint)}"]',
+                    'CMD ["deploy"]',
+                ]
+            )
+
+        with open(os.path.join(self._location, "Dockerfile"), "w") as docker_file_writer:
+            docker_file_writer.write("\n".join(dockerfile_content))
+        log.info("Created Dockerfile...")
+
+    def build_image(self, image_name=None, version_tag="latest"):
+        start = time.time()
+        cwd = os.getcwd()
+        os.chdir(self._location)
+        docker_command = f"docker build -t {image_name}:{version_tag} --secret id=aws,src=$HOME/.aws/credentials ."
+        log.info(f"Running {docker_command}")
+        end = time.time()
+        try:
+            res = os.system(docker_command)
+            log.info(
+                f"Image {Fore.GREEN}`{image_name}:latest`{Style.RESET_ALL} "
+                f"built successfully. Elapsed time: {end - start:.3f} secs."
+            )
+            if res != 0:
+                log.error("Some error occurred while building the image.")
+        except KeyboardInterrupt:
+            log.info(f"{Fore.RED}KeyboardInterrupt occurred{Style.RESET_ALL}")
+            raise KeyboardInterrupt()
+        os.chdir(cwd)
+
+    def push_model(self, image_name=None):
+        """
+        Push model in ECR, involves tagging and pushing.
+        Note that your default AWS credentials will be used for this.
+        """
+        dockerizer.push_image(image_name=image_name)
+
+    def train(
+        self,
+        model_save_path,
+        training_data,
+        test_data=None,
+        production_data=None,
+        encoder_trainable: bool = True,
+        decoder_trainable: bool = True,
+        hyperparameters: Optional[HyperParameterSpec] = None,
+        model_parameters: Optional[ModelParameters] = None,
+        callbacks=None,
+        validation_data=None,
+        logger=None,
+        mode: Mode = Mode.LOCAL,
+    ):
+        """
+        Please fill hyperparameters and model parameters accordingly.
+
+        :param validation_data:
+        :param callbacks:
+        :param test_data:
+        :param production_data:
+        :param encoder_trainable:
+        :param decoder_trainable:
+        :param hyperparameters:
+        :param model_parameters:
+        :param model_save_path:
+        :param training_data:
+        :return:
+        """
+        if logger is not None:
+            self.model_class.update_logger_path(logger)
+        else:
+            self.model_class.update_logger_path(
+                os.path.join(self._location, "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")),
+            )
+        log.info(f"If tensorboard callback is present, logging in {self.model_class.logger_dir}")
+        return self.model_class.train(
+            model_save_path=model_save_path,
+            training_data=training_data,
+            validation_data=validation_data,
+            test_data=test_data,
+            production_data=production_data,
+            encoder_trainable=encoder_trainable,
+            decoder_trainable=decoder_trainable,
+            hyperparameters=hyperparameters,
+            model_parameters=model_parameters,
+            callbacks=callbacks,
+        )
+
+
+def list_models(
+    ai_name: str,
+    client: Client = Client(
+        api_key=load_api_key(),
+        auth_token=load_auth_token(),
+        id_token=load_id_token(),
+    ),
+    raw: bool = False,
+    verbose: bool = True,
+):
+    """
+    List existing models in the database, given the model name
+    :param verbose: Print the output
+    :param raw: Return un-formatted list of models
+    :param client: Instance of superai.client
+    :param ai_name: Name of the AI model
+    :return:
+    """
+
+    model_entries = client.get_model_by_name(ai_name)
+    if raw:
+        if verbose:
+            print(json.dumps(model_entries, indent=1))
+        return model_entries
+    else:
+        table = pd.DataFrame.from_dict(model_entries)
+        if verbose:
+            pd.set_option("display.max_colwidth", None)
+            print()
+            print(table)
+        return table

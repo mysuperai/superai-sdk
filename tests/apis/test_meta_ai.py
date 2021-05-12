@@ -3,8 +3,8 @@ import pytest
 import vcr
 import ast
 
-# To record new cassette, use real app_id and run pytest against runnig endpoint
-APP_ID = "FAKE_APP_ID"
+# To record new cassette, use real app_id and run pytest against running endpoint
+APP_ID = "87f35e71-31cf-4084-bd8c-901b6b7fa4a5"
 
 
 def scrub_string(string, replacement=""):
@@ -85,6 +85,53 @@ def test_model_retrieval(model_api, model):
     assert len(m) >= 1
 
 
+def test_model_retrieval_by_name(model_api, model):
+    m = model_api.get_model_by_name("TestModel")
+    assert "name" in m[0]
+    assert m[0]["name"] == "TestModel"
+
+
+def test_update_model_by_name_version(model_api):
+    a = model_api.add_model(f"TestModel", version=1)
+    assert a is not None
+    model_api.update_model_by_name_version("TestModel", version=1, description="TestModel_Something")
+    c = model_api.get_model(a)
+    assert "name" in c
+    assert c["name"] == "TestModel"
+    d = model_api.delete_model(a)
+    assert d == a
+
+
+def test_add_model_full_entry(model_api):
+    a = model_api.add_model_full_entry(
+        "TestModel",
+        "some description",
+        1,
+        stage="DEV",
+        input_schema={"some": "input"},
+        output_schema={"Some": "output"},
+        model_save_path="s3://some_s3_location",
+        weights_path="s3://should_be_some_s3_location",
+    )
+    assert a is not None
+    b = model_api.delete_model(a)
+    assert a == b
+
+
+def test_get_latest_version_of_model_by_name(model_api):
+    a = model_api.add_model("TestModel", version=1)
+    b = model_api.add_model("TestModel", version=2)
+    assert a is not None and b is not None
+    c = model_api.get_latest_version_of_model_by_name("TestModel")
+    assert c == 2
+    with pytest.raises(Exception):
+        _ = model_api.get_latest_version_of_model_by_name("SomeOtherName")
+    d = model_api.delete_model(a)
+    e = model_api.delete_model(b)
+    assert d == a and e == b
+
+
+@pytest.mark.skip("Need to be fixed")  # TODO: Missing assignment in `meta_ai_app_bool_exp`
 def test_active_model(ai_api: ProjectAiApiMixin, model: str, existing_app_id):
     a = ai_api.update_model(app_id=existing_app_id, assignment="PRELABEL", model_id=model)
     assert a is not None
@@ -96,14 +143,14 @@ def test_active_model(ai_api: ProjectAiApiMixin, model: str, existing_app_id):
     inactive_models = ai_api.get_models(existing_app_id, "PRELABEL", active=False)
     assert a.model_id in [act.model.id for act in inactive_models]
 
-
+@pytest.mark.skip
 def test_view_prelabel(ai_api, existing_app_id, prediction_id):
     prelabels = ai_api.list_prelabel_instances(existing_app_id, prediction_id)
     instance_id = prelabels[0].id
     instance = ai_api.view_prelabel(existing_app_id, prediction_id, instance_id)
     assert instance is not None
 
-
+@pytest.mark.skip
 def test_submit_prelabel(ai_api: ProjectAiApiMixin, model: str, existing_app_id):
     test_output = {"score": 1.0, "mask": [0, 1, 1, 0]}
     prediction_id = ai_api.submit_prelabel(test_output, existing_app_id, 1, model, assignment="PRELABEL")
