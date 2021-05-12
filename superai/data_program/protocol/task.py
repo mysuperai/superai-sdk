@@ -693,7 +693,7 @@ def serve_predict(predict_func, port=8080, context=None, use_sagemaker=True):
     """
     if use_sagemaker:
         # sm.serve_predict(predict_func, context, port=port)
-        raise NotImplementedError("Sagemaker serve is not implemented")
+        raise NotImplementedError("Sagemaker deploy is not implemented")
     else:
         run_model_predict(predict_func, port=port, context=context)
 

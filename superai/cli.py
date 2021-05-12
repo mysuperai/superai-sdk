@@ -1,3 +1,6 @@
+import os
+
+import boto3
 import click
 import json
 import signal
@@ -5,7 +8,6 @@ import sys
 import yaml
 from botocore.exceptions import ClientError
 from datetime import datetime
-import pprint
 from typing import List
 from warrant import Cognito
 
@@ -16,6 +18,13 @@ from superai.exceptions import SuperAIAuthorizationError
 from superai.log import logger
 from superai.utils import load_api_key, remove_aws_credentials, save_api_key, save_aws_credentials, save_cognito_user
 from superai.utils.pip_config import pip_configure
+from superai.meta_ai.dockerizer import build_image, push_image
+from superai.meta_ai.dockerizer.sagemaker_endpoint import (
+    upload_model_to_s3,
+    invoke_sagemaker_endpoint,
+    create_endpoint,
+    invoke_local,
+)
 
 BASE_FOLDER = get_config_dir()
 COGNITO_USERPOOL_ID = settings.get("cognito", {}).get("userpool_id")
@@ -515,6 +524,112 @@ def logout():
     """
     save_api_key("")
     print("Stored api key was removed")
+
+
+@cli.group()
+def ai():
+    """ Build and push your model docker images """
+    pass
+
+
+@ai.group()
+def docker():
+    """Docker specific commands"""
+    pass
+
+
+@docker.command(name="build", help="Build a docker image for a sagemaker model.")
+@click.option("--image-name", "-i", required=True, help="Name of the image to be built")
+@click.option(
+    "--entry-point",
+    "-e",
+    required=True,
+    help="Path to file which will serve as entrypoint to the sagemaker model. Generally this is a method which calls "
+    "the predict method",
+)
+@click.option("--dockerfile", "-d", help="Path to Dockerfile. Default: Dockerfile", default="Dockerfile")
+@click.option(
+    "--command", "-c", help="Command to run after the entrypoint in the image. Default: serve", default="serve"
+)
+@click.option("--worker-count", "-w", help="Number of workers to run. Default: 1", default=1)
+@click.option(
+    "--entry-point-method",
+    "-em",
+    help="Method to be called inside the entry point. Make sure this method accepts the input data and context. "
+    "Default: handle",
+    default="handle",
+)
+@click.option(
+    "--use-shell", "-u", help="Use shell to run the build process, which is more verbose. Used by default", default=True
+)
+def build_docker_image(image_name, entry_point, dockerfile, command, worker_count, entry_point_method, use_shell):
+    build_image(
+        image_name=image_name,
+        entry_point=entry_point,
+        dockerfile=dockerfile,
+        command=command,
+        worker_count=worker_count,
+        entry_point_method=entry_point_method,
+        use_shell=use_shell,
+    )
+
+
+@docker.command(name="push", help="Push the docker image built by `superai model docker-build` to ECR. ")
+@click.option(
+    "--image-name", "-i", required=True, help="Name of the image to be pushed. You can get this from `docker image ls`"
+)
+@click.option("--region", "-r", help="AWS region.  Default: us-east-1", default="us-east-1")
+def push_docker_image(image_name, region):
+    push_image(image_name=image_name, region=region)
+
+
+@docker.command(
+    "run-local",
+    help="Run a docker container built by `superai model docker-build` locally. "
+    "We assume here that the ports 8080 & 8081 are available",
+)
+@click.option("--image-name", "-i", required=True, help="Name of the image to be run")
+@click.option(
+    "--model-path",
+    "-m",
+    required=True,
+    help="Path to the folder containing weights file to be used for getting inference",
+)
+@click.option(
+    "--gpu",
+    "-g",
+    default=False,
+    help="Run docker with GPUs enabled. Make sure this is a GPU container with cuda enabled, "
+    "and nvidia-container-runtime installed",
+)
+def docker_run_local(image_name, model_path, gpu):
+    options = [f"-v {os.path.abspath(model_path)}:/opt/ml/model/", "-p 80:8080", "-p 8081:8081 "]
+    if gpu:
+        options.append("--rm --gpus all")
+    options = " ".join(options)
+    command = f"docker run {options} {image_name}"
+    logger.info(f"Running command: {command}")
+    os.system(command)
+
+
+@docker.command(
+    "invoke-local",
+    help="Invoke the locally deployed container. The API description of the local container can be found at "
+    "http://localhost/api-description",
+)
+@click.option(
+    "--mime",
+    "-mm",
+    default="application/json",
+    help="MIME type of the payload. `application/json` will be sent to the invocation directly. For other MIME types, "
+    "you can pass the path to file with --body. If its a valid path, it will be loaded and sent to the request. "
+    "Default: `application/json`",
+)
+@click.option(
+    "--body", "-b", required=True, help="Body of payload to be sent to the invocation. Can be a path to a file as well."
+)
+def docker_invoke_local(mime, body):
+    invoke_local(mime, body)
 
 
 def main():

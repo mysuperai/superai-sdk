@@ -1,15 +1,15 @@
-from superai.apis.meta_ai.project_ai import ProjectAiApiMixin
 from typing import Optional
 
 import requests
 
 from superai.apis.auth import AuthApiMixin
 from superai.apis.data import DataApiMixin
-from superai.apis.ground_truth import GroundTruthApiMixin
-from superai.apis.project import ProjectApiMixin
-from superai.apis.jobs import JobsApiMixin
 from superai.apis.data_program import DataProgramApiMixin
-from superai.apis.meta_ai.model import ModelApiMixin
+from superai.apis.ground_truth import GroundTruthApiMixin
+from superai.apis.jobs import JobsApiMixin
+from superai.apis.meta_ai.model import ModelApiMixin, DeploymentApiMixin, TrainApiMixin
+from superai.apis.meta_ai.project_ai import ProjectAiApiMixin
+from superai.apis.project import ProjectApiMixin
 from superai.config import settings
 from superai.exceptions import SuperAIAuthorizationError, SuperAIEntityDuplicatedError, SuperAIError
 
@@ -25,8 +25,11 @@ class Client(
     ProjectApiMixin,
     ProjectAiApiMixin,
     ModelApiMixin,
+    DeploymentApiMixin,
+    TrainApiMixin
 ):
     def __init__(self, api_key: str = None, auth_token: str = None, id_token: str = None, base_url: str = None):
+        super(Client, self).__init__()
         self.api_key = api_key
         self.auth_token = auth_token
         self.id_token = id_token

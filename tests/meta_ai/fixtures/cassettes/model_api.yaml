@@ -1,0 +1,36 @@
+interactions:
+- request:
+    body: '{"query": "query {\nmeta_ai_model(where: {name: {_eq: \"my_instance_segmentation_model\"}})
+      {\nname\nversion\nid\nendpoint\nmodelSavePath\n}\n}", "variables": null, "operationName":
+      null}'
+    headers:
+      Accept:
+      - application/json; charset=utf-8
+      Accept-Encoding:
+      - gzip
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json; charset=utf-8
+    method: POST
+    uri: http://localhost:59629/v1/graphql
+  response:
+    body:
+      string: '{"data":{"meta_ai_model":[]}}'
+    headers:
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Fri, 09 Apr 2021 10:42:35 GMT
+      Server:
+      - Warp/3.3.10
+      Transfer-Encoding:
+      - chunked
+      content-length:
+      - '29'
+      x-request-id:
+      - 299bc06c-be0f-4d13-90fe-e32438241de1
+    status:
+      code: 200
+      message: OK
+version: 1
