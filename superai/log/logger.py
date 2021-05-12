@@ -17,9 +17,7 @@ DEFAULT_LOG_FILENAME = "superai.log"
 _log_format = (
     "%(asctime)s - %(levelname)s - %(filename)s - %(threadName)s - [%(name)s:%(funcName)s:%(lineno)s] - %(message)s"
 )
-_rich_log_format = (
-    "%(message)s - %(threadName)s"
-)
+_rich_log_format = "%(message)s - %(threadName)s"
 _date_format = "%Y-%m-%d %H:%M:%S"
 _style = "{"
 
@@ -38,6 +36,7 @@ def create_file_handler(
     handler.setFormatter(formatter)
     return handler
 
+
 def create_non_cli_handler(log_format=_log_format, stream=sys.stdout):
     """ Create logging to non-CLI console (like ECS) """
     formatter = CustomFormatter(fmt=log_format, datefmt=_date_format)
@@ -45,9 +44,10 @@ def create_non_cli_handler(log_format=_log_format, stream=sys.stdout):
     console_handler.setFormatter(formatter)
     return console_handler
 
+
 def create_cli_handler():
     """ Create logging handler for CLI with rich structured output """
-    rich_handler = RichHandler(rich_tracebacks=True, omit_repeated_times=False)
+    rich_handler = RichHandler(rich_tracebacks=True)
     return rich_handler
 
 

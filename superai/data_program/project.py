@@ -13,6 +13,7 @@ from .base import DataProgramBase
 from .task import Worker
 from .data_program import DataProgram
 from .utils import IgnoreInAgent
+from ..meta_ai import AI
 
 log = logger.get_logger(__name__)
 
@@ -89,6 +90,8 @@ class Project:
             raise e
         self.project_uuid = self.__project_obj["uuid"]
         self.name = self.__project_obj["name"]
+
+        self.ai = None
 
     def __create_project(
         self,
@@ -222,3 +225,13 @@ class Project:
         current_env = settings.current_env
         prefix = f"{current_env}." if current_env != "prod" else ""
         return f"https://{prefix}super.ai/dashboard/projects/{self.project_uuid}"
+
+    def add_ai(self, ai: "AI", active_learning: bool = False):
+        """
+        Add an AI to the project. This adds the capabilities to use AI as a worker, or use for active_learning
+
+        :param ai: an object of "AI" class
+        :param active_learning: If active_learning is to be used.
+        :return:
+        """
+        self.ai = ai

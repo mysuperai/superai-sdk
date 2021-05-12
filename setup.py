@@ -7,7 +7,9 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 NAME = "superai"
-VERSION = "0.1.0.alpha5"
+
+VERSION = "0.2.0.dev1"
+
 # To install the library, run the following
 #
 # python setup.py install
@@ -19,7 +21,9 @@ REQUIRES = [
     "boto3>=1.15",
     "click>=7.0",
     "colorama>=0.3.0",
+    "cloudpickle==1.6.0",
     "dynaconf>=3.1.2",
+    "docker>=4.0.0",
     "futures-then>=0.1.1",
     "genson>=1.2.2",
     "jinja2>=2.11.2",
@@ -30,6 +34,8 @@ REQUIRES = [
     "rich>=10.1",
     "pyyaml>=3.13",
     "requests>=2.22",
+    "sagemaker>=1.64.0",
+    "sentry-sdk>=0.19.4",
     "scikit-learn>=0.23.2",
     "sgqlc>=12.1",
     "sentry-sdk>=0.19.4",
@@ -61,6 +67,7 @@ TEST_REQUIRES = [
     "pytest-cov>=2.10.1",
     "pytest-env>=0.6.2",
     "vcrpy>=4.1.1",
+    "pytest-mock~=3.3.1",
 ]
 
 setup(

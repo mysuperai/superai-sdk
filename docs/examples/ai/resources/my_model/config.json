@@ -1,0 +1,1 @@
+{"training_data": null, "validation_data": null, "test_data": null, "production_data": null, "encoder_trainable": true, "decoder_trainable": true, "hyperparameters": null, "model_parameters": null, "callbacks": null}
