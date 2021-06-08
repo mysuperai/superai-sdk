@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 NAME = "superai"
-VERSION = "0.1.0.alpha2"
+VERSION = "0.1.0.alpha3"
 # To install the library, run the following
 #
 # python setup.py install
@@ -49,7 +49,7 @@ BUILD_REQUIRES = [
 DP_REQUIRES = [
     "awscli>=1.18.163",
     "superai-dataclient~=0.1.0",
-    "superai-schema~=0.0.1",
+    "superai-schema~=0.1.0",
 ]
 
 TEST_REQUIRES = [
