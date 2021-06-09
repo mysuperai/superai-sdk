@@ -31,7 +31,6 @@ my_vcr = vcr.VCR(
 
 @pytest.fixture(scope="module")
 def client():
-    # yield Client("live_OvsAKSG5Pv5dCtw-ys4paZWd9T3akcs7vfHFV-9-BAM")
     with my_vcr.use_cassette("data_api.yaml"):
         yield Client("TEST_API_KEY")
 
