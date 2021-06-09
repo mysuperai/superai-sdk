@@ -1,0 +1,464 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+    method: GET
+    uri: https://api-test.super.ai/v1/data?page=1&size=1
+  response:
+    body:
+      string: '{"content": [{"id": 1296, "ownerId": 3485, "path": "default/tmp/submit_data_1616199897715.json",
+        "mimeType": "application/json", "status": "ACTIVE", "created": "2021-03-20T00:24:58.358Z",
+        "updated": "2021-03-20T00:24:58.358Z"}], "pageable": {"sort": {"unsorted":
+        false, "sorted": true, "empty": false}, "pageSize": 1, "pageNumber": 1, "offset":
+        1, "paged": true, "unpaged": false}, "last": false, "totalElements": 38, "totalPages":
+        38, "sort": {"unsorted": false, "sorted": true, "empty": false}, "first":
+        false, "numberOfElements": 1, "size": 1, "number": 1, "empty": false}
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 08 Jun 2021 22:23:10 GMT
+      Via:
+      - 1.1 8640a37b586353bc916562c577770223.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - 4qZqJIQAsef1HkNQLv_EWZhyf_r-pn757aijPVdjCHMhFgM8vfeO6w==
+      X-Amz-Cf-Pop:
+      - HAM50-C2
+      X-Amzn-Trace-Id:
+      - Root=1-60bfedce-128952b437593e3052ae8c40;Sampled=0
+      X-Cache:
+      - Miss from cloudfront
+      content-length:
+      - '576'
+      x-amz-apigw-id:
+      - AoIYWEYDIAMFdGQ=
+      x-amzn-Remapped-Content-Length:
+      - '576'
+      x-amzn-RequestId:
+      - 5e5c7bba-3fad-4206-b2d8-9b05fd8d6dca
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+    method: GET
+    uri: https://api-test.super.ai/v1/data?signedUrl=True&secondsTtl=600&page=1&size=1
+  response:
+    body:
+      string: '{"content": [{"id": 1296, "ownerId": 3485, "path": "default/tmp/submit_data_1616199897715.json",
+        "mimeType": "application/json", "status": "ACTIVE", "signedUrl": "https://drf9wm7h7lj0m.cloudfront.net/3485/default/tmp/submit_data_1616199897715.json?Expires=1623191591&Signature=UeDyE7lAoMUUqmdGGa8Ck54RHj71mT8WL95X2PUfbntS6vHWnlvzl6eQaqe60qAnMCRInV85Lt7Su0kJ1UgOvgJ91wyBvHh9KFL8ycm2urswUDFACVDc-z9YFDtwpuR5wpHhcxG9vNqeQZfV42Imrydf4kphQ2PCP17h8lZD-b589tmLy9VyW1ZLcCQDSg~RDj8mjXRMRSuzuaeaUjSidBdp8RMPgSKFHOrb5MEuQ0lvckwuTzWrZJAnAsCS0fS1IsIlfPakJEZ~M1qNI7qWAxTiPbtv~Z41I7vOruTt3EDI84hId0nSVTF0w7RBEncDi5BD~EGBY7WQRy8BILWyWA__&Key-Pair-Id=APKAI7IKGBD3WXA2RGKA",
+        "created": "2021-03-20T00:24:58.358Z", "updated": "2021-03-20T00:24:58.358Z"}],
+        "pageable": {"sort": {"unsorted": false, "sorted": true, "empty": false},
+        "pageSize": 1, "pageNumber": 1, "offset": 1, "paged": true, "unpaged": false},
+        "last": false, "totalElements": 38, "totalPages": 38, "sort": {"unsorted":
+        false, "sorted": true, "empty": false}, "first": false, "numberOfElements":
+        1, "size": 1, "number": 1, "empty": false}
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 08 Jun 2021 22:23:11 GMT
+      Via:
+      - 1.1 a1c4b15d670dc9e4a6cbea1be6412324.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - ulIAt1ewpKais4cnq4c0ClxsKHyUYoabVdfAzySTUMjN5u37r7gJ7g==
+      X-Amz-Cf-Pop:
+      - HAM50-C2
+      X-Amzn-Trace-Id:
+      - Root=1-60bfedcf-17234b962eb27aa775a0dd01;Sampled=0
+      X-Cache:
+      - Miss from cloudfront
+      content-length:
+      - '1084'
+      x-amz-apigw-id:
+      - AoIYaE-mIAMF-Ug=
+      x-amzn-Remapped-Content-Length:
+      - '1084'
+      x-amzn-RequestId:
+      - 31244532-a6a3-4eff-91d1-654287764107
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+    method: GET
+    uri: https://api-test.super.ai/v1/data/url?path=default%2Ftest1.json&secondsTtl=600
+  response:
+    body:
+      string: '{"ownerId": 3485, "path": "default/test1.json", "signedUrl": "https://drf9wm7h7lj0m.cloudfront.net/3485/default/test1.json?Expires=1623191591&Signature=dWML12ej1w0nyom5imkV1ccKHy6GOTr8ogzbbwtx22~ZlQWtkBJT~1rH5cAWBYBA60kmGdi57PQGdLYWsBV797gh0LwN2kIUrPnIpg0f0qwrJMA4DULBCKn6OfOHRaLtWAapz6xYYYwCmPUjA6-MtjqnVAPdbtT4iwao72~Lpy182x0nucn3uQbdzRQn-dIrM7hnhlxQxO0E1LhZSkz2Q3ItZr3tEf7L~u5Rum9kO5AMHk6ncBjkRQ6rB6fBPwx3We7uts-7AzKgMiOprurG4arKBB8RNKyDuhmZn43~g~2rmTUu8wcut5Z66WUzoT8ZtO9q-UarREdCgSp372pKsg__&Key-Pair-Id=APKAI7IKGBD3WXA2RGKA"}
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 08 Jun 2021 22:23:11 GMT
+      Via:
+      - 1.1 4f5d7e3a87b60a05ec95a5a0e7f4b9d6.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - NtbvMW3rz1lG1ycuIgE687gcvEB3D6dgW-vIWPpnCabQbKGtkwf4_Q==
+      X-Amz-Cf-Pop:
+      - HAM50-C2
+      X-Amzn-Trace-Id:
+      - Root=1-60bfedcf-4b724aed43d3f053004b8070;Sampled=0
+      X-Cache:
+      - Miss from cloudfront
+      content-length:
+      - '532'
+      x-amz-apigw-id:
+      - AoIYfEo6oAMFcJA=
+      x-amzn-Remapped-Content-Length:
+      - '532'
+      x-amzn-RequestId:
+      - 3bf9accf-eb8d-4deb-81d6-67615a429d92
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+    method: GET
+    uri: https://api-test.super.ai/v1/data/url?path=default%2Ftest1.json&secondsTtl=600
+  response:
+    body:
+      string: '{"ownerId": 3485, "path": "default/test1.json", "signedUrl": "https://drf9wm7h7lj0m.cloudfront.net/3485/default/test1.json?Expires=1623191592&Signature=SwA2yWdc0I5svNK~owgv1omCdEMeSTEWZFpiV1TDgay69~b9YfwQ1X-H0NixMkYLHHVA3n08HPt45eFVUh4hF2er8itaK0QdGUtOlk7GtPdQRXx55vkdziCj18OS6ArjKzv~8A44oj58jKzLIDvCdxk2H~KMRDkB1qZ6Rc-NXJAqYWT5qUlJdvgFZSDoTLsOv-t5apbfuTDKzX22ke2UT4wJ1OMUUFm~PxEFiJ-tu1f7iI-vE7xgFv6DqWqMXPz71P~Lo50hbAUj-msjErYhpGErcX7-l75Tl3gHX1wQl31y2WPjG6hNNV5CAEXji01BK5M7erzHr8ArEuBC7D8p1g__&Key-Pair-Id=APKAI7IKGBD3WXA2RGKA"}
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 08 Jun 2021 22:23:12 GMT
+      Via:
+      - 1.1 24eb1500b3f80b309dcd7b8a50210a69.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - G1OJvbZYqnyAmzYn3XgfTyFa5kkMrCpdLdUz8o7c24HTOvh6hs_RYA==
+      X-Amz-Cf-Pop:
+      - HAM50-C2
+      X-Amzn-Trace-Id:
+      - Root=1-60bfedd0-186c91581449c15440c2ae78;Sampled=0
+      X-Cache:
+      - Miss from cloudfront
+      content-length:
+      - '532'
+      x-amz-apigw-id:
+      - AoIYkG_eIAMF-ag=
+      x-amzn-Remapped-Content-Length:
+      - '532'
+      x-amzn-RequestId:
+      - 57e7cb84-afe1-4ff2-9168-04301c16383f
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+    method: GET
+    uri: https://drf9wm7h7lj0m.cloudfront.net/3485/default/test1.json?Expires=1623191592&Signature=SwA2yWdc0I5svNK~owgv1omCdEMeSTEWZFpiV1TDgay69~b9YfwQ1X-H0NixMkYLHHVA3n08HPt45eFVUh4hF2er8itaK0QdGUtOlk7GtPdQRXx55vkdziCj18OS6ArjKzv~8A44oj58jKzLIDvCdxk2H~KMRDkB1qZ6Rc-NXJAqYWT5qUlJdvgFZSDoTLsOv-t5apbfuTDKzX22ke2UT4wJ1OMUUFm~PxEFiJ-tu1f7iI-vE7xgFv6DqWqMXPz71P~Lo50hbAUj-msjErYhpGErcX7-l75Tl3gHX1wQl31y2WPjG6hNNV5CAEXji01BK5M7erzHr8ArEuBC7D8p1g__&Key-Pair-Id=APKAI7IKGBD3WXA2RGKA
+  response:
+    body:
+      string: "{\n    \"test1\": true\n}"
+    headers:
+      Accept-Ranges:
+      - bytes
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '21'
+      Content-Type:
+      - binary/octet-stream
+      Date:
+      - Tue, 08 Jun 2021 22:23:13 GMT
+      ETag:
+      - '"1fe8df5caacce9af57d48c86701ac7ab"'
+      Last-Modified:
+      - Tue, 08 Jun 2021 21:39:02 GMT
+      Server:
+      - AmazonS3
+      Via:
+      - 1.1 f1d5d7779515e0233ce392877610b704.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - qP8WgFzJYVgg7UY6TuG2cwIugFqeiF4DgA1v9MgPq1Tv94KHr0cR3g==
+      X-Amz-Cf-Pop:
+      - HAM50-C2
+      X-Cache:
+      - RefreshHit from cloudfront
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+    method: GET
+    uri: https://api-test.super.ai/v1/data/url?path=data%3A%2F%2F2341234132513251%2Fdefault%2Ftest1.json&secondsTtl=600
+  response:
+    body:
+      string: '{"ownerId": 3485, "path": "default/test1.json", "signedUrl": "https://drf9wm7h7lj0m.cloudfront.net/3485/default/test1.json?Expires=1623191593&Signature=DnBMRhiBMoQFbkEtEcWmsG3-AdPEmuBLCuBECs~6RKiayw4GQXaHdheHrPJV~MGpp4YWKkNe07eQMZ2aTB5LsXkJMG~HKuc--K237TYZqRxnpse5Jk0Qhk1UXeTUBOkQDCwVpYUdbkTh~EeifHH2docIqJmtZEDARublyEC~jb8HoeiyxeeKCujfoECGMVIpGzsK-ef1nj5HNtZR2AfQjfxqRDzMVygvVckHAw~uSynde3DOSbSom9u-mFwpDOzvn1YaJKdvx82xAudny5xZBb55hvuRZZljbuIx2ZKgg2zbYHwYXNIPfv8bCKyHO~1sIDywckCqZ-P3pZAmcw05Bg__&Key-Pair-Id=APKAI7IKGBD3WXA2RGKA"}
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 08 Jun 2021 22:23:13 GMT
+      Via:
+      - 1.1 ea89c67081222c8c680e7a37ad75f4f0.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - wbRcjcbKYXOgveydrA_hAOSeN3rxNU6Zp-aFXlfSm5jvvygdqqGckQ==
+      X-Amz-Cf-Pop:
+      - HAM50-C2
+      X-Amzn-Trace-Id:
+      - Root=1-60bfedd1-3c06f0910ba6af277cfca999;Sampled=0
+      X-Cache:
+      - Miss from cloudfront
+      content-length:
+      - '532'
+      x-amz-apigw-id:
+      - AoIYtE6eIAMF0Gw=
+      x-amzn-Remapped-Content-Length:
+      - '532'
+      x-amzn-RequestId:
+      - 27d6a891-4f87-4323-84b6-45bdbd33d490
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+    method: GET
+    uri: https://drf9wm7h7lj0m.cloudfront.net/3485/default/test1.json?Expires=1623191593&Signature=DnBMRhiBMoQFbkEtEcWmsG3-AdPEmuBLCuBECs~6RKiayw4GQXaHdheHrPJV~MGpp4YWKkNe07eQMZ2aTB5LsXkJMG~HKuc--K237TYZqRxnpse5Jk0Qhk1UXeTUBOkQDCwVpYUdbkTh~EeifHH2docIqJmtZEDARublyEC~jb8HoeiyxeeKCujfoECGMVIpGzsK-ef1nj5HNtZR2AfQjfxqRDzMVygvVckHAw~uSynde3DOSbSom9u-mFwpDOzvn1YaJKdvx82xAudny5xZBb55hvuRZZljbuIx2ZKgg2zbYHwYXNIPfv8bCKyHO~1sIDywckCqZ-P3pZAmcw05Bg__&Key-Pair-Id=APKAI7IKGBD3WXA2RGKA
+  response:
+    body:
+      string: "{\n    \"test1\": true\n}"
+    headers:
+      Accept-Ranges:
+      - bytes
+      Age:
+      - '1'
+      Connection:
+      - keep-alive
+      Content-Length:
+      - '21'
+      Content-Type:
+      - binary/octet-stream
+      Date:
+      - Tue, 08 Jun 2021 22:23:13 GMT
+      ETag:
+      - '"1fe8df5caacce9af57d48c86701ac7ab"'
+      Last-Modified:
+      - Tue, 08 Jun 2021 21:39:02 GMT
+      Server:
+      - AmazonS3
+      Via:
+      - 1.1 c3e656776c8a9f0e1ea24405ab1dcc85.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - wtWZzJou7NO0w7yykZZ4z5-lVVsbRCxOyKILCI8se13DWOKDwzA3lQ==
+      X-Amz-Cf-Pop:
+      - HAM50-C2
+      X-Cache:
+      - Hit from cloudfront
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+    method: GET
+    uri: https://api-test.super.ai/v1/data/url?path=https%3A%2F%2Ffilesamples.com%2Fsamples%2Fcode%2Fjson%2Fsample1.json&secondsTtl=600
+  response:
+    body:
+      string: '{"ownerId": 3485, "path": "https://filesamples.com/samples/code/json/sample1.json",
+        "signedUrl": "https://drf9wm7h7lj0m.cloudfront.net/3485/https%3A//filesamples.com/samples/code/json/sample1.json?Expires=1623191593&Signature=XP3jHnChWjeAHqYp0MdwaxDiKUcEhqfp13QBivTXh7YzmJFANHNTDjs9l27oq22S6RVvcIX~9Ud2HmX9peGtJ~T4dNqhdPl8183ZFjrKhxZ~JYJXoJf30DaFkJ~Xqj-4YMqunhtwsklxGpRfr58oWw2XJiTWa5Ms~hhY9jKKvF9DEBqKvcIgTh9MqevCdtz8ia4LnLOfb1M9TDjtDmHFh10YWQU8bsFHbEB6-Rkn9h3OmZ2M5ecn~BVv2QrCP9HdElvXF21kIKIpByGVvXcrbTo5jqJ3TJPNCkKltfqRpXKWBG-KGSIwW6KIj-N6ATlqTWJakOwyOOeDqkI1u5qXVg__&Key-Pair-Id=APKAI7IKGBD3WXA2RGKA"}
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 08 Jun 2021 22:23:13 GMT
+      Via:
+      - 1.1 b448bc80d67210455b28a7dbefe37288.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - q7LC7s_LlwsFrCYRc3cvBHFGilca8GUTGelV_d0zRIVpKQEjXUQxyg==
+      X-Amz-Cf-Pop:
+      - HAM50-C2
+      X-Amzn-Trace-Id:
+      - Root=1-60bfedd1-489a078611992ee30be926ad;Sampled=0
+      X-Cache:
+      - Miss from cloudfront
+      content-length:
+      - '606'
+      x-amz-apigw-id:
+      - AoIYyF_XIAMFV7w=
+      x-amzn-Remapped-Content-Length:
+      - '606'
+      x-amzn-RequestId:
+      - 31781db1-9978-475c-960b-91a4339952fa
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+    method: GET
+    uri: https://drf9wm7h7lj0m.cloudfront.net/3485/https%3A//filesamples.com/samples/code/json/sample1.json?Expires=1623191593&Signature=XP3jHnChWjeAHqYp0MdwaxDiKUcEhqfp13QBivTXh7YzmJFANHNTDjs9l27oq22S6RVvcIX~9Ud2HmX9peGtJ~T4dNqhdPl8183ZFjrKhxZ~JYJXoJf30DaFkJ~Xqj-4YMqunhtwsklxGpRfr58oWw2XJiTWa5Ms~hhY9jKKvF9DEBqKvcIgTh9MqevCdtz8ia4LnLOfb1M9TDjtDmHFh10YWQU8bsFHbEB6-Rkn9h3OmZ2M5ecn~BVv2QrCP9HdElvXF21kIKIpByGVvXcrbTo5jqJ3TJPNCkKltfqRpXKWBG-KGSIwW6KIj-N6ATlqTWJakOwyOOeDqkI1u5qXVg__&Key-Pair-Id=APKAI7IKGBD3WXA2RGKA
+  response:
+    body:
+      string: '<?xml version="1.0" encoding="UTF-8"?>
+
+        <Error><Code>AccessDenied</Code><Message>Access Denied</Message><RequestId>1K5RAVRZ4GYE3GKT</RequestId><HostId>n24qo3iMuJQxXQzwdYzeYqt4m15clx+OEK2nq+GfJ1DWxGYt08gkb+Mk5kdA8IecExXJmMm++zI=</HostId></Error>'
+    headers:
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/xml
+      Date:
+      - Tue, 08 Jun 2021 22:23:13 GMT
+      Server:
+      - AmazonS3
+      Transfer-Encoding:
+      - chunked
+      Via:
+      - 1.1 3ef9a20d3fa6ab2cb9dbcc2f635621ce.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - Es4PgrTrPnjdj929g3Gm8ZdmnUaUguCr8OUNjyyVZB-I20bd0cMabw==
+      X-Amz-Cf-Pop:
+      - HAM50-C2
+      X-Cache:
+      - Error from cloudfront
+    status:
+      code: 403
+      message: Forbidden
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+    method: DELETE
+    uri: https://api-test.super.ai/v1/data?path=default%2Ftest1.json
+  response:
+    body:
+      string: '{"id": 1339, "ownerId": 3485, "path": "default/test1.json", "description":
+        "my_test", "mimeType": "json", "status": "DELETED", "created": "2021-06-08T21:39:01.001Z",
+        "updated": "2021-06-08T22:23:15.873Z"}
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Tue, 08 Jun 2021 22:23:15 GMT
+      Via:
+      - 1.1 93a0d7f8920098ec4cffab828f70f5cd.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - DviaMtRMHgre1avp8H5oZqiNOJs7F8fXOXgYHbKcPxzdUzW7jEL77A==
+      X-Amz-Cf-Pop:
+      - HAM50-C2
+      X-Amzn-Trace-Id:
+      - Root=1-60bfedd3-5e52fc99683e96e77b625bb4;Sampled=0
+      X-Cache:
+      - Miss from cloudfront
+      content-length:
+      - '205'
+      x-amz-apigw-id:
+      - AoIZHFFyIAMFwKw=
+      x-amzn-Remapped-Content-Length:
+      - '205'
+      x-amzn-RequestId:
+      - 16eb9b8e-14f2-47e9-8265-3f74d0a42395
+    status:
+      code: 200
+      message: OK
+version: 1
