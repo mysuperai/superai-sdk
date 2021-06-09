@@ -44,14 +44,19 @@ class DataApiMixin(ABC):
         elif paths is not None:
             query_params["path"] = paths
             query_params["recursive"] = recursive
-        query_params["signedUrl"] = signedUrl
         if signedUrl:
+            query_params["signedUrl"] = signedUrl
             query_params["secondsTtl"] = secondsTtl
         if page is not None:
             query_params["page"] = page
         if size is not None:
             query_params["size"] = size
-        return self.request(self.resource, method="GET", query_params=query_params, required_api_key=True)
+        return self.request(
+            self.resource,
+            method="GET",
+            query_params=query_params,
+            required_api_key=True,
+        )
 
     def get_all_data(
         self,
@@ -111,7 +116,8 @@ class DataApiMixin(ABC):
         :return: URL content
         """
         signed_url = self.get_signed_url(path)
-        res = requests.get(signed_url, timeout=timeout)
+        res = requests.get(signed_url.get("signedUrl"), timeout=timeout)
+
         if res.status_code == 200:
             return res.json()
         else:
