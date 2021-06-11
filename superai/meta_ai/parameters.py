@@ -33,9 +33,7 @@ class String(Scalar):
 
 
 class ParamsSpec:
-    """
-    ParamsSpec to specify range and categorical inputs for Hyper-parameter search
-    """
+    """ParamsSpec to specify range and categorical inputs for yyper-parameter search."""
 
     class ParamType(str, enum.Enum):
         DOUBLE = "DOUBLE"
@@ -189,7 +187,7 @@ class ModelParameters:
 
 
 class Config:
-    """Mocked config class, to be shared between AI and DP objects"""
+    """Mocked config class to be shared between AI and DP objects."""
 
     def __init__(self, **kwargs):
         self.kwargs = kwargs

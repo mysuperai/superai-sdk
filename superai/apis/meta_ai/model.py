@@ -101,19 +101,20 @@ class ModelApiMixin(ABC):
         weights_path: str = "",
         visibility: meta_ai_visibility_enum = "PRIVATE",
     ):
-        """
-        Add a complete model entry in the database.
-        :param name:
-        :param description:
-        :param version:
-        :param stage:
-        :param metadata:
-        :param endpoint:
-        :param input_schema:
-        :param output_schema:
-        :param model_save_path:
-        :param weights_path:
-        :param visibility:
+        """Add a complete model entry in the database.
+        
+        Args:
+            name:
+            description:
+            version:
+            stage:
+            metadata:
+            endpoint:
+            input_schema:
+            output_schema:
+            model_save_path:
+            weights_path:
+            visibility:
         """
         op = Operation(mutation_root)
         op.insert_meta_ai_model_one(
@@ -191,43 +192,39 @@ class DeploymentApiMixin(ABC):
         return self._resource
 
     def deploy(self, name, version, ecr_image_name):
-        """
-        Mutation query to create a new entry in the deployment table, should deploy an endpoint in the action handler
-        and store the endpoint name in the table
-        :param name:
-        :param stage:
-        :param version:
-        :param ecr_image_name: Can be queries from the meta_ai_table to populate
-        :return:
+        """Mutation query to create a new entry in the deployment table, should deploy an endpoint in the action handler
+        and store the endpoint name in the table.
+        
+        Args:
+            name:
+            stage:
+            version:
+            ecr_image_name: Can be queries from the meta_ai_table to populate.
         """
         raise NotImplementedError()
 
     def undeploy(self, name, version) -> Tuple[bool, str]:
-        """
-        Remove an entry from the deployment table, action handler should delete the endpoint, return True if deleted
-         successfully.
-        :param name:
-        :param stage:
-        :param version:
-        :return:
+        """Remove an entry from the deployment table. Action handler should delete the endpoint. Return True if deleted successfully.
+        
+        Args:
+            name:
+            stage:
+            version:
         """
         raise NotImplementedError()
 
     def check_endpoint_is_available(self, name, version) -> bool:
-        """
-        Query to check if there is an entry in DB
-        :return:
+        """Query to check if there is an entry in DB
         """
         raise NotImplementedError()
 
     def predict_from_endpoint(self, name, version, input):
-        """
-        Query the endpoint name from deployment table, return prediction (using MetaAI sagemaker configuration)
-        :param name:
-        :param stage:
-        :param version:
-        :param input:
-        :return:
+        """Query the endpoint name from deployment table. Return prediction (using MetaAI sagemaker configuration).
+        Args:
+            name:
+            stage:
+            version:
+            input:
         """
         raise NotImplementedError()
 
@@ -243,24 +240,24 @@ class TrainApiMixin(ABC):
         return self._resource
 
     def create_training_entry(self, name, version, train_data):
-        """
-        Mutation query to create a new entry in the training table, should deploy an endpoint in the action handler
-        and store the endpoint name in the table
-        :param name:
-        :param stage:
-        :param version:
-        :param ecr_image_name: Can be queries from the meta_ai_table to populate
-        :return:
+        """Mutation query to create a new entry in the training table. Should deploy an endpoint in the action handler
+        and store the endpoint name in the table.
+        
+        Args:
+            name:
+            stage:
+            version:
+            ecr_image_name: Can be queries from the meta_ai_table to populate.
         """
         raise NotImplementedError()
 
     def delete_training_entry(self, name, version) -> Tuple[bool, str]:
-        """
-        Remove an entry from the training table, action handler should delete the endpoint, return True if deleted
+        """Remove an entry from the training table. Action handler should delete the endpoint. Return True if deleted
          successfully.
-        :param name:
-        :param stage:
-        :param version:
-        :return:
+        
+        Args:
+            name:
+            stage:
+            version:
         """
         raise NotImplementedError()
