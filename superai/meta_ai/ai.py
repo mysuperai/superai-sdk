@@ -177,8 +177,7 @@ class PredictorFactory(object):
 
     @staticmethod
     def get_predictor_obj(mode: Mode, *args, **kwargs) -> "DeployedPredictor.Type":
-        """
-        Factory method to get a predictor
+        """Factory method to get a predictor
         """
         predictor_class = PredictorFactory.__predictor_classes.get(mode.lower())
 
@@ -357,30 +356,25 @@ class AI:
         overwrite=False,
         **kwargs,
     ):
-        """
-        Create an ai with custom inference logic and optional data dependencies as an superai artifact.
+        """Creates an AI with custom inference logic and optional data dependencies as a superai artifact.
 
-        :param input_params and output_params, schema definition of the AI object
-        :param name: Name of the AI. If the name already exists, an exception will be raised
-
-        :param version: AI integer version. If no version is specified the AI will get version 1
-
-        :param description: A free text description. Allows the user to describe the ai's intention.
-
-        :param weights_path: Path to a file or directory containing model data. This is accessible in the
+        Args:
+            input_params: Schema definition of the AI object input.
+            output_params: Schema definition of the AI object output.
+            name: Name of the AI. If the name already exists, an exception will be raised.
+            version: AI integer version. If no version is specified the AI is set to version 1.
+            description: Optional; A free text description. Allows the user to describe the AI's intention.
+            weights_path: Path to a file or directory containing model data. This is accessible in the
                           :func:`BaseModel.load_weights(weights_path) <superai.meta_ai.base.BaseModel.load_weights>
-
-        :param requirements: A list of pypi requirements or the path to a requirements.txt file. If the both this
+            requirements: A list of PyPi requirements or the path to a requirements.txt file. If both this
                              parameter and the :param: conda_env is specified an ValueError is raised.
-
-        :param code_path: A list of local filesystem paths to Python file dependencies (or directories containing file
+            code_path: A list of local filesystem paths to Python file dependencies (or directories containing file
                           dependencies). These files are *prepended* to the system path before the ai is loaded.
-
-        :param conda_env: Either a dictionary representation of a Conda environment or the path to a Conda environment
-                          yaml file. This describes the environment this ai should be run in. If ``ai_class`` is not
+            conda_env: Either a dictionary representation of a Conda environment or the path to a Conda environment
+                          yaml file. This describes the environment this AI should be run in. If ``ai_class`` is not
                           ``None``, the Conda environment must at least specify the dependencies contained in
                           :func:`get_default_conda_env()`. If `None`, the default :func:`get_default_conda_env()`
-                          environment is added to the ai. The following is an *example* dictionary representation of a
+                          environment is added to the AI. The following is an *example* dictionary representation of a
                           Conda environment::
 
                             {
@@ -391,8 +385,7 @@ class AI:
                                     'cloudpickle==0.5.8'
                                 ]
                             }
-
-        :param model_class: An instance of a subclass of :class:`~BaseModel`. This class is serialized using the CloudPickle
+            model_class: An instance of a subclass of :class:`~BaseModel`. This class is serialized using the CloudPickle
                          library. Any dependencies of the class should be included in one of the following locations:
 
                                 - The SuperAI library.
@@ -403,8 +396,7 @@ class AI:
                              Note: If the class is imported from another module, as opposed to being defined in the
                              ``__main__`` scope, the defining module should also be included in one of the listed
                              locations.
-
-        :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs are resolved
+            artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs are resolved
                           to absolute filesystem paths, producing a dictionary of ``<name, absolute_path>`` entries.
                           ``ai_class`` can reference these resolved entries as the ``artifacts`` property of the
                           ``context`` parameter in
@@ -422,8 +414,7 @@ class AI:
                           path via ``context.artifacts["my_file"]``.
 
                           If ``None``, no artifacts are added to the model.
-
-        :param parameters: [Optional] Parameters to be passed to the model, could be the model architecture parameters,
+            parameters: Optional; Parameters to be passed to the model, could be the model architecture parameters,
                            or training parameters.
                            For example: parameters=MyModel.params_schema.parameters(conv_layers=None,
                                                                     num_conv_layers=None,
@@ -433,6 +424,7 @@ class AI:
                                                                     padding='valid',
                                                                     dilation_rate=(1, 1),
                                                                     conv_use_bias=True)
+            **kwargs: Arbitrary keyword arguments
         """
 
         self.input_params = input_params
@@ -507,30 +499,35 @@ class AI:
     @classmethod
     def load_by_name_version(cls, name, version: int = None, stage: str = None) -> "AI":
         """
-        Loads an AI by name. If the version OR stage are specified that specific version will be loaded.
+        Loads an AI by name. If the version or stage are specified that specific version will be loaded.
+        
+        Args:
+            name: AI name.
+            version: A version number.
+            stage: The AI stage.
 
-        :param name: AI name. *Required.
-        :param version: An version number. *Required.
-        :param stage: The AI stage. *Required.
-        :return: AI object
+        Returns:
+            AI object
         """
         raise NotImplementedError("Method not supported")
 
     @classmethod
     def load(cls, path: str, weights_path: str = None) -> "AI":
-        """
-        Load an AI from a local or s3 path. If an s3 path is passed, the AI model will be downloaded from s3 directly.
+        """Loads an AI from a local or S3 path. If an S3 path is passed, the AI model will be downloaded from S3 directly.
 
-        if :param path is a valid path, the model will be loaded from the local path
-        if :param path is a valid s3 path, i.e. s3://bucket/prefix/some_model_path, the model will be downloaded from
-        s3, please note that you should manage the access to s3 using your AWS credentials.
-        if :param path is a valid model path i.e. prefix is model://some_name/version, or model://some_name/stage
-        then the DB will be referenced to find the relevant model and loaded.
+        Args:
+            path
+            weights_path
+            if :param path is a valid path, the model will be loaded from the local path
+            if :param path is a valid S3 path, i.e., s3://bucket/prefix/some_model_path, the model will be downloaded from
+            S3. Manage S3 access using your AWS credentials.
+            if :param path is a valid model path i.e., prefix is model://some_name/version, or model://some_name/stage
+            then the database will be referenced to find the relevant model and loaded.
 
-        Please note that a path can be considered valid only if there is an `AISaveFile.json` and `ai_model` file
-        present.
+            A path can be considered valid only if there is an `AISaveFile.json` and `ai_model` file present.
 
-        :return: AI class of the loaded model
+        Returns:
+            AI class of the loaded model
         """
         if path.startswith("s3://"):
             return cls.load_from_s3(path, weights_path)
@@ -597,9 +594,11 @@ class AI:
 
     @classmethod
     def load_local(cls, load_path: str, weights_path: str = None) -> "AI":
-        """Load AI model stored locally.
-        :param weights_path: Location of weights.
-        :param load_path: The location of the AISave or any other matching folder
+        """Loads AI model stored locally.
+
+        Args:
+            weights_path: Location of weights.
+            load_path: The location of the AISave or any other matching folder.
         """
         log.info(f"Attempting to load model from {load_path}...")
         with open(os.path.join(load_path, "AISaveFile.json"), "r") as json_file:
@@ -630,19 +629,21 @@ class AI:
         )
 
     def _create_database_entry(self, **kwargs):
-        """
-        Add entry in the meta AI database
-        :param name: Name of the model
-        :param description: Description of model
-        :param version: Version of model
-        :param stage: Stage of model
-        :param metadata: Metadata associated with model
-        :param endpoint: Endpoint specified of the model
-        :param input_schema: Input schema followed by model
-        :param output_schema: Output schema followed by model
-        :param model_save_path: Location in S3 where the AISaveModel has to be placed
-        :param weights_path: Location of weights
-        :param visibility: Visibility of model, Default visibility: PRIVATE
+        """Adds an entry in the meta AI database.
+
+            Args:
+                name: Name of the model.
+                description: Description of model.
+                version: Version of model.
+                stage: Stage of model.
+                metadata: Metadata associated with model.
+                endpoint: Endpoint specified of the model.
+                input_schema: Input schema followed by model.
+                output_schema: Output schema followed by model.
+                model_save_path: Location in S3 where the AISaveModel has to be placed.
+                weights_path: Location of weights.
+                visibility: Visibility of model. Default visibility: PRIVATE.
+                **kwargs: Arbitrary keyword arguments
         """
         self.client.add_model_full_entry(**kwargs)
 
@@ -652,16 +653,17 @@ class AI:
         version: Optional[int] = None,
         archive_existing: bool = True,
     ):
-        """
-        Transitions an AI version number to the specified stage. [Mutable]
+        """Transitions an AI version number to the specified stage. [Mutable]
 
-        :param version: AI version number. Can be defaulted to object version.
-        :param stage: Transition ai version to new stage. *Required.
-        :param archive_existing: When transitioning an AI version to a particular stage, this flag dictates whether
+        Args:
+            version: Optinal; AI version number. Can be defaulted to object version.
+            stage: Transition AI version to new stage.
+            archive_existing: When transitioning an AI version to a particular stage, this flag dictates whether
                                  all existing ai versions in that stage should be atomically moved to the “archived”
                                  stage. This ensures that at-most-one ai version exists in the target stage. This
                                  field is by default set to True.
-        :return: Updated ai version
+        Returns:
+             Updated AI version
         """
         # TODO: Archive existing
         sett_version = version if version is not None else self.version
@@ -682,11 +684,10 @@ class AI:
         return self
 
     def update_weights_path(self, weights_path: str):
-        """
-        Updates model weight file. Running this operation will increase the ai version.
+        """Updates model weight file. Running this operation will increase the AI version.
 
-        :param weights_path: Path to a file or directory containing model data.
-        :return:
+        Args:
+            weights_path: Path to a file or directory containing model data.
         """
         if self.version is not None:
             self.version += 1
@@ -703,11 +704,10 @@ class AI:
         # TODO Do we return a new AI object?
 
     def update_ai_class(self, ai_class: "BaseModel"):
-        """
-        Updates the model_class. Running this operation will increase the ai version.
-
-        :param ai_class: An instance of a subclass of :class:`~BaseModel`.
-        :return:
+        """Updates the model_class. Running this operation will increase the AI version.
+        
+        Args:
+            ai_class: An instance of a subclass of :class:`~BaseModel`.
         """
         if self.version is not None:
             self.version += 1
@@ -731,13 +731,13 @@ class AI:
         ai_class: Optional["BaseModel"] = None,
     ):
         """
-        Update AI.
+        Updates the AI.
 
-        :param version: New AI version number. If the version number already exists, this method will fail.
-        :param stage: New AI stage.
-        :param weights_path: New path to a file or directory containing model data.
-        :param ai_class: An instance of a subclass of :class:`~BaseModel`.
-        :return:
+        Args:
+            version: New AI version number. If the version number already exists, this method will fail.
+            stage: New AI stage.
+            weights_path: New path to a file or directory containing model data.
+            ai_class: An instance of a subclass of :class:`~BaseModel`.
         """
         models = self.client.get_model_by_name(self.name)
         if version is None:
@@ -775,20 +775,20 @@ class AI:
         self.push()
 
     def predict(self, input):
-        """
-        Predict from model_class, makes sure that predict method adheres to schema in ai_definition
-        :param input:
-        :return:
+        """Predicts from model_class and ensures that predict method adheres to schema in ai_definition.
+        
+        Args:
+            input
         """
         output = self.model_class.predict(input)
         return output
 
     def save(self, path: str = ".AISave", overwrite: bool = False):
-        """
-        Save the model locally
-        :param path:
-        :param overwrite:
-        :return:
+        """Saves the model locally.
+
+        Args:
+            path
+            overwrite
         """
         save_path = os.path.join(path, self.name)
         if not os.path.exists(save_path):
@@ -840,8 +840,7 @@ class AI:
             )
 
     def push(self) -> None:
-        """
-        Push the saved model to s3, create an entry in the database, enter the s3 URI in the database.
+        """Pushes the saved model to S3, creates an entry and enters the S3 URI in the database.
         """
         s3_client = boto3.client("s3")
 
@@ -872,17 +871,17 @@ class AI:
         mode: "Mode" = Mode.LOCAL,
         workers: int = 1,
     ) -> "DeployedPredictor.Type":
-        """
-        Here we need to create a docker container with superai-sk installed. Then we need to create a server script
+        """Here we need to create a docker container with superai-sk installed. Then we need to create a server script
         and prediction script, which basically calls ai.predict.
         We need to pass the ai model inside the image, install conda env or requirements.txt as required.
         Serve local: run the container locally using Cli (in a separate thread)
         Serve sagemaker: create endpoint after pushing container to ECR
 
-        :param mode: Which mode to deploy.
-        :param port: Specifically for local deployment, if you want to use a specific port to do
-                        https://localhost:<port>/invocation
-        :param workers: Number of workers to use for serving.
+        Args:
+            mode: Which mode to deploy.
+            port: Specifically for local deployment, if you want to use a specific port to do
+                        https://localhost:<port>/invocation.
+            workers: Number of workers to use for serving.
         """
         if mode == Mode.LOCAL or mode == Mode.AWS:
             self._create_dockerfile(workers)
@@ -926,8 +925,7 @@ class AI:
         return ai_object.deploy(mode)
 
     def _create_dockerfile(self, worker_count: int = 1):
-        """
-        Build model locally. This involves docker file creation and docker build operations.
+        """Build model locally. This involves docker file creation and docker build operations.
         Note that this is supported only in local mode, running this on docker can lead to docker-in-docker problems.
         """
         homedir = "/home/model-server/"
@@ -1047,8 +1045,7 @@ class AI:
         os.chdir(cwd)
 
     def push_model(self, image_name=None):
-        """
-        Push model in ECR, involves tagging and pushing.
+        """Push model in ECR, involves tagging and pushing.
         Note that your default AWS credentials will be used for this.
         """
         dockerizer.push_image(image_name=image_name)
@@ -1068,20 +1065,19 @@ class AI:
         logger=None,
         mode: Mode = Mode.LOCAL,
     ):
-        """
-        Please fill hyperparameters and model parameters accordingly.
-
-        :param validation_data:
-        :param callbacks:
-        :param test_data:
-        :param production_data:
-        :param encoder_trainable:
-        :param decoder_trainable:
-        :param hyperparameters:
-        :param model_parameters:
-        :param model_save_path:
-        :param training_data:
-        :return:
+        """Please fill hyperparameters and model parameters accordingly.
+        
+        Args:
+            validation_data:
+            callbacks:
+            test_data:
+            production_data:
+            encoder_trainable:
+            decoder_trainable:
+            hyperparameters:
+            model_parameters:
+            model_save_path:
+            training_data:
         """
         if logger is not None:
             self.model_class.update_logger_path(logger)
@@ -1114,13 +1110,13 @@ def list_models(
     raw: bool = False,
     verbose: bool = True,
 ):
-    """
-    List existing models in the database, given the model name
-    :param verbose: Print the output
-    :param raw: Return un-formatted list of models
-    :param client: Instance of superai.client
-    :param ai_name: Name of the AI model
-    :return:
+    """List existing models in the database, given the model name.
+
+        Args:
+            verbose: Print the output.
+            raw: Return unformatted list of models.
+            client: Instance of superai.client.
+            ai_name: Name of the AI model.
     """
 
     model_entries = client.get_model_by_name(ai_name)

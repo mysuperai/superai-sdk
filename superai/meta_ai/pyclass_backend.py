@@ -9,9 +9,7 @@ _logger = logging.getLogger(__name__)
 
 
 class PyClassBackend(BaseBackend):
-    """
-    Backend implementation for the generic python models.
-    """
+    """Backend implementation for the generic python models."""
 
     def __init__(self, config, workers=1, no_conda=False, install_mlflow=False, **kwargs):
         super().__init__(config=config, **kwargs)
@@ -20,9 +18,7 @@ class PyClassBackend(BaseBackend):
         pass
 
     def serve(self, model_uri, port, host):
-        """
-        Serve pyfunc model locally.
-        """
+        """Serve pyfunc model locally."""
         pass
 
     def can_score_model(self):
