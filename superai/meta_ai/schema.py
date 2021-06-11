@@ -2,7 +2,7 @@ import jsonpickle
 
 
 class Schema:
-    """Mocked class for all schema related functionalities"""
+    """Mocked class for all schema related functionalities."""
 
     def __init__(self, **kwargs):
         super().__init__()

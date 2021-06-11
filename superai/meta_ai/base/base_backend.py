@@ -14,34 +14,33 @@ class BaseBackend(object):
 
     @abstractmethod
     def serve(self, model_uri, port, host):
-        """
-        Serve the specified ai locally.
+        """Serve the specified ai locally.
 
-        :param model_uri: URI pointing to the AI to be used for scoring.
-        :param port: Port to use for the AI deployment.
-        :param host: Host to use for the AI deployment. Defaults to ``localhost``.
+        Args:
+            model_uri: URI pointing to the AI to be used for scoring.
+            port: Port to use for the AI deployment.
+            host: Host to use for the AI deployment. Defaults to ``localhost``.
         """
         pass
 
     def prepare_env(self, model_uri):
-        """
-        Performs any preparation necessary to predict or serve the AI, for example downloading dependencies or
+        """Performs any preparation necessary to predict or serve the AI, for example downloading dependencies or
         initializing a conda environment. After preparation, calling predict or serve should be fast.
         """
         pass
 
     @abstractmethod
     def can_score_ai(self):
-        """
-        Check whether this backend can be deployed in the current environment and used to score models.
+        """Check whether this backend can be deployed in the current environment and used to score models.
 
-        :return: True if this flavor backend can be applied in the current environment.
+            Returns:
+                True if this flavor backend can be applied in the current environment.
         """
         pass
 
     def can_build_image(self):
         """
-        :return: True if this backend has a `build_image` method defined for building a docker
-                 container capable of serving the model, False otherwise.
+        Returns:
+            True if this backend has a `build_image` method defined for building a docker container capable of serving the model. Otherwise, false.
         """
         return callable(getattr(self.__class__, "build_image", None))
