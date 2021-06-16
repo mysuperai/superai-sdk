@@ -26,7 +26,7 @@ class Client(
     ProjectAiApiMixin,
     ModelApiMixin,
     DeploymentApiMixin,
-    TrainApiMixin
+    TrainApiMixin,
 ):
     def __init__(self, api_key: str = None, auth_token: str = None, id_token: str = None, base_url: str = None):
         super(Client, self).__init__()

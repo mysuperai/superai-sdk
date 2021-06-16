@@ -136,7 +136,7 @@ ai1 = AI(
 log.info(
     "Prediction from AI : {}".format(
         ai1.predict(
-            input={"my_image": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
+            inputs={"my_image": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
         ),
     )
 )
@@ -169,7 +169,7 @@ ai2 = AI.load_local(
 log.info(
     "Prediction from loaded AI : {}".format(
         ai2.predict(
-            input={"my_image": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
+            inputs={"my_image": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
         ),
     )
 )

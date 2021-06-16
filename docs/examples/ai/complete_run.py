@@ -331,24 +331,20 @@ ai = AI(
     name="my_mnist_model",
     version=2,
     weights_path=os.path.join(os.path.dirname(__file__), "resources/my_model"),
-    model_class=MyKerasModel,
 )
 
-predictor: LocalPredictor = ai.deploy(mode=Mode.LOCAL)
+predictor: LocalPredictor = ai.deploy(mode=Mode.LOCAL, skip_build=True)
 
 time.sleep(5)
 log.info(
-    color(
-        "Local predictions: {}".format(
-            predictor.predict(
-                input={
-                    "my_image": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}
-                }
-            ),
-        )
+    "Local predictions: {}".format(
+        predictor.predict(
+            input={"my_image": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
+        ),
     )
 )
 predictor.container.stop()
+ai.push_model("my_mnist_model", "2")
 
 ###########################################################################
 # Specify hyperparameters and model parameters
@@ -378,7 +374,7 @@ ai_with_hypes.train(
     training_data=None,
     hyperparameters=HyperParameterSpec(
         trainable=True,
-        epochs=3,
+        epochs=1,
         learning_rate=0.001,
         batch_size=64,
     ),
@@ -405,13 +401,22 @@ new_hyped_model.train(
     training_data=None,
     hyperparameters=HyperParameterSpec(
         trainable=True,
-        epochs=3,
+        epochs=1,
         learning_rate=0.001,
         batch_size=64,
     ),
     encoder_trainable=False,
     decoder_trainable=True,
 )
+
+
+###########################################################################
+# Push and save model in s3
+###########################################################################
+
+# Push and create entry in database
+my_ai.push(update_weights=True)
+
 
 ###########################################################################
 # Load and Create AI
@@ -422,28 +427,39 @@ local_loaded_ai = AI.load(
 )
 log.info(local_loaded_ai)
 
+s3_loaded_ai: AI = AI.load(
+    path="s3://canotic-ai/meta_ai_models/my_mnist_model/1/AISavedModel.tar.gz",
+    weights_path="s3://canotic-ai/meta_ai_models/saved_models/my_model.tar.gz",
+)
+log.info(
+    "S3 predictions : {}".format(
+        s3_loaded_ai.predict(
+            {"my_image": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
+        )
+    )
+)
 with m.s3 as s3, m.list as lm:
-    s3_loaded_ai: AI = AI.load("s3://my_mnist_model/1")
     db_loaded_ai: AI = AI.load("model://my_mnist_model/1")
-log.info(color(f"S3 loaded {s3_loaded_ai}"))
-log.info(color(f"DB loaded {db_loaded_ai}"))
+log.info(f"S3 loaded {s3_loaded_ai}")
+log.info(f"DB loaded {db_loaded_ai}")
 
 ###########################################################################
 # Predict
 ###########################################################################
 inputs = {"my_image": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
-result = local_loaded_ai.predict(input=inputs)
-log.info(color(f"Result : {result}"))
+result = local_loaded_ai.predict(inputs=inputs)
+log.info(f"Result : {result}")
 
-assert s3_loaded_ai.predict(input=inputs) == result, "Results should be same"
+assert s3_loaded_ai.predict(inputs=inputs) == result, "Results should be same"
 
-# with m.local as l:
-predictor: LocalPredictor = my_ai.deploy(mode=Mode.LOCAL)
-log.info(color(f"Local predictions: {predictor.predict(input=inputs)}"))
+predictor: LocalPredictor = my_ai.deploy(mode=Mode.LOCAL, skip_build=True)
+time.sleep(5)
+log.info(f"Local predictions: {predictor.predict(input=inputs)}")
+predictor.container.stop()
 
 with m.push as p, m.sage_check(True) as sc, m.sage_pred as sp:
     predictor: AWSPredictor = my_ai.deploy(mode=Mode.AWS)
-    log.info(color(f"AWS Predictions: {predictor.predict(input=inputs)}"))
+    log.info(f"AWS Predictions: {predictor.predict(input=inputs)}")
 
 # might not be required for lambdas
 with m.sage_check(False) as sc, m.undep as ud:
@@ -586,11 +602,9 @@ class MyTrackerModel(BaseModel):
 # database to run the following mocks, in the future all caveats will be
 # handled
 ###########################################################################
-# Push and create entry in database
-my_ai.push()
 
 # list all models
-log.info(color(f"All models with name {model_name}"), list_models(model_name))
+log.info(f"All models with name {model_name}\n" + list_models(model_name))
 
 # another_ai = AI(
 #     ai_definition=ai_definition,
@@ -602,7 +616,7 @@ log.info(color(f"All models with name {model_name}"), list_models(model_name))
 #     description="My super fancy AI model",
 # )
 #
-# log.info(color(f"Checkout the new version: {another_ai.version}"))
+# log.info(f"Checkout the new version: {another_ai.version}")
 
 # Transitions version 1 to `"production"` stage
 transitioned_ai = my_ai.transition_ai_version_stage(version=1, stage="PROD")

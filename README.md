@@ -208,3 +208,9 @@ labels = superAI.process(inputs=inputs, worker=Worker.me, open_browser=True)
 ```
 
 You can find more examples in docs/examples
+
+### Pycharm specific requirement
+
+For better logging when using Pycharm, please change your run configuration to have the following switch enabled
+
+> - [x] Emulate terminal in output console

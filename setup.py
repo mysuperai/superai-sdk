@@ -1,14 +1,14 @@
 # coding: utf-8
 
 
-from setuptools import find_packages, setup
+from setuptools import find_packages, setup  # type: ignore
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
 NAME = "superai"
 
-VERSION = "0.2.0.dev1"
+VERSION = "0.2.0.dev2"
 
 # To install the library, run the following
 #
@@ -37,7 +37,7 @@ REQUIRES = [
     "sagemaker>=1.64.0",
     "sentry-sdk>=0.19.4",
     "scikit-learn>=0.23.2",
-    "sgqlc>=12.1",
+    "sgqlc>=13.0",
     "sentry-sdk>=0.19.4",
     "six",
     "warrant>=0.6",

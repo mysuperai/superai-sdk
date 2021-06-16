@@ -10,7 +10,7 @@ class GraphQlException(Exception):
 class MetaAISession(RequestsEndpoint):
     def __init__(self, app_id=None, timeout=20):
         base_url = settings.get("meta_ai_base")
-        # base_url = "http://localhost:55096/v1/graphql"
+        # base_url = "http://localhost:52619/v1/graphql"
         api_key = load_api_key()
         headers = {"x-api-key": api_key, "x-app-id": app_id, "Accept-Encoding": "gzip"}
         super().__init__(base_url, headers, timeout=timeout)
