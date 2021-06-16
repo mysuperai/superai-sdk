@@ -6,16 +6,16 @@ import boto3
 import requests
 import sagemaker
 from botocore.exceptions import ClientError
-from colorama import Style, Fore
 from sagemaker import get_execution_role
 
-from superai.log import logger
+from superai import log
 
 
 def create_endpoint(
     arn_role=None,
     region="us-east-1",
     image_name=None,
+    version="latest",
     model_url=None,
     initial_instance_count=1,
     instance_type="ml.m5.xlarge",
@@ -55,11 +55,11 @@ def create_endpoint(
         role = get_execution_role()
         account_id = boto3.client("sts").get_caller_identity()["Account"]
 
-    container = f"{account_id}.dkr.ecr.{region}.amazonaws.com/{image_name}:latest"
-    model_name = f"DEMO-{image_name}-" + time.strftime("%Y-%m-%d-%H-%M-%S", time.gmtime())
-    logger.info(Style.BRIGHT + "Container image: " + Style.RESET_ALL + container)
-    logger.info(Style.BRIGHT + "Model name: " + Style.RESET_ALL + model_name)
-    logger.info(Style.BRIGHT + "Model data Url: " + Style.RESET_ALL + model_url)
+    container = f"{account_id}.dkr.ecr.{region}.amazonaws.com/{image_name}:{version}"
+    model_name = f"DEMO-{image_name.replace('_', '-')}-{version}-" + time.strftime("%Y-%m-%d-%H-%M-%S", time.gmtime())
+    log.info("Container image: " + container)
+    log.info("Model name: " + model_name)
+    log.info("Model data Url: " + model_url)
 
     assert mode in ["SingleModel", "MultiModel"], "Mode should be one of ['SingleModel', 'MultiModel']"
     container = {"Image": container, "ModelDataUrl": model_url, "Mode": mode}
@@ -71,13 +71,15 @@ def create_endpoint(
     except Exception as e:
         if mode == "SingleModel":
             assert model_url.endswith(".tar.gz"), "For SingleModel mode, you need to provide a path to `tar.gz`"
-        logger.error("Check that `model_url` is a folder for `MultiModel` mode and a `tar.gz` for `SingleModel`")
+        log.error("Check that `model_url` is a folder for `MultiModel` mode and a `tar.gz` for `SingleModel`")
         raise e
 
-    logger.info(Style.BRIGHT + "Model Arn: " + Style.RESET_ALL + create_model_response["ModelArn"])
+    log.info("Model Arn: " + create_model_response["ModelArn"])
 
-    endpoint_config_name = f"Deploy-{image_name}-" + time.strftime("%Y-%m-%d-%H-%M-%S", time.gmtime())
-    logger.info(Style.BRIGHT + "Endpoint config name: " + Style.RESET_ALL + endpoint_config_name)
+    endpoint_config_name = f"Deploy-{image_name.replace('_', '-')}-{version}-" + time.strftime(
+        "%Y-%m-%d-%H-%M-%S", time.gmtime()
+    )
+    log.info("Endpoint config name: " + endpoint_config_name)
 
     create_endpoint_config_response = sm_client.create_endpoint_config(
         EndpointConfigName=endpoint_config_name,
@@ -92,26 +94,31 @@ def create_endpoint(
         ],
     )
 
-    logger.info(
-        Style.BRIGHT + "Endpoint config Arn: " + Style.RESET_ALL + create_endpoint_config_response["EndpointConfigArn"]
-    )
+    log.info("Endpoint config Arn: " + create_endpoint_config_response["EndpointConfigArn"])
 
-    endpoint_name = f"DEMO-{image_name}-" + time.strftime("%Y-%m-%d-%H-%M-%S", time.gmtime())
-    logger.info(Style.BRIGHT + "Endpoint name: " + Style.RESET_ALL + endpoint_name)
-
-    create_endpoint_response = sm_client.create_endpoint(
-        EndpointName=endpoint_name, EndpointConfigName=endpoint_config_name
-    )
-    logger.info("Endpoint Arn: " + create_endpoint_response["EndpointArn"])
+    endpoint_name = f"DEMO-{image_name.replace('_', '-')}-{version}"
+    log.info("Endpoint name: " + endpoint_name)
+    try:
+        create_endpoint_response = sm_client.create_endpoint(
+            EndpointName=endpoint_name, EndpointConfigName=endpoint_config_name
+        )
+    except ClientError:
+        log.info("Endpoint already exists, deleting and recreating")
+        sm_client.delete_endpoint(EndpointName=endpoint_name)
+        time.sleep(5)
+        create_endpoint_response = sm_client.create_endpoint(
+            EndpointName=endpoint_name, EndpointConfigName=endpoint_config_name
+        )
+    log.info("Endpoint Arn: " + create_endpoint_response["EndpointArn"])
 
     resp = sm_client.describe_endpoint(EndpointName=endpoint_name)
     status = resp["EndpointStatus"]
-    logger.info("Endpoint Status: " + status)
+    log.info("Endpoint Status: " + status)
 
-    logger.info("Waiting for {} endpoint to be in service...".format(endpoint_name))
+    log.info("Waiting for {} endpoint to be in service...".format(endpoint_name))
     waiter = sm_client.get_waiter("endpoint_in_service")
     waiter.wait(EndpointName=endpoint_name)
-    logger.info(Fore.GREEN + f"{create_endpoint_response['EndpointArn']} ready for invocations" + Style.RESET_ALL)
+    log.info(f"{create_endpoint_response['EndpointArn']} ready for invocations")
 
 
 def upload_model_to_s3(bucket: str, prefix: str, model: str):
@@ -131,7 +138,7 @@ def upload_model_to_s3(bucket: str, prefix: str, model: str):
     key = os.path.join(prefix, model)
     with open("data/" + model, "rb") as file_obj:
         s3.Bucket(bucket).Object(key).upload_fileobj(file_obj)
-        logger.info(f"Loaded model to bucket: {bucket}, prefix: {prefix}, with path: {model}")
+        log.info(f"Loaded model to bucket: {bucket}, prefix: {prefix}, with path: {model}")
 
 
 def invoke_local(mime: str, body: str):
@@ -152,10 +159,10 @@ def invoke_local(mime: str, body: str):
             payload = body
         res = requests.post(url, data=payload, headers=headers)
     if res.status_code == 200:
-        logger.info(res.json())
+        log.info(res.json())
     else:
         message = "Error , received error code {}: {}".format(res.status_code, res.text)
-        logger.error(message)
+        log.error(message)
 
 
 def invoke_sagemaker_endpoint(endpoint, mime, payload, mode="SingleModel", target_model=None, arn_role=None):
@@ -196,5 +203,21 @@ def invoke_sagemaker_endpoint(endpoint, mime, payload, mode="SingleModel", targe
             TargetModel=target_model,
             Body=body,
         )
-    logger.info(Fore.GREEN + f"Response from endpoint: {response}" + Style.RESET_ALL)
-    print(*json.loads(response["Body"].read()), sep="\n")
+    log.info(f"Response from endpoint: {response}")
+    response = json.loads(response["Body"].read())
+    log.info(f"Model response: {response}")
+    return response
+
+
+if __name__ == "__main__":
+    create_endpoint(
+        arn_role="arn:aws:iam::185169359328:role/service-role/AmazonSageMaker-ExecutionRole-20180117T160866",
+        image_name="genre_model",
+        version="2",
+        model_url="s3://canotic-ai/meta_ai_models/saved_models/fairseq_entity_disambiguation_aidayago.tar.gz",
+    )
+    invoke_sagemaker_endpoint(
+        endpoint="DEMO-genre-model-2",
+        mime="application/json",
+        payload='{"data":{"sentences": ["Einstein was a [START_ENT] German [END_ENT] physicist."]}}',
+    )

@@ -9,11 +9,15 @@ import docker
 import requests
 import sagemaker
 from botocore.exceptions import ClientError
-from colorama import Fore, Style
 from jinja2 import Template
 from sagemaker import get_execution_role
 
 from superai.log import logger
+
+from .sagemaker_endpoint import create_endpoint, invoke_sagemaker_endpoint
+
+log = logger.get_logger(__name__)
+
 
 server_script = """
 import subprocess
@@ -61,13 +65,6 @@ def update_docker_file(
     with open(dockerfile, "r") as f:
         no_entrypoint = "ENTRYPOINT" in f.read()
 
-    session = boto3.Session()
-    credentials = session.get_credentials()
-
-    credentials = credentials.get_frozen_credentials()
-    aws_access_key_id = credentials.access_key
-    aws_secret_access_key = credentials.secret_key
-
     lines = [
         "\nRUN mkdir -p /usr/share/man/man1",
         "\nRUN apt-get update "
@@ -91,7 +88,7 @@ def update_docker_file(
         ]
     )
     if has_requirements_file:
-        logger.info("Adding requirements.txt...")
+        log.info("Adding requirements.txt...")
         lines.extend(
             [
                 "RUN python -m pip install --no-cache-dir -r /home/model-server/requirements.txt",
@@ -111,7 +108,7 @@ def update_docker_file(
 
     with open(dockerfile, "a") as d_file:
         d_file.write("\n".join(lines))
-    logger.info(f"Updated Dockerfile @ {Style.BRIGHT}`{dockerfile}`{Style.RESET_ALL}")
+    log.info(f"Updated Dockerfile @ `{dockerfile}`")
 
 
 def create_dockerfile(dockerfile_path: str = ".dockerizer/Dockerfile") -> None:
@@ -121,7 +118,7 @@ def create_dockerfile(dockerfile_path: str = ".dockerizer/Dockerfile") -> None:
     """
     with open(dockerfile_path, "w") as file:
         file.write(standard_dockerfile_content)
-    logger.info(f"Created a new Dockerfile @ `{dockerfile_path}`")
+    log.info(f"Created a new Dockerfile @ `{dockerfile_path}`")
 
 
 def build_image(
@@ -146,7 +143,7 @@ def build_image(
     :return:
     """
     if os.path.exists(".dockerizer"):
-        logger.info("Removing existing `.dockerizer` folder...")
+        log.info("Removing existing `.dockerizer` folder...")
         shutil.rmtree(".dockerizer")
     os.makedirs(".dockerizer")
 
@@ -160,54 +157,52 @@ def build_image(
         )
         file_str = template.render(args)
         ep_file.write(file_str)
-    logger.info(f"Created server script and copied to -> `.dockerizer/dockerd-entrypoint.py`")
+    log.info(f"Created server script and copied to -> `.dockerizer/dockerd-entrypoint.py`")
 
     # Process Dockerfile
     if not os.path.exists(dockerfile):
         create_dockerfile(".dockerizer/Dockerfile")
     else:
         shutil.copyfile(dockerfile, ".dockerizer/Dockerfile")
-        logger.info(f"Copied existing Dockerfile from `{dockerfile}` -> `.dockerizer/Dockerfile`")
+        log.info(f"Copied existing Dockerfile from `{dockerfile}` -> `.dockerizer/Dockerfile`")
     dockerfile = ".dockerizer/Dockerfile"
 
     # copy all contents of target folder
     head_folder = os.path.split(os.path.abspath(entry_point))[0]
     shutil.copytree(head_folder, ".dockerizer/model_server", ignore=shutil.ignore_patterns(".dockerizer"))
-    logger.info(f"Copied contents of {Style.BRIGHT}`{head_folder}` -> `.dockerizer/model_server`{Style.RESET_ALL}")
+    log.info(f"Copied contents of `{head_folder}` -> `.dockerizer/model_server`")
 
     has_requirements_file = os.path.exists(".dockerizer/model_server/requirements.txt")
     update_docker_file(dockerfile, command, has_requirements_file)
 
     start = time.time()
-    logger.info("Starting docker container build...")
+    log.info("Starting docker container build...")
 
     if use_shell:
         docker_command = (
             f"docker build --progress=plain -t {image_name} -f {dockerfile} "
             f"--secret id=aws,src=$HOME/.aws/credentials .dockerizer"
         )
-        logger.info(f"Running {docker_command}")
+        log.info(f"Running {docker_command}")
         os.system(docker_command)
     else:
         docker_client = docker.from_env()
         build = docker_client.images.build(path=".dockerizer", tag=image_name)
-        logger.info(f"Docker_api build : {build}")
+        log.info(f"Docker_api build : {build}")
     end = time.time()
-    logger.info(
-        f"Image {Fore.GREEN}`{image_name}:latest`{Style.RESET_ALL}"
-        f" was built successfully. Elapsed time: {end - start:.3f} secs."
-    )
+    log.info(f"Image `{image_name}:latest`" f" was built successfully. Elapsed time: {end - start:.3f} secs.")
 
 
-def push_image(image_name: str, region: str = "us-east-1") -> None:
+def push_image(image_name: str, version: str = "latest", region: str = "us-east-1") -> str:
     """
     Push container to ECR
     :param image_name: Name of the locally built image
+    :param version: version string for docker container
     :param region: AWS region
     """
     boto_session = boto3.Session(region_name=region)
     account = boto_session.client("sts").get_caller_identity()["Account"]
-    full_name = f"{account}.dkr.ecr.{region}.amazonaws.com/{image_name}:latest"
+    full_name = f"{account}.dkr.ecr.{region}.amazonaws.com/{image_name}:{version}"
 
     docker_client = docker.from_env()
 
@@ -215,28 +210,28 @@ def push_image(image_name: str, region: str = "us-east-1") -> None:
     try:
         ecr_client.describe_repositories(registryId=account, repositoryNames=[image_name])
     except Exception as e:
-        logger.info(e)
+        log.info(e)
         ecr_client.create_repository(repositoryName=image_name)
-        logger.info(f"Created repository for `{image_name}`.")
+        log.info(f"Created repository for `{image_name}`.")
 
-    logger.info("Logging in to ECR...")
+    log.info("Logging in to ECR...")
     os.system(f"$(aws ecr get-login --region {region} --no-include-email)")
 
-    logger.info(f"Tagging to {Style.BRIGHT}`{full_name}`{Style.RESET_ALL}")
-    docker_client.images.get(image_name).tag(full_name)
+    log.info(f"Tagging to `{full_name}`")
+    docker_client.images.get(f"{image_name}:{version}").tag(full_name)
 
-    logger.info(Style.BRIGHT + " Pushing image..." + Style.RESET_ALL)
-    print(Fore.YELLOW)
+    log.info(" Pushing image...")
     for line in docker_client.images.push(repository=full_name, stream=True, decode=True):
-        print(line)
-    print(Style.RESET_ALL)
+        log.info(line)
 
-    logger.info(Fore.GREEN + f" Image pushed successfully to {full_name} " + Style.RESET_ALL)
+    log.info(f" Image pushed successfully to {full_name} ")
+    return full_name
 
 
 def create_endpoint(
     image_name=None,
     model_url=None,
+    version="latest",
     arn_role: Optional[str] = None,
     region: str = "us-east-1",
     initial_instance_count: int = 1,
@@ -277,11 +272,11 @@ def create_endpoint(
         role = get_execution_role()
         account_id = boto3.client("sts").get_caller_identity()["Account"]
 
-    image_name = f"{account_id}.dkr.ecr.{region}.amazonaws.com/{image_name}:latest"
+    image_name = f"{account_id}.dkr.ecr.{region}.amazonaws.com/{image_name}:{version}"
     model_name = f"DEMO-{image_name}-" + time.strftime("%Y-%m-%d-%H-%M-%S", time.gmtime())
-    logger.info(Fore.BRIGHT + "Container image: " + Style.RESET_ALL + image_name)
-    logger.info(Fore.BRIGHT + "Model name: " + Style.RESET_ALL + model_name)
-    logger.info(Fore.BRIGHT + "Model data Url: " + Style.RESET_ALL + model_url)
+    log.info("Container image: " + image_name)
+    log.info("Model name: " + model_name)
+    log.info("Model data Url: " + model_url)
 
     assert mode in ["SingleModel", "MultiModel"], "Mode should be one of ['SingleModel', 'MultiModel']"
     container: Dict[str, str] = {"Image": image_name, "ModelDataUrl": model_url, "Mode": mode}
@@ -293,13 +288,13 @@ def create_endpoint(
     except Exception as e:
         if mode == "SingleModel":
             assert model_url.endswith(".tar.gz"), "For SingleModel mode, you need to provide a path to `tar.gz`"
-        logger.error("Check that `model_url` is a folder for `MultiModel` mode and a `tar.gz` for `SingleModel`")
+        log.error("Check that `model_url` is a folder for `MultiModel` mode and a `tar.gz` for `SingleModel`")
         raise e
 
-    logger.info(Fore.BRIGHT + "Model Arn: " + Style.RESET_ALL + create_model_response["ModelArn"])
+    log.info("Model Arn: " + create_model_response["ModelArn"])
 
     endpoint_config_name = f"Deploy-{image_name}-" + time.strftime("%Y-%m-%d-%H-%M-%S", time.gmtime())
-    logger.info(Fore.BRIGHT + "Endpoint config name: " + Style.RESET_ALL + endpoint_config_name)
+    log.info("Endpoint config name: " + endpoint_config_name)
 
     create_endpoint_config_response = sm_client.create_endpoint_config(
         EndpointConfigName=endpoint_config_name,
@@ -314,26 +309,24 @@ def create_endpoint(
         ],
     )
 
-    logger.info(
-        Fore.BRIGHT + "Endpoint config Arn: " + Style.RESET_ALL + create_endpoint_config_response["EndpointConfigArn"]
-    )
+    log.info("Endpoint config Arn: " + create_endpoint_config_response["EndpointConfigArn"])
 
     endpoint_name = f"DEMO-{image_name}-" + time.strftime("%Y-%m-%d-%H-%M-%S", time.gmtime())
-    logger.info(Fore.BRIGHT + "Endpoint name: " + Style.RESET_ALL + endpoint_name)
+    log.info("Endpoint name: " + endpoint_name)
 
     create_endpoint_response = sm_client.create_endpoint(
         EndpointName=endpoint_name, EndpointConfigName=endpoint_config_name
     )
-    logger.info("Endpoint Arn: " + create_endpoint_response["EndpointArn"])
+    log.info("Endpoint Arn: " + create_endpoint_response["EndpointArn"])
 
     resp = sm_client.describe_endpoint(EndpointName=endpoint_name)
     status = resp["EndpointStatus"]
-    logger.info("Endpoint Status: " + status)
+    log.info("Endpoint Status: " + status)
 
-    logger.info("Waiting for {} endpoint to be in service...".format(endpoint_name))
+    log.info("Waiting for {} endpoint to be in service...".format(endpoint_name))
     waiter = sm_client.get_waiter("endpoint_in_service")
     waiter.wait(EndpointName=endpoint_name)
-    logger.info(f"{create_endpoint_response['EndpointArn']} ready for invocations")
+    log.info(f"{create_endpoint_response['EndpointArn']} ready for invocations")
 
 
 def upload_model_to_s3(bucket: str, prefix: str, model: str):
@@ -353,7 +346,7 @@ def upload_model_to_s3(bucket: str, prefix: str, model: str):
     key = os.path.join(prefix, model)
     with open("data/" + model, "rb") as file_obj:
         s3.Bucket(bucket).Object(key).upload_fileobj(file_obj)
-        logger.info(f"Loaded model to bucket: {bucket}, prefix: {prefix}, with path: {model}")
+        log.info(f"Loaded model to bucket: {bucket}, prefix: {prefix}, with path: {model}")
 
 
 def invoke_local(mime: str, body: str):
@@ -374,10 +367,10 @@ def invoke_local(mime: str, body: str):
             payload = body
         res = requests.post(url, data=payload, headers=headers)
     if res.status_code == 200:
-        logger.info(res.json())
+        log.info(res.json())
     else:
         message = "Error , received error code {}: {}".format(res.status_code, res.text)
-        logger.error(message)
+        log.error(message)
 
 
 def invoke_sagemaker_endpoint(endpoint, mime, payload, mode="SingleModel", target_model=None, arn_role=None):
@@ -418,5 +411,5 @@ def invoke_sagemaker_endpoint(endpoint, mime, payload, mode="SingleModel", targe
             TargetModel=target_model,
             Body=body,
         )
-    logger.info(Fore.GREEN + f"Response from endpoint: {response}" + Style.RESET_ALL)
+    log.info(f"Response from endpoint: {response}")
     print(*json.loads(response["Body"].read()), sep="\n")

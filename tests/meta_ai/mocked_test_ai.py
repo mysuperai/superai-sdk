@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import shutil
+import time
 from urllib.request import urlopen
 
 import cv2
@@ -273,7 +274,7 @@ def test_mock_deploy_sagemaker(ai, monkeypatch):
 def test_predict(ai):
     # needs ai to be loaded with weights
     result = ai.predict(
-        input={"my_image": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
+        inputs={"my_image": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
     )
     print("Result : ", result)
     assert result
@@ -305,6 +306,38 @@ def test_mock_predict_from_sagemaker(ai, monkeypatch):
 
     print(prediction)
     assert prediction
+
+
+def test_predict_from_sagemaker(cleanup, caplog):
+    caplog.set_level(logging.INFO)
+    template = AITemplate(
+        input_schema=Schema(),
+        output_schema=Schema(),
+        configuration=Config(),
+        model_class=MyKerasModel,
+        name="Genre_Template",
+        description="Template for genre models",
+        requirements=["torch>=1.6"],
+    )
+
+    ai = AI(
+        ai_template=template,
+        input_params=template.input_schema.parameters(),
+        output_params=template.output_schema.parameters(),
+        name="genre_model",
+        version=2,
+        weights_path=".",
+    )
+
+    predictor: LocalPredictor = ai.deploy(mode=Mode.AWS, skip_build=True, lambda_mode=False)
+    # predictor.log()
+    time.sleep(5)
+
+    log.info(
+        "Local predictions: {}".format(
+            predictor.predict(input={"data": {"sentences": ["Einstein was a [START_ENT] German [END_ENT] physicist."]}})
+        )
+    )
 
 
 def test_train_and_predict(cleanup):
@@ -341,7 +374,7 @@ def test_train_and_predict(cleanup):
         weights_path=model_weights_path,
     )
     result = my_ai.predict(
-        input={"my_image": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
+        inputs={"my_image": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
     )
     print("Result : ", result)
     assert result
