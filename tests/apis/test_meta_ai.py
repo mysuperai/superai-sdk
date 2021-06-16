@@ -4,7 +4,7 @@ import vcr
 import ast
 
 # To record new cassette, use real app_id and run pytest against running endpoint
-APP_ID = "87f35e71-31cf-4084-bd8c-901b6b7fa4a5"
+APP_ID = "1e266751-4f5e-4bdd-9709-c381c72ded6d"
 
 
 def scrub_string(string, replacement=""):
@@ -23,7 +23,7 @@ def before_record_cb(request):
 
 my_vcr = vcr.VCR(
     serializer="yaml",
-    cassette_library_dir="fixtures/cassettes",
+    cassette_library_dir="cassettes",
     record_mode="none",
     match_on=["body", "headers", "method"],
     filter_headers=["x-api-key", "x-app-id", "Content-Length", "User-Agent"],
@@ -33,13 +33,13 @@ my_vcr = vcr.VCR(
 )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def model_api():
     with my_vcr.use_cassette("model_api.yaml"):
         yield ModelApiMixin()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def ai_api():
     with my_vcr.use_cassette(
         "ai_api.yaml",
@@ -59,7 +59,7 @@ def test_model_update(model_api, model):
     assert new_name == model_api.get_model(model).name
 
 
-@pytest.fixture()
+@pytest.fixture(scope="function")
 def model(model_api):
     a = model_api.add_model(f"TestModel")
     assert a is not None
@@ -75,6 +75,18 @@ def prediction_id(ai_api, existing_app_id, model):
     yield prediction_id
     deleted = ai_api.delete_prelabel(existing_app_id, prediction_id)
     assert deleted == prediction_id
+
+
+def test_view_prediction(ai_api, existing_app_id, prediction_id):
+    object = ai_api.view_prediction(app_id=existing_app_id, prediction_id=prediction_id)
+    assert "id" in object
+    assert "state" in object
+
+
+def test_request_prediction_of_job(ai_api, existing_app_id):
+    with pytest.raises(Exception):
+        ids = ai_api.request_prediction_of_job(app_id=existing_app_id, job_id=1, assignment="PRELABEL")
+
 
 
 def test_model_retrieval(model_api, model):
@@ -107,7 +119,6 @@ def test_add_model_full_entry(model_api):
         "TestModel",
         "some description",
         1,
-        stage="DEV",
         input_schema={"some": "input"},
         output_schema={"Some": "output"},
         model_save_path="s3://some_s3_location",
@@ -131,26 +142,26 @@ def test_get_latest_version_of_model_by_name(model_api):
     assert d == a and e == b
 
 
-@pytest.mark.skip("Need to be fixed")  # TODO: Missing assignment in `meta_ai_app_bool_exp`
 def test_active_model(ai_api: ProjectAiApiMixin, model: str, existing_app_id):
-    a = ai_api.update_model(app_id=existing_app_id, assignment="PRELABEL", model_id=model)
+    a = ai_api.project_set_model(app_id=existing_app_id, assignment="PRELABEL", model_id=model, threshold=0.5)
     assert a is not None
 
     active_models = ai_api.get_models(existing_app_id, "PRELABEL", active=True)
     assert a.model_id in [act.model.id for act in active_models]
+    assert active_models[0].threshold == 0.5
 
-    a = ai_api.update_model(app_id=existing_app_id, assignment="PRELABEL", model_id=model, active=False)
+    a = ai_api.project_set_model(app_id=existing_app_id, assignment="PRELABEL", model_id=model, active=False)
     inactive_models = ai_api.get_models(existing_app_id, "PRELABEL", active=False)
     assert a.model_id in [act.model.id for act in inactive_models]
 
-@pytest.mark.skip
-def test_view_prelabel(ai_api, existing_app_id, prediction_id):
-    prelabels = ai_api.list_prelabel_instances(existing_app_id, prediction_id)
+
+def test_view_prediction_instance(ai_api, existing_app_id, prediction_id):
+    prelabels = ai_api.list_prediction_instances(existing_app_id, prediction_id)
     instance_id = prelabels[0].id
-    instance = ai_api.view_prelabel(existing_app_id, prediction_id, instance_id)
+    instance = ai_api.view_prediction_instance(existing_app_id, prediction_id, instance_id)
     assert instance is not None
 
-@pytest.mark.skip
+
 def test_submit_prelabel(ai_api: ProjectAiApiMixin, model: str, existing_app_id):
     test_output = {"score": 1.0, "mask": [0, 1, 1, 0]}
     prediction_id = ai_api.submit_prelabel(test_output, existing_app_id, 1, model, assignment="PRELABEL")
@@ -163,5 +174,5 @@ def test_submit_prelabel(ai_api: ProjectAiApiMixin, model: str, existing_app_id)
 
     prediction_id = ai_api.submit_prelabel(test_output, existing_app_id, 2, model, assignment="PRELABEL")
     assert prediction_id is not None
-    prelabels = ai_api.list_prelabel_instances(existing_app_id, prediction_id)
+    prelabels = ai_api.list_prediction_instances(existing_app_id, prediction_id)
     assert len(prelabels) == len(test_output)
