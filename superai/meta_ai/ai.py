@@ -471,7 +471,7 @@ class AI:
                     # check for version
                     ending = path.split(f"model://{name}/")[-1]
                     if cls.is_valid_version(ending):
-                        s3_path = [entry for entry in all_models if entry["version"] == ending][0]["modelSavePath"]
+                        s3_path = [entry for entry in all_models if entry["version"] == int(ending)][0]["modelSavePath"]
                     else:
                         stage = ending
                         selected_models: List[dict] = [entry for entry in all_models if entry["stage"] == stage]
