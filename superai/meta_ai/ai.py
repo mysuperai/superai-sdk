@@ -56,8 +56,7 @@ class PredictorFactory(object):
 
     @staticmethod
     def get_predictor_obj(mode: Mode, *args, **kwargs) -> "DeployedPredictor.Type":
-        """Factory method to get a predictor
-        """
+        """Factory method to get a predictor"""
         predictor_class = PredictorFactory.__predictor_classes.get(mode.lower())
 
         if predictor_class:
@@ -518,7 +517,7 @@ class AI:
         with tarfile.open(os.path.join(download_folder, "AISavedModel.tar.gz")) as tar:
             tar.extractall(path=os.path.join(download_folder, "AISavedModel"))
         return cls.load_local(
-            load_path=os.path.join(download_folder, "AISavedModel", "ai"),
+            load_path=os.path.join(download_folder, "AISavedModel"),
             weights_path=weights_path,
             download_folder=download_folder,
         )
@@ -589,19 +588,19 @@ class AI:
     def _create_database_entry(self, **kwargs):
         """Adds an entry in the meta AI database.
 
-            Args:
-                name: Name of the model.
-                description: Description of model.
-                version: Version of model.
-                stage: Stage of model.
-                metadata: Metadata associated with model.
-                endpoint: Endpoint specified of the model.
-                input_schema: Input schema followed by model.
-                output_schema: Output schema followed by model.
-                model_save_path: Location in S3 where the AISaveModel has to be placed.
-                weights_path: Location of weights.
-                visibility: Visibility of model. Default visibility: PRIVATE.
-                **kwargs: Arbitrary keyword arguments
+        Args:
+            name: Name of the model.
+            description: Description of model.
+            version: Version of model.
+            stage: Stage of model.
+            metadata: Metadata associated with model.
+            endpoint: Endpoint specified of the model.
+            input_schema: Input schema followed by model.
+            output_schema: Output schema followed by model.
+            model_save_path: Location in S3 where the AISaveModel has to be placed.
+            weights_path: Location of weights.
+            visibility: Visibility of model. Default visibility: PRIVATE.
+            **kwargs: Arbitrary keyword arguments
         """
         log.info("Creating database entry...")
         if not self.id:
@@ -797,6 +796,22 @@ class AI:
                 f"{upload_response.text} "
             )
 
+    @staticmethod
+    def _compress_folder(path_to_tarfile: str, location: str):
+        """Helper to compress a directory into a tarfile
+
+        Args:
+            path_to_tarfile: Path to file to be generated after compressing
+            location: Path to folder to be compressed
+        """
+
+        assert path_to_tarfile.endswith(".tar.gz"), "Should be a valid tarfile path"
+        with tarfile.open(path_to_tarfile, "w:gz") as tar:
+            for ff in os.listdir(location):
+                tar.add(os.path.join(location, ff), ff)
+            # tar.list()
+        assert os.path.exists(path_to_tarfile)
+
     def push(self, update_weights: bool = False, weights_path: Optional[str] = None, overwrite=False) -> str:
         """Pushes the saved model to S3, creates an entry and enters the S3 URI in the database.
 
@@ -810,8 +825,8 @@ class AI:
         s3_client = boto3.client("s3")
 
         path_to_tarfile = os.path.join(self._location, "AISavedModel.tar.gz")
-        with tarfile.open(path_to_tarfile, "w:gz") as tar:
-            tar.add(self._location, arcname="ai")
+        log.info(f"Compressing AI folder at {self._location}")
+        self._compress_folder(path_to_tarfile, self._location)
         object_name = os.path.join(self.folder_name, self.name, str(self.version), "AISavedModel.tar.gz")
         with open(path_to_tarfile, "rb") as f:
             s3_client.upload_fileobj(f, self.bucket_name, object_name)
@@ -826,9 +841,8 @@ class AI:
                     path_to_weights_tarfile = os.path.join(
                         self._location, f"{os.path.basename(self.weights_path)}.tar.gz"
                     )
-                    with tarfile.open(path_to_weights_tarfile, "w:gz") as tar_weights:
-                        log.info("Compressing weights...")
-                        tar_weights.add(self.weights_path, arcname=os.path.basename(self.weights_path))
+                    log.info(f"Compressing weights at {self.weights_path}, placed at {path_to_weights_tarfile}...")
+                    self._compress_folder(path_to_weights_tarfile, self.weights_path)
                     upload_object_name = os.path.join(
                         self.folder_name, "saved_models", f"{os.path.basename(self.weights_path)}.tar.gz"
                     )
@@ -1216,11 +1230,11 @@ def list_models(
 ) -> Union[List[Dict], pd.DataFrame]:
     """List existing models in the database, given the model name.
 
-        Args:
-            verbose: Print the output.
-            raw: Return unformatted list of models.
-            client: Instance of superai.client.
-            ai_name: Name of the AI model.
+    Args:
+        verbose: Print the output.
+        raw: Return unformatted list of models.
+        client: Instance of superai.client.
+        ai_name: Name of the AI model.
     """
 
     model_entries = client.get_model_by_name(ai_name)
