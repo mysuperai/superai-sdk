@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
 
 NAME = "superai"
 
-VERSION = "0.2.0.dev2"
+VERSION = "0.2.0.dev3"
 
 # To install the library, run the following
 #
@@ -18,6 +18,7 @@ VERSION = "0.2.0.dev2"
 # http://pypi.python.org/pypi/setuptools
 
 REQUIRES = [
+    "awesome-pattern-matching>=0.22.0",
     "boto3>=1.15",
     "click>=7.0",
     "colorama>=0.3.0",

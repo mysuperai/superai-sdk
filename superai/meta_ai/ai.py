@@ -27,7 +27,7 @@ from superai.log import logger
 from superai.meta_ai.deployed_predictors import LocalPredictor, DeployedPredictor, AWSPredictor
 from superai.meta_ai.dockerizer import push_image
 from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters, Config
-from superai.meta_ai.schema import Schema, SchemaParameters
+from superai.meta_ai.schema import Schema, SchemaParameters, EasyPredictions
 from superai.meta_ai.scripts_contents import runner_script, server_script, entry_script, lambda_script
 from superai.utils import retry, load_api_key, load_auth_token, load_id_token
 
@@ -740,7 +740,8 @@ class AI:
                 self.model_class.load_weights(self.weights_path)
             self.is_weights_loaded = True
         output = self.model_class.predict(inputs)
-        return output
+        result = EasyPredictions(output).value
+        return result
 
     def save(self, path: str = ".AISave", overwrite: bool = False):
         """Saves the model locally.
@@ -898,7 +899,7 @@ class AI:
         if mode == Mode.LOCAL or mode == Mode.AWS:
             self._create_dockerfile(
                 worker_count=kwargs.get("worker_count", 1),
-                lambda_mode=kwargs.get("lambda_mode", True),
+                lambda_mode=kwargs.get("lambda_mode", False),
                 ai_cache=kwargs.get("ai_cache", 5),
             )
             if not skip_build:
@@ -953,6 +954,7 @@ class AI:
                 return True
         else:
             log.info("No ID found. Is the model registered in the Database?")
+            return None
 
     @classmethod
     def load_api(cls, model_path, mode: Mode) -> "DeployedPredictor.Type":

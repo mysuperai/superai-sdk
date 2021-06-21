@@ -13,7 +13,7 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 
-from docs.examples.ai.utilities import MockedReturns, color
+from docs.examples.ai.utilities import MockedReturns
 from superai.data_program import Project, Worker
 from superai.meta_ai import AI, BaseModel
 from superai.meta_ai.ai import Mode, LocalPredictor, AWSPredictor, list_models, AITemplate
@@ -46,7 +46,7 @@ class MyKerasModel(BaseModel):
 
     def predict(self, input):
         log.info("Predict Input: ", input)
-        image_url = input["my_image"]["image_url"]
+        image_url = input["data"]["image_url"]
         req = urlopen(image_url)
         arr = np.asarray(bytearray(req.read()), dtype=np.uint8)
         img = cv2.imdecode(arr, cv2.IMREAD_GRAYSCALE)
@@ -56,10 +56,13 @@ class MyKerasModel(BaseModel):
         output = np.argmax(pred[0])
         return [
             {
-                "mnist_class": df.exclusive_choice(
-                    choices=list(map(str, range(10))),
-                    selection=int(output),
-                )
+                "prediction": {
+                    "mnist_class": df.exclusive_choice(
+                        choices=list(map(str, range(10))),
+                        selection=int(output),
+                    )
+                },
+                "score": float(pred[0][int(output)]),
             }
         ]
 
@@ -146,7 +149,7 @@ class MyEncodeDecodeModel(BaseModel):
         return self.postprocess(pred)
 
     def preprocess(self, input, preprocess_params=None):
-        image_url = input["my_image"]["image_url"]
+        image_url = input["image_url"]
         req = urlopen(image_url)
         arr = np.asarray(bytearray(req.read()), dtype=np.uint8)
         img = cv2.imdecode(arr, cv2.IMREAD_GRAYSCALE)
@@ -158,10 +161,13 @@ class MyEncodeDecodeModel(BaseModel):
         input = np.argmax(pred[0])
         return [
             {
-                "mnist_class": df.exclusive_choice(
-                    choices=list(map(str, range(10))),
-                    selection=int(input),
-                )
+                "prediction": {
+                    "mnist_class": df.exclusive_choice(
+                        choices=list(map(str, range(10))),
+                        selection=int(input),
+                    )
+                },
+                "score": float(pred[0][int(input)]),
             }
         ]
 
@@ -333,13 +339,13 @@ ai = AI(
     weights_path=os.path.join(os.path.dirname(__file__), "resources/my_model"),
 )
 
-predictor: LocalPredictor = ai.deploy(mode=Mode.LOCAL, skip_build=True)
+predictor: LocalPredictor = ai.deploy(mode=Mode.LOCAL, skip_build=False)
 
 time.sleep(5)
 log.info(
     "Local predictions: {}".format(
         predictor.predict(
-            input={"my_image": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
+            input={"data": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
         ),
     )
 )
@@ -434,7 +440,7 @@ s3_loaded_ai: AI = AI.load(
 log.info(
     "S3 predictions : {}".format(
         s3_loaded_ai.predict(
-            {"my_image": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
+            {"data": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
         )
     )
 )
@@ -446,7 +452,7 @@ log.info(f"DB loaded {db_loaded_ai}")
 ###########################################################################
 # Predict
 ###########################################################################
-inputs = {"my_image": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
+inputs = {"data": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
 result = local_loaded_ai.predict(inputs=inputs)
 log.info(f"Result : {result}")
 
