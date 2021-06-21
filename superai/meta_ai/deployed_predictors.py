@@ -6,12 +6,13 @@ from typing import TypeVar
 import docker  # type: ignore
 import requests
 from colorama import Fore, Style  # type: ignore
-from docker.errors import APIError
+from docker.errors import APIError  # type: ignore
 from docker.models.containers import Container  # type: ignore
-from rich.prompt import Confirm
 from rich import print
+from rich.prompt import Confirm
 
 from superai import Client
+from superai.meta_ai.schema import EasyPredictions
 from superai.utils import log
 
 
@@ -35,12 +36,15 @@ class LocalPredictor(DeployedPredictor):
         super(LocalPredictor, self).__init__(*args, **kwargs)
         client = docker.from_env()
         self.lambda_mode = kwargs.get("lambda_mode", False)
-        container_name = kwargs["image_name"].replace(":","_")
+        container_name = kwargs["image_name"].replace(":", "_")
         if not existing:
             try:
                 try:
                     container = client.containers.get(container_name)
-                    log.warning("Container with identical name and version already running. Stopping before restarting with new image.")
+                    log.warning(
+                        "Container with identical name and version already running. "
+                        "Stopping before restarting with new image."
+                    )
                     container.kill()
                 except Exception as e:
                     pass
@@ -61,7 +65,11 @@ class LocalPredictor(DeployedPredictor):
                 )
                 log.info("Started container in serving mode.")
             except APIError as e:
-                log.error("Could not run docker container. Is docker running or is there already a container running under the same ports?", exc_info=e)
+                log.error(
+                    "Could not run docker container. "
+                    "Is docker running or is there already a container running under the same ports?",
+                    exc_info=e,
+                )
                 self.container = None
         else:
             self.container: Container = client.containers.get(container_name)
@@ -83,7 +91,8 @@ class LocalPredictor(DeployedPredictor):
                 payload = input
             res = requests.post(url, data=payload, headers=headers)
         if res.status_code == 200:
-            return res.json()
+            result = EasyPredictions(res.json()).value
+            return result
         else:
             message = "Error , received error code {}: {}".format(res.status_code, res.text)
             log.error(message)
@@ -95,11 +104,12 @@ class LocalPredictor(DeployedPredictor):
 
         log.info("Showing container logs now. Try Ctrl/Cmd-C to exit!")
         end = False
+
         def printer():
             for line in self.container.logs(stream=True):
                 if end:
                     return
-                print(line.decode("UTF-8"), end='')
+                print(line.decode("UTF-8"), end="")
 
         try:
             with ThreadPoolExecutor() as executor:
@@ -128,7 +138,9 @@ class AWSPredictor(DeployedPredictor):
 
     def predict(self, input, **kwargs):
         if self.client.check_endpoint_is_available(self.id):
-            return self.client.predict_from_endpoint(self.id, input)
+            result = self.client.predict_from_endpoint(self.id, input)
+            output = EasyPredictions(result).value
+            return output
         else:
             log.error("Prediction failed as endpoint does not seem to exist, please redeploy.")
             raise LookupError("Endpoint does not exist, redeploy")

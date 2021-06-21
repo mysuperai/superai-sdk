@@ -40,7 +40,7 @@ class MyKerasModel(BaseModel):
 
     def predict(self, input):
         log.info("Predict Input: ", input)
-        image_url = input["my_image"]["image_url"]
+        image_url = input["data"]["image_url"]
         req = urlopen(image_url)
         arr = np.asarray(bytearray(req.read()), dtype=np.uint8)
         img = cv2.imdecode(arr, cv2.IMREAD_GRAYSCALE)
@@ -274,7 +274,7 @@ def test_mock_deploy_sagemaker(ai, monkeypatch):
 def test_predict(ai):
     # needs ai to be loaded with weights
     result = ai.predict(
-        inputs={"my_image": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
+        inputs={"data": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
     )
     print("Result : ", result)
     assert result
@@ -287,7 +287,7 @@ def test_mock_predict_from_local_deployment(ai, monkeypatch):
 
     assert predictor
     prediction = predictor.predict(
-        {"my_image": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
+        {"data": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
     )
     print(prediction)
     assert prediction
@@ -301,7 +301,7 @@ def test_mock_predict_from_sagemaker(ai, monkeypatch):
     predictor = ai.deploy(mode=Mode.AWS)
     assert predictor
     prediction = predictor.predict(
-        {"my_image": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
+        {"data": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
     )  # TODO: pass kwarg input_data
 
     print(prediction)
@@ -374,7 +374,7 @@ def test_train_and_predict(cleanup):
         weights_path=model_weights_path,
     )
     result = my_ai.predict(
-        inputs={"my_image": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
+        inputs={"data": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
     )
     print("Result : ", result)
     assert result

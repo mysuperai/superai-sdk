@@ -29,7 +29,7 @@ class MyKerasModel(BaseModel):
 
     def predict(self, input):
         log.info(input)
-        image_url = input["my_image"]["image_url"]
+        image_url = input["data"]["image_url"]
         req = urlopen(image_url)
         arr = np.asarray(bytearray(req.read()), dtype=np.uint8)
         img = cv2.imdecode(arr, cv2.IMREAD_GRAYSCALE)
@@ -37,7 +37,10 @@ class MyKerasModel(BaseModel):
         input = np.reshape(img, (1, 28 * 28))
         pred = self.model.predict(input)
         output = np.argmax(pred[0])
-        return df.exclusive_choice(choices=list(map(str, range(10))), selection=int(output))
+        return {
+            "prediction": df.exclusive_choice(choices=list(map(str, range(10))), selection=int(output)),
+            "score": float(pred[0][int(output)]),
+        }
 
     def train(self, model_save_path, **kwargs):
         (x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
@@ -136,7 +139,7 @@ ai1 = AI(
 log.info(
     "Prediction from AI : {}".format(
         ai1.predict(
-            inputs={"my_image": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
+            inputs={"data": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
         ),
     )
 )
@@ -169,7 +172,7 @@ ai2 = AI.load_local(
 log.info(
     "Prediction from loaded AI : {}".format(
         ai2.predict(
-            inputs={"my_image": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
+            inputs={"data": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
         ),
     )
 )
