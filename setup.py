@@ -16,6 +16,7 @@ VERSION = "0.1.0.alpha1.dev4"
 # http://pypi.python.org/pypi/setuptools
 
 REQUIRES = [
+    "awesome-pattern-matching>=0.22.0",
     "boto3>=1.15",
     "click>=7.0",
     "colorama>=0.3.0",
