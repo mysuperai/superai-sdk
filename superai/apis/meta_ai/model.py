@@ -212,6 +212,7 @@ class DeploymentApiMixin(ABC):
         ecr_image_name: str,
         deployment_type: meta_ai_deployment_type_enum = "AWS_SAGEMAKER",
         purpose: str = "SERVING",
+        properties: dict = None
     ):
         """Mutation query to create a new entry in the deployment table, should deploy an endpoint in the action handler
         and store the endpoint name in the table.
@@ -221,6 +222,12 @@ class DeploymentApiMixin(ABC):
             purpose:
             model_id:
             ecr_image_name: Can be queried from the meta_ai_table to populate.
+            properties: dict
+                Possible values (with defaults) are:
+                    "sagemaker_instance_type": "ml.m5.xlarge"
+                    "sagemaker_initial_instance_count": 1
+                    "lambda_memory": 256
+                    "lambda_timeout": 30
         """
         existing_deployment = self.get_deployment(model_id)
         if "status" not in existing_deployment:
@@ -232,6 +239,7 @@ class DeploymentApiMixin(ABC):
                     purpose=meta_ai_deployment_purpose_enum(purpose),
                     image=ecr_image_name,
                     target_status="ONLINE",
+                    properties=properties
                 )
             ).__fields__("model_id", "target_status", "created_at")
             data = self.sess.perform_op(op)
@@ -297,6 +305,21 @@ class DeploymentApiMixin(ABC):
         data = self.sess.perform_op(op)
         return (op + data).update_meta_ai_deployment_by_pk
 
+    def set_deployment_properties(self, model_id: str, properties: dict) -> object:
+        """Change properties of a deployment used nex time an deployment instance is created.
+
+        Args:
+            ecr_image_name:
+            properties: dict
+        """
+        op = Operation(mutation_root)
+        op.update_meta_ai_deployment_by_pk(
+            _set=meta_ai_deployment_set_input(properties=properties),
+            pk_columns=meta_ai_deployment_pk_columns_input(model_id=model_id),
+        ).__fields__("model_id", "properties")
+        data = self.sess.perform_op(op)
+        return (op + data).update_meta_ai_deployment_by_pk
+
     def undeploy(self, model_id: str) -> bool:
         """Remove an entry from the deployment table. Action handler should delete the endpoint. Return True if deleted successfully.
 
@@ -309,7 +332,7 @@ class DeploymentApiMixin(ABC):
         """Retrieves deployment entry"""
         opq = Operation(query_root)
         opq.meta_ai_deployment_by_pk(model_id=model_id).__fields__(
-            "model_id", "status", "target_status", "created_at", "updated_at", "purpose"
+            "model_id", "status", "target_status", "created_at", "updated_at", "purpose", "properties"
         )
         data = self.sess.perform_op(opq)
         res = (opq + data).meta_ai_deployment_by_pk
