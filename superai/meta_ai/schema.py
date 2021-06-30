@@ -61,14 +61,15 @@ class EasyPredictions:
         pred = EasyPredictions(basemodel.predict(input)).value
     """
 
-    def __init__(self, input: Optional[Union[Dict, List[Dict], RawPrediction]] = None):
+    def __init__(self, input: Optional[Union[Dict, List[Dict], RawPrediction, List[RawPrediction]]] = None):
         if isinstance(input, RawPrediction):
             pass
         elif isinstance(input, dict):
             assert self.verify(input)
         elif isinstance(input, list):
             for a in input:
-                assert self.verify(a)
+                if not isinstance(a, RawPrediction):
+                    assert self.verify(a)
         else:
             raise ValueError(f"Unexpected type {type(input)}, needs to be a dict or list")
         self.value = input
