@@ -3,6 +3,8 @@ from typing import Optional, Union, Dict, List
 import jsonpickle  # type: ignore
 from apm import *  # type: ignore
 
+from superai.apis.meta_ai.meta_ai_graphql_schema import RawPrediction
+
 
 class Schema:
     """Mocked class for all schema related functionalities."""
@@ -59,8 +61,10 @@ class EasyPredictions:
         pred = EasyPredictions(basemodel.predict(input)).value
     """
 
-    def __init__(self, input: Optional[Union[Dict, List[Dict]]] = None):
-        if isinstance(input, dict):
+    def __init__(self, input: Optional[Union[Dict, List[Dict], RawPrediction]] = None):
+        if isinstance(input, RawPrediction):
+            pass
+        elif isinstance(input, dict):
             assert self.verify(input)
         elif isinstance(input, list):
             for a in input:

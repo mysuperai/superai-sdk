@@ -1,5 +1,6 @@
 import pytest
 
+from superai.apis.meta_ai.meta_ai_graphql_schema import RawPrediction
 from superai.meta_ai.schema import EasyPredictions
 
 
@@ -16,6 +17,15 @@ def test_general_prediction():
     ).value
     assert "score" in fancy_predictions and "prediction" in fancy_predictions and "other" in fancy_predictions
     assert fancy_predictions["other"] == "some fancy metadata"
+
+
+def test_raw_predictions():
+    pred = RawPrediction({"output": "something", "score": 0.9})
+    print(pred)
+    raw_predictions = EasyPredictions(pred).value
+    assert raw_predictions.score == 0.9
+    assert raw_predictions.output == "something"
+    assert raw_predictions["score"] == 0.9
 
 
 def test_wrong_schema():
