@@ -21,11 +21,14 @@ def test_general_prediction():
 
 def test_raw_predictions():
     pred = RawPrediction({"output": "something", "score": 0.9})
-    print(pred)
     raw_predictions = EasyPredictions(pred).value
     assert raw_predictions.score == 0.9
     assert raw_predictions.output == "something"
     assert raw_predictions["score"] == 0.9
+
+    preds = [RawPrediction({"output": "something", "score": 0.9})]
+    raw_preds_collection = EasyPredictions(preds).value
+    assert raw_preds_collection
 
 
 def test_wrong_schema():
