@@ -105,7 +105,7 @@ class meta_ai_deployment_purpose_update_column(sgqlc.types.Enum):
 
 class meta_ai_deployment_select_column(sgqlc.types.Enum):
     __schema__ = meta_ai_graphql_schema
-    __choices__ = ('created_at', 'endpoint', 'image', 'modelId', 'ownerId', 'purpose', 'status', 'target_status', 'type', 'updated_at')
+    __choices__ = ('created_at', 'endpoint', 'image', 'modelId', 'ownerId', 'properties', 'purpose', 'status', 'target_status', 'type', 'updated_at')
 
 
 class meta_ai_deployment_status_constraint(sgqlc.types.Enum):
@@ -150,7 +150,7 @@ class meta_ai_deployment_type_update_column(sgqlc.types.Enum):
 
 class meta_ai_deployment_update_column(sgqlc.types.Enum):
     __schema__ = meta_ai_graphql_schema
-    __choices__ = ('created_at', 'endpoint', 'image', 'modelId', 'ownerId', 'purpose', 'status', 'target_status', 'type', 'updated_at')
+    __choices__ = ('created_at', 'endpoint', 'image', 'modelId', 'ownerId', 'properties', 'purpose', 'status', 'target_status', 'type', 'updated_at')
 
 
 class meta_ai_environment_constraint(sgqlc.types.Enum):
@@ -686,6 +686,12 @@ class meta_ai_deployment_aggregate_order_by(sgqlc.types.Input):
     variance = sgqlc.types.Field('meta_ai_deployment_variance_order_by', graphql_name='variance')
 
 
+class meta_ai_deployment_append_input(sgqlc.types.Input):
+    __schema__ = meta_ai_graphql_schema
+    __field_names__ = ('properties',)
+    properties = sgqlc.types.Field(jsonb, graphql_name='properties')
+
+
 class meta_ai_deployment_arr_rel_insert_input(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
     __field_names__ = ('data', 'on_conflict')
@@ -701,7 +707,7 @@ class meta_ai_deployment_avg_order_by(sgqlc.types.Input):
 
 class meta_ai_deployment_bool_exp(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ('_and', '_not', '_or', 'created_at', 'endpoint', 'image', 'model', 'model_id', 'owner_id', 'purpose', 'status', 'target_status', 'type', 'updated_at')
+    __field_names__ = ('_and', '_not', '_or', 'created_at', 'endpoint', 'image', 'model', 'model_id', 'owner_id', 'properties', 'purpose', 'status', 'target_status', 'type', 'updated_at')
     _and = sgqlc.types.Field(sgqlc.types.list_of('meta_ai_deployment_bool_exp'), graphql_name='_and')
     _not = sgqlc.types.Field('meta_ai_deployment_bool_exp', graphql_name='_not')
     _or = sgqlc.types.Field(sgqlc.types.list_of('meta_ai_deployment_bool_exp'), graphql_name='_or')
@@ -711,11 +717,30 @@ class meta_ai_deployment_bool_exp(sgqlc.types.Input):
     model = sgqlc.types.Field('meta_ai_model_bool_exp', graphql_name='model')
     model_id = sgqlc.types.Field('uuid_comparison_exp', graphql_name='modelId')
     owner_id = sgqlc.types.Field(bigint_comparison_exp, graphql_name='ownerId')
+    properties = sgqlc.types.Field(jsonb_comparison_exp, graphql_name='properties')
     purpose = sgqlc.types.Field('meta_ai_deployment_purpose_enum_comparison_exp', graphql_name='purpose')
     status = sgqlc.types.Field('meta_ai_deployment_status_enum_comparison_exp', graphql_name='status')
     target_status = sgqlc.types.Field('meta_ai_deployment_status_enum_comparison_exp', graphql_name='target_status')
     type = sgqlc.types.Field('meta_ai_deployment_type_enum_comparison_exp', graphql_name='type')
     updated_at = sgqlc.types.Field('timestamptz_comparison_exp', graphql_name='updated_at')
+
+
+class meta_ai_deployment_delete_at_path_input(sgqlc.types.Input):
+    __schema__ = meta_ai_graphql_schema
+    __field_names__ = ('properties',)
+    properties = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name='properties')
+
+
+class meta_ai_deployment_delete_elem_input(sgqlc.types.Input):
+    __schema__ = meta_ai_graphql_schema
+    __field_names__ = ('properties',)
+    properties = sgqlc.types.Field(Int, graphql_name='properties')
+
+
+class meta_ai_deployment_delete_key_input(sgqlc.types.Input):
+    __schema__ = meta_ai_graphql_schema
+    __field_names__ = ('properties',)
+    properties = sgqlc.types.Field(String, graphql_name='properties')
 
 
 class meta_ai_deployment_inc_input(sgqlc.types.Input):
@@ -726,13 +751,14 @@ class meta_ai_deployment_inc_input(sgqlc.types.Input):
 
 class meta_ai_deployment_insert_input(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ('created_at', 'endpoint', 'image', 'model', 'model_id', 'owner_id', 'purpose', 'status', 'target_status', 'type', 'updated_at')
+    __field_names__ = ('created_at', 'endpoint', 'image', 'model', 'model_id', 'owner_id', 'properties', 'purpose', 'status', 'target_status', 'type', 'updated_at')
     created_at = sgqlc.types.Field(timestamptz, graphql_name='created_at')
     endpoint = sgqlc.types.Field(String, graphql_name='endpoint')
     image = sgqlc.types.Field(String, graphql_name='image')
     model = sgqlc.types.Field('meta_ai_model_obj_rel_insert_input', graphql_name='model')
     model_id = sgqlc.types.Field(uuid, graphql_name='modelId')
     owner_id = sgqlc.types.Field(bigint, graphql_name='ownerId')
+    properties = sgqlc.types.Field(jsonb, graphql_name='properties')
     purpose = sgqlc.types.Field(meta_ai_deployment_purpose_enum, graphql_name='purpose')
     status = sgqlc.types.Field(meta_ai_deployment_status_enum, graphql_name='status')
     target_status = sgqlc.types.Field(meta_ai_deployment_status_enum, graphql_name='target_status')
@@ -779,13 +805,14 @@ class meta_ai_deployment_on_conflict(sgqlc.types.Input):
 
 class meta_ai_deployment_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ('created_at', 'endpoint', 'image', 'model', 'model_id', 'owner_id', 'purpose', 'status', 'target_status', 'type', 'updated_at')
+    __field_names__ = ('created_at', 'endpoint', 'image', 'model', 'model_id', 'owner_id', 'properties', 'purpose', 'status', 'target_status', 'type', 'updated_at')
     created_at = sgqlc.types.Field(order_by, graphql_name='created_at')
     endpoint = sgqlc.types.Field(order_by, graphql_name='endpoint')
     image = sgqlc.types.Field(order_by, graphql_name='image')
     model = sgqlc.types.Field('meta_ai_model_order_by', graphql_name='model')
     model_id = sgqlc.types.Field(order_by, graphql_name='modelId')
     owner_id = sgqlc.types.Field(order_by, graphql_name='ownerId')
+    properties = sgqlc.types.Field(order_by, graphql_name='properties')
     purpose = sgqlc.types.Field(order_by, graphql_name='purpose')
     status = sgqlc.types.Field(order_by, graphql_name='status')
     target_status = sgqlc.types.Field(order_by, graphql_name='target_status')
@@ -797,6 +824,12 @@ class meta_ai_deployment_pk_columns_input(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
     __field_names__ = ('model_id',)
     model_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name='modelId')
+
+
+class meta_ai_deployment_prepend_input(sgqlc.types.Input):
+    __schema__ = meta_ai_graphql_schema
+    __field_names__ = ('properties',)
+    properties = sgqlc.types.Field(jsonb, graphql_name='properties')
 
 
 class meta_ai_deployment_purpose_aggregate_order_by(sgqlc.types.Input):
@@ -889,12 +922,13 @@ class meta_ai_deployment_purpose_set_input(sgqlc.types.Input):
 
 class meta_ai_deployment_set_input(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ('created_at', 'endpoint', 'image', 'model_id', 'owner_id', 'purpose', 'status', 'target_status', 'type', 'updated_at')
+    __field_names__ = ('created_at', 'endpoint', 'image', 'model_id', 'owner_id', 'properties', 'purpose', 'status', 'target_status', 'type', 'updated_at')
     created_at = sgqlc.types.Field(timestamptz, graphql_name='created_at')
     endpoint = sgqlc.types.Field(String, graphql_name='endpoint')
     image = sgqlc.types.Field(String, graphql_name='image')
     model_id = sgqlc.types.Field(uuid, graphql_name='modelId')
     owner_id = sgqlc.types.Field(bigint, graphql_name='ownerId')
+    properties = sgqlc.types.Field(jsonb, graphql_name='properties')
     purpose = sgqlc.types.Field(meta_ai_deployment_purpose_enum, graphql_name='purpose')
     status = sgqlc.types.Field(meta_ai_deployment_status_enum, graphql_name='status')
     target_status = sgqlc.types.Field(meta_ai_deployment_status_enum, graphql_name='target_status')
@@ -2464,13 +2498,17 @@ class meta_ai_assignment_mutation_response(sgqlc.types.Type):
 
 class meta_ai_deployment(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ('created_at', 'endpoint', 'image', 'model', 'model_id', 'owner_id', 'purpose', 'status', 'target_status', 'type', 'updated_at')
+    __field_names__ = ('created_at', 'endpoint', 'image', 'model', 'model_id', 'owner_id', 'properties', 'purpose', 'status', 'target_status', 'type', 'updated_at')
     created_at = sgqlc.types.Field(sgqlc.types.non_null(timestamptz), graphql_name='created_at')
     endpoint = sgqlc.types.Field(String, graphql_name='endpoint')
     image = sgqlc.types.Field(String, graphql_name='image')
     model = sgqlc.types.Field(sgqlc.types.non_null('meta_ai_model'), graphql_name='model')
     model_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name='modelId')
     owner_id = sgqlc.types.Field(bigint, graphql_name='ownerId')
+    properties = sgqlc.types.Field(jsonb, graphql_name='properties', args=sgqlc.types.ArgDict((
+        ('path', sgqlc.types.Arg(String, graphql_name='path', default=None)),
+))
+    )
     purpose = sgqlc.types.Field(meta_ai_deployment_purpose_enum, graphql_name='purpose')
     status = sgqlc.types.Field(meta_ai_deployment_status_enum, graphql_name='status')
     target_status = sgqlc.types.Field(meta_ai_deployment_status_enum, graphql_name='target_status')
@@ -3772,13 +3810,23 @@ class mutation_root(sgqlc.types.Type):
 ))
     )
     update_meta_ai_deployment = sgqlc.types.Field(meta_ai_deployment_mutation_response, graphql_name='update_meta_ai_deployment', args=sgqlc.types.ArgDict((
+        ('_append', sgqlc.types.Arg(meta_ai_deployment_append_input, graphql_name='_append', default=None)),
+        ('_delete_at_path', sgqlc.types.Arg(meta_ai_deployment_delete_at_path_input, graphql_name='_delete_at_path', default=None)),
+        ('_delete_elem', sgqlc.types.Arg(meta_ai_deployment_delete_elem_input, graphql_name='_delete_elem', default=None)),
+        ('_delete_key', sgqlc.types.Arg(meta_ai_deployment_delete_key_input, graphql_name='_delete_key', default=None)),
         ('_inc', sgqlc.types.Arg(meta_ai_deployment_inc_input, graphql_name='_inc', default=None)),
+        ('_prepend', sgqlc.types.Arg(meta_ai_deployment_prepend_input, graphql_name='_prepend', default=None)),
         ('_set', sgqlc.types.Arg(meta_ai_deployment_set_input, graphql_name='_set', default=None)),
         ('where', sgqlc.types.Arg(sgqlc.types.non_null(meta_ai_deployment_bool_exp), graphql_name='where', default=None)),
 ))
     )
     update_meta_ai_deployment_by_pk = sgqlc.types.Field(meta_ai_deployment, graphql_name='update_meta_ai_deployment_by_pk', args=sgqlc.types.ArgDict((
+        ('_append', sgqlc.types.Arg(meta_ai_deployment_append_input, graphql_name='_append', default=None)),
+        ('_delete_at_path', sgqlc.types.Arg(meta_ai_deployment_delete_at_path_input, graphql_name='_delete_at_path', default=None)),
+        ('_delete_elem', sgqlc.types.Arg(meta_ai_deployment_delete_elem_input, graphql_name='_delete_elem', default=None)),
+        ('_delete_key', sgqlc.types.Arg(meta_ai_deployment_delete_key_input, graphql_name='_delete_key', default=None)),
         ('_inc', sgqlc.types.Arg(meta_ai_deployment_inc_input, graphql_name='_inc', default=None)),
+        ('_prepend', sgqlc.types.Arg(meta_ai_deployment_prepend_input, graphql_name='_prepend', default=None)),
         ('_set', sgqlc.types.Arg(meta_ai_deployment_set_input, graphql_name='_set', default=None)),
         ('pk_columns', sgqlc.types.Arg(sgqlc.types.non_null(meta_ai_deployment_pk_columns_input), graphql_name='pk_columns', default=None)),
 ))
