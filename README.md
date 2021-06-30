@@ -102,7 +102,7 @@ client.create_jobs(
 
 # Data Program Builder
 
-The super.AI Data Program Builder is a Python SDK that lets you create your own Data Programs. Take a look at our [full documentation](https://super.ai/docs/data-program-builder-overview).
+The super.AI Data Program Builder is a Python SDK that lets you create your own Data Programs. Take a look at our [full documentation](https://superai.readme.io/v1.5/docs/data-program-builder-overview).
 
 ## Requirements
   - A super.AI data programmer account. Please [contact us](mailto:dataprogrammer@super.ai) to create an account.
