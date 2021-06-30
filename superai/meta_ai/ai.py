@@ -879,6 +879,7 @@ class AI:
         mode: "Mode" = Mode.LOCAL,
         skip_build: bool = False,
         remote_type: meta_ai_deployment_type_enum = "AWS_SAGEMAKER",
+        properties: Optional[dict] = None,
         **kwargs,
     ) -> "DeployedPredictor.Type":
         """Here we need to create a docker container with superai-sk installed. Then we need to create a server script
@@ -890,6 +891,12 @@ class AI:
         Args:
             mode: Which mode to deploy.
             skip_build: Skip building
+            properties: Optional dictionary with properties for instance creation.
+                Possible values (with defaults) are:
+                    "sagemaker_instance_type": "ml.m5.xlarge"
+                    "sagemaker_initial_instance_count": 1
+                    "lambda_memory": 256
+                    "lambda_timeout": 30
 
             # Hidden kwargs
             lambda_mode: Create a dockerfile in lambda mode, true by default
@@ -931,9 +938,11 @@ class AI:
             existing_deployment = self.client.get_deployment(self.id)
             log.info(f"Existing deployments : {existing_deployment}")
             if existing_deployment is None or "status" not in existing_deployment:
-                self.client.deploy(self.id, ecr_image_name, deployment_type=remote_type)
+                self.client.deploy(self.id, ecr_image_name, deployment_type=remote_type, properties=properties)
             elif existing_deployment["status"] == "OFFLINE":
                 self.client.set_image(model_id=self.id, ecr_image_name=ecr_image_name)
+                if properties:
+                    self.client.set_deployment_properties(model_id=self.id, properties=properties)
                 self.client.set_deployment_status(model_id=self.id, target_status="ONLINE")
             kwargs["id"] = self.id
         # get predictor
