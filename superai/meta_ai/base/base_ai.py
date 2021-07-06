@@ -41,7 +41,7 @@ class BaseModel(metaclass=ABCMeta):
         The same :class:`~BaseModelContext` will also be available during calls to
         :func:`~BaseModel.handle`, but it may be more efficient to override this method
         and load artifacts from the context at model load time.
-        
+
         Args:
             context: A :class:`~BaseModelContext` instance containing artifacts §that the model
                         can use to perform inference.
@@ -53,7 +53,7 @@ class BaseModel(metaclass=ABCMeta):
     def load_weights(cls, weights_path):
         """Used to load the model from ``weights_path``. Supports S3 remote artifact URIs and relative filesystem paths.
         Note that paths to outer folder e.g. `../my_outer_dir` are not supported
-        
+
         Args:
             weights_path: Relative path or remote S3 URI.
         """
@@ -64,7 +64,7 @@ class BaseModel(metaclass=ABCMeta):
         func:`~BaseModel.handle` implementation, this function is called during model loading time.
 
         Post-condition is to set self.initialized to True.
-        
+
         Args:
             context: Initial context contains model server system properties.
         """
@@ -73,10 +73,10 @@ class BaseModel(metaclass=ABCMeta):
 
     def preprocess(self, request):
         """Transform raw input into model input data.
-        
+
         Args:
             request: list of raw requests
-        
+
         Returns:
             List of preprocessed model input data.
         """
@@ -87,7 +87,7 @@ class BaseModel(metaclass=ABCMeta):
 
         Args:
             inference_output: list of inference output
-        
+
         Returns:
             List of predict results.
         """
@@ -98,10 +98,10 @@ class BaseModel(metaclass=ABCMeta):
         """Generate model predictions.
 
         Enforces the input schema first before calling the model implementation with the sanitized input.
-        
+
         Args:
             inputs: Model input
-        
+
         Returns
             Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
@@ -135,7 +135,7 @@ class BaseModel(metaclass=ABCMeta):
             model_save_path:
             hyperparameters:
             model_parameters:
-        
+
         Returns:
             Model URI.
         """
@@ -199,6 +199,5 @@ class BaseModelContext(object):
 
     @property
     def artifacts(self):
-        """A dictionary containing ``<name, artifact_path>`` entries, where ``artifact_path`` is an absolute filesystem path to the artifact.
-        """
+        """A dictionary containing ``<name, artifact_path>`` entries, where ``artifact_path`` is an absolute filesystem path to the artifact."""
         return self._artifacts

@@ -88,7 +88,6 @@ def test_request_prediction_of_job(ai_api, existing_app_id):
         ids = ai_api.request_prediction_of_job(app_id=existing_app_id, job_id=1, assignment="PRELABEL")
 
 
-
 def test_model_retrieval(model_api, model):
     m = model_api.get_model(model)
     assert "name" in m
