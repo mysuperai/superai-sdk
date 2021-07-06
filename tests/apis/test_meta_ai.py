@@ -1,6 +1,6 @@
 from superai.apis.meta_ai import ModelApiMixin, ProjectAiApiMixin
 import pytest
-import vcr
+import vcr  # type: ignore
 import ast
 
 # To record new cassette, use real app_id and run pytest against running endpoint
@@ -86,7 +86,6 @@ def test_view_prediction(ai_api, existing_app_id, prediction_id):
 def test_request_prediction_of_job(ai_api, existing_app_id):
     with pytest.raises(Exception):
         ids = ai_api.request_prediction_of_job(app_id=existing_app_id, job_id=1, assignment="PRELABEL")
-
 
 
 def test_model_retrieval(model_api, model):

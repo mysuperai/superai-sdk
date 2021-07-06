@@ -33,7 +33,7 @@ agent:
 
 
 def build_path(path, asPath=False):
-    """ Wrap the file path with the build path """
+    """Wrap the file path with the build path"""
     path = Path(settings.hatchery_build_folder) / path
 
     return path if asPath else str(path)
@@ -58,7 +58,7 @@ def init_build_path(path: str = settings.hatchery_build_folder, clean_build: boo
 
 
 def create_build_folder(path=settings.hatchery_build_folder):
-    """ Create build folder to store all build related files """
+    """Create build folder to store all build related files"""
     path = Path(path)
     if not path.exists():
         makedirs(path, exist_ok=True)
@@ -66,7 +66,7 @@ def create_build_folder(path=settings.hatchery_build_folder):
 
 @logdecorator.log_on_start(logging.DEBUG, "Deleting {path:s}")
 def clean_build_files(path: str = settings.hatchery_build_folder):
-    """ Clean build folder """
+    """Clean build folder"""
     path = Path()
     log.debug("Deleting {}".format(path))
     try:
@@ -210,7 +210,7 @@ def create_agent_run_command(
     websocket: str = settings.agent.websocket,
     api_key: str = None,
 ):
-    """ Generate piggy command line to execute target script """
+    """Generate piggy command line to execute target script"""
     api_key = api_key or load_api_key()
     piggy_agent_path = Path(settings.agent.file)
     if not piggy_agent_path.is_file():

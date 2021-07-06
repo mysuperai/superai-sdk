@@ -30,7 +30,7 @@ def create_file_handler(
     max_bytes=5000000,
     backup_count=25,
 ):
-    """ Create rotating file handler """
+    """Create rotating file handler"""
     formatter = CustomFormatter(fmt=log_format, datefmt=_date_format, style=_style)
     handler = RotatingFileHandler(log_filename, maxBytes=max_bytes, backupCount=backup_count)
     handler.setFormatter(formatter)
@@ -38,7 +38,7 @@ def create_file_handler(
 
 
 def create_non_cli_handler(log_format=_log_format, stream=sys.stdout):
-    """ Create logging to non-CLI console (like ECS) """
+    """Create logging to non-CLI console (like ECS)"""
     formatter = CustomFormatter(fmt=log_format, datefmt=_date_format)
     console_handler = logging.StreamHandler(stream)
     console_handler.setFormatter(formatter)
@@ -46,13 +46,13 @@ def create_non_cli_handler(log_format=_log_format, stream=sys.stdout):
 
 
 def create_cli_handler():
-    """ Create logging handler for CLI with rich structured output """
+    """Create logging handler for CLI with rich structured output"""
     rich_handler = RichHandler(rich_tracebacks=True)
     return rich_handler
 
 
 def get_logger(name=None, propagate=True):
-    """ Get logger object """
+    """Get logger object"""
     logger = logging.getLogger(name)
     logger.propagate = propagate
     loggers.append(logger)
@@ -60,32 +60,32 @@ def get_logger(name=None, propagate=True):
 
 
 def exception(line):
-    """ Log exception """
+    """Log exception"""
     return logging.exception(line)
 
 
 def debug(line):
-    """ Log debug """
+    """Log debug"""
     return logging.debug(line)
 
 
 def warn(line):
-    """ Log warning """
+    """Log warning"""
     return logging.warn(line)
 
 
 def error(line):
-    """ Log error """
+    """Log error"""
     return logging.error(line)
 
 
 def info(line):
-    """ Log info """
+    """Log info"""
     return logging.info(line)
 
 
 def init(filename=None, console=True, log_level=INFO, log_format=_log_format):
-    """ Initialize logging setup """
+    """Initialize logging setup"""
     if not log_format:
         log_format = _log_format
 

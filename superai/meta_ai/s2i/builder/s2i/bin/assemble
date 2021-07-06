@@ -1,0 +1,50 @@
+#!/bin/bash -e
+
+PIP_CACHE=/home/model-server/.pip-cache
+RESTORED_ARTIFACTS=/tmp/artifacts
+
+if [[ -z "$MODEL_NAME" ]]; then
+  echo "Failed to find required env var MODEL_NAME, make sure 'environment' file exists"
+  exit 1
+fi
+
+if [ "$(ls $RESTORED_ARTIFACTS 2>/dev/null)" ]; then
+  echo "--> Restoring build artifacts ..."
+  mv $RESTORED_ARTIFACTS/.pip-cache $PIP_CACHE
+fi
+
+cd /home/model-server
+
+echo "--> Installing application source..."
+cp -Rf /tmp/src/. ./
+
+if [[ -z "$BUILD_PIP" ]]; then
+  echo "BUILD_PIP does not exist. Building the pip dependencies..."
+  if [[ -f requirements.txt ]]; then
+    echo "--> Performing requirements install..."
+    if [ -d "$PIP_CACHE" ]; then
+      echo "Directory exists ${PIP_CACHE}"
+    else
+      mkdir $PIP_CACHE
+    fi
+    export AWS_DEFAULT_REGION=us-east-1
+    aws codeartifact login --tool pip --domain superai --repository pypi-superai
+    pip3 install --no-cache-dir -r requirements.txt
+  elif [[ -f environment.yml ]]; then
+    echo "---> Creating environment with Conda..."
+    if [[ -z "$CONDA_ENV_NAME" ]]; then
+      echo "----> Failed to find env var CONDA_ENV_NAME."
+      echo "      Falling back to default CONDA_ENV_NAME=env."
+      # shellcheck disable=SC2209
+      CONDA_ENV_NAME=env
+    fi
+    conda env create --name $CONDA_ENV_NAME --file environment.yml
+  elif [[ -f setup.sh ]]; then
+    echo "---> Executing setup.sh"
+    export AWS_DEFAULT_REGION=us-east-1
+    aws codeartifact login --tool pip --domain superai --repository pypi-superai
+    bash setup.sh
+  fi
+else
+  echo "BUILD_PIP exists. Skipping dependency build"
+fi

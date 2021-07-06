@@ -67,7 +67,13 @@ class EasyPredictions:
         elif isinstance(input, dict):
             assert self.verify(input)
         elif isinstance(input, list):
-            for a in input:
+            input_list = input
+            if len(input) == 1 and isinstance(input[0], list):
+                # Sagemaker does not allow returning simple list (it checks for length of Batch)
+                # in that case we wrap the model output in another list
+                # this allows the verification to inspect the correct elements
+                input_list = input[0]
+            for a in input_list:
                 if not isinstance(a, RawPrediction):
                     assert self.verify(a)
         else:

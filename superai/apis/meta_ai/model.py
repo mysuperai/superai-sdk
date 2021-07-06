@@ -52,7 +52,9 @@ class ModelApiMixin(ABC):
 
     def get_model_by_name(self, name):
         op = Operation(query_root)
-        op.meta_ai_model(where={"name": {"_eq": name}}).__fields__("name", "version", "id", "model_save_path")
+        op.meta_ai_model(where={"name": {"_eq": name}}).__fields__(
+            "name", "version", "id", "model_save_path", "weights_path"
+        )
         data = self.sess.perform_op(op)
         return list(
             map(
@@ -61,6 +63,7 @@ class ModelApiMixin(ABC):
                     "version": x.version,
                     "id": x.id,
                     "modelSavePath": x.model_save_path,
+                    "weightsPath": x.weights_path,
                 },
                 (op + data).meta_ai_model,
             )
@@ -69,7 +72,7 @@ class ModelApiMixin(ABC):
     def get_model_by_name_version(self, name, version):
         op = Operation(query_root)
         op.meta_ai_model(where={"name": {"_eq": name}, "version": {"_eq": version}}).__fields__(
-            "name", "version", "id", "model_save_path"
+            "name", "version", "id", "model_save_path", "weights_path"
         )
         data = self.sess.perform_op(op)
         return list(
@@ -79,6 +82,7 @@ class ModelApiMixin(ABC):
                     "version": x.version,
                     "id": x.id,
                     "modelSavePath": x.model_save_path,
+                    "weightsPath": x.weights_path,
                 },
                 (op + data).meta_ai_model,
             )
@@ -212,7 +216,7 @@ class DeploymentApiMixin(ABC):
         ecr_image_name: str,
         deployment_type: meta_ai_deployment_type_enum = "AWS_SAGEMAKER",
         purpose: str = "SERVING",
-        properties: dict = None
+        properties: dict = None,
     ):
         """Mutation query to create a new entry in the deployment table, should deploy an endpoint in the action handler
         and store the endpoint name in the table.
@@ -239,7 +243,7 @@ class DeploymentApiMixin(ABC):
                     purpose=meta_ai_deployment_purpose_enum(purpose),
                     image=ecr_image_name,
                     target_status="ONLINE",
-                    properties=properties
+                    properties=json.dumps(properties),
                 )
             ).__fields__("model_id", "target_status", "created_at")
             data = self.sess.perform_op(op)
@@ -306,15 +310,15 @@ class DeploymentApiMixin(ABC):
         return (op + data).update_meta_ai_deployment_by_pk
 
     def set_deployment_properties(self, model_id: str, properties: dict) -> object:
-        """Change properties of a deployment used nex time an deployment instance is created.
+        """Change properties of a deployment used next time a deployment instance is created.
 
         Args:
-            ecr_image_name:
+            model_id: str
             properties: dict
         """
         op = Operation(mutation_root)
         op.update_meta_ai_deployment_by_pk(
-            _set=meta_ai_deployment_set_input(properties=properties),
+            _set=meta_ai_deployment_set_input(properties=json.dumps(properties)),
             pk_columns=meta_ai_deployment_pk_columns_input(model_id=model_id),
         ).__fields__("model_id", "properties")
         data = self.sess.perform_op(op)
@@ -346,19 +350,20 @@ class DeploymentApiMixin(ABC):
                 return True
         return False
 
-    def predict_from_endpoint(self, model_id: str, data_input: dict, parameters: dict = None):
+    def predict_from_endpoint(self, model_id: str, data_input: dict, parameters: dict = None, timeout: int = 20):
         """Query the endpoint name from deployment table, return prediction (using MetaAI sagemaker configuration)
 
         Args:
             model_id: id of the model deployed, acts as the primary key of the deployment
             data_input: raw data or reference to stored object
             parameters: parameters for the model inference
+            timeout: timeout in seconds to await for a prediction
 
         """
         request = {"deployment_id": model_id, "data": json.dumps(data_input), "parameters": json.dumps((parameters))}
         opq = Operation(query_root)
         opq.predict_with_deployment(request=request).__fields__("output", "score")
-        data = self.sess.perform_op(opq)
+        data = self.sess.perform_op(opq, timeout)
         res = (opq + data).predict_with_deployment
         return res
 

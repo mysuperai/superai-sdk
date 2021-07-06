@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import json
 from abc import ABCMeta, abstractmethod
 from typing import Optional
 
-from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters
+from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters, Config
 from superai.meta_ai.schema import Schema, SchemaParameters
 from superai.meta_ai.tracking import SuperTracker
 
@@ -16,7 +17,13 @@ class BaseModel(metaclass=ABCMeta):
     artifact dependencies.
     """
 
-    def __init__(self, input_schema: Schema = None, output_schema=None, configuration=None, **kwargs):
+    def __init__(
+        self,
+        input_schema: Optional[Schema] = None,
+        output_schema: Optional[Schema] = None,
+        configuration: Optional[Config] = None,
+        **kwargs,
+    ):
         self.input_schema = input_schema
         self.output_schema = output_schema
         self.configuration = configuration
@@ -25,8 +32,24 @@ class BaseModel(metaclass=ABCMeta):
         self.logger_dir = kwargs.get("log_dir")
         self.tracker = SuperTracker(path=self.logger_dir)
 
-        self.input_parameters = input_schema.parameters()
-        self.output_parameters = output_schema.parameters()
+        self.input_parameters = input_schema.parameters() if input_schema is not None else SchemaParameters()
+        self.output_parameters = output_schema.parameters() if output_schema is not None else SchemaParameters()
+
+    def __init_subclass__(cls, **kwargs):
+        cls.predict = cls._process_json_func(cls.predict)
+        super().__init_subclass__(**kwargs)
+
+    @staticmethod
+    def _process_json_func(pred_func):
+        """This method json encodes a dictionary and returns the same dictionary, avoiding JSON encoding failures."""
+
+        def __inner__(*args, **kwargs):
+            prediction_result = pred_func(*args, **kwargs)
+            json_string = json.dumps(prediction_result)
+            json_dict = json.loads(json_string)
+            return json_dict
+
+        return __inner__
 
     def update_logger_path(self, path):
         self.logger_dir = path
@@ -41,7 +64,7 @@ class BaseModel(metaclass=ABCMeta):
         The same :class:`~BaseModelContext` will also be available during calls to
         :func:`~BaseModel.handle`, but it may be more efficient to override this method
         and load artifacts from the context at model load time.
-        
+
         Args:
             context: A :class:`~BaseModelContext` instance containing artifacts §that the model
                         can use to perform inference.
@@ -50,10 +73,10 @@ class BaseModel(metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def load_weights(cls, weights_path):
+    def load_weights(cls, weights_path: str):
         """Used to load the model from ``weights_path``. Supports S3 remote artifact URIs and relative filesystem paths.
         Note that paths to outer folder e.g. `../my_outer_dir` are not supported
-        
+
         Args:
             weights_path: Relative path or remote S3 URI.
         """
@@ -64,7 +87,7 @@ class BaseModel(metaclass=ABCMeta):
         func:`~BaseModel.handle` implementation, this function is called during model loading time.
 
         Post-condition is to set self.initialized to True.
-        
+
         Args:
             context: Initial context contains model server system properties.
         """
@@ -73,10 +96,10 @@ class BaseModel(metaclass=ABCMeta):
 
     def preprocess(self, request):
         """Transform raw input into model input data.
-        
+
         Args:
             request: list of raw requests
-        
+
         Returns:
             List of preprocessed model input data.
         """
@@ -87,7 +110,7 @@ class BaseModel(metaclass=ABCMeta):
 
         Args:
             inference_output: list of inference output
-        
+
         Returns:
             List of predict results.
         """
@@ -98,10 +121,10 @@ class BaseModel(metaclass=ABCMeta):
         """Generate model predictions.
 
         Enforces the input schema first before calling the model implementation with the sanitized input.
-        
+
         Args:
             inputs: Model input
-        
+
         Returns
             Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
@@ -135,7 +158,7 @@ class BaseModel(metaclass=ABCMeta):
             model_save_path:
             hyperparameters:
             model_parameters:
-        
+
         Returns:
             Model URI.
         """
@@ -186,19 +209,21 @@ class BaseModel(metaclass=ABCMeta):
 
 class BaseModelContext(object):
     """A collection of artifacts that a :class:`~BaseModel` can use when performing inference.
-    :class:`~BaseModelContext` objects are created *implicitly* by the :func:`save_model() <superai.meta_ai.save_ai>` and
-    :func:`post_model() <superai.meta_ai.post_ai>` persistence methods, using the contents specified by the ``artifacts`` parameter of these methods.
+    :class:`~BaseModelContext` objects are created *implicitly* by the :func:`save_model() <superai.meta_ai.save_ai>`
+    and :func:`post_model() <superai.meta_ai.post_ai>` persistence methods, using the contents specified by the
+    ``artifacts`` parameter of these methods.
     """
 
     def __init__(self, artifacts):
         """
         Args:
-            artifacts: A dictionary of ``<name, artifact_path>`` entries, where ``artifact_path`` is an absolute filesystem path to a given artifact.
+            artifacts: A dictionary of ``<name, artifact_path>`` entries, where ``artifact_path`` is an absolute
+            filesystem path to a given artifact.
         """
         self._artifacts = artifacts
 
     @property
     def artifacts(self):
-        """A dictionary containing ``<name, artifact_path>`` entries, where ``artifact_path`` is an absolute filesystem path to the artifact.
-        """
+        """A dictionary containing ``<name, artifact_path>`` entries, where ``artifact_path`` is an absolute
+        filesystem path to the artifact."""
         return self._artifacts

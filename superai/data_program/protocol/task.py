@@ -439,7 +439,7 @@ def get_workflow_prefix():
 
 
 def store_snapshot(snapshot, data_folder=None):
-    """ TODO(veselin): add description """
+    """TODO(veselin): add description"""
     if "CANOTIC_AGENT" in os.environ:
         return save_snapshot(snapshot, data_folder)
 
@@ -469,7 +469,7 @@ def auto_restore_snapshot():
 
 
 def restore_snapshot():
-    """ TODO(veselin): add description """
+    """TODO(veselin): add description"""
     if "CANOTIC_AGENT" in os.environ:
         snap = load_snapshot()
         if snap is not None:
@@ -480,7 +480,7 @@ def restore_snapshot():
 
 
 def restore_snapshot_data():
-    """ TODO(veselin): add description """
+    """TODO(veselin): add description"""
     if "CANOTIC_AGENT" in os.environ:
         return load_snapshot_data()
 
@@ -488,13 +488,13 @@ def restore_snapshot_data():
 
 
 def report(status):
-    """ TODO(veselin): add description """
+    """TODO(veselin): add description"""
     if "CANOTIC_AGENT" in os.environ:
         return send_report(status)
 
 
 def update_performance_database(performance):
-    """ TODO(purnawirman): too trivial to be in DS-SDK """
+    """TODO(purnawirman): too trivial to be in DS-SDK"""
     print("the model performance is {}".format(performance))
 
 
@@ -594,12 +594,12 @@ def join_futures_array(array):
 
 
 def join_futures(*args):
-    """ TODO(veselin): please add function description """
+    """TODO(veselin): please add function description"""
     return join_futures_array(list(args))
 
 
 def send_response(response=None, data_folder=None, bill=None):
-    """ Post response as a result of a job completion """
+    """Post response as a result of a job completion"""
     if "CANOTIC_AGENT" in os.environ:
         resolve_job(response, data_folder, bill)
     else:
@@ -607,7 +607,7 @@ def send_response(response=None, data_folder=None, bill=None):
 
 
 def qualify(hero_item, metric, value=None):
-    """ Store hero metric """
+    """Store hero metric"""
     if "CANOTIC_AGENT" in os.environ:
         save_hero_qualification(hero_item, metric, value)
     else:
@@ -633,7 +633,7 @@ def qualify_mturk(
     endpoint: str = None,
 ):
     # qualify({"platform": "MTURK", "workerId": hero_id}, metric, value)
-    """"""
+    """ """
     assert isinstance(value, int), "Qualify MTURK only accept integer values"
 
     def func():
@@ -679,7 +679,7 @@ def qualify_mturk(
 
 
 def disqualify(hero_id, metric):
-    """ Delete hero metric """
+    """Delete hero metric"""
     if "CANOTIC_AGENT" in os.environ:
         remove_hero_qualification(hero_id, metric)
     else:
@@ -829,7 +829,7 @@ def task_from_semantic_ui(
 
 
 def get_all_metrics(metric, owner="1"):
-    """ TODO(purna): this should be part of the canotic.metrics and implemented through a proper key value store API lookup """
+    """TODO(purna): this should be part of the canotic.metrics and implemented through a proper key value store API lookup"""
     warnings.warn("this is either a workaround or hack")
     url = (
         "https://prometheus-nlb-prod-internal-b5f0c5af90c09892.elb.us-east-1.amazonaws.com"
@@ -841,7 +841,7 @@ def get_all_metrics(metric, owner="1"):
 
 
 def serve_workflow(function, suffix=None, schema=None, prefix=None):
-    """ Register func as workflow"""
+    """Register func as workflow"""
     if "CANOTIC_AGENT" in os.environ:
         subscribe_workflow(function=function, prefix=prefix, suffix=suffix, schema=schema)
 
