@@ -820,19 +820,39 @@ class AI:
             update_weights: Update weights in s3 or not
             weights_path: Path to weights in s3
         """
-        if self.id and not overwrite:
-            log.info("Model already exists in the DB and overwrite is not set.")
-            return self.id
-        s3_client = boto3.client("s3")
+        if self.id:
+            if not overwrite:
+                log.warning("Model already exists in the DB and overwrite is not set.")
+                return self.id
+        else:
+            self._id = self._create_database_entry(
+                name=self.name,
+                version=self.version,
+                description=self.description,
+                metadata=self.artifacts,
+                input_schema=self.input_params.to_json,
+                output_schema=self.output_params.to_json,
+            )
 
+        modelSavePath = self._upload_model_folder(self.id)
+        weights = self._upload_weights(self.id, update_weights, weights_path)
+        self.client.update_model(self.id, weights_path=weights, model_save_path=modelSavePath)
+        return self.id
+
+    def _upload_model_folder(self, id: str) -> str:
+        s3_client = boto3.client("s3")
         path_to_tarfile = os.path.join(self._location, "AISavedModel.tar.gz")
         log.info(f"Compressing AI folder at {self._location}")
         self._compress_folder(path_to_tarfile, self._location)
-        object_name = os.path.join(self.folder_name, self.name, str(self.version), "AISavedModel.tar.gz")
+        object_name = os.path.join(self.folder_name, id, self.name, str(self.version), "AISavedModel.tar.gz")
         with open(path_to_tarfile, "rb") as f:
             s3_client.upload_fileobj(f, self.bucket_name, object_name)
         modelSavePath = os.path.join("s3://", self.bucket_name, object_name)
         log.info(f"Uploaded AI object to '{modelSavePath}'")
+        return modelSavePath
+
+    def _upload_weights(self, id: str, update_weights: bool, weights_path: Optional[str]) -> Optional[str]:
+        s3_client = boto3.client("s3")
         weights: Optional[str] = None
         if self.weights_path is not None and update_weights:
             if self.weights_path.startswith("s3"):
@@ -845,11 +865,11 @@ class AI:
                     log.info(f"Compressing weights at {self.weights_path}, placed at {path_to_weights_tarfile}...")
                     self._compress_folder(path_to_weights_tarfile, self.weights_path)
                     upload_object_name = os.path.join(
-                        self.folder_name, "saved_models", f"{os.path.basename(self.weights_path)}.tar.gz"
+                        self.folder_name, "saved_models", id, f"{os.path.basename(self.weights_path)}.tar.gz"
                     )
                 else:
                     upload_object_name = os.path.join(
-                        self.folder_name, "saved_models", os.path.basename(self.weights_path)
+                        self.folder_name, "saved_models", id, os.path.basename(self.weights_path)
                     )
                     path_to_weights_tarfile = self.weights_path
                 with open(path_to_weights_tarfile, "rb") as w:
@@ -863,16 +883,7 @@ class AI:
             log.warn("No weights path given, weights will not be uploaded")
             if weights_path is not None:
                 weights = weights_path
-        return self._create_database_entry(
-            name=self.name,
-            version=self.version,
-            description=self.description,
-            metadata=self.artifacts,
-            input_schema=self.input_params.to_json,
-            output_schema=self.output_params.to_json,
-            weights_path=weights,
-            model_save_path=modelSavePath,
-        )
+        return weights
 
     def deploy(
         self,
