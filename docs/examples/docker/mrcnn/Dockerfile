@@ -6,23 +6,7 @@ ARG CUDA=10.0
 ARG CUDADASH=10-0
 ARG CUDNN=7.4.1.5-1
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        build-essential \
-        cuda-command-line-tools-${CUDADASH} \
-        cuda-cublas-${CUDADASH} \
-        cuda-cufft-${CUDADASH} \
-        cuda-curand-${CUDADASH} \
-        cuda-cusolver-${CUDADASH} \
-        cuda-cusparse-${CUDADASH} \
-        curl \
-        libcudnn7=${CUDNN}+cuda${CUDA} \
-        libfreetype6-dev \
-        libhdf5-serial-dev \
-        libzmq3-dev \
-        pkg-config \
-        software-properties-common \
-        unzip \
-        wget
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential cuda-command-line-tools-${CUDADASH} cuda-cublas-${CUDADASH} cuda-cufft-${CUDADASH} cuda-curand-${CUDADASH} cuda-cusolver-${CUDADASH} cuda-cusparse-${CUDADASH} curl libcudnn7=${CUDNN}+cuda${CUDA} libfreetype6-dev libhdf5-serial-dev libzmq3-dev pkg-config software-properties-common unzip wget && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update && \
         apt-get install nvinfer-runtime-trt-repo-ubuntu1604-5.0.2-ga-cuda${CUDA} \
@@ -37,7 +21,7 @@ ARG PYTHON=python3.7
 
 ENV LANG C.UTF-8
 
-RUN add-apt-repository ppa:deadsnakes/ppa && apt-get update && apt-get install -y ${PYTHON}
+RUN add-apt-repository ppa:deadsnakes/ppa && apt-get update && apt-get install --no-install-recommends -y ${PYTHON}
 
 RUN wget https://bootstrap.pypa.io/get-pip.py
 RUN ${PYTHON} get-pip.py
@@ -60,7 +44,7 @@ RUN apt-get -y update && apt-get install -y --no-install-recommends \
          g++ \
          git \
          libsndfile1 wget curl gnupg \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # PYTHONUNBUFFERED keeps Python from buffering the standard
 # output stream, which means that logs can be delivered to the user quickly.
@@ -90,12 +74,11 @@ ENV MODEL_NAME=model
 # Fix for the interactive mode during an install in step 21
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN pip install --upgrade pip setuptools wheel
+RUN pip install --upgrade --no-cache-dir pip setuptools wheel
 
-RUN git clone https://github.com/matterport/Mask_RCNN
-WORKDIR Mask_RCNN
+RUN git clone https://github.com/matterport/Mask_RCNN /root/Mask_RCNN
+WORKDIR /root/Mask_RCNN
 RUN python setup.py install
 
 ENV AWS_SHARED_CREDENTIALS_FILE="./sagify_base/.aws/credentials"
 ENV TF_FORCE_GPU_ALLOW_GROWTH="true"
-

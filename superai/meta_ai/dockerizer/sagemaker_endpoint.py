@@ -165,7 +165,7 @@ def invoke_local(mime: str, body: str):
         log.error(message)
 
 
-def invoke_sagemaker_endpoint(endpoint, mime, payload, mode="SingleModel", target_model=None, arn_role=None):
+def get_sagemaker_runtime_client(target_model=None, mode="SingleModel", arn_role=None):
     # arn_role = "arn:aws:iam::185169359328:role/service-role/AmazonSageMaker-ExecutionRole-20180117T160866"
     assert mode in ["SingleModel", "MultiModel"], "Mode should be one of ['SingleModel', 'MultiModel']"
     if mode == "MultiModel":
@@ -189,6 +189,21 @@ def invoke_sagemaker_endpoint(endpoint, mime, payload, mode="SingleModel", targe
             region_name="us-east-1",
         )
         runtime_sm_client = boto_session.client(service_name="sagemaker-runtime")
+    return runtime_sm_client
+
+
+def invoke_sagemaker_endpoint(
+    endpoint,
+    mime,
+    payload,
+    mode="SingleModel",
+    target_model=None,
+    arn_role=None,
+    runtime_sm_client=None,
+    verbose=False,
+):
+    if runtime_sm_client is None:
+        runtime_sm_client = get_sagemaker_runtime_client(mode, target_model, arn_role)
     body = payload
     if not mime.endswith("json"):
         if os.path.exists(payload):
@@ -203,9 +218,11 @@ def invoke_sagemaker_endpoint(endpoint, mime, payload, mode="SingleModel", targe
             TargetModel=target_model,
             Body=body,
         )
-    log.info(f"Response from endpoint: {response}")
+    if verbose:
+        log.info(f"Response from endpoint: {response}")
     response = json.loads(response["Body"].read())
-    log.info(f"Model response: {response}")
+    if verbose:
+        log.info(f"Model response: {response}")
     return response
 
 
