@@ -48,12 +48,12 @@ def _get_config_path(log: Logger = None):
 
 
 def get_config_dir():
-    """ Gets config root directory"""
+    """Gets config root directory"""
     return __superai_root_dir
 
 
 def list_env_configs(printInConsole=True, log: Logger = None) -> Dict:
-    """ List all available environments """
+    """List all available environments"""
     log = log or logger.get_logger(__name__)
 
     import yaml
@@ -76,7 +76,7 @@ def list_env_configs(printInConsole=True, log: Logger = None) -> Dict:
 
 
 def set_env_config(name, root_dir: str = __superai_root_dir, log: Logger = None):
-    """ Set the active cluster name """
+    """Set the active cluster name"""
     # settings.setenv("other", silent=False)
     log = log or logger.get_logger(__name__)
 

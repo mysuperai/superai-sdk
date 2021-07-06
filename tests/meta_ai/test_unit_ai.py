@@ -26,7 +26,7 @@ def test_compression():
     with tarfile.open(path_to_tarfile) as tar:
         tar.extractall(path=another_folder_path)
     for i in range(1, 5):
-        assert os.path.exists(os.path.join(another_folder_path, f'{i}_file.txt'))
+        assert os.path.exists(os.path.join(another_folder_path, f"{i}_file.txt"))
     shutil.rmtree(folder_path)
     shutil.rmtree(another_folder_path)
     os.remove(path_to_tarfile)

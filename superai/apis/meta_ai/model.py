@@ -212,7 +212,7 @@ class DeploymentApiMixin(ABC):
         ecr_image_name: str,
         deployment_type: meta_ai_deployment_type_enum = "AWS_SAGEMAKER",
         purpose: str = "SERVING",
-        properties: dict = None
+        properties: dict = None,
     ):
         """Mutation query to create a new entry in the deployment table, should deploy an endpoint in the action handler
         and store the endpoint name in the table.
@@ -239,7 +239,7 @@ class DeploymentApiMixin(ABC):
                     purpose=meta_ai_deployment_purpose_enum(purpose),
                     image=ecr_image_name,
                     target_status="ONLINE",
-                    properties=properties
+                    properties=properties,
                 )
             ).__fields__("model_id", "target_status", "created_at")
             data = self.sess.perform_op(op)

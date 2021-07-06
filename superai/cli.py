@@ -46,7 +46,7 @@ def cli():
 @cli.command()
 @click.option("--verbose/--no-verbose", "-vvv", help="Verbose output", default=False)
 def info(verbose):
-    """ Print CLI Configuration """
+    """Print CLI Configuration"""
     click.echo("=================")
     click.echo("Super.AI CLI Info:")
     click.echo("=================")
@@ -528,7 +528,7 @@ def logout():
 
 @cli.group()
 def ai():
-    """ Build and push your model docker images """
+    """Build and push your model docker images"""
     pass
 
 

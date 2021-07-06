@@ -33,8 +33,8 @@ class BaseBackend(object):
     def can_score_ai(self):
         """Check whether this backend can be deployed in the current environment and used to score models.
 
-            Returns:
-                True if this flavor backend can be applied in the current environment.
+        Returns:
+            True if this flavor backend can be applied in the current environment.
         """
         pass
 

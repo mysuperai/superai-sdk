@@ -153,7 +153,7 @@ class ModelHandler(BaseModel):
         return [["probability=%f, class=%s" % (prob[i], self.labels[i]) for i in a[0:5]]]
 
     def train(self, input_data_path, model_save_path, hyperparams_path=None):
-        """ Not required for this implementation"""
+        """Not required for this implementation"""
         pass
 
     @classmethod
