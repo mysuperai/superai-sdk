@@ -891,6 +891,7 @@ class AI:
         skip_build: bool = False,
         remote_type: meta_ai_deployment_type_enum = "AWS_SAGEMAKER",
         properties: Optional[dict] = None,
+        enable_cuda: bool = False,
         **kwargs,
     ) -> "DeployedPredictor.Type":
         """Here we need to create a docker container with superai-sk installed. Then we need to create a server script
@@ -902,6 +903,7 @@ class AI:
         Args:
             mode: Which mode to deploy.
             skip_build: Skip building
+            enable_cuda: Create CUDA-Compatible image
             properties: Optional dictionary with properties for instance creation.
                 Possible values (with defaults) are:
                     "sagemaker_instance_type": "ml.m5.xlarge"
@@ -919,6 +921,7 @@ class AI:
                 worker_count=kwargs.get("worker_count", 1),
                 lambda_mode=kwargs.get("lambda_mode", False),
                 ai_cache=kwargs.get("ai_cache", 5),
+                enable_cuda=enable_cuda,
             )
             if not skip_build:
                 self.build_image(self.name, str(self.version))
@@ -932,6 +935,7 @@ class AI:
             kwargs["image_name"] = f"{self.name}:{self.version}"
             kwargs["weights_path"] = self.weights_path
             kwargs["lambda_mode"] = kwargs.get("lambda_mode", False)
+            kwargs["enable_cuda"] = enable_cuda
         else:
             if not skip_build:
                 ecr_image_name = self.push_model(self.name, str(self.version))
@@ -985,7 +989,7 @@ class AI:
         # if endpoint is not serving:
         return ai_object.deploy(mode)
 
-    def _create_dockerfile(self, worker_count: int = 1, lambda_mode=True, ai_cache=32):
+    def _create_dockerfile(self, worker_count: int = 1, lambda_mode=True, ai_cache=32, enable_cuda=False):
         """Build model locally. This involves docker file creation and docker build operations.
         Note that this is supported only in local mode, running this on docker can lead to docker-in-docker problems.
         """
@@ -1007,17 +1011,27 @@ class AI:
             entry_point_file_content: str = template.render(args)
             entry_point_file.write(entry_point_file_content)
 
+        ################################################################################################################
+        # Select Base
+        ################################################################################################################
         dockerfile_content = [
             "# syntax=docker/dockerfile:1.2",
-            "FROM continuumio/miniconda3",
         ]
+        if enable_cuda:
+            dockerfile_content.append("FROM nvidia/cuda:10.2-cudnn8-runtime-ubuntu18.04")
+        else:
+            dockerfile_content.append("FROM python:3.7.11-slim-buster")
+
+        ################################################################################################################
+        # Install System Dependencies
+        ################################################################################################################
         if not lambda_mode:
             dockerfile_content.extend(
                 [
                     "\nRUN mkdir -p /usr/share/man/man1",
                     "\nRUN apt-get update "
                     "&& apt-get -y install --no-install-recommends build-essential ca-certificates default-jdk curl "
-                    "&& rm -rf /var/lib/apt/lists/*",
+                    "&& apt-get clean && rm -rf /var/lib/apt/lists/*",
                     "\nLABEL com.amazonaws.sagemaker.capabilities.multi-models=true",
                     "LABEL com.amazonaws.sagemaker.capabilities.accept-bind-to-port=true",
                 ]
@@ -1028,44 +1042,57 @@ class AI:
                     "RUN apt-get update && "
                     "apt-get -y install --no-install-recommends build-essential ca-certificates g++"
                     " make cmake unzip libcurl4-openssl-dev curl "
-                    "&& rm -rf /var/lib/apt/lists/*"
+                    "&& apt-get clean && rm -rf /var/lib/apt/lists/*"
                 ]
             )
         dockerfile_content.append(f"RUN mkdir -p {homedir}")
-        # create conda env
+        ################################################################################################################
+        # Install Conda and initialize
+        ################################################################################################################
+        dockerfile_content.extend(
+            [
+                "# Download and install Anaconda.",
+                "RUN cd /tmp && curl -O https://repo.anaconda.com/archive/Anaconda3-2021.05-Linux-x86_64.sh "
+                "&& chmod +x /tmp/Anaconda3-2021.05-Linux-x86_64.sh",
+                'RUN mkdir /root/.conda && bash -c "/tmp/Anaconda3-2021.05-Linux-x86_64.sh -b -p /opt/conda"',
+            ]
+        )
+        ################################################################################################################
+        # Create Conda Environment
+        ################################################################################################################
         if self.conda_env is not None:
             dockerfile_content.extend(
                 [
                     f"COPY conda.yml {homedir}",
-                    f"RUN conda env create -f {os.path.join(homedir, 'conda.yml')} -n env",
-                    f"RUN echo \"source activate $(head -1 {os.path.join(homedir, 'conda.yml')} "
-                    f"| cut -d' ' -f2)\" > ~/.bashrc",
-                    f"ENV PATH /opt/conda/envs/$(head -1 {os.path.join(homedir, 'conda.yml')} "
-                    f"| cut -d' ' -f2)/bin:$PATH",
+                    f"RUN /opt/conda/bin/conda env create -f {os.path.join(homedir, 'conda.yml')} -n env",
                 ]
             )
         else:
-            dockerfile_content.extend(
-                [
-                    "RUN conda create -n env python=3.7.10",
-                    'RUN echo "source activate env" > ~/.bashrc',
-                    "ENV PATH /opt/conda/envs/env/bin:$PATH",
-                ]
-            )
+            dockerfile_content.append("RUN /opt/conda/bin/conda create -n env python=3.7.10")
+        dockerfile_content.extend(
+            [
+                'RUN echo "/opt/conda/bin/conda activate env" > ~/.bashrc',
+                "ENV PATH /opt/conda/envs/env/bin:$PATH",
+            ]
+        )
         env_name = "env"
 
         dockerfile_content.append(
-            f'SHELL ["conda", "run", "--no-capture-output", "-n", "{env_name}", "/bin/bash", "-c"]'
+            f'SHELL ["/opt/conda/bin/conda", "run", "--no-capture-output", "-n", "{env_name}", "/bin/bash", "-c"]'
         )
 
-        # install serving requirements
+        ################################################################################################################
+        # Install Serving Requirements
+        ################################################################################################################
         if not lambda_mode:
             serving_reqs = "multi-model-server sagemaker-inference retrying awscli~=1.18.195"
         else:
             serving_reqs = "awslambdaric awscli~=1.18.195"
-        dockerfile_content.append(f"RUN pip install {serving_reqs}")
+        dockerfile_content.append(f"RUN pip install --no-cache-dir {serving_reqs}")
 
-        # install pip requirements
+        ################################################################################################################
+        # Install pip requirements
+        ################################################################################################################
         superai_reqs = "superai_schema superai"
         dockerfile_content.extend(
             [
@@ -1074,24 +1101,20 @@ class AI:
                 "RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true"
                 " --mount=type=cache,target=/opt/conda/pkgs "
                 f"aws codeartifact login --tool pip --domain superai --repository pypi-superai && "
-                f"pip install --no-cache-dir  {superai_reqs}",
+                f"pip install --no-cache-dir {superai_reqs}",
             ]
         )
         dockerfile_content.extend(
             [
                 f"",
                 f"### Model specific dependencies ",
-                f"",
             ],
         )
-        #
+
+        ################################################################################################################
         # Custom install commands (require copy of workdir)
-        #
-        dockerfile_content.extend(
-            [
-                f"WORKDIR {homedir}",
-            ]
-        )
+        ################################################################################################################
+        dockerfile_content.append(f"WORKDIR {homedir}")
         if self.requirements:
             # Only copy and install requirements file to allow better caching
             dockerfile_content.extend(
@@ -1103,12 +1126,11 @@ class AI:
                     "pip install -r requirements.txt",
                 ]
             )
+
+        ################################################################################################################
         # Copy complete contents of local folder
-        dockerfile_content.extend(
-            [
-                f"COPY . {homedir}",
-            ],
-        )
+        ################################################################################################################
+        dockerfile_content.append(f"COPY . {homedir}")
         if self.artifacts is not None:
             if "run" in self.artifacts:
                 dockerfile_content.extend(
@@ -1120,11 +1142,15 @@ class AI:
                         f"bash {os.path.join(homedir, self.artifacts['run'])}",
                     ]
                 )
+
+        ################################################################################################################
+        # Create and initialize entrypoint to container
+        ################################################################################################################
         if not lambda_mode:
             dockerfile_content.extend(
                 [
                     f"RUN chmod +x {os.path.join(homedir, dockerd_entrypoint)}",
-                    f'ENTRYPOINT ["conda", "run", "--no-capture-output", "-n", "{env_name}", "python",'
+                    f'ENTRYPOINT ["/opt/conda/bin/conda", "run", "--no-capture-output", "-n", "{env_name}", "python",'
                     f' "{os.path.join(homedir, dockerd_entrypoint)}"]',
                     'CMD ["serve"]',
                 ]
@@ -1146,9 +1172,14 @@ class AI:
                     'CMD ["handler.processor"]',
                 ]
             )
+
+        ################################################################################################################
+        # Write dockerfile
+        ################################################################################################################
         with open(os.path.join(self._location, "Dockerfile"), "w") as docker_file_writer:
             docker_file_writer.write("\n".join(dockerfile_content))
         log.info("Created Dockerfile...")
+        return dockerfile_content  # for testing
 
     def build_image(self, image_name=None, version_tag="latest"):
         start = time.time()
