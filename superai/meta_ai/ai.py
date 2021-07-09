@@ -989,7 +989,9 @@ class AI:
         # if endpoint is not serving:
         return ai_object.deploy(mode)
 
-    def _create_dockerfile(self, worker_count: int = 1, lambda_mode=True, ai_cache=32, enable_cuda=False):
+    def _create_dockerfile(
+        self, worker_count: int = 1, lambda_mode=True, ai_cache=32, enable_cuda=False, force_amd64=True
+    ):
         """Build model locally. This involves docker file creation and docker build operations.
         Note that this is supported only in local mode, running this on docker can lead to docker-in-docker problems.
         """
@@ -1017,10 +1019,12 @@ class AI:
         dockerfile_content = [
             "# syntax=docker/dockerfile:1.2",
         ]
+
+        platform_string = "--platform=linux/amd64" if force_amd64 else ""
         if enable_cuda:
-            dockerfile_content.append("FROM nvidia/cuda:10.2-cudnn8-runtime-ubuntu18.04")
+            dockerfile_content.append(f"FROM {platform_string} nvidia/cuda:10.2-cudnn8-runtime-ubuntu18.04")
         else:
-            dockerfile_content.append("FROM python:3.7.11-slim-buster")
+            dockerfile_content.append(f"FROM {platform_string} python:3.7.11-slim-buster")
 
         ################################################################################################################
         # Install System Dependencies
