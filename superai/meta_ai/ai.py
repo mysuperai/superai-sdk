@@ -892,6 +892,7 @@ class AI:
         remote_type: meta_ai_deployment_type_enum = "AWS_SAGEMAKER",
         properties: Optional[dict] = None,
         enable_cuda: bool = False,
+        redeploy: bool = False,
         **kwargs,
     ) -> "DeployedPredictor.Type":
         """Here we need to create a docker container with superai-sk installed. Then we need to create a server script
@@ -910,7 +911,7 @@ class AI:
                     "sagemaker_initial_instance_count": 1
                     "lambda_memory": 256
                     "lambda_timeout": 30
-
+            redeploy: Allow undeploying existing deployment and replacing it.
             # Hidden kwargs
             lambda_mode: Create a dockerfile in lambda mode, true by default
             worker_count: Number of workers to use for serving with Sagemaker.
@@ -954,11 +955,18 @@ class AI:
             log.info(f"Existing deployments : {existing_deployment}")
             if existing_deployment is None or "status" not in existing_deployment:
                 self.client.deploy(self.id, ecr_image_name, deployment_type=remote_type, properties=properties)
-            elif existing_deployment["status"] == "OFFLINE":
+            else:
+                if existing_deployment["status"] == "ONLINE" and redeploy:
+                    self.undeploy()
+                else:
+                    raise Exception(
+                        "Deployment with this version already exists. Try undeploy first or set `redeploy=True`."
+                    )
                 self.client.set_image(model_id=self.id, ecr_image_name=ecr_image_name)
                 if properties:
                     self.client.set_deployment_properties(model_id=self.id, properties=properties)
                 self.client.set_deployment_status(model_id=self.id, target_status="ONLINE")
+
             kwargs["id"] = self.id
         # get predictor
         predictor_obj: DeployedPredictor.Type = PredictorFactory.get_predictor_obj(mode=mode, **kwargs)
