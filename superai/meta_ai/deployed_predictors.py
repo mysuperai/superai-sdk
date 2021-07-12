@@ -63,9 +63,6 @@ class LocalPredictor(DeployedPredictor):
                         }
                     },
                     ports={8080: 9000} if self.lambda_mode else {8080: 80, 8081: 8081},
-                    device_requests=[Resources(generic_resources={"gpus": "all"})]
-                    if kwargs.get("enable_cuda", False)
-                    else [],
                 )
                 log.info("Started container in serving mode.")
             except APIError as e:
