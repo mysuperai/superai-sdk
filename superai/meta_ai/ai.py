@@ -5,6 +5,7 @@ import datetime
 import enum
 import json
 import os
+import platform
 import re
 import shutil
 import tarfile
@@ -895,8 +896,8 @@ class AI:
         redeploy: bool = False,
         **kwargs,
     ) -> "DeployedPredictor.Type":
-        """Here we need to create a docker container with superai-sk installed. Then we need to create a server script
-        and prediction script, which basically calls ai.predict.
+        """Here we need to create a docker container with superai-sdk installed. Then we need to create a server
+        script and prediction script, which basically calls ai.predict.
         We need to pass the ai model inside the image, install conda env or requirements.txt as required.
         Serve local: run the container locally using Cli (in a separate thread)
         Serve sagemaker: create endpoint after pushing container to ECR
@@ -909,6 +910,7 @@ class AI:
                 Possible values (with defaults) are:
                     "sagemaker_instance_type": "ml.m5.xlarge"
                     "sagemaker_initial_instance_count": 1
+                    "sagemaker_accelerator_type": "ml.eia2.large" (None by default)
                     "lambda_memory": 256
                     "lambda_timeout": 30
             redeploy: Allow undeploying existing deployment and replacing it.
@@ -923,6 +925,7 @@ class AI:
                 lambda_mode=kwargs.get("lambda_mode", False),
                 ai_cache=kwargs.get("ai_cache", 5),
                 enable_cuda=enable_cuda,
+                force_amd64=kwargs.get("force_amd64", True),
             )
             if not skip_build:
                 self.build_image(self.name, str(self.version))
@@ -955,7 +958,7 @@ class AI:
             if existing_deployment is None or "status" not in existing_deployment:
                 self.client.deploy(self.id, ecr_image_name, deployment_type=remote_type, properties=properties)
             else:
-                if existing_deployment["status"] == "ONLINE" and redeploy:
+                if redeploy:
                     self.undeploy()
                 else:
                     raise Exception(
@@ -1060,12 +1063,14 @@ class AI:
         ################################################################################################################
         # Install Conda and initialize
         ################################################################################################################
+        aarch = "x86_64" if force_amd64 or platform.machine() == "x86_64" else "aarch64"
+        conda_installer = f"Anaconda3-2021.05-Linux-{aarch}.sh"
         dockerfile_content.extend(
             [
                 "# Download and install Anaconda.",
-                "RUN cd /tmp && curl -O https://repo.anaconda.com/archive/Anaconda3-2021.05-Linux-x86_64.sh "
-                "&& chmod +x /tmp/Anaconda3-2021.05-Linux-x86_64.sh",
-                'RUN mkdir /root/.conda && bash -c "/tmp/Anaconda3-2021.05-Linux-x86_64.sh -b -p /opt/conda"',
+                f"RUN cd /tmp && curl -O https://repo.anaconda.com/archive/{conda_installer} "
+                f"&& chmod +x /tmp/{conda_installer}",
+                f'RUN mkdir /root/.conda && bash -c "/tmp/{conda_installer} -b -p /opt/conda"',
             ]
         )
         ################################################################################################################
@@ -1082,7 +1087,8 @@ class AI:
             dockerfile_content.append("RUN /opt/conda/bin/conda create -n env python=3.7.10")
         dockerfile_content.extend(
             [
-                'RUN echo "/opt/conda/bin/conda activate env" > ~/.bashrc',
+                'RUN echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc '
+                '&& echo "conda activate env" >> ~/.bashrc',
                 "ENV PATH /opt/conda/envs/env/bin:$PATH",
             ]
         )
