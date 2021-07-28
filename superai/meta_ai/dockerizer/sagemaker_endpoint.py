@@ -1,6 +1,7 @@
 import json
 import os
 import time
+from typing import Optional
 
 import boto3
 import requests
@@ -12,14 +13,14 @@ from superai import log
 
 
 def create_endpoint(
-    arn_role=None,
-    region="us-east-1",
-    image_name=None,
-    version="latest",
-    model_url=None,
-    initial_instance_count=1,
-    instance_type="ml.m5.xlarge",
-    mode="SingleModel",
+    image_name: str = None,
+    model_url: str = None,
+    version: str = "latest",
+    arn_role: Optional[str] = None,
+    region: str = "us-east-1",
+    initial_instance_count: int = 1,
+    instance_type: str = "ml.m5.xlarge",
+    mode: str = "SingleModel",
 ):
     """
     Create endpoint on AWS Sagemaker
