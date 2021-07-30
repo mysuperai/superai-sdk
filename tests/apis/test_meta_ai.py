@@ -1,6 +1,6 @@
 from superai.apis.meta_ai import ModelApiMixin, ProjectAiApiMixin
 import pytest
-import vcr
+import vcr  # type: ignore
 import ast
 
 # To record new cassette, use real app_id and run pytest against running endpoint

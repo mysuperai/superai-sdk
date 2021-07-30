@@ -913,7 +913,9 @@ class AI:
                     "sagemaker_accelerator_type": "ml.eia2.large" (None by default)
                     "lambda_memory": 256
                     "lambda_timeout": 30
+            remote_type: Which remote type to use for the backend. Options: [AWS_SAGEMAKER, AWS_LAMBDA]
             redeploy: Allow undeploying existing deployment and replacing it.
+
             # Hidden kwargs
             lambda_mode: Create a dockerfile in lambda mode, true by default
             worker_count: Number of workers to use for serving with Sagemaker.
@@ -952,10 +954,16 @@ class AI:
                 raise LookupError(
                     "Cannot establish id, please make sure you push the AI model to create a database entry"
                 )
-            assert self.id is not None, "Please make sure you push the AI model to create a database entry"
             existing_deployment = self.client.get_deployment(self.id)
             log.info(f"Existing deployments : {existing_deployment}")
             if existing_deployment is None or "status" not in existing_deployment:
+                # check if weights are present in the database
+                models = self.client.get_model_by_name_version(self.name, self.version)
+                model = models[0]
+                log.info(f"Model attributes: {model}")
+                assert (
+                    model["weightsPath"] is not None
+                ), "Weights Path cannot be None in the database for the deployment to finish"
                 self.client.deploy(self.id, ecr_image_name, deployment_type=remote_type, properties=properties)
             else:
                 if redeploy:

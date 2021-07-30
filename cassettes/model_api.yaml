@@ -14,15 +14,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61314/v1/graphql
+    uri: http://localhost:54673/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_model_one":{"name":"TestModel","version":1,"id":"9a555c31-3732-4d72-8ad1-f9fea4f727aa","stage":"LOCAL","description":""}}}'
+      string: '{"data":{"insert_meta_ai_model_one":{"name":"TestModel","version":1,"id":"cb9bc06a-a91b-4734-abb3-ac39b8b6a42c","stage":"LOCAL","description":""}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 16 Jun 2021 08:48:19 GMT
+      - Fri, 30 Jul 2021 15:20:14 GMT
       Server:
       - Warp/3.3.10
       Transfer-Encoding:
@@ -30,13 +30,13 @@ interactions:
       content-length:
       - '147'
       x-request-id:
-      - 73bd4db5-3805-4c27-9b0c-3b3c09f84c43
+      - 94372ae8-003c-4791-9551-9a460e2aa6d7
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\nupdate_meta_ai_model_by_pk(_set: {name: \"ChangedTestModel\"},
-      pk_columns: {id: \"9a555c31-3732-4d72-8ad1-f9fea4f727aa\"}) {\nname\nversion\nid\ndescription\n}\n}",
+      pk_columns: {id: \"cb9bc06a-a91b-4734-abb3-ac39b8b6a42c\"}) {\nname\nversion\nid\ndescription\n}\n}",
       "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -48,15 +48,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61314/v1/graphql
+    uri: http://localhost:54673/v1/graphql
   response:
     body:
-      string: '{"data":{"update_meta_ai_model_by_pk":{"name":"ChangedTestModel","version":1,"id":"9a555c31-3732-4d72-8ad1-f9fea4f727aa","description":""}}}'
+      string: '{"data":{"update_meta_ai_model_by_pk":{"name":"ChangedTestModel","version":1,"id":"cb9bc06a-a91b-4734-abb3-ac39b8b6a42c","description":""}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 16 Jun 2021 08:48:19 GMT
+      - Fri, 30 Jul 2021 15:20:14 GMT
       Server:
       - Warp/3.3.10
       Transfer-Encoding:
@@ -64,12 +64,12 @@ interactions:
       content-length:
       - '140'
       x-request-id:
-      - 95711de9-d41b-461e-9299-4012d6a3dbf9
+      - af9f508d-ae24-437c-8acc-e2b18fee241e
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_model_by_pk(id: \"9a555c31-3732-4d72-8ad1-f9fea4f727aa\")
+    body: '{"query": "query {\nmeta_ai_model_by_pk(id: \"cb9bc06a-a91b-4734-abb3-ac39b8b6a42c\")
       {\nname\nversion\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -81,15 +81,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61314/v1/graphql
+    uri: http://localhost:54673/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_model_by_pk":{"name":"ChangedTestModel","version":1,"id":"9a555c31-3732-4d72-8ad1-f9fea4f727aa"}}}'
+      string: '{"data":{"meta_ai_model_by_pk":{"name":"ChangedTestModel","version":1,"id":"cb9bc06a-a91b-4734-abb3-ac39b8b6a42c"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 16 Jun 2021 08:48:19 GMT
+      - Fri, 30 Jul 2021 15:20:14 GMT
       Server:
       - Warp/3.3.10
       Transfer-Encoding:
@@ -97,12 +97,12 @@ interactions:
       content-length:
       - '116'
       x-request-id:
-      - fc026790-b416-4f17-84da-5654055e0710
+      - ff70c7af-41ff-4da6-8396-0ba7e1bfa32c
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "mutation {\ndelete_meta_ai_model_by_pk(id: \"9a555c31-3732-4d72-8ad1-f9fea4f727aa\")
+    body: '{"query": "mutation {\ndelete_meta_ai_model_by_pk(id: \"cb9bc06a-a91b-4734-abb3-ac39b8b6a42c\")
       {\nname\nversion\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -114,15 +114,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61314/v1/graphql
+    uri: http://localhost:54673/v1/graphql
   response:
     body:
-      string: '{"data":{"delete_meta_ai_model_by_pk":{"name":"ChangedTestModel","version":1,"id":"9a555c31-3732-4d72-8ad1-f9fea4f727aa"}}}'
+      string: '{"data":{"delete_meta_ai_model_by_pk":{"name":"ChangedTestModel","version":1,"id":"cb9bc06a-a91b-4734-abb3-ac39b8b6a42c"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 16 Jun 2021 08:48:19 GMT
+      - Fri, 30 Jul 2021 15:20:14 GMT
       Server:
       - Warp/3.3.10
       Transfer-Encoding:
@@ -130,7 +130,7 @@ interactions:
       content-length:
       - '123'
       x-request-id:
-      - 3ae49c95-e5cd-4458-816f-ded6504d2d85
+      - 5dfaa1b2-3bfc-4720-b9cf-ca4c977e210e
     status:
       code: 200
       message: OK
