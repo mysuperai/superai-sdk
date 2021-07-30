@@ -52,7 +52,9 @@ class ModelApiMixin(ABC):
 
     def get_model_by_name(self, name):
         op = Operation(query_root)
-        op.meta_ai_model(where={"name": {"_eq": name}}).__fields__("name", "version", "id", "model_save_path")
+        op.meta_ai_model(where={"name": {"_eq": name}}).__fields__(
+            "name", "version", "id", "model_save_path", "weights_path"
+        )
         data = self.sess.perform_op(op)
         return list(
             map(
@@ -61,6 +63,7 @@ class ModelApiMixin(ABC):
                     "version": x.version,
                     "id": x.id,
                     "modelSavePath": x.model_save_path,
+                    "weightsPath": x.weights_path,
                 },
                 (op + data).meta_ai_model,
             )
@@ -69,7 +72,7 @@ class ModelApiMixin(ABC):
     def get_model_by_name_version(self, name, version):
         op = Operation(query_root)
         op.meta_ai_model(where={"name": {"_eq": name}, "version": {"_eq": version}}).__fields__(
-            "name", "version", "id", "model_save_path"
+            "name", "version", "id", "model_save_path", "weights_path"
         )
         data = self.sess.perform_op(op)
         return list(
@@ -79,6 +82,7 @@ class ModelApiMixin(ABC):
                     "version": x.version,
                     "id": x.id,
                     "modelSavePath": x.model_save_path,
+                    "weightsPath": x.weights_path,
                 },
                 (op + data).meta_ai_model,
             )
