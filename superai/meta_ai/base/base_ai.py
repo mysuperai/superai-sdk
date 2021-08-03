@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from abc import ABCMeta, abstractmethod
 from typing import Optional
 
@@ -27,6 +28,22 @@ class BaseModel(metaclass=ABCMeta):
 
         self.input_parameters = input_schema.parameters()
         self.output_parameters = output_schema.parameters()
+
+    def __init_subclass__(cls, **kwargs):
+        cls.predict = cls._process_json_func(cls.predict)
+        super().__init_subclass__(**kwargs)
+
+    @staticmethod
+    def _process_json_func(pred_func):
+        """This method json encodes a dictionary and returns the same dictionary, avoiding JSON encoding failures."""
+
+        def __inner__(*args, **kwargs):
+            prediction_result = pred_func(*args, **kwargs)
+            json_string = json.dumps(prediction_result)
+            json_dict = json.loads(json_string)
+            return json_dict
+
+        return __inner__
 
     def update_logger_path(self, path):
         self.logger_dir = path

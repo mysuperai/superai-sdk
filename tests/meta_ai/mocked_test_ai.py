@@ -50,10 +50,13 @@ class MyKerasModel(BaseModel):
         output = np.argmax(pred[0])
         return [
             {
-                "mnist_class": df.exclusive_choice(
-                    choices=list(map(str, range(10))),
-                    selection=int(output),
-                )
+                "prediction": {
+                    "mnist_class": df.exclusive_choice(
+                        choices=list(map(str, range(10))),
+                        selection=int(output),
+                    )
+                },
+                "score": float(pred[0][int(output)]),
             }
         ]
 

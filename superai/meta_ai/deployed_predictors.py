@@ -8,7 +8,6 @@ import requests
 from colorama import Fore, Style  # type: ignore
 from docker.errors import APIError  # type: ignore
 from docker.models.containers import Container  # type: ignore
-from docker.types import Resources
 from rich import print
 from rich.prompt import Confirm
 
