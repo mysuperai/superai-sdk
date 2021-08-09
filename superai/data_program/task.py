@@ -16,7 +16,7 @@ class Worker(str, enum.Enum):
 
 class Task:
     def __init__(self, name: str = None, max_attempts: int = 1):
-        self.name = name or f"TaskName-{uuid.uuid5()}"
+        self.name = name or f"TaskName-{uuid.uuid4()}"
         self.max_attempts = 1 if not max_attempts else max_attempts
         self._task_future = None
         self._task_future_result = None
@@ -26,21 +26,46 @@ class Task:
         return self._task_future_result.response()
 
     def __call__(self, task_inputs=None, task_outputs=None, quality=None, cost=None, latency=None, **kwargs):
+        """
+        Submit a task
+        :param task_inputs: Inputs to the task
+        :param task_outputs: Output expected from the task
+        :param quality: Quality expected from the task
+        :param cost: Cost expected from the task
+        :param latency: Latency expected from the task
+
+        # Hidden kwargs: (To show autofill arguments in Pycharm)
+        :param price: Price of task to be sent Eg. "EASY"
+        :param time_to_expire_secs: Time to expire of the task
+        :param qualifications: Qualification
+        :param groups: Groups
+        :param excluded_ids: Excluded Ids of heroes
+        :param show_reject: Show rejection
+        :return:
+        """
         self.process(task_inputs, task_outputs, quality=None, cost=None, latency=None, **kwargs)
 
     def process(self, task_inputs=None, task_outputs=None, quality=None, cost=None, latency=None, **kwargs):
+        # Process all possible kwargs
+        price = kwargs.get("price", "EASY")
+        time_to_expire_secs = kwargs.get("time_to_expire_secs", 1 * 60 * 10)
+        qualifications = kwargs.get("qualifications")
+        groups = kwargs.get("groups")
+        excluded_ids = kwargs.get("excluded_ids")
+        show_reject = kwargs.get("show_reject", False)
+
         for n_tries in range(self.max_attempts):
             self._task_future = task(
                 input=task_inputs,
                 output=task_outputs,
                 name=self.name,
-                price="EASY",
-                qualifications=None,
-                groups=None,
-                time_to_expire_secs=1 * 60 * 10,
-                excluded_ids=None,
-                show_reject=False,
-                amount=None,
+                price=price,
+                qualifications=qualifications,
+                groups=groups,
+                time_to_expire_secs=time_to_expire_secs,
+                excluded_ids=excluded_ids,
+                show_reject=show_reject,
+                amount=cost,
             )
             self._task_future_result = self._task_future.result()
             print(

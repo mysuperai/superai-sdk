@@ -4,7 +4,7 @@ import json
 from abc import ABCMeta, abstractmethod
 from typing import Optional
 
-from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters
+from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters, Config
 from superai.meta_ai.schema import Schema, SchemaParameters
 from superai.meta_ai.tracking import SuperTracker
 
@@ -17,7 +17,13 @@ class BaseModel(metaclass=ABCMeta):
     artifact dependencies.
     """
 
-    def __init__(self, input_schema: Schema = None, output_schema=None, configuration=None, **kwargs):
+    def __init__(
+        self,
+        input_schema: Optional[Schema] = None,
+        output_schema: Optional[Schema] = None,
+        configuration: Optional[Config] = None,
+        **kwargs,
+    ):
         self.input_schema = input_schema
         self.output_schema = output_schema
         self.configuration = configuration
@@ -26,8 +32,8 @@ class BaseModel(metaclass=ABCMeta):
         self.logger_dir = kwargs.get("log_dir")
         self.tracker = SuperTracker(path=self.logger_dir)
 
-        self.input_parameters = input_schema.parameters()
-        self.output_parameters = output_schema.parameters()
+        self.input_parameters = input_schema.parameters() if input_schema is not None else SchemaParameters()
+        self.output_parameters = output_schema.parameters() if output_schema is not None else SchemaParameters()
 
     def __init_subclass__(cls, **kwargs):
         cls.predict = cls._process_json_func(cls.predict)
@@ -67,7 +73,7 @@ class BaseModel(metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def load_weights(cls, weights_path):
+    def load_weights(cls, weights_path: str):
         """Used to load the model from ``weights_path``. Supports S3 remote artifact URIs and relative filesystem paths.
         Note that paths to outer folder e.g. `../my_outer_dir` are not supported
 
