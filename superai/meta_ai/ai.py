@@ -1,35 +1,38 @@
 from __future__ import annotations
 
-import copy
 import datetime
 import enum
+import hashlib
 import json
 import os
-import platform
 import re
 import shutil
 import tarfile
 import time
 import traceback
-from typing import Dict, List, TYPE_CHECKING, Union, Type, Optional
+from typing import Dict, List, TYPE_CHECKING, Union, Optional
 from urllib.parse import urlparse
 
 import boto3  # type: ignore
-import cloudpickle as pickle  # type: ignore
-import pandas as pd  # type: ignore
+import docker
 import requests
 import yaml
+from docker.errors import ImageNotFound
 from jinja2 import Template
-
-from superai import Client
+from superai import Client, settings
 from superai.apis.meta_ai.meta_ai_graphql_schema import meta_ai_deployment_type_enum
 from superai.exceptions import ModelNotFoundError
 from superai.log import logger
+from superai.meta_ai.ai_helper import prepare_dockerfile_string, get_user_model_class, list_models
 from superai.meta_ai.deployed_predictors import LocalPredictor, DeployedPredictor, AWSPredictor
 from superai.meta_ai.dockerizer import push_image
 from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters, Config
 from superai.meta_ai.schema import Schema, SchemaParameters, EasyPredictions
-from superai.meta_ai.scripts_contents import runner_script, server_script, entry_script, lambda_script
+from superai.meta_ai.template_contents import (
+    runner_script_s2i,
+    server_script,
+    lambda_script,
+)
 from superai.utils import retry, load_api_key, load_auth_token, load_id_token
 
 if TYPE_CHECKING:
@@ -71,9 +74,10 @@ class AITemplate:
         input_schema: Schema,
         output_schema: Schema,
         configuration: Config,
-        model_class: Optional[Type["BaseModel"]],
         name: str,
         description: str,
+        model_class: str,
+        model_class_path: str = ".",
         requirements: Optional[Union[str, List[str]]] = None,
         code_path: Union[str, List[str]] = None,
         conda_env: Union[str, Dict] = None,
@@ -89,17 +93,20 @@ class AITemplate:
             input_schema: Input Schema of the AI Template
             output_schema: Output Schema of the AI Template
             configuration: Configuration of the AI Template
-            model_class: An instance of a subclass of :class:`~BaseModel`. This class is serialized using the CloudPickle
-                         library. Any dependencies of the class should be included in one of the following locations:
+            model_class: Name of instance of a subclass of :class:`~BaseModel`. This file will be moved to the container
+                         Any dependencies of the class should be included in one of the following locations:
 
-                                - The SuperAI library.
-                                - Package(s) listed in the model's Conda environment, specified by
-                                  the ``conda_env`` parameter.
-                                - One or more of the files specified by the ``code_path`` parameter.
+                            - The SuperAI library.
+                            - Package(s) listed in the model's Conda environment, specified by
+                              the ``conda_env`` parameter.
+                            - One or more of the files specified by the ``code_path`` parameter.
 
-                             Note: If the class is imported from another module, as opposed to being defined in the
-                             ``__main__`` scope, the defining module should also be included in one of the listed
-                             locations.
+                         Note: If the class is imported from another module, as opposed to being defined in the
+                         ``__main__`` scope, the defining module should also be included in code_path parameter.
+                         If the name of the instance (Eg. ModelName) is not same as file name of imported module
+                         (Eg. some_file.py), please change the passed argument to reflect the correct module path as
+                         'some_file.ModelName'
+            model_class_path: Path to the location where :param model_class is present
             name: Name of the AI template
             description: Description of the AI template
             requirements: A list of PyPi requirements or the path to a requirements.txt file. If both this
@@ -178,17 +185,8 @@ class AITemplate:
             raise NotImplementedError(
                 "Ludwig like implicit model creation is not implemented yet, please provide a model_class"
             )
-        try:
-            self.model_class: BaseModel = model_class(
-                input_schema=input_schema, output_schema=output_schema, configuration=configuration
-            )
-        except TypeError as e:
-            log.info(f"Encountered error while processing model_class : {e}")
-            self.model_class: BaseModel = model_class  # type: ignore
-        except Exception as e:
-            raise Exception("Something went wrong while loading model_class: ", e)
-            # Reloading model_class in cloudpickle causes recursive failures. Usage of this object is a workaround.
-        self._ai_class_dump = None
+        self.model_class = model_class
+        self.model_class_path = model_class_path
 
     @classmethod
     def load_local(cls, load_path: str) -> "AITemplate":
@@ -198,58 +196,40 @@ class AITemplate:
         conda_env = os.path.join(load_path, "conda.yml") if details.get("conda_env") is not None else None
         code_path = details.get("code_path")
         artifacts = details.get("artifacts")
-        if details.get("ai_class_path") is not None:
-            log.info(f"model_class associated. Loading it from ai_model file in {load_path}...")
-            with open(os.path.join(load_path, "ai_model"), "rb") as pickleReader:
-                ai_class = pickle.loads(pickleReader.read(), fix_imports=True)
-        else:
-            log.info(
-                f"No model_class associated, please make sure you have `ai_class_path` mentioned"
-                f" in AITemplateSaveFile.json"
-            )
-            ai_class = None
-
+        model_class = details.get("model_class")
         name = details["name"]
         description = details["description"]
         input_schema = Schema.from_json(details["input_schema"])
         output_schema = Schema.from_json(details["output_schema"])
         configuration = Config.from_json(details["configuration"])
         return AITemplate(
-            input_schema,
-            output_schema,
-            configuration,
-            ai_class,
-            name,
-            description,
-            requirements,
-            code_path,
-            conda_env,
-            artifacts,
+            input_schema=input_schema,
+            output_schema=output_schema,
+            configuration=configuration,
+            model_class=model_class,
+            model_class_path=load_path,
+            name=name,
+            description=description,
+            requirements=requirements,
+            code_path=code_path,
+            conda_env=conda_env,
+            artifacts=artifacts,
         )
 
     def save(self, version_save_path):
-        # cloudpickle save the model_class
-        ai_class_file = os.path.join(version_save_path, "ai_model")
-        assert not os.path.exists(
-            ai_class_file
-        ), f"Cannot overwrite locally existing model in {version_save_path}. Please update version"
-        if self._ai_class_dump is None:
-            self.model_class.model = None
-            self._ai_class_dump = pickle.dumps(self.model_class)
-        with open(ai_class_file, "wb") as ai_writer:
-            ai_writer.write(self._ai_class_dump)
-
+        if os.path.exists(f"{self.model_class}.py"):
+            shutil.copy(f"{self.model_class}.py", os.path.join(version_save_path, f"{self.model_class}.py"))
         # copy requirements file and conda_env
         if self.conda_env is not None:
             if type(self.conda_env) == dict:
-                with open(os.path.join(version_save_path, "conda.yml"), "w") as conda_file:
+                with open(os.path.join(version_save_path, "environment.yml"), "w") as conda_file:
                     yaml.dump(self.conda_env, conda_file, default_flow_style=False)
             elif (
                 type(self.conda_env) == str
                 and os.path.exists(self.conda_env)
                 and (self.conda_env.endswith(".yml") or self.conda_env.endswith(".yaml"))
             ):
-                shutil.copy(self.conda_env, os.path.join(version_save_path, "conda.yml"))
+                shutil.copy(self.conda_env, os.path.join(version_save_path, "environment.yml"))
             else:
                 raise ValueError("Make sure conda_env is a valid path to a .yml file or a dictionary.")
         log.info("Copying all code_path content")
@@ -257,6 +237,11 @@ class AITemplate:
             assert (
                 type(self.code_path) == list and type(self.code_path) != str
             ), "Types don't match for code_path, please pass a list of strings."
+        if self.model_class_path != ".":
+            self.code_path = (
+                [self.model_class_path] + self.code_path if self.code_path is not None else [self.model_class_path]
+            )
+        if self.code_path is not None:
             for path in self.code_path:
                 shutil.copytree(path, os.path.join(version_save_path, os.path.basename(path)))
         if self.requirements is not None:
@@ -269,6 +254,17 @@ class AITemplate:
                 raise ValueError(
                     "Make sure requirements is a list of requirements or valid path to requirements.txt file"
                 )
+        # create the environment file
+        with open(os.path.join(version_save_path, "environment"), "w") as environment_file:
+            content = [f"MODEL_NAME={self.model_class}"]
+            if os.path.exists(os.path.join(version_save_path, "environment.yml")):
+                with open(os.path.join(version_save_path, "environment.yml"), "r") as env_yaml:
+                    try:
+                        conda_env_yaml = yaml.safe_load(env_yaml)
+                        content.append(f"CONDA_ENV_NAME={conda_env_yaml.get('name', 'env')}")
+                    except yaml.YAMLError as exc:
+                        log.error(exc)
+            environment_file.writelines(content)
         with open(os.path.join(version_save_path, "AITemplateSaveFile.json"), "w") as ai_template_writer:
             content = {
                 "description": self.description,
@@ -281,7 +277,8 @@ class AITemplate:
                 else None,
                 "code_path": self.code_path,
                 "conda_env": os.path.join(version_save_path, "conda.yml") if self.conda_env is not None else None,
-                "ai_class_path": ai_class_file,
+                "model_class": self.model_class,
+                "model_class_path": self.model_class_path,
                 "artifacts": self.artifacts,
             }
             json.dump(content, ai_template_writer, indent=1)
@@ -341,7 +338,14 @@ class AI:
             assert kwargs.get("location") is not None, "Location cannot be None while loading"
             self._location = kwargs.get("location")
 
-        self.model_class = copy.deepcopy(ai_template.model_class)
+        model_class_template = get_user_model_class(
+            model_name=ai_template.model_class, path=ai_template.model_class_path
+        )
+        self.model_class: BaseModel = model_class_template(
+            input_schema=ai_template.input_schema,
+            output_schema=ai_template.output_schema,
+            configuration=ai_template.configuration,
+        )
         self.model_class.update_parameters(input_params, output_params)
         self.is_weights_loaded = False
 
@@ -472,7 +476,9 @@ class AI:
                     # check for version
                     ending = path.split(f"model://{name}/")[-1]
                     if cls.is_valid_version(ending):
-                        s3_path = [entry for entry in all_models if entry["version"] == int(ending)][0]["modelSavePath"]
+                        s3_path = [entry for entry in all_models if int(entry["version"]) == int(ending)][0][
+                            "modelSavePath"
+                        ]
                     else:
                         stage = ending
                         selected_models: List[dict] = [entry for entry in all_models if entry["stage"] == stage]
@@ -663,18 +669,25 @@ class AI:
         )
         # TODO Do we return a new AI object?
 
-    def update_ai_class(self, model_class: "BaseModel"):
+    def update_ai_class(self, model_class: str, model_class_path="."):
         """Updates the model_class. Running this operation will increase the AI version.
 
         Args:
-            model_class: An instance of a subclass of :class:`~BaseModel`.
+            model_class: Name of a subclass of :class:`~BaseModel`.
+            model_class_path: Path to :param model_class
         """
         if self.version is not None:
             self.version += 1
         else:
             self.version = 1
-        self.model_class = model_class
-        self._model_class_dump = None
+        model_class_template = get_user_model_class(model_class, model_class_path)
+        self.ai_template.model_class = model_class
+        self.model_class: BaseModel = model_class_template(
+            input_schema=self.ai_template.input_schema,
+            output_schema=self.ai_template.output_schema,
+            configuration=self.ai_template.configuration,
+        )
+        self.model_class.update_parameters(self.input_params, self.output_params)
         self._location = self.save(overwrite=True)
         # self.push()
         log.info(
@@ -687,7 +700,8 @@ class AI:
         version: Optional[int] = None,
         stage: Optional[str] = None,
         weights_path: Optional[str] = None,
-        ai_class: Optional["BaseModel"] = None,
+        ai_class: Optional[str] = None,
+        ai_class_path: str = ".",
     ):
         """
         Updates the AI.
@@ -696,7 +710,8 @@ class AI:
             version: New AI version number. If the version number already exists, this method will fail.
             stage: New AI stage.
             weights_path: New path to a file or directory containing model data.
-            ai_class: An instance of a subclass of :class:`~BaseModel`.
+            ai_class: Name of a subclass of :class:`~BaseModel`.
+            ai_class_path: Path to :param ai_class_path
         """
         models = self.client.get_model_by_name(self.name)
         if version is None:
@@ -724,8 +739,14 @@ class AI:
                 self._location = self.save()
                 log.info(f"Updated model {self.name}:{self.version}. " f"Make sure to AI.push to update the database")
         if ai_class is not None:
-            self._model_class_dump = None
-            self.model_class = ai_class
+            model_class_template = get_user_model_class(ai_class, ai_class_path)
+            self.ai_template.model_class = ai_class
+            self.model_class: BaseModel = model_class_template(
+                input_schema=self.ai_template.input_schema,
+                output_schema=self.ai_template.output_schema,
+                configuration=self.ai_template.configuration,
+            )
+            self.model_class.update_parameters(self.input_params, self.output_params)
             self.save(overwrite=True)
         log.info("AI.update complete!")
         self.push()
@@ -922,15 +943,13 @@ class AI:
             ai_cache: Cache of ai objects for a lambda, 5 by default considering the short life of a lambda function
         """
         if mode == Mode.LOCAL or mode == Mode.AWS:
-            self._create_dockerfile(
+            self._prepare_dependencies(
                 worker_count=kwargs.get("worker_count", 1),
                 lambda_mode=kwargs.get("lambda_mode", False),
                 ai_cache=kwargs.get("ai_cache", 5),
-                enable_cuda=enable_cuda,
-                force_amd64=kwargs.get("force_amd64", True),
             )
             if not skip_build:
-                self.build_image(self.name, str(self.version))
+                self.build_image_s2i(self.name, str(self.version), enable_cuda=enable_cuda)
         elif mode == Mode.KUBERNETES:
             raise NotImplementedError()
         else:
@@ -1007,23 +1026,22 @@ class AI:
         # if endpoint is not serving:
         return ai_object.deploy(mode)
 
-    def _create_dockerfile(
-        self, worker_count: int = 1, lambda_mode=True, ai_cache=32, enable_cuda=False, force_amd64=True
-    ):
-        """Build model locally. This involves docker file creation and docker build operations.
-        Note that this is supported only in local mode, running this on docker can lead to docker-in-docker problems.
-        """
-        homedir = "/home/model-server/"
-        dockerd_entrypoint = "dockerd-entrypoint.py"
-
+    def _prepare_dependencies(
+        self,
+        worker_count: int = 1,
+        lambda_mode: bool = True,
+        ai_cache: int = 32,
+        dockerd_entrypoint: str = "dockerd-entrypoint.py",
+    ) -> None:
         with open(os.path.join(self._location, "handler.py"), "w") as handler_file:
             if not lambda_mode:
-                handler_file.write(runner_script)
+                template = Template(runner_script_s2i)
+                args = dict(model_name=self.ai_template.model_class)
             else:
                 template = Template(lambda_script)
                 args = dict(ai_cache=ai_cache)
-                lambda_file_content: str = template.render(args)
-                handler_file.write(lambda_file_content)
+            scripts_content: str = template.render(args)
+            handler_file.write(scripts_content)
 
         with open(os.path.join(self._location, dockerd_entrypoint), "w") as entry_point_file:
             template = Template(server_script)
@@ -1031,172 +1049,126 @@ class AI:
             entry_point_file_content: str = template.render(args)
             entry_point_file.write(entry_point_file_content)
 
-        ################################################################################################################
-        # Select Base
-        ################################################################################################################
-        dockerfile_content = [
-            "# syntax=docker/dockerfile:1.2",
-        ]
-
-        platform_string = "--platform=linux/amd64" if force_amd64 else ""
-        if enable_cuda:
-            dockerfile_content.append(f"FROM {platform_string} nvidia/cuda:10.2-cudnn8-runtime-ubuntu18.04")
-        else:
-            dockerfile_content.append(f"FROM {platform_string} python:3.7.11-slim-buster")
-
-        ################################################################################################################
-        # Install System Dependencies
-        ################################################################################################################
-        if not lambda_mode:
-            dockerfile_content.extend(
-                [
-                    "\nRUN mkdir -p /usr/share/man/man1",
-                    "\nRUN apt-get update "
-                    "&& apt-get -y install --no-install-recommends build-essential ca-certificates default-jdk curl "
-                    "&& apt-get clean && rm -rf /var/lib/apt/lists/*",
-                    "\nLABEL com.amazonaws.sagemaker.capabilities.multi-models=true",
-                    "LABEL com.amazonaws.sagemaker.capabilities.accept-bind-to-port=true",
-                ]
-            )
-        else:
-            dockerfile_content.extend(
-                [
-                    "RUN apt-get update && "
-                    "apt-get -y install --no-install-recommends build-essential ca-certificates g++"
-                    " make cmake unzip libcurl4-openssl-dev curl "
-                    "&& apt-get clean && rm -rf /var/lib/apt/lists/*"
-                ]
-            )
-        dockerfile_content.append(f"RUN mkdir -p {homedir}")
-        ################################################################################################################
-        # Install Conda and initialize
-        ################################################################################################################
-        aarch = "x86_64" if force_amd64 or platform.machine() == "x86_64" else "aarch64"
-        conda_installer = f"Anaconda3-2021.05-Linux-{aarch}.sh"
-        dockerfile_content.extend(
-            [
-                "# Download and install Anaconda.",
-                f"RUN cd /tmp && curl -O https://repo.anaconda.com/archive/{conda_installer} "
-                f"&& chmod +x /tmp/{conda_installer}",
-                f'RUN mkdir /root/.conda && bash -c "/tmp/{conda_installer} -b -p /opt/conda"',
-            ]
-        )
-        ################################################################################################################
-        # Create Conda Environment
-        ################################################################################################################
-        if self.conda_env is not None:
-            dockerfile_content.extend(
-                [
-                    f"COPY conda.yml {homedir}",
-                    f"RUN /opt/conda/bin/conda env create -f {os.path.join(homedir, 'conda.yml')} -n env",
-                ]
-            )
-        else:
-            dockerfile_content.append("RUN /opt/conda/bin/conda create -n env python=3.7.10")
-        dockerfile_content.extend(
-            [
-                'RUN echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc '
-                '&& echo "conda activate env" >> ~/.bashrc',
-                "ENV PATH /opt/conda/envs/env/bin:$PATH",
-            ]
-        )
-        env_name = "env"
-
-        dockerfile_content.append(
-            f'SHELL ["/opt/conda/bin/conda", "run", "--no-capture-output", "-n", "{env_name}", "/bin/bash", "-c"]'
-        )
-
-        ################################################################################################################
-        # Install Serving Requirements
-        ################################################################################################################
-        if not lambda_mode:
-            serving_reqs = "multi-model-server sagemaker-inference retrying awscli~=1.18.195"
-        else:
-            serving_reqs = "awslambdaric awscli~=1.18.195"
-        dockerfile_content.append(f"RUN pip install --no-cache-dir {serving_reqs}")
-
-        ################################################################################################################
-        # Install pip requirements
-        ################################################################################################################
-        superai_reqs = "superai_schema superai"
-        dockerfile_content.extend(
-            [
-                'RUN echo "export SUPERAI_CONFIG_ROOT=/tmp/.superai" >> ~/.bashrc',
-                "ARG AWS_DEFAULT_REGION=us-east-1",
-                "RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true"
-                " --mount=type=cache,target=/opt/conda/pkgs "
-                f"aws codeartifact login --tool pip --domain superai --repository pypi-superai && "
-                f"pip install --no-cache-dir {superai_reqs}",
-            ]
-        )
-        dockerfile_content.extend(
-            [
-                f"",
-                f"### Model specific dependencies ",
-            ],
-        )
-
-        ################################################################################################################
-        # Custom install commands (require copy of workdir)
-        ################################################################################################################
-        dockerfile_content.append(f"WORKDIR {homedir}")
+    def build_image_s2i(self, image_name: str, version_tag: str = "latest", enable_cuda: bool = False) -> None:
+        start = time.time()
+        cwd = os.getcwd()
+        os.chdir(self._location)
+        environment_file = "environment"
+        # check the hash, if it doesn't exist, create one
+        files = []
         if self.requirements:
-            # Only copy and install requirements file to allow better caching
-            dockerfile_content.extend(
-                [
-                    "COPY requirements.txt . ",
-                    "RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true"
-                    " --mount=type=cache,target=/opt/conda/pkgs "
-                    f"aws codeartifact login --tool pip --domain superai --repository pypi-superai && "
-                    "pip install -r requirements.txt",
-                ]
-            )
-
-        ################################################################################################################
-        # Copy complete contents of local folder
-        ################################################################################################################
-        dockerfile_content.append(f"COPY . {homedir}")
-        if self.artifacts is not None:
+            files.append("requirements.txt")
+        if self.conda_env:
+            files.append(self.conda_env)
+        if self.artifacts:
             if "run" in self.artifacts:
-                dockerfile_content.extend(
-                    [
-                        f"RUN chmod +x {os.path.join(homedir, self.artifacts['run'])}",
-                        "RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true "
-                        "--mount=type=cache,target=/opt/conda/pkgs "
-                        f"aws codeartifact login --tool pip --domain superai --repository pypi-superai && "
-                        f"bash {os.path.join(homedir, self.artifacts['run'])}",
-                    ]
-                )
+                files.append(self.artifacts["run"])
+        change = False
+        cache_folder = os.path.join(settings.path_for(), "cache", self.name, str(self.version))
+        if not os.path.exists(cache_folder):
+            log.info(f"Creating cache folder {cache_folder}")
+            os.makedirs(cache_folder)
+        hash_file = os.path.join(cache_folder, ".hash.json")
+        if not os.path.exists(hash_file):
+            with open(hash_file, "w") as f_hash:
+                json.dump({}, f_hash)
+        with open(hash_file, "r") as f_hash:
+            hash_content = json.load(f_hash)
+        new_hash = hash_content
+        for file in files:
+            file_hash = hashlib.sha256(open(file, "rb").read()).hexdigest()
+            if file_hash != hash_content.get(file):
+                change = True
+            new_hash[file] = file_hash
+        with open(hash_file, "w") as f_hash:
+            json.dump(new_hash, f_hash)
 
-        ################################################################################################################
-        # Create and initialize entrypoint to container
-        ################################################################################################################
-        if not lambda_mode:
-            dockerfile_content.extend(
-                [
-                    f"RUN chmod +x {os.path.join(homedir, dockerd_entrypoint)}",
-                    f'ENTRYPOINT ["/opt/conda/bin/conda", "run", "--no-capture-output", "-n", "{env_name}", "python",'
-                    f' "{os.path.join(homedir, dockerd_entrypoint)}"]',
-                    'CMD ["serve"]',
-                ]
+        with open(environment_file, "r") as env_file_reader:
+            env_list = env_file_reader.readlines()
+        found = any(["BUILD_PIP" in line for line in env_list])
+
+        client = docker.from_env()
+        base_image = f"superai-model-s2i-python3711-{'gpu' if enable_cuda else 'cpu'}:1"
+        try:
+            _ = client.images.get(base_image)
+            log.info(f"Base image '{base_image}' found locally.")
+        except ImageNotFound:
+            region = boto3.Session().region_name
+            account_id = boto3.client("sts").get_caller_identity()["Account"]
+            ecr_image_name = f"{account_id}.dkr.ecr.{region}.amazonaws.com/{base_image}"
+            log.info(f"Base image not found. Downloading from ECR '{ecr_image_name}'")
+            os.system(f"docker pull {ecr_image_name}")
+            log.info(f"Re-tagging image to '{base_image}'")
+            client.images.get(f"{ecr_image_name}").tag(base_image)
+        if change:
+            log.info("Updating environment to enable pip build")
+            if found:
+                new_lines = list(filter(lambda x: "BUILD_PIP" not in x, env_list))
+                with open(environment_file, "w") as env_file_writer:
+                    env_file_writer.writelines(new_lines)
+            log.info(f"Performing pip update layer creation `{image_name}-pip-layer:{version_tag}`")
+            command = (
+                f"s2i build -E {environment_file} -v ~/.aws:/root/.aws --incremental=True . "
+                f"{base_image} {image_name}-pip-layer:{version_tag}"
             )
+            log.info(f"Running '{command}'")
+            os.system(command)
         else:
-            rie_url = (
-                "https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie"
-            )
-            with open(os.path.join(self._location, "entry_script.sh"), "w") as entry_file_writer:
-                template = Template(entry_script)
-                entry_script_args = dict(env=env_name)
-                entry_file_content: str = template.render(entry_script_args)
-                entry_file_writer.write(entry_file_content)
-            dockerfile_content.extend(
-                [
-                    f"ADD {rie_url} /usr/local/bin/aws-lambda-rie",
-                    f"RUN chmod +x /usr/local/bin/aws-lambda-rie && chmod +x {os.path.join(homedir, 'entry_script.sh')}",
-                    f"ENTRYPOINT [\"{os.path.join(homedir, 'entry_script.sh')}\"]",
-                    'CMD ["handler.processor"]',
-                ]
-            )
+            try:
+                image = client.images.get(f"{image_name}-pip-layer:{version_tag}")
+                log.info(f"No change in pip layer. Reusing old layers from image {image.id}...")
+            except ImageNotFound:
+                log.info("Pip layer image not found, rebuilding")
+                new_lines = list(filter(lambda x: "BUILD_PIP" not in x, env_list))
+                with open(environment_file, "w") as env_file_writer:
+                    env_file_writer.writelines(new_lines)
+                command = (
+                    f"s2i build -E {environment_file} -v ~/.aws:/root/.aws --incremental=True . "
+                    f"{base_image} {image_name}-pip-layer:{version_tag}"
+                )
+                log.info(f"Running '{command}'")
+                os.system(command)
+        with open(environment_file, "r") as env_file_reader:
+            env_list = env_file_reader.readlines()
+        found = any(["BUILD_PIP" in line for line in env_list])
+        if not found:
+            with open(environment_file, "a") as env_file_writer:
+                env_file_writer.write("\nBUILD_PIP=false")
+        command = (
+            f"s2i build -E {environment_file} -v ~/.aws:/root/.aws --incremental=True . "
+            f"{image_name}-pip-layer:{version_tag} {image_name}:{version_tag}"
+        )
+        log.info(f"Running '{command}'")
+        os.system(command)
+        log.info(f"Built main container `{image_name}:{version_tag}`")
+        log.info(f"Time taken to build: {time.time() - start:.2f}s")
+        os.chdir(cwd)
+
+    def _create_dockerfile(
+        self, worker_count: int = 1, lambda_mode=True, ai_cache=32, enable_cuda=False, force_amd64=True
+    ):
+        """Build model locally. This involves docker file creation and docker build operations.
+        Note that this is supported only in local mode, running this on docker can lead to docker-in-docker problems.
+        """
+        dockerd_entrypoint = "dockerd-entrypoint.py"
+
+        self._prepare_dependencies(
+            worker_count=worker_count,
+            lambda_mode=lambda_mode,
+            ai_cache=ai_cache,
+            dockerd_entrypoint=dockerd_entrypoint,
+        )
+
+        dockerfile_content = prepare_dockerfile_string(
+            force_amd64=force_amd64,
+            enable_cuda=enable_cuda,
+            lambda_mode=lambda_mode,
+            dockerd_entrypoint=dockerd_entrypoint,
+            conda_env=self.conda_env,
+            requirements=self.requirements,
+            artifacts=self.artifacts,
+            location=self._location,
+        )
 
         ################################################################################################################
         # Write dockerfile
@@ -1294,35 +1266,3 @@ class AI:
             model_parameters=model_parameters,
             callbacks=callbacks,
         )
-
-
-def list_models(
-    ai_name: str,
-    client: Client = Client(
-        api_key=load_api_key(),
-        auth_token=load_auth_token(),
-        id_token=load_id_token(),
-    ),
-    raw: bool = False,
-    verbose: bool = True,
-) -> Union[List[Dict], pd.DataFrame]:
-    """List existing models in the database, given the model name.
-
-    Args:
-        verbose: Print the output.
-        raw: Return unformatted list of models.
-        client: Instance of superai.client.
-        ai_name: Name of the AI model.
-    """
-
-    model_entries = client.get_model_by_name(ai_name)
-    if raw:
-        if verbose:
-            log.info(json.dumps(model_entries, indent=1))
-        return model_entries
-    else:
-        table = pd.DataFrame.from_dict(model_entries)
-        if verbose:
-            pd.set_option("display.max_colwidth", None)
-            log.info(table)
-        return table
