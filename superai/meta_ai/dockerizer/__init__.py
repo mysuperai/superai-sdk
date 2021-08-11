@@ -1,20 +1,15 @@
-import json
 import os
 import shutil
 import time
-from typing import Optional, Dict
 
-import boto3
-import docker
-import requests
-import sagemaker
-from botocore.exceptions import ClientError
+import boto3  # type: ignore
+import docker  # type: ignore
+from boto3.session import Session  # type: ignore
+from botocore.exceptions import ClientError  # type: ignore
 from jinja2 import Template
-from sagemaker import get_execution_role
-
 from superai.log import logger
 
-from .sagemaker_endpoint import create_endpoint, invoke_sagemaker_endpoint
+from .sagemaker_endpoint import create_endpoint, invoke_sagemaker_endpoint, upload_model_to_s3, invoke_local
 
 log = logger.get_logger(__name__)
 
@@ -200,13 +195,12 @@ def push_image(image_name: str, version: str = "latest", region: str = "us-east-
     :param version: version string for docker container
     :param region: AWS region
     """
-    boto_session = boto3.Session(region_name=region)
+    boto_session = get_boto_session(region_name=region)
     account = boto_session.client("sts").get_caller_identity()["Account"]
     full_name = f"{account}.dkr.ecr.{region}.amazonaws.com/{image_name}:{version}"
 
     docker_client = docker.from_env()
-
-    ecr_client = boto3.client("ecr")
+    ecr_client = boto_session.client("ecr")
     try:
         ecr_client.describe_repositories(registryId=account, repositoryNames=[image_name])
     except Exception as e:
@@ -228,87 +222,22 @@ def push_image(image_name: str, version: str = "latest", region: str = "us-east-
     return full_name
 
 
-def upload_model_to_s3(bucket: str, prefix: str, model: str):
+def get_boto_session(profile_name="default", region_name="us-east-1") -> Session:
     """
-    Upload model file to s3, model file should end with .tar.gz
-    :param bucket: Bucket name in s3
-    :param prefix: Prefix name
-    :param model: Path to model file
+    Get a boto3 session with the given profile name. For the superai profile, an error message will be raised if
+    credentials are expired
+    :param profile_name: Name of the profile
+    :param region_name: Name of the region
+    :return: Boto3 session
     """
-    assert model.endswith(".tar.gz"), "Model path should point to a tar.gz file"
-    s3 = boto3.resource("s3")
     try:
-        s3.meta.client.head_bucket(Bucket=bucket)
-    except ClientError:
-        s3.create_bucket(Bucket=bucket, CreateBucketConfiguration={"LocationConstraint": boto3.Session().region_name})
-
-    key = os.path.join(prefix, model)
-    with open("data/" + model, "rb") as file_obj:
-        s3.Bucket(bucket).Object(key).upload_fileobj(file_obj)
-        log.info(f"Loaded model to bucket: {bucket}, prefix: {prefix}, with path: {model}")
-
-
-def invoke_local(mime: str, body: str):
-    """
-    Send a post request to the locally deployed docker container
-    :param mime: MIME type
-    :param body: Body or path to file to be passed as payload
-    """
-    url = f"http://localhost/model/predict"
-    headers = {"Content-Type": mime}
-    if mime.endswith("json"):
-        res = requests.post(url, json=body, headers=headers)
-    else:
-        if os.path.exists(body):
-            with open(body, "rb") as f:
-                payload = f.read()
+        session = boto3.session.Session(region_name=region_name, profile_name=profile_name)
+        _ = session.client("sts").get_caller_identity()["Account"]
+        return session
+    except ClientError as client_error:
+        if "ExpiredToken" in str(client_error):
+            log.error(f"Obtained error : {client_error}")
+            raise Exception("Please log in to superai by performing 'superai login -u <username>'")
         else:
-            payload = body
-        res = requests.post(url, data=payload, headers=headers)
-    if res.status_code == 200:
-        log.info(res.json())
-    else:
-        message = "Error , received error code {}: {}".format(res.status_code, res.text)
-        log.error(message)
-
-
-def invoke_sagemaker_endpoint(endpoint, mime, payload, mode="SingleModel", target_model=None, arn_role=None):
-    # arn_role = "arn:aws:iam::185169359328:role/service-role/AmazonSageMaker-ExecutionRole-20180117T160866"
-    assert mode in ["SingleModel", "MultiModel"], "Mode should be one of ['SingleModel', 'MultiModel']"
-    if mode == "MultiModel":
-        assert target_model is not None, "TargetModel is required when using 'MultiModel' mode"
-        assert target_model.endswith(
-            ".tar.gz"
-        ), "TargetModel should point to a 'tar.gz' file. Just the file name should be enough"
-    if arn_role is None:
-        runtime_sm_client = boto3.client(service_name="sagemaker-runtime")
-    else:
-        sts_client = boto3.client("sts")
-        ext_id = "0c18cdd7-3626-497d-8c4e-f3fb5ce76cd1"
-        assumed_role_object = sts_client.assume_role(
-            RoleArn=arn_role, RoleSessionName="MultiEndpointSession", ExternalId=ext_id
-        )
-        credentials = assumed_role_object["Credentials"]
-        boto_session = boto3.Session(
-            aws_access_key_id=credentials["AccessKeyId"],
-            aws_secret_access_key=credentials["SecretAccessKey"],
-            aws_session_token=credentials["SessionToken"],
-            region_name="us-east-1",
-        )
-        runtime_sm_client = boto_session.client(service_name="sagemaker-runtime")
-    body = payload
-    if not mime.endswith("json"):
-        if os.path.exists(payload):
-            with open(payload, "rb") as f:
-                body = f.read()
-    if mode == "SingleModel":
-        response = runtime_sm_client.invoke_endpoint(EndpointName=endpoint, ContentType=mime, Body=body)
-    else:
-        response = runtime_sm_client.invoke_endpoint(
-            EndpointName=endpoint,
-            ContentType=mime,
-            TargetModel=target_model,
-            Body=body,
-        )
-    log.info(f"Response from endpoint: {response}")
-    print(*json.loads(response["Body"].read()), sep="\n")
+            log.error(f"Unexpected Exception: {client_error}")
+            raise client_error
