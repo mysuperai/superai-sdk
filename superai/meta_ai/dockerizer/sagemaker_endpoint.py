@@ -19,7 +19,7 @@ def create_endpoint(
     arn_role: Optional[str] = None,
     region: str = "us-east-1",
     initial_instance_count: int = 1,
-    instance_type: str = "ml.m5.xlarge",
+    instance_type: str = "ml.m5.large",
     mode: str = "SingleModel",
 ):
     """
@@ -204,7 +204,7 @@ def invoke_sagemaker_endpoint(
     verbose=False,
 ):
     if runtime_sm_client is None:
-        runtime_sm_client = get_sagemaker_runtime_client(mode, target_model, arn_role)
+        runtime_sm_client = get_sagemaker_runtime_client(mode=mode, target_model=target_model, arn_role=arn_role)
     body = payload
     if not mime.endswith("json"):
         if os.path.exists(payload):

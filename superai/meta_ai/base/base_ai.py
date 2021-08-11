@@ -209,18 +209,21 @@ class BaseModel(metaclass=ABCMeta):
 
 class BaseModelContext(object):
     """A collection of artifacts that a :class:`~BaseModel` can use when performing inference.
-    :class:`~BaseModelContext` objects are created *implicitly* by the :func:`save_model() <superai.meta_ai.save_ai>` and
-    :func:`post_model() <superai.meta_ai.post_ai>` persistence methods, using the contents specified by the ``artifacts`` parameter of these methods.
+    :class:`~BaseModelContext` objects are created *implicitly* by the :func:`save_model() <superai.meta_ai.save_ai>`
+    and :func:`post_model() <superai.meta_ai.post_ai>` persistence methods, using the contents specified by the
+    ``artifacts`` parameter of these methods.
     """
 
     def __init__(self, artifacts):
         """
         Args:
-            artifacts: A dictionary of ``<name, artifact_path>`` entries, where ``artifact_path`` is an absolute filesystem path to a given artifact.
+            artifacts: A dictionary of ``<name, artifact_path>`` entries, where ``artifact_path`` is an absolute
+            filesystem path to a given artifact.
         """
         self._artifacts = artifacts
 
     @property
     def artifacts(self):
-        """A dictionary containing ``<name, artifact_path>`` entries, where ``artifact_path`` is an absolute filesystem path to the artifact."""
+        """A dictionary containing ``<name, artifact_path>`` entries, where ``artifact_path`` is an absolute
+        filesystem path to the artifact."""
         return self._artifacts
