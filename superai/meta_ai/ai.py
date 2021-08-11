@@ -19,8 +19,9 @@ import requests
 import yaml
 from docker.errors import ImageNotFound
 from jinja2 import Template
-from superai import Client, settings
-from superai.apis.meta_ai.meta_ai_graphql_schema import meta_ai_deployment_type_enum
+
+from superai import Client
+from superai import settings
 from superai.exceptions import ModelNotFoundError
 from superai.log import logger
 from superai.meta_ai.ai_helper import prepare_dockerfile_string, get_user_model_class, list_models
@@ -49,23 +50,32 @@ class Stage(str, enum.Enum):
     SANDBOX = "SANDBOX"
 
 
-class Mode(str, enum.Enum):
-    LOCAL = "LOCAL"
-    AWS = "AWS"
-    KUBERNETES = "KUBERNETES"
+class Orchestrator(str, enum.Enum):
+    LOCAL_DOCKER = "LOCAL_DOCKER"
+    LOCAL_DOCKER_LAMBDA = "LOCAL_DOCKER_LAMBDA"
+    MINIKUBE = "MINIKUBE"
+    AWS_SAGEMAKER = "AWS_SAGEMAKER"
+    AWS_LAMBDA = "AWS_LAMBDA"
+    AWS_EKS = "AWS_EKS"
+    GCP_KS = "GCP_KS"
 
 
 class PredictorFactory(object):
-    __predictor_classes = {"local": LocalPredictor, "aws": AWSPredictor}
+    __predictor_classes = {
+        "LOCAL_DOCKER": LocalPredictor,
+        "LOCAL_DOCKER_LAMBDA": LocalPredictor,
+        "AWS_SAGEMAKER": AWSPredictor,
+        "AWS_LAMBDA": AWSPredictor,
+    }
 
     @staticmethod
-    def get_predictor_obj(mode: Mode, *args, **kwargs) -> "DeployedPredictor.Type":
+    def get_predictor_obj(orchestrator: Orchestrator, *args, **kwargs) -> "DeployedPredictor.Type":
         """Factory method to get a predictor"""
-        predictor_class = PredictorFactory.__predictor_classes.get(mode.lower())
+        predictor_class = PredictorFactory.__predictor_classes.get(orchestrator)
 
         if predictor_class:
             return predictor_class(*args, **kwargs)
-        raise NotImplementedError(f"The predictor of mode:`{mode}` is not implemented yet.")
+        raise NotImplementedError(f"The predictor of orchestrator:`{orchestrator}` is not implemented yet.")
 
 
 class AITemplate:
@@ -909,9 +919,8 @@ class AI:
 
     def deploy(
         self,
-        mode: "Mode" = Mode.LOCAL,
+        orchestrator: "Orchestrator" = Orchestrator.LOCAL_DOCKER,
         skip_build: bool = False,
-        remote_type: meta_ai_deployment_type_enum = "AWS_SAGEMAKER",
         properties: Optional[dict] = None,
         enable_cuda: bool = False,
         redeploy: bool = False,
@@ -924,7 +933,7 @@ class AI:
         Serve sagemaker: create endpoint after pushing container to ECR
 
         Args:
-            mode: Which mode to deploy.
+            orchestrator: Which orchestrator to be used to deploy.
             skip_build: Skip building
             enable_cuda: Create CUDA-Compatible image
             properties: Optional dictionary with properties for instance creation.
@@ -934,32 +943,36 @@ class AI:
                     "sagemaker_accelerator_type": "ml.eia2.large" (None by default)
                     "lambda_memory": 256
                     "lambda_timeout": 30
-            remote_type: Which remote type to use for the backend. Options: [AWS_SAGEMAKER, AWS_LAMBDA]
-            redeploy: Allow undeploying existing deployment and replacing it.
+            redeploy: Allow un-deploying existing deployment and replacing it.
 
             # Hidden kwargs
-            lambda_mode: Create a dockerfile in lambda mode, true by default
             worker_count: Number of workers to use for serving with Sagemaker.
             ai_cache: Cache of ai objects for a lambda, 5 by default considering the short life of a lambda function
         """
-        if mode == Mode.LOCAL or mode == Mode.AWS:
+        lambda_mode = orchestrator in [Orchestrator.LOCAL_DOCKER_LAMBDA, Orchestrator.AWS_LAMBDA]
+        if orchestrator in [
+            Orchestrator.LOCAL_DOCKER,
+            Orchestrator.LOCAL_DOCKER_LAMBDA,
+            Orchestrator.AWS_LAMBDA,
+            Orchestrator.AWS_LAMBDA,
+        ]:
             self._prepare_dependencies(
                 worker_count=kwargs.get("worker_count", 1),
-                lambda_mode=kwargs.get("lambda_mode", False),
+                lambda_mode=lambda_mode,
                 ai_cache=kwargs.get("ai_cache", 5),
             )
             if not skip_build:
                 self.build_image_s2i(self.name, str(self.version), enable_cuda=enable_cuda)
-        elif mode == Mode.KUBERNETES:
+        elif orchestrator in [Orchestrator.AWS_EKS, Orchestrator.MINIKUBE, Orchestrator.GCP_KS]:
             raise NotImplementedError()
         else:
-            raise ValueError("Invalid Mode, should be one of ['LOCAL', 'AWS', 'KUBERNETES]")
+            raise ValueError(f"Invalid Orchestrator, should be one of {[e for e in Orchestrator]}")
         # build kwargs
         kwargs = {}
-        if mode == Mode.LOCAL:
+        if orchestrator == Orchestrator.LOCAL_DOCKER:
             kwargs["image_name"] = f"{self.name}:{self.version}"
             kwargs["weights_path"] = self.weights_path
-            kwargs["lambda_mode"] = kwargs.get("lambda_mode", False)
+            kwargs["lambda_mode"] = lambda_mode
         else:
             if not skip_build:
                 ecr_image_name = self.push_model(self.name, str(self.version))
@@ -983,7 +996,7 @@ class AI:
                 assert (
                     model["weightsPath"] is not None
                 ), "Weights Path cannot be None in the database for the deployment to finish"
-                self.client.deploy(self.id, ecr_image_name, deployment_type=remote_type, properties=properties)
+                self.client.deploy(self.id, ecr_image_name, deployment_type=orchestrator.value, properties=properties)
             else:
                 if redeploy:
                     self.undeploy()
@@ -998,7 +1011,7 @@ class AI:
 
             kwargs["id"] = self.id
         # get predictor
-        predictor_obj: DeployedPredictor.Type = PredictorFactory.get_predictor_obj(mode=mode, **kwargs)
+        predictor_obj: DeployedPredictor.Type = PredictorFactory.get_predictor_obj(orchestrator=orchestrator, **kwargs)
 
         return predictor_obj
 
@@ -1018,13 +1031,13 @@ class AI:
             return None
 
     @classmethod
-    def load_api(cls, model_path, mode: Mode) -> "DeployedPredictor.Type":
+    def load_api(cls, model_path, orchestrator: Orchestrator) -> "DeployedPredictor.Type":
         ai_object: Optional["AI"] = cls.load(model_path)
         assert ai_object is not None, "Need an AI object associated with the class to load"
         # TODO: If we pass a model_path like `model://...`, check if there is an endpoint entry, and check
         #  if endpoint is serving.
         # if endpoint is not serving:
-        return ai_object.deploy(mode)
+        return ai_object.deploy(orchestrator)
 
     def _prepare_dependencies(
         self,
@@ -1236,7 +1249,7 @@ class AI:
         callbacks=None,
         validation_data=None,
         train_logger=None,
-        mode: Mode = Mode.LOCAL,
+        orchestrator: Orchestrator = Orchestrator.LOCAL_DOCKER,
     ):
         """Please fill hyperparameters and model parameters accordingly.
 
@@ -1251,7 +1264,7 @@ class AI:
             model_parameters:
             model_save_path:
             training_data:
-            mode:
+            orchestrator:
         """
         if train_logger is not None:
             self.model_class.update_logger_path(train_logger)

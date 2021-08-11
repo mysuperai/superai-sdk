@@ -12,7 +12,7 @@ import superai
 import vcr
 from superai import DeploymentApiMixin, ModelApiMixin, ProjectAiApiMixin
 from superai.meta_ai import BaseModel
-from superai.meta_ai.ai import AI, Mode, DeployedPredictor, LocalPredictor, AWSPredictor, AITemplate
+from superai.meta_ai.ai import AI, Orchestrator, DeployedPredictor, LocalPredictor, AWSPredictor, AITemplate
 from superai.meta_ai.parameters import Config
 from superai.meta_ai.schema import Schema
 from superai.utils import log
@@ -150,7 +150,7 @@ def test_transition_ai_version_stage():
 
 
 def test_mock_deploy_local(ai):
-    predictor = ai.deploy(mode=Mode.LOCAL)
+    predictor = ai.deploy(orchestrator=Orchestrator.LOCAL_DOCKER)
     # standard type checks
     assert type(predictor) == LocalPredictor
     assert issubclass(type(predictor), DeployedPredictor)
@@ -160,7 +160,7 @@ def test_mock_deploy_local(ai):
 def test_mock_deploy_sagemaker(ai, monkeypatch):
     monkeypatch.setattr(AI, "push_model", lambda *a, **k: None)
 
-    predictor = ai.deploy(mode=Mode.AWS)
+    predictor = ai.deploy(orchestrator=Orchestrator.AWS_SAGEMAKER)
     # standard type checks
     assert type(predictor) == AWSPredictor
     assert issubclass(type(predictor), DeployedPredictor)
@@ -178,7 +178,7 @@ def test_predict(ai):
 
 def test_mock_predict_from_local_deployment(ai, monkeypatch):
     monkeypatch.setattr(LocalPredictor, "predict", ai.predict)
-    predictor = ai.deploy(mode=Mode.LOCAL)
+    predictor = ai.deploy(orchestrator=Orchestrator.LOCAL_DOCKER)
 
     assert predictor
     prediction = predictor.predict(
@@ -192,7 +192,7 @@ def test_mock_predict_from_local_deployment(ai, monkeypatch):
 def test_mock_predict_from_sagemaker(ai, monkeypatch):
     monkeypatch.setattr(AI, "push_model", lambda *a, **k: None)
     monkeypatch.setattr(AWSPredictor, "predict", ai.predict)
-    predictor = ai.deploy(mode=Mode.AWS)
+    predictor = ai.deploy(orchestrator=Orchestrator.AWS_SAGEMAKER)
     assert predictor
     prediction = predictor.predict(
         {"data": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
@@ -224,7 +224,7 @@ def test_predict_from_sagemaker(cleanup, caplog, monkeypatch):
         weights_path=".",
     )
 
-    predictor: LocalPredictor = ai.deploy(mode=Mode.AWS, skip_build=True, lambda_mode=False)
+    predictor: LocalPredictor = ai.deploy(orchestrator=Orchestrator.AWS_SAGEMAKER, skip_build=True, lambda_mode=False)
     # predictor.log()
     time.sleep(5)
 
@@ -309,7 +309,7 @@ def test_create_endpoint(ai, monkeypatch):
     monkeypatch.setattr(AI, "push_model", lambda *a, **k: None)
     monkeypatch.setattr(DeploymentApiMixin, "check_endpoint_is_available", lambda *a, **k: True)
 
-    predictor = ai.deploy(mode=Mode.AWS)
+    predictor = ai.deploy(orchestrator=Orchestrator.AWS_SAGEMAKER)
     assert type(predictor) == AWSPredictor
     assert hasattr(predictor, "predict")
 
