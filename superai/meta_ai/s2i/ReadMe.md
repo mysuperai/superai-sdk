@@ -5,6 +5,7 @@ To replace pickling, source to image (s2i) is a viable alternative to pass model
 For the examples to run, you would need the source-to-image package installed. 
 
 ### Installation
+From the [reference here](https://github.com/openshift/source-to-image#installation)
 ####MacOs
 You can install on MacOs using
 ```bash
