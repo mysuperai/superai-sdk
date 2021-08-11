@@ -6,7 +6,7 @@ import uuid
 from docs.examples.ai.utilities import MockedReturns
 from superai.data_program import Project, Worker
 from superai.meta_ai import AI
-from superai.meta_ai.ai import Mode, LocalPredictor, AWSPredictor, list_models, AITemplate
+from superai.meta_ai.ai import Orchestrator, LocalPredictor, AWSPredictor, list_models, AITemplate
 from superai.meta_ai.parameters import HyperParameterSpec, String, Config
 from superai.meta_ai.schema import Image, SingleChoice, Schema
 from superai.utils import log
@@ -95,7 +95,7 @@ ai = AI(
     weights_path=os.path.join(os.path.dirname(__file__), "resources/my_model"),
 )
 
-predictor: LocalPredictor = ai.deploy(mode=Mode.LOCAL, skip_build=False)
+predictor: LocalPredictor = ai.deploy(orchestrator=Orchestrator.LOCAL_DOCKER, skip_build=False)
 
 time.sleep(5)
 log.info(
@@ -214,13 +214,13 @@ log.info(f"Result : {result}")
 
 assert s3_loaded_ai.predict(inputs=inputs) == result, "Results should be same"
 
-predictor: LocalPredictor = my_ai.deploy(mode=Mode.LOCAL, skip_build=True)
+predictor: LocalPredictor = my_ai.deploy(orchestrator=Orchestrator.LOCAL_DOCKER, skip_build=True)
 time.sleep(5)
 log.info(f"Local predictions: {predictor.predict(input=inputs)}")
 predictor.container.stop()
 
 with m.push as p, m.sage_check(True) as sc, m.sage_pred as sp:
-    predictor: AWSPredictor = my_ai.deploy(mode=Mode.AWS)
+    predictor: AWSPredictor = my_ai.deploy(orchestrator=Orchestrator.AWS_SAGEMAKER)
     log.info(f"AWS Predictions: {predictor.predict(input=inputs)}")
 
 # might not be required for lambdas
@@ -251,7 +251,9 @@ log.info(f"Result : {predictions}")
 
 with m.train as t:
     # Mocked, does not do anything
-    my_ai.train(model_save_path="s3://some_model_path", training_data="s3://some_training_data", mode=Mode.AWS)
+    my_ai.train(
+        model_save_path="s3://some_model_path", training_data="s3://some_training_data", mode=Orchestrator.AWS_SAGEMAKER
+    )
 
 
 ###########################################################################
