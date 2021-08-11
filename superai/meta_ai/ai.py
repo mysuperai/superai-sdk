@@ -1100,6 +1100,12 @@ class AI:
             os.system(f"docker pull {ecr_image_name}")
             log.info(f"Re-tagging image to '{base_image}'")
             client.images.get(f"{ecr_image_name}").tag(base_image)
+        if shutil.which("s2i") is None:
+            raise ModuleNotFoundError(
+                "s2i is not installed. Please install the package using "
+                "'brew install source-to-image' or read installation instructions at "
+                "https://github.com/openshift/source-to-image#installation."
+            )
         if change:
             log.info("Updating environment to enable pip build")
             if found:
