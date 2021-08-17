@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
 
 NAME = "superai"
 
-VERSION = "0.2.0.dev24"
+VERSION = "0.2.0.dev25"
 
 # To install the library, run the following
 #
