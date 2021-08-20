@@ -23,6 +23,7 @@ from superai.apis.meta_ai.meta_ai_graphql_schema import (
     mutation_root,
     query_root,
     uuid_comparison_exp,
+    meta_ai_assignment_enum_comparison_exp,
 )
 
 
@@ -39,9 +40,11 @@ class ProjectAiApiMixin(ABC):
         check = meta_ai_app_bool_exp(
             active=Boolean_comparison_exp(_eq=active),
             id=uuid_comparison_exp(_eq=app_id),
-            assignment=meta_ai_assignment_bool_exp(type=String_comparison_exp(_eq=assignment)),
+            assigned=meta_ai_assignment_enum_comparison_exp(_eq=assignment),
         )
-        models = op.meta_ai_app(where=check).model
+        app_assignments = op.meta_ai_app(where=check)
+        app_assignments.threshold()
+        models = app_assignments.model
         models.id()
         models.name()
         data = sess.perform_op(op)
@@ -51,16 +54,25 @@ class ProjectAiApiMixin(ABC):
         except AttributeError as e:
             log.info(f"No models for project with id: {app_id} and assignment type {assignment}")
 
-    def update_model(self, app_id: str, assignment: meta_ai_assignment_enum, model_id: str, active: bool = None):
+    def project_set_model(
+        self,
+        app_id: str,
+        assignment: meta_ai_assignment_enum,
+        model_id: str,
+        active: bool = None,
+        threshold: float = None,
+    ):
         sess = MetaAISession(app_id=app_id)
         op = Operation(mutation_root)
         input_args = {"id": app_id, "model_id": model_id, "assigned": assignment}
         if active is not None:
             input_args["active"] = active
+        if threshold is not None:
+            input_args["threshold"] = threshold
         insert_input = meta_ai_app_insert_input(input_args)
         conflict_handler = meta_ai_app_on_conflict(
             constraint=meta_ai_app_constraint("app_modelId_id_assigned_key"),
-            update_columns=["modelId", "active"],
+            update_columns=["modelId", "active", "threshold"],
             where=None,
         )
         op.insert_meta_ai_app_one(object=insert_input, on_conflict=conflict_handler).__fields__(
@@ -84,19 +96,18 @@ class ProjectAiApiMixin(ABC):
         except AttributeError as e:
             log.info(f"No predictions for project with id: {app_id} and model_id:{model_id}")
 
-    def list_prelabel_instances(self, app_id: str, prediction_id: str):
+    def list_prediction_instances(self, app_id: str, prediction_id: str):
         sess = MetaAISession(app_id=app_id)
         op = Operation(query_root)
         instance = op.meta_ai_prediction_by_pk(id=prediction_id).instances.id()
         data = sess.perform_op(op)
-        print(data, op)
         try:
             output = (op + data).meta_ai_prediction_by_pk.instances
             return output
         except AttributeError as e:
-            log.info(f"No prelabel instances found for prediction_id:{prediction_id}.")
+            log.info(f"No prediction instances found for prediction_id:{prediction_id}.")
 
-    def view_prelabel(self, app_id: str, prediction_id: str, instance_id):
+    def view_prediction_instance(self, app_id: str, prediction_id: str, instance_id):
         sess = MetaAISession(app_id=app_id)
         op = Operation(query_root)
         instance = op.meta_ai_instance_by_pk(id=instance_id, prediction_id=prediction_id)
@@ -108,7 +119,28 @@ class ProjectAiApiMixin(ABC):
             output = (op + data).meta_ai_instance_by_pk
             return output
         except AttributeError as e:
-            log.info(f"No prelabel instance found for prediction_id:{prediction_id} and instance_id:{instance_id}")
+            log.info(f"No prediction instance found for prediction_id:{prediction_id} and instance_id:{instance_id}")
+
+    def view_prediction(self, app_id: str, prediction_id: str):
+        """
+        View the prediction object, which acts as a container for potentially multiple concrete instances.
+        Currently only returns the current state of the prediction.
+        Args:
+            app_id:
+            prediction_id:
+
+        Returns:
+
+        """
+        sess = MetaAISession(app_id=app_id)
+        op = Operation(query_root)
+        op.meta_ai_prediction_by_pk(id=prediction_id).__fields__("id", "state")
+        data = sess.perform_op(op)
+        try:
+            output = (op + data).meta_ai_prediction_by_pk
+            return output
+        except AttributeError as e:
+            log.info(f"No prediction found for prediction_id:{prediction_id}.")
 
     def submit_prelabel(
         self,
@@ -130,7 +162,7 @@ class ProjectAiApiMixin(ABC):
         data = sess.perform_op(op)
         prediction_id = (op + data).insert_meta_ai_prediction_one.id
 
-        for instance in model_output:
+        for i, instance in enumerate(model_output):
             op = Operation(mutation_root)
             if type(instance) is str:
                 instance = json.loads(instance)
@@ -140,6 +172,7 @@ class ProjectAiApiMixin(ABC):
                 input_args["output"] = instance["output"]
             if "score" in instance.keys():
                 input_args["score"] = instance["score"]
+            input_args["id"] = i
             insert_input = meta_ai_instance_insert_input(input_args)
             op.insert_meta_ai_instance_one(object=insert_input).__fields__("id")
             data = sess.perform_op(op)
@@ -156,3 +189,27 @@ class ProjectAiApiMixin(ABC):
         op.delete_meta_ai_prediction_by_pk(id=id).id()
         data = sess.perform_op(op)
         return (op + data).delete_meta_ai_prediction_by_pk.id
+
+    def request_prediction_of_job(
+        self, app_id: str, job_id: int, assignment: meta_ai_assignment_enum = "PRELABEL"
+    ) -> List[str]:
+        """
+        Request to run predictions on the data contained in a job for all active models for a given `assignment`.
+        Returns list of ids of prediction objects. Can be queried for completion status and output.
+
+
+        :param job_id:
+        :param assignment:
+        :rtype: str
+        """
+        sess = MetaAISession(app_id=app_id)
+        opq = Operation(query_root)
+        opq.request_prediction_of_job(app_id=app_id, job_id=job_id, assignment=assignment).predictions.id()
+        data = sess.perform_op(opq)
+        res = (opq + data).request_prediction_of_job
+        if len(res) == 0:
+            raise Exception(f"No predictions could be requested. Does the job {job_id} exist?")
+        ids = []
+        for r in res:
+            ids.extend(r.predictions)
+        return ids

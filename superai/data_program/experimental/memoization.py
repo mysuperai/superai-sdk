@@ -68,7 +68,7 @@ def memo(method, filename, folder=None, refresh=False):
 
 # TODO: this is hacky way of implementing memoization of random task
 async def async_memo(method, filename, folder=None, refresh=False):
-    """ TODO(veselin/purnawirman): is this something we want to support and use going forward vs snapshot? """
+    """TODO(veselin/purnawirman): is this something we want to support and use going forward vs snapshot?"""
     start_time = time()
     try:
         if folder is None:

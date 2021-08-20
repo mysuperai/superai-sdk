@@ -1,13 +1,13 @@
 # coding: utf-8
 
 
-from setuptools import find_packages, setup
+from setuptools import find_packages, setup  # type: ignore
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
 NAME = "superai"
-VERSION = "0.1.0.alpha5"
+VERSION = "0.1.0.beta1"
 # To install the library, run the following
 #
 # python setup.py install
@@ -16,10 +16,13 @@ VERSION = "0.1.0.alpha5"
 # http://pypi.python.org/pypi/setuptools
 
 REQUIRES = [
+    "awesome-pattern-matching>=0.22.0",
     "boto3>=1.15",
     "click>=7.0",
     "colorama>=0.3.0",
+    "cloudpickle==1.6.0",
     "dynaconf>=3.1.2",
+    "docker>=4.0.0",
     "futures-then>=0.1.1",
     "genson>=1.2.2",
     "jinja2>=2.11.2",
@@ -27,10 +30,13 @@ REQUIRES = [
     "jsonmerge>=1.7.0",
     "jsonpickle>=1.4.1",
     "pip>=19.1",
+    "rich>=10.1",
     "pyyaml>=3.13",
     "requests>=2.22",
+    "sagemaker>=1.64.0",
+    "sentry-sdk>=0.19.4",
     "scikit-learn>=0.23.2",
-    "sgqlc>=12.1",
+    "sgqlc>=13.0",
     "sentry-sdk>=0.19.4",
     "six",
     "warrant>=0.6",
@@ -60,6 +66,7 @@ TEST_REQUIRES = [
     "pytest-cov>=2.10.1",
     "pytest-env>=0.6.2",
     "vcrpy>=4.1.1",
+    "pytest-mock~=3.3.1",
 ]
 
 setup(

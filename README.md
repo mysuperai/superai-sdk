@@ -113,6 +113,7 @@ The super.AI Data Program Builder is a Python SDK that lets you create your own 
        [Ubuntu 16-04](https://www.atlantic.net/hipaa-compliant-hosting/how-to-install-java-jre-jdk-ubuntu-16-04/),
        [Mac OSX](https://www.java.com/en/download/apple.jsp)
   - **Note** If you are a Windows user, you will need to [install Windows Subsystem for Linux(WSL)](https://docs.microsoft.com/en-us/windows/wsl/install-win10#manual-installation-steps)
+  - For AI components, Source-to-Image package is required. Check the installation [instructions](superai/meta_ai/s2i/ReadMe.md)
 
 ## Installation  
   1. Create and activate a virtual environment (we recommend using [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv) or Anaconda)
@@ -208,3 +209,9 @@ labels = superAI.process(inputs=inputs, worker=Worker.me, open_browser=True)
 ```
 
 You can find more examples in docs/examples
+
+### Pycharm specific requirement
+
+For better logging when using Pycharm, please change your run configuration to have the following switch enabled
+
+> - [x] Emulate terminal in output console

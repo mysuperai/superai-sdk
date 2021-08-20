@@ -337,7 +337,7 @@ def schedule_task(
     amount,
     schema_version,
 ):
-    """ Schedule task for execution by inserting it into the future table """
+    """Schedule task for execution by inserting it into the future table"""
     seq = _context.sequence
     _context.sequence += 1
 
@@ -447,7 +447,7 @@ def schedule_workflow(
     app_params,
     metadata,
 ):
-    """ Schedule task for execution by inserting it into the future table """
+    """Schedule task for execution by inserting it into the future table"""
     seq = _context.sequence
     _context.sequence += 1
 
@@ -505,7 +505,7 @@ def schedule_workflow(
 
 @terminate_guard
 def resolve_job(response, data_folder, bill):
-    """ Resolve a job and persist the response """
+    """Resolve a job and persist the response"""
     seq = _context.sequence
     _context.sequence += 1
 
@@ -542,7 +542,7 @@ def resolve_job(response, data_folder, bill):
 
 @terminate_guard
 def suspend_job_for_no_combiner():
-    """ Suspend a job """
+    """Suspend a job"""
     seq = _context.sequence
     _context.sequence += 1
 
@@ -565,7 +565,7 @@ def suspend_job_for_no_combiner():
 
 @terminate_guard
 def fail_job(error):
-    """ Fail a job """
+    """Fail a job"""
     print(error)
     seq = _context.sequence
     _context.sequence += 1
@@ -594,13 +594,42 @@ def fail_job(error):
 
 @terminate_guard
 def internal_error(error):
-    """ Fail a job """
+    """Fail a job"""
     print(error)
     seq = _context.sequence
     _context.sequence += 1
 
     params = {
         "type": "INTERNAL_ERROR",
+        "id": _context.id,
+        "sequence": seq,
+        "error": error,
+    }
+
+    message_for_agent = message(params)
+
+    with _pipe_lock:
+        writeln_to_pipe_and_flush(message_for_agent.to_json)
+
+    f = None
+    with _task_futures_lock:
+        if seq not in _task_futures[_context.id]:
+            _task_futures[_context.id][seq] = future()
+
+        f = _task_futures[_context.id][seq]
+
+    f.result()
+
+
+@terminate_guard
+def expire_job(error):
+    """Expire a job"""
+    print(error)
+    seq = _context.sequence
+    _context.sequence += 1
+
+    params = {
+        "type": "EXPIRE_JOB",
         "id": _context.id,
         "sequence": seq,
         "error": error,
@@ -707,6 +736,28 @@ def _worklow_thread(id, suffix, response):
             "Qualifier task expired for Job #{} of type {}. "
             "error {}".format(_context.uuid, _context.job_type, str(error))
         )
+    except TaskExpiredMaxRetries as error:
+        logger.info(
+            "Task expired after maximum number of retries for Job #{} of type {}. "
+            "error {}".format(_context.uuid, _context.job_type, str(error))
+        )
+        if (_context.job_type and _context.job_type == "COLLABORATOR") or response.get("jobType") == "COLLABORATOR":
+            expire_job("\nEXPIRE_JOB :: {}: {}".format(type(error), error))
+            scope_level = WARN
+        else:
+            internal_error("\nINTERNAL_ERROR :: {}: {}".format(type(error), error))
+            scope_level = FATAL
+        with sentry_sdk.push_scope() as scope:
+            scope.set_tag("job_id", id)
+            scope.set_tag("job_uuid", _context.uuid)
+            scope.set_tag("app_id", _context.app_id)
+            scope.set_tag("is_child", _context.is_child)
+            scope.set_tag(
+                "job_type",
+                _context.job_type if _context.job_type else response.get("jobType"),
+            )
+            scope.set_level(scope_level)
+            sentry_sdk.capture_exception(error)
     except ChildJobInternalError as error:
         internal_error("INTERNAL_ERROR: Job {} child threw internal error".format(_context.uuid))
         with sentry_sdk.push_scope() as scope:
@@ -786,7 +837,7 @@ def _worklow_thread(id, suffix, response):
 
 
 def _task_pump():
-    """ This method waits for incoming response and resolves the corresponding task future """
+    """This method waits for incoming response and resolves the corresponding task future"""
     while True:
         line = _in_pipe.readline().rstrip("\n")
         response = json.loads(line)
@@ -958,7 +1009,7 @@ def get_job_data():
 
 @terminate_guard
 def save_hero_qualification(hero, qualification, value):
-    """ Perist hero metric """
+    """Perist hero metric"""
 
     params = {
         "type": "STORE_METRIC",
@@ -979,7 +1030,7 @@ def save_hero_qualification(hero, qualification, value):
 
 @terminate_guard
 def remove_hero_qualification(hero, qualification):
-    """ Perist hero metric """
+    """Perist hero metric"""
 
     params = {
         "type": "REMOVE_METRIC",
@@ -1117,7 +1168,7 @@ def run_model_predict(predict_func, port=8080, context=None):
 
 
 def subscribe_workflow(function, prefix, suffix, schema=None):
-    """ Subscribe workflow """
+    """Subscribe workflow"""
     if suffix is None:
         raise ValueError("Suffix is missing")
 
@@ -1145,7 +1196,7 @@ def attach_bill(amount):
 
 @terminate_guard
 def send_reward(task, amount, reason):
-    """ Give hero a reward """
+    """Give hero a reward"""
     if task is None:
         raise ValueError("Reward task is missing")
 
@@ -1245,7 +1296,7 @@ def schedule_mtask(
     timeToExpireSec=None,
     qualifications=None,
 ):
-    """ Schedule task for execution by inserting it into the future table """
+    """Schedule task for execution by inserting it into the future table"""
     seq = _context.sequence
     _context.sequence += 1
 

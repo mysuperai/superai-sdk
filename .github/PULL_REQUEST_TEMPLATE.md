@@ -5,23 +5,25 @@
 ## 🧪 How is this tested?
 
 
-## 🗒️ Release Notes
--
+## 🗒️ Release notes
+
+Take a look at our [CONTRIBUTING.md](TBD) guidelines for information on how to complete this section.
 
 ### User-facing change?
-- [ ] No. Skip the rest of this section
-- [ ] Yes. Give a description of this change to be included in the release notes.
+- [ ] No. Skip the rest of this section.
+- [ ] Yes. Complete the sections below to define what is included in the release notes for super.AI users.
 
-### What component(s) does this PR affect?
+### How should the PR be classified in the release notes? Choose one:
 
-**Components**
-- [ ] CLI
-- [ ] APIs
-- [ ] DataProgram SDK
+- [ ] `Major new feature` - A new landmark feature that notably expands the product 
+- [ ] `New feature` - Any new functionality that is added
+- [ ] `Bugfix` - Anything that corrects an error or unexpected behavior
+- [ ] `Enhancement` - An improvement/change that was not a bugfix
 
-**How should the PR be classified in the release notes? Choose one:**
-- [ ] `breaking-change` - The PR will be mentioned in the "Breaking Changes" section
-- [ ] `none` - No description will be included. The PR will be mentioned only by the PR number in the "Small Bugfixes and Documentation Updates" section
-- [ ] `feature` - A new user-facing feature worth mentioning in the release notes
-- [ ] `bug`-fix - A user-facing bug fix worth mentioning in the release notes
-- [ ] `documentation` - A user-facing documentation change worth mentioning in the release notes
+### Short description of the change and how it benefits the user
+
+(Details in 1-2 sentences. You can just refer to another PR with a description if this PR is part of a larger change.)
+
+### Long description for major new features
+
+(2+ sentences explaining what the feature is, why it's important, and how it benefits the user)

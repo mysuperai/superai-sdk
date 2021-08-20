@@ -24,7 +24,7 @@ def fibonacci(n):
 
 
 def test_stopwatch(caplog):
-    """ Basic stopwatch test """
+    """Basic stopwatch test"""
     func = fibonacci
     with caplog.at_level(logging.DEBUG):
         func(100)
