@@ -35,7 +35,6 @@ def create_endpoint(
     """
     sm_client = boto3.client(service_name="sagemaker")
     if arn_role is not None:
-        # arn_role = "arn:aws:iam::185169359328:role/service-role/AmazonSageMaker-ExecutionRole-20180117T160866"
         sts_client = boto3.client("sts")
         assumed_role_object = sts_client.assume_role(
             RoleArn=arn_role, RoleSessionName="MultiEndpointSession", ExternalId="0c18cdd7-3626-497d-8c4e-f3fb5ce76cd1"
@@ -167,7 +166,6 @@ def invoke_local(mime: str, body: str):
 
 
 def get_sagemaker_runtime_client(target_model=None, mode="SingleModel", arn_role=None):
-    # arn_role = "arn:aws:iam::185169359328:role/service-role/AmazonSageMaker-ExecutionRole-20180117T160866"
     assert mode in ["SingleModel", "MultiModel"], "Mode should be one of ['SingleModel', 'MultiModel']"
     if mode == "MultiModel":
         assert target_model is not None, "TargetModel is required when using 'MultiModel' mode"
@@ -225,17 +223,3 @@ def invoke_sagemaker_endpoint(
     if verbose:
         log.info(f"Model response: {response}")
     return response
-
-
-if __name__ == "__main__":
-    create_endpoint(
-        arn_role="arn:aws:iam::185169359328:role/service-role/AmazonSageMaker-ExecutionRole-20180117T160866",
-        image_name="genre_model",
-        version="2",
-        model_url="s3://canotic-ai/meta_ai_models/saved_models/fairseq_entity_disambiguation_aidayago.tar.gz",
-    )
-    invoke_sagemaker_endpoint(
-        endpoint="DEMO-genre-model-2",
-        mime="application/json",
-        payload='{"data":{"sentences": ["Einstein was a [START_ENT] German [END_ENT] physicist."]}}',
-    )

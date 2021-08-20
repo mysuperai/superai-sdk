@@ -41,9 +41,11 @@ def single_task_workflow(inputs, params):
         df.video_bounding_box_keypoint(
             video_url=video_url,
             frame_rate=frames_per_sec,
-            box_choices_obj=keypoint_specs["boxChoices"],
-            keypoint_choices_obj=keypoint_specs["keypointChoices"],
-            keypoint_templates=keypoint_specs["keypointTemplates"],
+            box_choices_obj=keypoint_specs.get("boxChoices"),
+            keypoint_choices_obj=keypoint_specs.get("keypointChoices"),
+            keypoint_templates=keypoint_specs.get("keypointTemplates"),
+            keypoint_edges=keypoint_specs.get("keypointEdges"),
+            keypoint_polygons=keypoint_specs.get("keypointPolygons"),
         )
     ]
     task.process(task_inputs, task_outputs)
@@ -62,7 +64,7 @@ project = Project(
     params={
         "instructions": "Please track keypoints for all facial parts visible in the video. "
         "Detailed instructions are provided for each facial part below.",
-        "keypoint_specs_url": "https://superai-public.s3.amazonaws.com/example_imgs/vbbk/keypoint_template.json",
+        "keypoint_specs_url": "https://superai-public.s3.amazonaws.com/keypoint_template_with_polygon.json",
     },
 )
 
