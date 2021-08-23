@@ -13,7 +13,8 @@ RUN mkdir -p /usr/share/man/man1 && \
       build-essential  \
       ca-certificates  \
       wget \
-      default-jre-headless && \
+      default-jre-headless \
+      git && \
     apt-get autoremove && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -42,12 +43,12 @@ WORKDIR /home/model-server
 
 # Install requirements
 RUN pip install --no-cache-dir awscli~=1.18.195
-COPY requirements.txt ./base_requirements.txt
+COPY requirements.txt /home/model-server/.sagemaker-requirements/base_requirements.txt
 ARG AWS_DEFAULT_REGION=us-east-1
 RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true \
     --mount=type=cache,target=/root/.cache/pip \
-    aws codeartifact login --tool pip --domain superai --repository pypi-superai-internal && \
-    pip install --no-cache-dir -r base_requirements.txt
+    aws codeartifact login --tool pip --domain superai --repository pypi-superai && \
+    pip install --no-cache-dir -r /home/model-server/.sagemaker-requirements/base_requirements.txt
 
 COPY s2i/bin /s2i/bin
 COPY s2i/bin /opt/program

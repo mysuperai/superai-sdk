@@ -6,7 +6,10 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import shutil
+import subprocess
+import sys
 import tarfile
 import time
 import traceback
@@ -236,10 +239,10 @@ class AITemplate:
                     yaml.dump(self.conda_env, conda_file, default_flow_style=False)
             elif (
                 type(self.conda_env) == str
-                and os.path.exists(self.conda_env)
+                and os.path.exists(os.path.abspath(self.conda_env))
                 and (self.conda_env.endswith(".yml") or self.conda_env.endswith(".yaml"))
             ):
-                shutil.copy(self.conda_env, os.path.join(version_save_path, "environment.yml"))
+                shutil.copy(os.path.abspath(self.conda_env), os.path.join(version_save_path, "environment.yml"))
             else:
                 raise ValueError("Make sure conda_env is a valid path to a .yml file or a dictionary.")
         log.info("Copying all code_path content")
@@ -255,8 +258,8 @@ class AITemplate:
             for path in self.code_path:
                 shutil.copytree(path, os.path.join(version_save_path, os.path.basename(path)))
         if self.requirements is not None:
-            if type(self.requirements) == str and os.path.exists(self.requirements):
-                shutil.copy(self.requirements, os.path.join(version_save_path, "requirements.txt"))
+            if type(self.requirements) == str and os.path.exists(os.path.abspath(self.requirements)):
+                shutil.copy(os.path.abspath(self.requirements), os.path.join(version_save_path, "requirements.txt"))
             elif type(self.requirements) == list:
                 with open(os.path.join(version_save_path, "requirements.txt"), "w") as requirements_file:
                     requirements_file.write("\n".join(self.requirements))
@@ -264,6 +267,8 @@ class AITemplate:
                 raise ValueError(
                     "Make sure requirements is a list of requirements or valid path to requirements.txt file"
                 )
+        if self.artifacts is not None and "run" in self.artifacts:
+            shutil.copy(os.path.abspath(self.artifacts["run"]), os.path.join(version_save_path, "setup.sh"))
         # create the environment file
         with open(os.path.join(version_save_path, "environment"), "w") as environment_file:
             content = [f"MODEL_NAME={self.model_class}"]
@@ -274,7 +279,7 @@ class AITemplate:
                         content.append(f"CONDA_ENV_NAME={conda_env_yaml.get('name', 'env')}")
                     except yaml.YAMLError as exc:
                         log.error(exc)
-            environment_file.writelines(content)
+            environment_file.write("\n".join(content))
         with open(os.path.join(version_save_path, "AITemplateSaveFile.json"), "w") as ai_template_writer:
             content = {
                 "description": self.description,
@@ -948,13 +953,14 @@ class AI:
             # Hidden kwargs
             worker_count: Number of workers to use for serving with Sagemaker.
             ai_cache: Cache of ai objects for a lambda, 5 by default considering the short life of a lambda function
+            build_all_layers: Perform a fresh build of all layers
         """
         lambda_mode = orchestrator in [Orchestrator.LOCAL_DOCKER_LAMBDA, Orchestrator.AWS_LAMBDA]
         if orchestrator in [
             Orchestrator.LOCAL_DOCKER,
             Orchestrator.LOCAL_DOCKER_LAMBDA,
             Orchestrator.AWS_LAMBDA,
-            Orchestrator.AWS_LAMBDA,
+            Orchestrator.AWS_SAGEMAKER,
         ]:
             self._prepare_dependencies(
                 worker_count=kwargs.get("worker_count", 1),
@@ -962,7 +968,12 @@ class AI:
                 ai_cache=kwargs.get("ai_cache", 5),
             )
             if not skip_build:
-                self.build_image_s2i(self.name, str(self.version), enable_cuda=enable_cuda)
+                self.build_image_s2i(
+                    self.name,
+                    str(self.version),
+                    enable_cuda=enable_cuda,
+                    from_scratch=kwargs.get("build_all_layers", False),
+                )
         elif orchestrator in [Orchestrator.AWS_EKS, Orchestrator.MINIKUBE, Orchestrator.GCP_KS]:
             raise NotImplementedError()
         else:
@@ -1062,7 +1073,13 @@ class AI:
             entry_point_file_content: str = template.render(args)
             entry_point_file.write(entry_point_file_content)
 
-    def build_image_s2i(self, image_name: str, version_tag: str = "latest", enable_cuda: bool = False) -> None:
+    def build_image_s2i(
+        self,
+        image_name: str,
+        version_tag: str = "latest",
+        enable_cuda: bool = False,
+        from_scratch: bool = False,
+    ) -> None:
         start = time.time()
         cwd = os.getcwd()
         os.chdir(self._location)
@@ -1075,8 +1092,8 @@ class AI:
             files.append(self.conda_env)
         if self.artifacts:
             if "run" in self.artifacts:
-                files.append(self.artifacts["run"])
-        change = False
+                files.append("setup.sh")
+        changes_in_build = False
         cache_folder = os.path.join(settings.path_for(), "cache", self.name, str(self.version))
         if not os.path.exists(cache_folder):
             log.info(f"Creating cache folder {cache_folder}")
@@ -1089,17 +1106,15 @@ class AI:
             hash_content = json.load(f_hash)
         new_hash = hash_content
         for file in files:
-            file_hash = hashlib.sha256(open(file, "rb").read()).hexdigest()
+            file_hash = hashlib.sha256(open(os.path.abspath(file), "rb").read()).hexdigest()
             if file_hash != hash_content.get(file):
-                change = True
+                changes_in_build = True
             new_hash[file] = file_hash
         with open(hash_file, "w") as f_hash:
             json.dump(new_hash, f_hash)
 
         with open(environment_file, "r") as env_file_reader:
             env_list = env_file_reader.readlines()
-        found = any(["BUILD_PIP" in line for line in env_list])
-
         client = docker.from_env()
         base_image = f"superai-model-s2i-python3711-{'gpu' if enable_cuda else 'cpu'}:1"
         try:
@@ -1121,49 +1136,64 @@ class AI:
                 "'brew install source-to-image' or read installation instructions at "
                 "https://github.com/openshift/source-to-image#installation."
             )
-        if change:
-            log.info("Updating environment to enable pip build")
-            if found:
-                new_lines = list(filter(lambda x: "BUILD_PIP" not in x, env_list))
-                with open(environment_file, "w") as env_file_writer:
-                    env_file_writer.writelines(new_lines)
-            log.info(f"Performing pip update layer creation `{image_name}-pip-layer:{version_tag}`")
-            command = (
-                f"s2i build -E {environment_file} -v ~/.aws:/root/.aws --incremental=True . "
-                f"{base_image} {image_name}-pip-layer:{version_tag}"
-            )
-            log.info(f"Running '{command}'")
-            os.system(command)
+        if changes_in_build:
+            from_scratch = True
         else:
             try:
                 image = client.images.get(f"{image_name}-pip-layer:{version_tag}")
                 log.info(f"No change in pip layer. Reusing old layers from image {image.id}...")
             except ImageNotFound:
                 log.info("Pip layer image not found, rebuilding")
-                new_lines = list(filter(lambda x: "BUILD_PIP" not in x, env_list))
-                with open(environment_file, "w") as env_file_writer:
-                    env_file_writer.writelines(new_lines)
-                command = (
-                    f"s2i build -E {environment_file} -v ~/.aws:/root/.aws --incremental=True . "
-                    f"{base_image} {image_name}-pip-layer:{version_tag}"
-                )
-                log.info(f"Running '{command}'")
-                os.system(command)
+                from_scratch = True
+        if from_scratch:
+            new_lines = list(filter(lambda x: "BUILD_PIP" not in x, env_list))
+            with open(environment_file, "w") as env_file_writer:
+                env_file_writer.writelines(new_lines)
+            command = (
+                f"s2i build -E {environment_file} "
+                f"-v {os.path.join(os.path.expanduser('~'), '.aws')}:/root/.aws "
+                f"-v {os.path.join(os.path.expanduser('~'), '.superai')}:/root/.superai "
+                f"-v {os.path.join(os.path.expanduser('~'), '.canotic')}:/root/.canotic "
+                f"--incremental=True . "
+                f"{base_image} {image_name}-pip-layer:{version_tag}"
+            )
+            self._system(command)
+            image = client.images.get(f"{image_name}-pip-layer:{version_tag}")
+            tag_time = image.attrs["Metadata"]["LastTagTime"]
+            diff = datetime.datetime.utcnow() - datetime.datetime.fromisoformat(tag_time[:26])
+            if diff.total_seconds() > 2.0:
+                raise Exception(f"Image failed to create, this image is too old {diff.total_seconds()}s")
+
         with open(environment_file, "r") as env_file_reader:
             env_list = env_file_reader.readlines()
-        found = any(["BUILD_PIP" in line for line in env_list])
-        if not found:
+        found_build_pip = any(["BUILD_PIP" in line for line in env_list])
+        if not found_build_pip:
             with open(environment_file, "a") as env_file_writer:
                 env_file_writer.write("\nBUILD_PIP=false")
         command = (
-            f"s2i build -E {environment_file} -v ~/.aws:/root/.aws --incremental=True . "
+            f"s2i build -E {environment_file} "
+            f"-v {os.path.join(os.path.expanduser('~'), '.aws')}:/root/.aws "
+            f"-v {os.path.join(os.path.expanduser('~'), '.superai')}:/root/.superai "
+            f"-v {os.path.join(os.path.expanduser('~'), '.canotic')}:/root/.canotic"
+            f"--incremental=True . "
             f"{image_name}-pip-layer:{version_tag} {image_name}:{version_tag}"
         )
-        log.info(f"Running '{command}'")
-        os.system(command)
+        self._system(command)
+        image = client.images.get(f"{image_name}:{version_tag}")
+        tag_time = image.attrs["Metadata"]["LastTagTime"]
+        diff = datetime.datetime.utcnow() - datetime.datetime.fromisoformat(tag_time[:26])
+        if diff.total_seconds() > 2.0:
+            raise Exception(f"Image failed to create, this image is too old ({diff.total_seconds()}s)")
         log.info(f"Built main container `{image_name}:{version_tag}`")
         log.info(f"Time taken to build: {time.time() - start:.2f}s")
         os.chdir(cwd)
+
+    @staticmethod
+    def _system(command):
+        log.info(f"Running '{command}'")
+        process = subprocess.Popen(shlex.split(command), stdout=subprocess.PIPE)
+        (out, err) = process.communicate()
+        return out.decode("utf-8")
 
     def _create_dockerfile(
         self, worker_count: int = 1, lambda_mode=True, ai_cache=32, enable_cuda=False, force_amd64=True

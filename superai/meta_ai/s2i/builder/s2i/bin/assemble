@@ -38,8 +38,14 @@ if [[ -z "$BUILD_PIP" ]]; then
       # shellcheck disable=SC2209
       CONDA_ENV_NAME=env
     fi
-    conda env create --name $CONDA_ENV_NAME --file environment.yml
-  elif [[ -f setup.sh ]]; then
+    /opt/conda/bin/conda env create --name $CONDA_ENV_NAME --file environment.yml
+
+    echo "---> Obtaining and installing Sagemaker dependencies..."
+    export AWS_DEFAULT_REGION=us-east-1
+    aws codeartifact login --tool pip --domain superai --repository pypi-superai
+    /opt/conda/envs/$CONDA_ENV_NAME/bin/pip install --no-cache-dir -r /home/model-server/.sagemaker-requirements/base_requirements.txt
+  fi
+  if [[ -f /home/model-server/setup.sh ]]; then
     echo "---> Executing setup.sh"
     export AWS_DEFAULT_REGION=us-east-1
     aws codeartifact login --tool pip --domain superai --repository pypi-superai

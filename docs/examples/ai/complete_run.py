@@ -83,7 +83,7 @@ template = AITemplate(
     name="My_template",
     description="Template for my new awesome project",
     requirements=["tensorflow==2.1.0", "opencv-python-headless"],
-    artifacts={"run": "runDir/run_this.sh"},
+    artifacts={"run": "resources/runDir/run_this.sh"},
     code_path=["resources/runDir"],
 )
 ai = AI(

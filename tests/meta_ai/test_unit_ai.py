@@ -37,3 +37,10 @@ def test_compression():
     shutil.rmtree(folder_path)
     shutil.rmtree(another_folder_path)
     os.remove(path_to_tarfile)
+
+
+def test_system_commands():
+    sys_func = AI._system
+    command = "python --help"
+    output = sys_func(command)
+    assert "python [option]" in output
