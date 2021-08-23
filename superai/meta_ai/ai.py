@@ -1110,6 +1110,8 @@ class AI:
             account_id = boto3.client("sts").get_caller_identity()["Account"]
             ecr_image_name = f"{account_id}.dkr.ecr.{region}.amazonaws.com/{base_image}"
             log.info(f"Base image not found. Downloading from ECR '{ecr_image_name}'")
+            log.info("Logging in to ECR...")
+            os.system(f"$(aws ecr get-login --region {region} --no-include-email)")
             os.system(f"docker pull {ecr_image_name}")
             log.info(f"Re-tagging image to '{base_image}'")
             client.images.get(f"{ecr_image_name}").tag(base_image)
