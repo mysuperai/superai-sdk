@@ -11,6 +11,9 @@ from superai.data_program.combiner.combiner_functions import (
 )
 from superai.data_program.protocol.task import get_task_type, get_task_value, task
 from superai.data_program.Exceptions import TaskExpired, TaskExpiredMaxRetries, UnexpectedDataType, UnknownTaskStatus
+from superai.log import logger
+
+log = logger.get_logger(__name__)
 
 CM_OFFICE_METRIC = "crowd_manager_office"
 
@@ -42,16 +45,16 @@ def resend_task(
             amount=amount,
         ).result()
         if result.status() == "COMPLETED":
-            print("task succeeded")
+            log.info("task succeeded")
             getter = getattr(result.response(), "get", None)
             if callable(getter) and len(getter("values", [])) > 0:
                 return result
             else:
-                print("WARNING: completed task, but empty task response.")
-                print("resending task, trial no. ", n_tries + 1)
+                log.warning("completed task, but empty task response.")
+                log.info("resending task, trial no. ", n_tries + 1)
                 continue
         elif result.status() in ["EXPIRED", "REJECTED"]:
-            print("resending task, trial no. ", n_tries + 1)
+            log.info("resending task, trial no. ", n_tries + 1)
             continue
         else:
             raise UnknownTaskStatus(str(result.status()))
@@ -91,7 +94,7 @@ def resend_task_prioritize_cm_office(
                 excluded_ids=excluded_ids,
             ).result()
         else:
-            print("No Crowd Manager in Office are responding to the task, sending task to normal crowds")
+            log.info("No Crowd Manager in Office are responding to the task, sending task to normal crowds")
             result = task(
                 input=task_inputs,
                 output=task_outputs,
@@ -102,10 +105,10 @@ def resend_task_prioritize_cm_office(
                 excluded_ids=excluded_ids,
             ).result()
         if result.status() == "COMPLETED":
-            print("task succeeded")
+            log.info("task succeeded")
             return result
         elif result.status() == "EXPIRED":
-            print("resending task, trial no. ", n_tries + 1)
+            log.info("resending task, trial no. ", n_tries + 1)
             continue
         else:
             raise UnknownTaskStatus(str(result.status()))
