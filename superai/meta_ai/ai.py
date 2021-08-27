@@ -353,19 +353,22 @@ class AI:
             assert kwargs.get("location") is not None, "Location cannot be None while loading"
             self._location = kwargs.get("location")
 
-        model_class_template = get_user_model_class(
-            model_name=ai_template.model_class, path=ai_template.model_class_path
-        )
-        self.model_class: BaseModel = model_class_template(
-            input_schema=ai_template.input_schema,
-            output_schema=ai_template.output_schema,
-            configuration=ai_template.configuration,
-        )
-        self.model_class.update_parameters(input_params, output_params)
+        self.model_class_name = ai_template.model_class
+        self.model_class_path = ai_template.model_class_path
         self.is_weights_loaded = False
 
         self.container = None
         self._id = None
+        self.model_class = None
+
+    def _init_model_class(self):
+        model_class_template = get_user_model_class(model_name=self.model_class_name, path=self.model_class_path)
+        self.model_class: BaseModel = model_class_template(
+            input_schema=self.ai_template.input_schema,
+            output_schema=self.ai_template.output_schema,
+            configuration=self.ai_template.configuration,
+        )
+        self.model_class.update_parameters(self.input_params, self.output_params)
 
     @property
     def id(self) -> Optional[str]:
@@ -695,14 +698,9 @@ class AI:
             self.version += 1
         else:
             self.version = 1
-        model_class_template = get_user_model_class(model_class, model_class_path)
-        self.ai_template.model_class = model_class
-        self.model_class: BaseModel = model_class_template(
-            input_schema=self.ai_template.input_schema,
-            output_schema=self.ai_template.output_schema,
-            configuration=self.ai_template.configuration,
-        )
-        self.model_class.update_parameters(self.input_params, self.output_params)
+        self.model_class = None
+        self.model_class_name = model_class
+        self.model_class_path = model_class_path
         self._location = self.save(overwrite=True)
         # self.push()
         log.info(
@@ -754,14 +752,9 @@ class AI:
                 self._location = self.save()
                 log.info(f"Updated model {self.name}:{self.version}. " f"Make sure to AI.push to update the database")
         if ai_class is not None:
-            model_class_template = get_user_model_class(ai_class, ai_class_path)
-            self.ai_template.model_class = ai_class
-            self.model_class: BaseModel = model_class_template(
-                input_schema=self.ai_template.input_schema,
-                output_schema=self.ai_template.output_schema,
-                configuration=self.ai_template.configuration,
-            )
-            self.model_class.update_parameters(self.input_params, self.output_params)
+            self.model_class = None
+            self.model_class_name = ai_class
+            self.model_class_path = ai_class_path
             self.save(overwrite=True)
         log.info("AI.update complete!")
         self.push()
@@ -772,6 +765,8 @@ class AI:
         Args:
             inputs
         """
+        if self.model_class is None:
+            self._init_model_class()
         if not self.is_weights_loaded:
             if self.weights_path is not None:
                 self.model_class.load_weights(self.weights_path)
@@ -1298,6 +1293,8 @@ class AI:
             training_data:
             orchestrator:
         """
+        if self.model_class is None:
+            self._init_model_class()
         if train_logger is not None:
             self.model_class.update_logger_path(train_logger)
         else:
