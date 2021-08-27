@@ -1,2 +1,3 @@
 aws codeartifact login --tool pip --domain superai --repository pypi-superai-internal
-pip install superai~=0.2.0.dev1
+echo "Installing special libraries"
+apt-get update && apt-get install -y vim

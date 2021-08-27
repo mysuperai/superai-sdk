@@ -30,13 +30,7 @@ else
     fi
 
     CONDA_ENV_NAME=${CONDA_ENV_NAME:-env}
-    if _is_env_present "$CONDA_ENV_NAME"; then
-        echo "Activating Conda environment '$CONDA_ENV_NAME'"
-        # We need to initialise Conda so that it can run on /bin/sh
-        source /etc/profile.d/conda.sh
-        /opt/conda/bin/conda activate "$CONDA_ENV_NAME"
-    fi
 
-    echo "starting microservice"
-    exec python /home/model-server/dockerd-entrypoint.py "$MODEL_NAME" serve
+    echo "starting microservice in environment '${CONDA_ENV_NAME}'"
+    exec /opt/conda/envs/"$CONDA_ENV_NAME"/bin/python /home/model-server/dockerd-entrypoint.py "$MODEL_NAME" serve
 fi

@@ -212,6 +212,6 @@ You can find more examples in docs/examples
 
 ### Pycharm specific requirement
 
-For better logging when using Pycharm, please change your run configuration to have the following switch enabled
+For better logging when using Pycharm, please change your run configuration to have the following switch enabled. It's easier to do it once for the Python runner template for the project. 
 
 > - [x] Emulate terminal in output console
