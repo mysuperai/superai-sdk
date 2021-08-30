@@ -35,7 +35,6 @@ RUN CONDA_VERSION=${ANACONDA_VERSION} \
     /opt/conda/bin/conda create -n env python=${PYTHON_VERSION} && \
     echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc && \
     echo "conda activate env" >> ~/.bashrc
-ENV PATH /opt/conda/envs/env/bin:$PATH
 SHELL ["/opt/conda/bin/conda", "run", "--no-capture-output", "-n", "env", "/bin/bash", "-c"]
 
 RUN mkdir /home/model-server

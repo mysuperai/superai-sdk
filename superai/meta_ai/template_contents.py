@@ -137,7 +137,10 @@ def _retry_if_error(exception):
 
 @retry(stop_max_delay=1000 * 50, retry_on_exception=_retry_if_error)
 def _start_mms():
-    os.environ['SAGEMAKER_MODEL_SERVER_WORKERS'] = "{{worker_count}}"
+    os.environ["PATH"] = (
+        f"/opt/conda/envs/{os.environ.get('CONDA_ENV_NAME', 'env')}/bin:" + os.environ["PATH"]
+    )
+    os.environ["SAGEMAKER_MODEL_SERVER_WORKERS"] = "{{worker_count}}"
     path = os.path.dirname(os.path.abspath(__file__))
 
     model_server.start_model_server(handler_service=f'{os.path.join(path, "handler.py")}:ModelService.handle')
