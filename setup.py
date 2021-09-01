@@ -40,6 +40,7 @@ REQUIRES = [
     "sentry-sdk>=0.19.4",
     "six",
     "warrant>=0.6",
+    "psutil~=5.6.7",
 ]
 
 BUILD_REQUIRES = [
