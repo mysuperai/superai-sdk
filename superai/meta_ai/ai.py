@@ -239,10 +239,10 @@ class AITemplate:
                     yaml.dump(self.conda_env, conda_file, default_flow_style=False)
             elif (
                 type(self.conda_env) == str
-                and os.path.exists(os.path.abspath(self.conda_env))
+                and os.path.exists(self.conda_env)
                 and (self.conda_env.endswith(".yml") or self.conda_env.endswith(".yaml"))
             ):
-                shutil.copy(os.path.abspath(self.conda_env), os.path.join(version_save_path, "environment.yml"))
+                shutil.copy(self.conda_env, os.path.join(version_save_path, "environment.yml"))
             else:
                 raise ValueError("Make sure conda_env is a valid path to a .yml file or a dictionary.")
         log.info("Copying all code_path content")
