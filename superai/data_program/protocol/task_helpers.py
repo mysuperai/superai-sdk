@@ -51,10 +51,10 @@ def resend_task(
                 return result
             else:
                 log.warning("completed task, but empty task response.")
-                log.info("resending task, trial no. ", n_tries + 1)
+                log.info(f"resending task, trial no. {n_tries + 1}")
                 continue
         elif result.status() in ["EXPIRED", "REJECTED"]:
-            log.info("resending task, trial no. ", n_tries + 1)
+            log.info(f"resending task, trial no. {n_tries + 1}")
             continue
         else:
             raise UnknownTaskStatus(str(result.status()))
@@ -108,7 +108,7 @@ def resend_task_prioritize_cm_office(
             log.info("task succeeded")
             return result
         elif result.status() == "EXPIRED":
-            log.info("resending task, trial no. ", n_tries + 1)
+            log.info(f"resending task, trial no. {n_tries + 1}")
             continue
         else:
             raise UnknownTaskStatus(str(result.status()))
