@@ -54,7 +54,6 @@ COPY s2i/bin /opt/program
 
 ENV PATH="/opt/program:${PATH}"
 
-
 RUN chmod a+rwx /opt/program
 
 RUN mkdir -p /.conda && \
