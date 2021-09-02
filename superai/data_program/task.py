@@ -3,6 +3,9 @@ import enum
 from superai.data_program.Exceptions import TaskExpired, UnknownTaskStatus
 from superai.data_program.protocol.task import task as task
 import uuid
+from superai.log import logger
+
+log = logger.get_logger(__name__)
 
 # from superai.apis.task_template import TaskTemplate
 
@@ -68,19 +71,19 @@ class Task:
                 amount=cost,
             )
             self._task_future_result = self._task_future.result()
-            print(
+            log.info(
                 f"task status {self._task_future_result.status()} with response: {self._task_future_result.response()}"
             )
             if self._task_future_result.status() == "COMPLETED":
-                print("task succeeded")
+                log.info("task succeeded")
                 if len(self._task_future_result.response()) > 0:
                     return self._task_future_result
                 else:
-                    print("WARNING: completed task, but empty task response.")
-                    print("resending task, trial no. ", n_tries + 1)
+                    log.warning("completed task, but empty task response.")
+                    log.info("resending task, trial no. ", n_tries + 1)
                     continue
             elif self._task_future_result.status() in ["EXPIRED", "REJECTED"]:
-                print("resending task, trial no. ", n_tries + 1)
+                log.info("resending task, trial no. ", n_tries + 1)
                 continue
             else:
                 raise UnknownTaskStatus(str(self._task_future_result.status()))

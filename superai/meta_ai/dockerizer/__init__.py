@@ -214,7 +214,7 @@ def push_image(image_name: str, version: str = "latest", region: str = "us-east-
     log.info(f"Tagging to `{full_name}`")
     docker_client.images.get(f"{image_name}:{version}").tag(full_name)
 
-    log.info(" Pushing image...")
+    log.info("Pushing image...")
     for line in docker_client.images.push(repository=full_name, stream=True, decode=True):
         log.info(line)
 

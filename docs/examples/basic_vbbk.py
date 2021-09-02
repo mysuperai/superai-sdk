@@ -44,8 +44,8 @@ def single_task_workflow(inputs, params):
             box_choices_obj=keypoint_specs.get("boxChoices"),
             keypoint_choices_obj=keypoint_specs.get("keypointChoices"),
             keypoint_templates=keypoint_specs.get("keypointTemplates"),
-            keypoint_edges=keypoint_specs.get('keypointEdges'),
-            keypoint_polygons=keypoint_specs.get('keypointPolygons')
+            keypoint_edges=keypoint_specs.get("keypointEdges"),
+            keypoint_polygons=keypoint_specs.get("keypointPolygons"),
         )
     ]
     task.process(task_inputs, task_outputs)

@@ -72,9 +72,7 @@ def test_download_data_with_full_path(client: Client):
 
 def test_download_data_public(client: Client):
     with pytest.raises(Exception) as excinfo:
-        downloaded = client.download_data(
-            path="https://filesamples.com/samples/code/json/sample1.json"
-        )
+        downloaded = client.download_data(path="https://filesamples.com/samples/code/json/sample1.json")
     assert str(excinfo.value) == "Forbidden"
 
 
