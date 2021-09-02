@@ -22,7 +22,7 @@ class MyKerasModel(BaseModel):
         self.model = keras.models.load_model(weights_path)
 
     def predict(self, input):
-        log.info("Predict Input: ", input)
+        log.info(f"Predict Input: {input}")
         image_url = input["data"]["image_url"]
         req = urlopen(image_url)
         arr = np.asarray(bytearray(req.read()), dtype=np.uint8)
