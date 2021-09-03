@@ -249,50 +249,58 @@ class DeploymentApiMixin(ABC):
             data = self.sess.perform_op(op)
             log.info(f"Created new deployment: {data}")
             model_id = (op + data).insert_meta_ai_deployment_one.model_id
-            self.wait_for_state_change(model_id, "ONLINE")
+            self._wait_for_state_change(model_id, field="status", target_status="ONLINE")
             return model_id
         else:
             log.info(f"Deployment already exists with properties: {existing_deployment} ")
 
+    def _set_target_status(
+        self, model_id: str, target_status: meta_ai_deployment_status_enum
+    ) -> meta_ai_deployment_status_enum:
+        op = Operation(mutation_root)
+        op.update_meta_ai_deployment_by_pk(
+            _set=meta_ai_deployment_set_input(target_status=target_status),
+            pk_columns=meta_ai_deployment_pk_columns_input(model_id=model_id),
+        ).__fields__("target_status")
+        data = self.sess.perform_op(op)
+        return (op + data).update_meta_ai_deployment_by_pk.target_status
+
     def set_deployment_status(self, model_id: str, target_status: meta_ai_deployment_status_enum) -> bool:
-        """Change status of an existing deployment.
+        """Change status field of an existing deployment.
 
         Args:
             model_id:
             target_status: The designated status of the deployment which the backend will fulfill
         """
-        if self.get_deployment(model_id)["status"] == target_status:
-            return True
-        elif (
-            self.get_deployment(model_id)["status"] != target_status
-            and self.get_deployment(model_id)["target_status"] == target_status
-        ):
-            self.wait_for_state_change(model_id, target_status)
-            return target_status == self.get_deployment(model_id)["status"]
-        else:
-            op = Operation(mutation_root)
-            op.update_meta_ai_deployment_by_pk(
-                _set=meta_ai_deployment_set_input(target_status=target_status),
-                pk_columns=meta_ai_deployment_pk_columns_input(model_id=model_id),
-            ).__fields__("model_id", "target_status", "status")
-            data = self.sess.perform_op(op)
-            self.wait_for_state_change(model_id, target_status)
-            return target_status == (op + data).update_meta_ai_deployment_by_pk.status
+        current_status = self.get_deployment(model_id)["status"]
+        current_target_status = self.get_deployment(model_id)["target_status"]
 
-    def wait_for_state_change(self, model_id, target_status):
-        counter = 0
-        log.info("Waiting for status change...")
-        while self.get_deployment(model_id)["status"] != target_status:
-            counter += 1
-            time.sleep(10)
-            if counter > 20:
-                break
-            elif counter % 10 == 0:
-                log.info(f"waiting for status match retry {counter}, time {counter * 10} seconds")
-        if counter <= 30:
-            log.info(f"Success: target_status achieved {target_status}")
+        if current_status == target_status:
+            if current_status != target_status:
+                logger.info(f"Deployment status not consistent. Setting field target_status to {target_status}")
+                stored_target_status = self._set_target_status(model_id, target_status)
+                return stored_target_status == target_status
+            return True
+        elif current_status != target_status and current_target_status == target_status:
+            return self._wait_for_state_change(model_id, field="status", target_status=target_status)
         else:
-            log.info("target_status matching failed: Timeout")
+            stored_target_status = self._set_target_status(model_id, target_status)
+            assert stored_target_status == target_status, "Could not set Deployment target_status properly."
+            return self._wait_for_state_change(model_id, field="status", target_status=target_status)
+
+    def _wait_for_state_change(self, model_id: str, field: str, target_status, retries=20):
+        log.info("Waiting for status change...")
+        for t in range(retries):
+            backend_status = self.get_deployment(model_id)[field]
+            if backend_status == target_status:
+                log.info(f"Success: {field} achieved {target_status}")
+                return True
+            if t % 10 == 0:
+                log.info(f"waiting for {field}=={target_status} match retry {t}, time {t * 10} seconds")
+            time.sleep(10)
+        else:
+            log.info(f"{field} did not reach {target_status}")
+            return False
 
     def set_image(self, model_id: str, ecr_image_name: str) -> object:
         """Change image of an existing deployment.
@@ -325,7 +333,8 @@ class DeploymentApiMixin(ABC):
         return (op + data).update_meta_ai_deployment_by_pk
 
     def undeploy(self, model_id: str) -> bool:
-        """Remove an entry from the deployment table. Action handler should delete the endpoint. Return True if deleted successfully.
+        """Remove an entry from the deployment table. Action handler should delete the endpoint.
+        Return True if deleted successfully.
 
         Args:
             model_id:
@@ -360,7 +369,7 @@ class DeploymentApiMixin(ABC):
             timeout: timeout in seconds to await for a prediction
 
         """
-        request = {"deployment_id": model_id, "data": json.dumps(data_input), "parameters": json.dumps((parameters))}
+        request = {"deployment_id": model_id, "data": json.dumps(data_input), "parameters": json.dumps(parameters)}
         opq = Operation(query_root)
         opq.predict_with_deployment(request=request).__fields__("output", "score")
         data = self.sess.perform_op(opq, timeout)
