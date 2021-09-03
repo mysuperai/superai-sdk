@@ -382,7 +382,7 @@ class AI:
     def deployed(self) -> Optional[bool]:
         if self.id:
             deployment = self.client.get_deployment(self.id)
-            if deployment and deployment.status == "ONLINE":
+            if deployment:
                 return True
         return False
 
