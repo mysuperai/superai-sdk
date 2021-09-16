@@ -4,7 +4,7 @@ SHELL:=/bin/bash
 ifndef PYTHON_VERSION
 	PYTHON_VERSION=3.7.11
 endif
-IMAGE_PYTHON_VERSION=$(echo -n $(PYTHON_VERSION) | sed 's/\.//g')
+IMAGE_PYTHON_VERSION=$(shell echo -n $(PYTHON_VERSION) | sed 's/\.//g')
 
 ifndef mode
 	mode=cpu
@@ -12,6 +12,8 @@ endif
 
 ifeq ($(mode), cpu)
 	BASE_IMAGE=python:${PYTHON_VERSION}-slim-buster
+else ifeq ($(mode), eia)
+	BASE_IMAGE=763104351884.dkr.ecr.us-east-1.amazonaws.com/tensorflow-inference-eia:2.3.0-cpu-py37-ubuntu18.04
 else
 	BASE_IMAGE=nvidia/cuda:10.2-cudnn8-runtime-ubuntu18.04
 endif

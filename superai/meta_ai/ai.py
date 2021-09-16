@@ -923,6 +923,7 @@ class AI:
         skip_build: bool = False,
         properties: Optional[dict] = None,
         enable_cuda: bool = False,
+        enable_eia: bool = False,
         redeploy: bool = False,
         **kwargs,
     ) -> "DeployedPredictor.Type":
@@ -936,6 +937,7 @@ class AI:
             orchestrator: Which orchestrator to be used to deploy.
             skip_build: Skip building
             enable_cuda: Create CUDA-Compatible image
+            enable_eia: Create Elastic Inference compatible image
             properties: Optional dictionary with properties for instance creation.
                 Possible values (with defaults) are:
                     "sagemaker_instance_type": "ml.m5.xlarge"
@@ -967,6 +969,7 @@ class AI:
                     self.name,
                     str(self.version),
                     enable_cuda=enable_cuda,
+                    enable_eia=enable_eia,
                     from_scratch=kwargs.get("build_all_layers", False),
                 )
         elif orchestrator in [Orchestrator.AWS_EKS, Orchestrator.MINIKUBE, Orchestrator.GCP_KS]:
@@ -1073,6 +1076,7 @@ class AI:
         image_name: str,
         version_tag: str = "latest",
         enable_cuda: bool = False,
+        enable_eia: bool = False,
         from_scratch: bool = False,
     ) -> None:
         start = time.time()
@@ -1084,7 +1088,7 @@ class AI:
         if self.requirements:
             files.append("requirements.txt")
         if self.conda_env:
-            files.append(self.conda_env)
+            files.append("environment.yml")
         if self.artifacts:
             if "run" in self.artifacts:
                 files.append("setup.sh")
@@ -1111,7 +1115,10 @@ class AI:
         with open(environment_file, "r") as env_file_reader:
             env_list = env_file_reader.readlines()
         client = docker.from_env()
-        base_image = f"superai-model-s2i-python3711-{'gpu' if enable_cuda else 'cpu'}:1"
+        if not enable_eia:
+            base_image = f"superai-model-s2i-python3711-{'gpu' if enable_cuda else 'cpu'}:1"
+        else:
+            base_image = "superai-model-s2i-python3711-eia:1"
         try:
             _ = client.images.get(base_image)
             log.info(f"Base image '{base_image}' found locally.")
