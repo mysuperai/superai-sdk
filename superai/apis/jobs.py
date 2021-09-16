@@ -16,6 +16,7 @@ class JobsApiMixin(ABC):
         inputsFileUrl: str = None,
         metadata: dict = None,
         worker: str = None,
+        parked: bool = None,
     ) -> dict:
         """
         Submit jobs
@@ -25,6 +26,7 @@ class JobsApiMixin(ABC):
         :param inputs: List of objects that represent the input of the job (based on the particular app type)
         :param inputsFileUrl: URL of json file containing list of input objects
         :param metadata: Object you can attach to job
+        :param parked: Whether the job should be created in the parked (pending) state
         :return: Confirmation message of submission, batch id of submission, uuid of job if len(input) == 1
         """
         body_json = {}
@@ -38,6 +40,8 @@ class JobsApiMixin(ABC):
             body_json["metadata"] = metadata
         if worker is not None:
             body_json["labeler"] = worker
+        if parked is not None:
+            body_json["pending"] = parked
 
         uri = f"apps/{app_id}/jobs"
         return self.request(uri, method="POST", body_params=body_json, required_api_key=True)
