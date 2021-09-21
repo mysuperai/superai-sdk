@@ -36,7 +36,7 @@ REQUIRES = [
     "sagemaker>=1.64.0",
     "sentry-sdk>=0.19.4",
     "scikit-learn>=0.23.2",
-    "sgqlc>=13.0",
+    "sgqlc>=14.1",
     "sentry-sdk>=0.19.4",
     "six",
     "warrant>=0.6",
