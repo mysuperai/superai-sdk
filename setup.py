@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 NAME = "superai"
-VERSION = "0.1.0.beta3.dev5"
+VERSION = "0.1.0.beta3.dev6"
 # To install the library, run the following
 #
 # python setup.py install
