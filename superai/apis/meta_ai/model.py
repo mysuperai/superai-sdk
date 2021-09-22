@@ -306,14 +306,51 @@ class DeploymentApiMixin(ABC):
         """Change image of an existing deployment.
 
         Args:
-            ecr_image_name:
             model_id:
+            ecr_image_name:
         """
         op = Operation(mutation_root)
         op.update_meta_ai_deployment_by_pk(
             _set=meta_ai_deployment_set_input(image=ecr_image_name),
             pk_columns=meta_ai_deployment_pk_columns_input(model_id=model_id),
         ).__fields__("model_id", "image")
+        data = self.sess.perform_op(op)
+        return (op + data).update_meta_ai_deployment_by_pk
+
+    def set_min_instances(self, model_id: str, min_instances: int) -> object:
+        """Change minimum instances of an existing deployment.
+        Setting `min_instances=0` allows the backend to automatically pause deployments to save resources.
+        To set the timeout for this behaviour, use `set_scale_in_timeout`.
+
+        Args:
+            model_id:
+            min_instances:
+        """
+        assert min_instances >= 0, "min_instances needs to be non-negative"
+        op = Operation(mutation_root)
+        op.update_meta_ai_deployment_by_pk(
+            _set=meta_ai_deployment_set_input(min_instances=min_instances),
+            pk_columns=meta_ai_deployment_pk_columns_input(model_id=model_id),
+        ).__fields__("model_id", "min_instances")
+        data = self.sess.perform_op(op)
+        return (op + data).update_meta_ai_deployment_by_pk
+
+    def set_scale_in_timeout(self, model_id: str, timeout_mins: int) -> object:
+        """Change scale in timeout of an existing deployment.
+        After a deployment makes no predictions for `timeout_mins` minutes, it gets `PAUSED`.
+        A paused deployment has no active computing resources.
+        To resume a paused deployment, you can use `set_deployment_status(model_id=..., target_status=ONLINE)`
+
+
+        Args:
+            model_id:
+            timeout_mins:
+        """
+        op = Operation(mutation_root)
+        op.update_meta_ai_deployment_by_pk(
+            _set=meta_ai_deployment_set_input(scale_in_timeout=timeout_mins),
+            pk_columns=meta_ai_deployment_pk_columns_input(model_id=model_id),
+        ).__fields__("model_id", "scale_in_timeout")
         data = self.sess.perform_op(op)
         return (op + data).update_meta_ai_deployment_by_pk
 
