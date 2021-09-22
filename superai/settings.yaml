@@ -47,6 +47,7 @@ dev:
 testing:
   name: "test"
   suffix: "-test"
+  meta_ai_base: "http://localhost:8080/v1/graphql"
   user:
     api_key: "FAKE_API_KEY"
 

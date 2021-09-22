@@ -25,7 +25,7 @@ my_vcr = vcr.VCR(
     serializer="yaml",
     cassette_library_dir="cassettes",
     record_mode="none",
-    match_on=["body", "headers", "method"],
+    match_on=["body", "headers", "method", "uri"],
     filter_headers=["x-api-key", "x-app-id", "Content-Length", "User-Agent"],
     before_record_response=scrub_string(APP_ID, "FAKE_APP_ID"),
     before_record_request=before_record_cb,
@@ -175,3 +175,14 @@ def test_submit_prelabel(ai_api: ProjectAiApiMixin, model: str, existing_app_id)
     assert prediction_id is not None
     prelabels = ai_api.list_prediction_instances(existing_app_id, prediction_id)
     assert len(prelabels) == len(test_output)
+
+
+@pytest.mark.skip
+def test_resolve_data_reference(ai_api: ProjectAiApiMixin):
+    url = ai_api.resolve_data_reference(
+        prediction_id="7bb07cdc-cbfa-4d26-a996-d4c48eca903f",
+        instance_id=0,
+        reference="data://ai/7bb07cdc-cbfa-4d26-a996-d4c48eca903f/0/mask0.png",
+    )
+    assert url is not None
+    assert "https" in url
