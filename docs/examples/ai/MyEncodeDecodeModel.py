@@ -133,7 +133,7 @@ class MyEncodeDecodeModel(BaseModel):
         decoder = keras.Sequential(
             [
                 keras.Input(shape=(64,)),
-                layers.Dense(len(self.output_schema.params.choices), activation="softmax", name="predictions"),
+                layers.Dense(len(self.output_parameters.choices), activation="softmax", name="predictions"),
             ]
         )
         decoder.trainable = trainable

@@ -29,9 +29,9 @@ class ModelService:
         if os.path.exists("AITemplateSaveFile.json"):
             with open("AITemplateSaveFile.json", "r") as template_file:
                 template = json.load(template_file)
-                input_schema = template["input_schema"]
-                output_schema = template["output_schema"]
-                configuration = template["configuration"]
+                input_schema = Schema.from_json(template["input_schema"])
+                output_schema = Schema.from_json(template["output_schema"])
+                configuration = Config.from_json(template["configuration"])
         else:
             input_schema, output_schema, configuration = Schema(), Schema(), Config()
 
@@ -61,6 +61,7 @@ class ModelService:
         if not data:
             return None
         return self.predict(context, data)
+        
 """
 
 runner_script = f"""
@@ -82,6 +83,7 @@ class ModelService:
         if not data:
             return None
         return self.predict(context, data)
+        
 """
 
 lambda_script = """
@@ -119,6 +121,7 @@ service = ModelService()
 def processor(input, context):
     global service
     return service.handle(input, context)
+
 """
 
 server_script = """
@@ -156,6 +159,7 @@ def main():
     subprocess.call(['tail', '-f', '/dev/null'])
 
 main()
+
 """
 
 entry_script = """#!/bin/sh

@@ -4,6 +4,9 @@ import jsonpickle  # type: ignore
 from apm import *  # type: ignore
 
 from superai.apis.meta_ai.meta_ai_graphql_schema import RawPrediction
+from superai.log import logger
+
+log = logger.get_logger(__name__)
 
 
 class Schema:
@@ -77,6 +80,7 @@ class EasyPredictions:
                 if not isinstance(a, RawPrediction):
                     assert self.verify(a)
         else:
+            log.info(f"Received input : {input}")
             raise ValueError(f"Unexpected type {type(input)}, needs to be a dict or list")
         self.value = input
 
@@ -89,7 +93,9 @@ class EasyPredictions:
             args,
             {"prediction": "prediction" @ _},
         ).bind(result):
+            log.info(f"Received input : {args}")
             raise AttributeError("Keys `prediction` needs to be present")
         if not match(args, {"score": "score" @ (InstanceOf(int) | InstanceOf(float)) & Between(0, 1)}).bind(result):
+            log.info(f"Received input : {args}")
             raise AttributeError("Keys `score` needs to be present and between 0 and 1")
         return True
