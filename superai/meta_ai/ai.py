@@ -9,7 +9,6 @@ import re
 import shlex
 import shutil
 import subprocess
-import sys
 import tarfile
 import time
 import traceback
@@ -209,7 +208,7 @@ class AITemplate:
         conda_env = os.path.join(load_path, "conda.yml") if details.get("conda_env") is not None else None
         code_path = details.get("code_path")
         artifacts = details.get("artifacts")
-        model_class = details.get("model_class")
+        model_class = details["model_class"]
         name = details["name"]
         description = details["description"]
         input_schema = Schema.from_json(details["input_schema"])
@@ -952,7 +951,7 @@ class AI:
             ai_cache: Cache of ai objects for a lambda, 5 by default considering the short life of a lambda function
             build_all_layers: Perform a fresh build of all layers
         """
-        lambda_mode = orchestrator in [Orchestrator.LOCAL_DOCKER_LAMBDA, Orchestrator.AWS_LAMBDA]
+        is_lambda_orchestrator = orchestrator in [Orchestrator.LOCAL_DOCKER_LAMBDA, Orchestrator.AWS_LAMBDA]
         if orchestrator in [
             Orchestrator.LOCAL_DOCKER,
             Orchestrator.LOCAL_DOCKER_LAMBDA,
@@ -961,7 +960,7 @@ class AI:
         ]:
             self._prepare_dependencies(
                 worker_count=kwargs.get("worker_count", 1),
-                lambda_mode=lambda_mode,
+                lambda_mode=is_lambda_orchestrator,
                 ai_cache=kwargs.get("ai_cache", 5),
             )
             if not skip_build:
@@ -970,6 +969,7 @@ class AI:
                     str(self.version),
                     enable_cuda=enable_cuda,
                     enable_eia=enable_eia,
+                    lambda_mode=is_lambda_orchestrator,
                     from_scratch=kwargs.get("build_all_layers", False),
                 )
         elif orchestrator in [Orchestrator.AWS_EKS, Orchestrator.MINIKUBE, Orchestrator.GCP_KS]:
@@ -978,10 +978,10 @@ class AI:
             raise ValueError(f"Invalid Orchestrator, should be one of {[e for e in Orchestrator]}")
         # build kwargs
         kwargs = {}
-        if orchestrator == Orchestrator.LOCAL_DOCKER:
+        if orchestrator in [Orchestrator.LOCAL_DOCKER, Orchestrator.LOCAL_DOCKER_LAMBDA]:
             kwargs["image_name"] = f"{self.name}:{self.version}"
             kwargs["weights_path"] = self.weights_path
-            kwargs["lambda_mode"] = lambda_mode
+            kwargs["lambda_mode"] = is_lambda_orchestrator
         else:
             if not skip_build:
                 ecr_image_name = self.push_model(self.name, str(self.version))
@@ -1061,15 +1061,15 @@ class AI:
                 args = dict(model_name=self.ai_template.model_class)
             else:
                 template = Template(lambda_script)
-                args = dict(ai_cache=ai_cache)
+                args = dict(ai_cache=ai_cache, model_name=self.ai_template.model_class)
             scripts_content: str = template.render(args)
             handler_file.write(scripts_content)
-
-        with open(os.path.join(self._location, dockerd_entrypoint), "w") as entry_point_file:
-            template = Template(server_script)
-            args = dict(worker_count=worker_count)
-            entry_point_file_content: str = template.render(args)
-            entry_point_file.write(entry_point_file_content)
+        if not lambda_mode:
+            with open(os.path.join(self._location, dockerd_entrypoint), "w") as entry_point_file:
+                template = Template(server_script)
+                args = dict(worker_count=worker_count)
+                entry_point_file_content: str = template.render(args)
+                entry_point_file.write(entry_point_file_content)
 
     def build_image_s2i(
         self,
@@ -1077,6 +1077,7 @@ class AI:
         version_tag: str = "latest",
         enable_cuda: bool = False,
         enable_eia: bool = False,
+        lambda_mode: bool = False,
         from_scratch: bool = False,
     ) -> None:
         start = time.time()
@@ -1115,10 +1116,14 @@ class AI:
         with open(environment_file, "r") as env_file_reader:
             env_list = env_file_reader.readlines()
         client = docker.from_env()
-        if not enable_eia:
-            base_image = f"superai-model-s2i-python3711-{'gpu' if enable_cuda else 'cpu'}:1"
-        else:
+        if enable_eia:
             base_image = "superai-model-s2i-python3711-eia:1"
+        elif lambda_mode:
+            base_image = f"superai-model-s2i-python3711-cpu-lambda:1"
+        elif enable_cuda:
+            base_image = f"superai-model-s2i-python3711-gpu:1"
+        else:
+            base_image = f"superai-model-s2i-python3711-cpu:1"
         try:
             _ = client.images.get(base_image)
             log.info(f"Base image '{base_image}' found locally.")
@@ -1149,8 +1154,12 @@ class AI:
                 from_scratch = True
         if from_scratch:
             new_lines = list(filter(lambda x: "BUILD_PIP" not in x, env_list))
+            if lambda_mode:
+                found_lambda_env = any(["LAMBDA_MODE" in line for line in env_list])
+                if not found_lambda_env:
+                    new_lines.append("LAMBDA_MODE=true")
             with open(environment_file, "w") as env_file_writer:
-                env_file_writer.writelines(new_lines)
+                env_file_writer.write("\n".join(new_lines))
             command = (
                 f"s2i build -E {environment_file} "
                 f"-v {os.path.join(os.path.expanduser('~'), '.aws')}:/root/.aws "
@@ -1169,6 +1178,11 @@ class AI:
         with open(environment_file, "r") as env_file_reader:
             env_list = env_file_reader.readlines()
         found_build_pip = any(["BUILD_PIP" in line for line in env_list])
+        if lambda_mode:
+            found_lambda_env = any(["LAMBDA_MODE" in line for line in env_list])
+            if not found_lambda_env:
+                with open(environment_file, "a") as env_file_writer:
+                    env_file_writer.write("\nLAMBDA_MODE=true")
         if not found_build_pip:
             with open(environment_file, "a") as env_file_writer:
                 env_file_writer.write("\nBUILD_PIP=false")
@@ -1176,7 +1190,7 @@ class AI:
             f"s2i build -E {environment_file} "
             f"-v {os.path.join(os.path.expanduser('~'), '.aws')}:/root/.aws "
             f"-v {os.path.join(os.path.expanduser('~'), '.superai')}:/root/.superai "
-            f"-v {os.path.join(os.path.expanduser('~'), '.canotic')}:/root/.canotic"
+            f"-v {os.path.join(os.path.expanduser('~'), '.canotic')}:/root/.canotic "
             f"--incremental=True . "
             f"{image_name}-pip-layer:{version_tag} {image_name}:{version_tag}"
         )

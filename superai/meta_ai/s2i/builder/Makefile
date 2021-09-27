@@ -44,4 +44,12 @@ build: permissions
 		--secret id=aws,src=${HOME}/.aws/credentials \
 		.
 
+build-lambda: permissions
+	DOCKER_BUILDKIT=1 docker build -f Dockerfile.Lambda \
+		--build-arg PYTHON_VERSION=${PYTHON_VERSION} \
+		--build-arg BASE_IMAGE=${BASE_IMAGE} \
+		-t ${IMAGE_NAME}-lambda:${IMAGE_VERSION} \
+		--secret id=aws,src=${HOME}/.aws/credentials \
+		.
+
 all: build push

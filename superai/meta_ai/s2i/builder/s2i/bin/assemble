@@ -47,7 +47,7 @@ if [[ -z "$BUILD_PIP" ]]; then
   if [[ -f /home/model-server/setup.sh ]]; then
     echo "---> Executing setup.sh"
     export AWS_DEFAULT_REGION=us-east-1
-    aws codeartifact login --tool pip --domain superai --repository pypi-superai
+    /opt/conda/envs/env/bin/aws codeartifact login --tool pip --domain superai --repository pypi-superai
     bash setup.sh
   fi
 else
