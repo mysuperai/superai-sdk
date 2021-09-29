@@ -88,11 +88,11 @@ class ModelService:
 
 lambda_script = """
 import os
+os.environ["SUPERAI_CONFIG_ROOT"] = "/tmp/.superai"
+
 import functools
 
 from superai.meta_ai.ai import AI
-
-os.environ["SUPERAI_CONFIG_ROOT"] = "/tmp/.superai"
 
 
 class ModelService:
@@ -104,6 +104,8 @@ class ModelService:
         return AI.load(path, weights)
 
     def predict(self, data, context):
+        if not os.path.exists("/opt/ml/model/"):
+            os.makedirs("/opt/ml/model/")
         path, weights = data.get("path", "/home/model-server/"), data.get("weights", "/opt/ml/model/")
         ai = self.get_ai(path, weights)
         return ai.predict(data)
