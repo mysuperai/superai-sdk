@@ -138,7 +138,8 @@ class AWSPredictor(DeployedPredictor):
 
     def predict(self, input, **kwargs):
         if self.client.check_endpoint_is_available(self.id):
-            result = self.client.predict_from_endpoint(self.id, input)
+            input_data, parameters = input.get("data", {}), input.get("parameters", {})
+            result = self.client.predict_from_endpoint(self.id, input_data, parameters)
             output = EasyPredictions(result).value
             return output
         else:
