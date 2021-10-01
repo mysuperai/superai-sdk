@@ -45,7 +45,7 @@ build: permissions
 		.
 
 build-lambda: permissions
-	DOCKER_BUILDKIT=1 docker build -f Dockerfile.Lambda \
+	DOCKER_BUILDKIT=1 docker build -f Dockerfile.lambda \
 		--build-arg PYTHON_VERSION=${PYTHON_VERSION} \
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
 		-t ${IMAGE_NAME}-lambda:${IMAGE_VERSION} \
