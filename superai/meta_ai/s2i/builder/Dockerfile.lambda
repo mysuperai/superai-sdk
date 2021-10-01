@@ -35,7 +35,8 @@ RUN UNAME_M="$(uname -m)" \
     echo "conda activate env" >> ~/.bashrc
 SHELL ["/opt/conda/bin/conda", "run", "--no-capture-output", "-n", "env", "/bin/bash", "-c"]
 
-RUN mkdir /home/model-server
+# Create directories for code and model weights
+RUN mkdir -p /home/model-server && mkdir -p /opt/ml/model
 WORKDIR /home/model-server
 
 ADD https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie /usr/local/bin/aws-lambda-rie
