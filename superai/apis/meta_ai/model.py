@@ -396,17 +396,17 @@ class DeploymentApiMixin(ABC):
                 return True
         return False
 
-    def predict_from_endpoint(self, model_id: str, data_input: dict, parameters: dict = None, timeout: int = 20):
+    def predict_from_endpoint(self, model_id: str, input_data: dict, parameters: dict = None, timeout: int = 20):
         """Query the endpoint name from deployment table, return prediction (using MetaAI sagemaker configuration)
 
         Args:
             model_id: id of the model deployed, acts as the primary key of the deployment
-            data_input: raw data or reference to stored object
+            input_data: raw data or reference to stored object
             parameters: parameters for the model inference
             timeout: timeout in seconds to await for a prediction
 
         """
-        request = {"deployment_id": model_id, "data": json.dumps(data_input), "parameters": json.dumps(parameters)}
+        request = {"deployment_id": model_id, "data": json.dumps(input_data), "parameters": json.dumps(parameters)}
         opq = Operation(query_root)
         opq.predict_with_deployment(request=request).__fields__("output", "score")
         data = self.sess.perform_op(opq, timeout)
