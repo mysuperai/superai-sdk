@@ -35,7 +35,14 @@ def retry(exceptions, tries=5, delay=1, backoff=2, logger=logging):
                     time.sleep(mdelay)
                     mtries -= 1
                     mdelay *= backoff
-            return f(*args, **kwargs)
+            try:
+                return f(*args, **kwargs)
+            except exceptions as e:
+                if logger:
+                    # Log last retry with exception
+                    logger.exception(f"Last retry failed: {e}")
+                # Reraise exception
+                raise
 
         return f_retry  # true decorator
 
