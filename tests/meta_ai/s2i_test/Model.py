@@ -18,6 +18,9 @@ class Model(BaseModel):
     def predict(self, inputs):
         return [{"prediction": f"some_sort_of_prediction_for_{json.dumps(inputs)}", "score": 0}]
 
+    def predict_raw(self, inputs):
+        return self.predict(inputs)
+
     def train(
         self,
         model_save_path,

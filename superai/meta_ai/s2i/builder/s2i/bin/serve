@@ -32,15 +32,23 @@ else
   CONDA_ENV_NAME=${CONDA_ENV_NAME:-env}
 
   echo "starting microservice in environment '${CONDA_ENV_NAME}'"
-  if [[ -z "$LAMBDA_MODE" ]]; then
-    echo "Starting serving with Sagemaker Backend"
-    exec /opt/conda/envs/"$CONDA_ENV_NAME"/bin/python /home/model-server/dockerd-entrypoint.py "$MODEL_NAME" serve
-  else
+  if [[ -v LAMBDA_MODE ]]; then
     echo "Starting serving with Lambda backend"
     if [ -z "${AWS_LAMBDA_RUNTIME_API}" ]; then
       exec /usr/local/bin/aws-lambda-rie /opt/conda/envs/"$CONDA_ENV_NAME"/bin/python -m awslambdaric handler.processor
     else
       exec /opt/conda/envs/"$CONDA_ENV_NAME"/bin/python -m awslambdaric handler.processor
     fi
+  elif [[ -v SELDON_MODE ]]; then
+    echo "Starting Seldon microservice"
+    if [ -n "$PERSISTENCE" ]; then
+      exec /opt/conda/envs/"$CONDA_ENV_NAME"/bin/seldon-core-microservice "$MODEL_NAME" --service-type "$SERVICE_TYPE" --persistence "$PERSISTENCE"
+    else
+      exec /opt/conda/envs/"$CONDA_ENV_NAME"/bin/seldon-core-microservice "$MODEL_NAME" --service-type "$SERVICE_TYPE"
+    fi
+  else
+    echo "Starting serving with Sagemaker Backend"
+    exec /opt/conda/envs/"$CONDA_ENV_NAME"/bin/python /home/model-server/dockerd-entrypoint.py "$MODEL_NAME" serve
   fi
 fi
+
