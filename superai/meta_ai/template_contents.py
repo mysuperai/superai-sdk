@@ -87,9 +87,6 @@ class ModelService:
 """
 
 lambda_script = """
-import os
-os.environ["SUPERAI_CONFIG_ROOT"] = "/tmp/.superai"
-
 import functools
 
 from superai.meta_ai.ai import AI
