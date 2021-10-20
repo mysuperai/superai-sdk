@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from abc import ABCMeta, abstractmethod
 from typing import Optional
 
@@ -34,6 +35,10 @@ class BaseModel(metaclass=ABCMeta):
 
         self.input_parameters = input_schema.parameters() if input_schema is not None else SchemaParameters()
         self.output_parameters = output_schema.parameters() if output_schema is not None else SchemaParameters()
+
+        # Seldon default weights loading path in the container. You can override this by passing MNT_PATH in the
+        # environment file or CRD
+        self.default_seldon_load_path = os.environ.get("MNT_PATH", "/shared")
 
     def __init_subclass__(cls, **kwargs):
         cls.predict = cls._process_json_func(cls.predict)
@@ -71,9 +76,8 @@ class BaseModel(metaclass=ABCMeta):
         """
         pass
 
-    @classmethod
     @abstractmethod
-    def load_weights(cls, weights_path: str):
+    def load_weights(self, weights_path: str):
         """Used to load the model from ``weights_path``. Supports S3 remote artifact URIs and relative filesystem paths.
         Note that paths to outer folder e.g. `../my_outer_dir` are not supported
 
@@ -81,6 +85,23 @@ class BaseModel(metaclass=ABCMeta):
             weights_path: Relative path or remote S3 URI.
         """
         pass
+
+    def load(self):
+        """Seldon helper function to call the load_weights method. Seldon runs this method during the provision of
+        pod. The loading will be done with a default path, but we are passing some options to parametrize this"""
+        return self.load_weights(self.default_seldon_load_path)
+
+    def predict_raw(self, inputs):
+        """Seldon uses this method to return raw predictions back to invoker. Seldon uses the predict method to
+        process numpy arrays. If you want to process numpy arrays differently from raw prediction requests,
+        you can define both
+
+        Args:
+            inputs: Model input
+
+        Returns
+            Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list."""
+        return self.predict(inputs)
 
     def initialize(self, context: "BaseModelContext"):
         """Initialize model and loads model artifact using :func:`~BaseModel.load_context`. In the base
@@ -121,6 +142,9 @@ class BaseModel(metaclass=ABCMeta):
         """Generate model predictions.
 
         Enforces the input schema first before calling the model implementation with the sanitized input.
+
+        Note: Seldon expects only a numpy.ndarray as an input for this method. If you are not processing numpy.ndarray,
+        you can override predict_raw method instead of predict.
 
         Args:
             inputs: Model input
@@ -205,6 +229,10 @@ class BaseModel(metaclass=ABCMeta):
             self.input_parameters = input_parameters
         if output_parameters is not None:
             self.output_parameters = output_parameters
+
+    def metrics(self):
+        """Helper function to return metrics used by prometheus"""
+        pass
 
 
 class BaseModelContext(object):
