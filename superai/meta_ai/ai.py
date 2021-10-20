@@ -29,6 +29,7 @@ from superai.log import logger
 from superai.meta_ai.ai_helper import prepare_dockerfile_string, get_user_model_class, list_models
 from superai.meta_ai.deployed_predictors import LocalPredictor, DeployedPredictor, AWSPredictor
 from superai.meta_ai.dockerizer import push_image
+from superai.meta_ai.environment_file import EnvironmentFileProcessor
 from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters, Config
 from superai.meta_ai.schema import Schema, SchemaParameters, EasyPredictions
 from superai.meta_ai.template_contents import (
@@ -199,6 +200,7 @@ class AITemplate:
             )
         self.model_class = model_class
         self.model_class_path = model_class_path
+        self.environs: Optional[EnvironmentFileProcessor] = None
 
     @classmethod
     def load_local(cls, load_path: str) -> "AITemplate":
@@ -214,7 +216,7 @@ class AITemplate:
         input_schema = Schema.from_json(details["input_schema"])
         output_schema = Schema.from_json(details["output_schema"])
         configuration = Config.from_json(details["configuration"])
-        return AITemplate(
+        template = AITemplate(
             input_schema=input_schema,
             output_schema=output_schema,
             configuration=configuration,
@@ -227,6 +229,10 @@ class AITemplate:
             conda_env=conda_env,
             artifacts=artifacts,
         )
+        environs = EnvironmentFileProcessor(os.path.abspath(load_path))
+        environs.from_dict(details["environs"])
+        template.environs = environs
+        return template
 
     def save(self, version_save_path):
         if os.path.exists(f"{self.model_class}.py"):
@@ -269,16 +275,15 @@ class AITemplate:
         if self.artifacts is not None and "run" in self.artifacts:
             shutil.copy(os.path.abspath(self.artifacts["run"]), os.path.join(version_save_path, "setup.sh"))
         # create the environment file
-        with open(os.path.join(version_save_path, "environment"), "w") as environment_file:
-            content = [f"MODEL_NAME={self.model_class}"]
-            if os.path.exists(os.path.join(version_save_path, "environment.yml")):
-                with open(os.path.join(version_save_path, "environment.yml"), "r") as env_yaml:
-                    try:
-                        conda_env_yaml = yaml.safe_load(env_yaml)
-                        content.append(f"CONDA_ENV_NAME={conda_env_yaml.get('name', 'env')}")
-                    except yaml.YAMLError as exc:
-                        log.error(exc)
-            environment_file.write("\n".join(content))
+        self.environs = EnvironmentFileProcessor(os.path.abspath(version_save_path), filename="environment")
+        self.environs.add_or_update("MODEL_NAME", self.model_class)
+        if os.path.exists(os.path.join(version_save_path, "environment.yml")):
+            with open(os.path.join(version_save_path, "environment.yml"), "r") as env_yaml:
+                try:
+                    conda_env_yaml = yaml.safe_load(env_yaml)
+                    self.environs.add_or_update("CONDA_ENV_NAME", conda_env_yaml.get("name", "env"))
+                except yaml.YAMLError as exc:
+                    log.error(exc)
         with open(os.path.join(version_save_path, "AITemplateSaveFile.json"), "w") as ai_template_writer:
             content = {
                 "description": self.description,
@@ -294,6 +299,7 @@ class AITemplate:
                 "model_class": self.model_class,
                 "model_class_path": self.model_class_path,
                 "artifacts": self.artifacts,
+                "environs": self.environs.to_dict(),
             }
             json.dump(content, ai_template_writer, indent=1)
 
@@ -354,6 +360,7 @@ class AI:
 
         self.model_class_name = ai_template.model_class
         self.model_class_path = ai_template.model_class_path
+        self.environs: "EnvironmentFileProcessor" = ai_template.environs
         self.is_weights_loaded = False
 
         self.container = None
@@ -950,8 +957,13 @@ class AI:
             worker_count: Number of workers to use for serving with Sagemaker.
             ai_cache: Cache of ai objects for a lambda, 5 by default considering the short life of a lambda function
             build_all_layers: Perform a fresh build of all layers
+            envs: Pass custom environment variables to the deployment. Should be a dictionary like
+                  {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
         """
         is_lambda_orchestrator = orchestrator in [Orchestrator.LOCAL_DOCKER_LAMBDA, Orchestrator.AWS_LAMBDA]
+        # Updating environs before image builds
+        for key, value in kwargs.get("envs", {}).items():
+            self.environs.add_or_update(key, value)
         if orchestrator in [
             Orchestrator.LOCAL_DOCKER,
             Orchestrator.LOCAL_DOCKER_LAMBDA,
@@ -1071,19 +1083,7 @@ class AI:
                 entry_point_file_content: str = template.render(args)
                 entry_point_file.write(entry_point_file_content)
 
-    def build_image_s2i(
-        self,
-        image_name: str,
-        version_tag: str = "latest",
-        enable_cuda: bool = False,
-        enable_eia: bool = False,
-        lambda_mode: bool = False,
-        from_scratch: bool = False,
-    ) -> None:
-        start = time.time()
-        cwd = os.getcwd()
-        os.chdir(self._location)
-        environment_file = "environment"
+    def _track_changes(self):
         # check the hash, if it doesn't exist, create one
         files = []
         if self.requirements:
@@ -1112,9 +1112,22 @@ class AI:
             new_hash[file] = file_hash
         with open(hash_file, "w") as f_hash:
             json.dump(new_hash, f_hash)
+        return changes_in_build
 
-        with open(environment_file, "r") as env_file_reader:
-            env_list = env_file_reader.readlines()
+    def build_image_s2i(
+        self,
+        image_name: str,
+        version_tag: str = "latest",
+        enable_cuda: bool = False,
+        enable_eia: bool = False,
+        lambda_mode: bool = False,
+        from_scratch: bool = False,
+    ) -> None:
+        start = time.time()
+        cwd = os.getcwd()
+        os.chdir(self._location)
+        changes_in_build = self._track_changes()
+
         client = docker.from_env()
         if enable_eia:
             base_image = "superai-model-s2i-python3711-eia:1"
@@ -1153,15 +1166,12 @@ class AI:
                 log.info("Pip layer image not found, rebuilding")
                 from_scratch = True
         if from_scratch:
-            new_lines = list(filter(lambda x: "BUILD_PIP" not in x, env_list))
+            self.environs.delete("BUILD_PIP")
             if lambda_mode:
-                found_lambda_env = any(["LAMBDA_MODE" in line for line in env_list])
-                if not found_lambda_env:
-                    new_lines.append("LAMBDA_MODE=true")
-            with open(environment_file, "w") as env_file_writer:
-                env_file_writer.write("\n".join(new_lines))
+                self.environs.add_or_update("LAMBDA_MODE=true")
+                self.environs.add_or_update("SUPERAI_CONFIG_ROOT", "/tmp/.superai")
             command = (
-                f"s2i build -E {environment_file} "
+                f"s2i build -E {self.environs.location} "
                 f"-v {os.path.join(os.path.expanduser('~'), '.aws')}:/root/.aws "
                 f"-v {os.path.join(os.path.expanduser('~'), '.superai')}:/root/.superai "
                 f"-v {os.path.join(os.path.expanduser('~'), '.canotic')}:/root/.canotic "
@@ -1175,19 +1185,12 @@ class AI:
             if diff.total_seconds() > 2.0:
                 raise Exception(f"Image failed to create, this image is too old {diff.total_seconds()}s")
 
-        with open(environment_file, "r") as env_file_reader:
-            env_list = env_file_reader.readlines()
-        found_build_pip = any(["BUILD_PIP" in line for line in env_list])
         if lambda_mode:
-            found_lambda_env = any(["LAMBDA_MODE" in line for line in env_list])
-            if not found_lambda_env:
-                with open(environment_file, "a") as env_file_writer:
-                    env_file_writer.write("\nLAMBDA_MODE=true")
-        if not found_build_pip:
-            with open(environment_file, "a") as env_file_writer:
-                env_file_writer.write("\nBUILD_PIP=false")
+            self.environs.add_or_update("LAMBDA_MODE=true")
+            self.environs.add_or_update("SUPERAI_CONFIG_ROOT", "/tmp/.superai")
+        self.environs.add_or_update("BUILD_PIP=false")
         command = (
-            f"s2i build -E {environment_file} "
+            f"s2i build -E {self.environs.location} "
             f"-v {os.path.join(os.path.expanduser('~'), '.aws')}:/root/.aws "
             f"-v {os.path.join(os.path.expanduser('~'), '.superai')}:/root/.superai "
             f"-v {os.path.join(os.path.expanduser('~'), '.canotic')}:/root/.canotic "

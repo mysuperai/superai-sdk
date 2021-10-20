@@ -33,7 +33,7 @@ class String(Scalar):
 
 
 class ParamsSpec:
-    """ParamsSpec to specify range and categorical inputs for yyper-parameter search."""
+    """ParamsSpec to specify range and categorical inputs for Hyper-parameter search."""
 
     class ParamType(str, enum.Enum):
         DOUBLE = "DOUBLE"
