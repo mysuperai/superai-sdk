@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 NAME = "superai"
-VERSION = "0.1.0.beta3.dev16"
+VERSION = "0.1.0.beta3.dev17"
 # To install the library, run the following
 #
 # python setup.py install
@@ -68,6 +68,7 @@ TEST_REQUIRES = [
     "pytest-env>=0.6.2",
     "vcrpy>=4.1.1",
     "pytest-mock~=3.3.1",
+    "seldon-core[all]>=1.11.2",
 ]
 
 setup(

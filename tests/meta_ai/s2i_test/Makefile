@@ -38,6 +38,13 @@ test: build run_d
 	curl -d '{"my_image": {"image_url": "https://c1.staticflickr.com/3/2829/8987621878_94d0ebe159_b.jpg"}}' -H 'Content-Type: application/json' http://localhost/invocations
 	docker rm -f "test_predictor"
 
+seldon-core-microservice-test:
+	export MNT_PATH=$(shell pwd)
+	seldon-core-microservice Model --service-type MODEL --log-level DEBUG
+
+test-seldon-core-microservice:
+	curl -X POST http://localhost:9000/api/v1.0/predictions -H 'Content-Type: application/json' -d '{"data": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}'
+
 # run using `make seldon=true folder=$(pwd) test-seldon`
 test-seldon: init build run_d
 	sleep 4
