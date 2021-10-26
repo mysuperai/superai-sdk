@@ -39,7 +39,7 @@ REQUIRES = [
     "sgqlc>=14.1",
     "sentry-sdk>=0.19.4",
     "six",
-    "warrant>=0.6",
+    "pycognito>=2021.3.1",
     "psutil~=5.6.7",
 ]
 

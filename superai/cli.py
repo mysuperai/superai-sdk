@@ -9,7 +9,7 @@ import yaml
 from botocore.exceptions import ClientError
 from datetime import datetime
 from typing import List
-from warrant import Cognito
+from pycognito import Cognito
 
 from superai import __version__
 from superai.client import Client
