@@ -18,9 +18,6 @@ cd /home/model-server
 echo "--> Installing application source..."
 cp -Rf /tmp/src/. ./
 
-export AWS_DEFAULT_REGION=us-east-1
-/opt/conda/envs/env/bin/aws codeartifact login --tool pip --domain superai --repository pypi-superai
-
 if [[ -z "$BUILD_PIP" ]]; then
   echo "BUILD_PIP does not exist. Building the pip dependencies..."
   if [[ -f requirements.txt ]]; then
@@ -30,7 +27,11 @@ if [[ -z "$BUILD_PIP" ]]; then
     else
       mkdir $PIP_CACHE
     fi
-    /opt/conda/envs/env/bin/pip install --no-cache-dir -r requirements.txt
+    export PATH=/opt/conda/envs/env/bin/:$PATH
+    echo "Using $(pip --version)"
+    export AWS_DEFAULT_REGION=us-east-1
+    aws codeartifact login --tool pip --domain superai --repository pypi-superai
+    pip install --no-cache-dir -r requirements.txt
   elif [[ -f environment.yml ]]; then
     echo "---> Creating environment with Conda..."
     if [[ -z "$CONDA_ENV_NAME" ]]; then
@@ -42,7 +43,11 @@ if [[ -z "$BUILD_PIP" ]]; then
     /opt/conda/bin/conda env create --name $CONDA_ENV_NAME --file environment.yml
 
     echo "---> Obtaining and installing Sagemaker dependencies..."
-    /opt/conda/envs/$CONDA_ENV_NAME/bin/pip install --no-cache-dir -r /home/model-server/.sagemaker-requirements/base_requirements.txt
+    export PATH=/opt/conda/envs/$CONDA_ENV_NAME/bin/:$PATH
+    pip --version
+    export AWS_DEFAULT_REGION=us-east-1
+    /opt/conda/envs/env/bin/aws codeartifact login --tool pip --domain superai --repository pypi-superai
+    pip install --no-cache-dir -r /home/model-server/.sagemaker-requirements/base_requirements.txt
   fi
   if [[ -f /home/model-server/setup.sh ]]; then
     echo "---> Executing setup.sh"

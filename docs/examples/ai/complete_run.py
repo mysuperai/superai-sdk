@@ -95,7 +95,7 @@ ai = AI(
     weights_path=os.path.join(os.path.dirname(__file__), "resources/my_model"),
 )
 
-predictor: LocalPredictor = ai.deploy(orchestrator=Orchestrator.LOCAL_DOCKER_LAMBDA)
+predictor: LocalPredictor = ai.deploy(orchestrator=Orchestrator.LOCAL_DOCKER, enable_cuda=True)
 
 time.sleep(5)
 log.info(
@@ -106,6 +106,39 @@ log.info(
     )
 )
 predictor.container.stop()
+
+template_2 = AITemplate(
+    input_schema=Schema(),
+    output_schema=Schema(),
+    configuration=Config(),
+    model_class="MyKerasModel",
+    name="My_template",
+    description="Template for my new awesome project",
+    conda_env="resources/conda.yaml",
+    artifacts={"run": "resources/runDir/run_this.sh"},
+    code_path=["resources/runDir"],
+)
+ai_2 = AI(
+    ai_template=template,
+    input_params=template.input_schema.parameters(),
+    output_params=template.output_schema.parameters(choices=[str(x) for x in range(10)]),
+    name="my_mnist_model",
+    version=5,
+    weights_path=os.path.join(os.path.dirname(__file__), "resources/my_model"),
+)
+
+predictor: LocalPredictor = ai_2.deploy(orchestrator=Orchestrator.LOCAL_DOCKER, build_all_layers=True)
+
+time.sleep(5)
+log.info(
+    "Local predictions: {}".format(
+        predictor.predict(
+            input={"data": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
+        ),
+    )
+)
+predictor.container.stop()
+
 ai.push_model("my_mnist_model", "2")
 
 ###########################################################################
@@ -252,7 +285,9 @@ log.info(f"Result : {predictions}")
 with m.train as t:
     # Mocked, does not do anything
     my_ai.train(
-        model_save_path="s3://some_model_path", training_data="s3://some_training_data", mode=Orchestrator.AWS_SAGEMAKER
+        model_save_path="s3://some_model_path",
+        training_data="s3://some_training_data",
+        orchestrator=Orchestrator.AWS_SAGEMAKER,
     )
 
 
