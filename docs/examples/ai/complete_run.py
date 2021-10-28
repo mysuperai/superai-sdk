@@ -119,15 +119,15 @@ template_2 = AITemplate(
     code_path=["resources/runDir"],
 )
 ai_2 = AI(
-    ai_template=template,
-    input_params=template.input_schema.parameters(),
-    output_params=template.output_schema.parameters(choices=[str(x) for x in range(10)]),
+    ai_template=template_2,
+    input_params=template_2.input_schema.parameters(),
+    output_params=template_2.output_schema.parameters(choices=[str(x) for x in range(10)]),
     name="my_mnist_model",
     version=5,
     weights_path=os.path.join(os.path.dirname(__file__), "resources/my_model"),
 )
 
-predictor: LocalPredictor = ai_2.deploy(orchestrator=Orchestrator.LOCAL_DOCKER, build_all_layers=True)
+predictor: LocalPredictor = ai_2.deploy(orchestrator=Orchestrator.LOCAL_DOCKER, enable_cuda=True, build_all_layers=True)
 
 time.sleep(5)
 log.info(
