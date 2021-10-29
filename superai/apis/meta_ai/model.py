@@ -4,6 +4,7 @@ from abc import ABC
 from typing import Tuple
 
 from sgqlc.operation import Operation  # type: ignore
+from rich.console import Console
 
 from superai.log import logger
 from .session import MetaAISession  # type: ignore
@@ -265,15 +266,19 @@ class DeploymentApiMixin(ABC):
         data = self.sess.perform_op(op)
         return (op + data).update_meta_ai_deployment_by_pk.target_status
 
-    def set_deployment_status(self, model_id: str, target_status: meta_ai_deployment_status_enum) -> bool:
+    def set_deployment_status(
+        self, model_id: str, target_status: meta_ai_deployment_status_enum, timeout: int = 600
+    ) -> bool:
         """Change status field of an existing deployment.
 
         Args:
-            model_id:
+            model_id: The UUID of the model in MetaAI
             target_status: The designated status of the deployment which the backend will fulfill
+            timeout: The number of seconds to wait for a status change in a polling fashion
         """
-        current_status = self.get_deployment(model_id)["status"]
-        current_target_status = self.get_deployment(model_id)["target_status"]
+        model_deployment = self.get_deployment(model_id)
+        current_status = model_deployment["status"]
+        current_target_status = model_deployment["target_status"]
 
         if current_status == target_status:
             if current_status != target_status:
@@ -282,25 +287,32 @@ class DeploymentApiMixin(ABC):
                 return stored_target_status == target_status
             return True
         elif current_status != target_status and current_target_status == target_status:
-            return self._wait_for_state_change(model_id, field="status", target_status=target_status)
+            return self._wait_for_state_change(model_id, field="status", target_status=target_status, timeout=timeout)
         else:
             stored_target_status = self._set_target_status(model_id, target_status)
             assert stored_target_status == target_status, "Could not set Deployment target_status properly."
-            return self._wait_for_state_change(model_id, field="status", target_status=target_status)
+            return self._wait_for_state_change(model_id, field="status", target_status=target_status, timeout=timeout)
 
-    def _wait_for_state_change(self, model_id: str, field: str, target_status, retries=20):
-        log.info("Waiting for status change...")
-        for t in range(retries):
-            backend_status = self.get_deployment(model_id)[field]
-            if backend_status == target_status:
-                log.info(f"Success: {field} achieved {target_status}")
-                return True
-            if t % 10 == 0:
-                log.info(f"waiting for {field}=={target_status} match retry {t}, time {t * 10} seconds")
-            time.sleep(10)
-        else:
-            log.info(f"{field} did not reach {target_status}")
-            return False
+    def _wait_for_state_change(self, model_id: str, field: str, target_status, timeout=600):
+        console = Console()
+        end_time = time.time() + timeout
+        retries = 0
+        with console.status("[bold green]Waiting for status change...") as status:
+            while time.time() < end_time:
+                backend_status = self.get_deployment(model_id)[field]
+                if backend_status == target_status:
+                    console.log(f"[green]Success: [b]{field}[/b] achieved [b]{target_status}[/b]")
+                    return True
+                if retries % 10 == 0:
+                    console.log(
+                        f"waiting for [yellow]{field}[/]==[green]{target_status}[/] "
+                        f"- retry {retries}, time {retries * 10} seconds"
+                    )
+                time.sleep(10)
+                retries += 1
+
+        console.log(f"[red][b]{field}[/b] did not reach [b]{target_status}[/b] after [b]{timeout}[/b] seconds")
+        return False
 
     def set_image(self, model_id: str, ecr_image_name: str) -> object:
         """Change image of an existing deployment.
@@ -340,7 +352,6 @@ class DeploymentApiMixin(ABC):
         After a deployment makes no predictions for `timeout_mins` minutes, it gets `PAUSED`.
         A paused deployment has no active computing resources.
         To resume a paused deployment, you can use `set_deployment_status(model_id=..., target_status=ONLINE)`
-
 
         Args:
             model_id:
