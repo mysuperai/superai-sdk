@@ -1,15 +1,22 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
+import tarfile
 from abc import ABCMeta, abstractmethod
 from typing import Optional
+from urllib.parse import urlparse
+
+import boto3
 
 from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters, Config
 from superai.meta_ai.schema import Schema, SchemaParameters
 from superai.meta_ai.tracking import SuperTracker
 
 default_random_seed = 65778
+
+log = logging.getLogger()
 
 
 class BaseModel(metaclass=ABCMeta):
@@ -89,6 +96,22 @@ class BaseModel(metaclass=ABCMeta):
     def load(self):
         """Seldon helper function to call the load_weights method. Seldon runs this method during the provision of
         pod. The loading will be done with a default path, but we are passing some options to parametrize this"""
+
+        if os.environ.get("WEIGHTS_PATH"):
+            weights_path = os.environ.get("WEIGHTS_PATH")
+            if weights_path.startswith("s3://"):
+                s3 = boto3.client("s3")
+                parsed_url = urlparse(weights_path, allow_fragments=False)
+                bucket_name = parsed_url.netloc
+                path_to_object = parsed_url.path if not parsed_url.path.startswith("/") else parsed_url.path[1:]
+                tar_name = os.path.basename(path_to_object)
+                name = os.path.splitext(tar_name)[0]
+                log.info(f"Downloading and unpacking AI object from bucket `{bucket_name}` and path `{path_to_object}`")
+                s3.download_file(bucket_name, path_to_object, os.path.join(self.default_seldon_load_path, tar_name))
+                with tarfile.open(os.path.join(self.default_seldon_load_path, tar_name)) as tar:
+                    tar.extractall(path=os.path.join(self.default_seldon_load_path, name))
+                log.info(f"Loading weights from `{os.path.join(self.default_seldon_load_path, name)}`")
+                return self.load_weights(os.path.join(self.default_seldon_load_path, name))
         return self.load_weights(self.default_seldon_load_path)
 
     def predict_raw(self, inputs):
@@ -138,7 +161,7 @@ class BaseModel(metaclass=ABCMeta):
         return inference_output
 
     @abstractmethod
-    def predict(self, inputs):
+    def predict(self, inputs, context=None):
         """Generate model predictions.
 
         Enforces the input schema first before calling the model implementation with the sanitized input.
@@ -148,6 +171,7 @@ class BaseModel(metaclass=ABCMeta):
 
         Args:
             inputs: Model input
+            context: Support for seldon predict calls
 
         Returns
             Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
