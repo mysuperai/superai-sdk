@@ -4,6 +4,7 @@ import shutil
 import tarfile
 
 import pytest
+
 from superai.meta_ai import AI
 from superai.meta_ai.ai import AITemplate
 from superai.meta_ai.parameters import Config
@@ -81,3 +82,11 @@ def test_system_commands():
     command = "python --help"
     output = sys_func(command)
     assert "python [option]" in output
+
+
+def test_base_name():
+    assert AI._get_base_name() == f"superai-model-s2i-python3711-cpu:1"
+    assert AI._get_base_name(enable_cuda=True) == f"superai-model-s2i-python3711-gpu:1"
+    assert AI._get_base_name(lambda_mode=True) == f"superai-model-s2i-python3711-cpu-lambda:1"
+    assert AI._get_base_name(k8s_mode=True) == f"superai-model-s2i-python3711-cpu-seldon:1"
+    assert AI._get_base_name(k8s_mode=True, enable_cuda=True) == f"superai-model-s2i-python3711-gpu-seldon:1"

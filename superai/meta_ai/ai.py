@@ -12,7 +12,7 @@ import subprocess
 import tarfile
 import time
 import traceback
-from typing import Dict, List, TYPE_CHECKING, Union, Optional
+from typing import Dict, List, TYPE_CHECKING, Union, Optional, Tuple
 from urllib.parse import urlparse
 
 import boto3  # type: ignore
@@ -21,12 +21,16 @@ import requests
 import yaml
 from docker.errors import ImageNotFound
 from jinja2 import Template
-
 from superai import Client
 from superai import settings
 from superai.exceptions import ModelNotFoundError
 from superai.log import logger
-from superai.meta_ai.ai_helper import prepare_dockerfile_string, get_user_model_class, list_models
+from superai.meta_ai.ai_helper import (
+    prepare_dockerfile_string,
+    get_user_model_class,
+    list_models,
+    get_ecr_image_name,
+)
 from superai.meta_ai.deployed_predictors import LocalPredictor, DeployedPredictor, AWSPredictor
 from superai.meta_ai.dockerizer import push_image
 from superai.meta_ai.environment_file import EnvironmentFileProcessor
@@ -56,6 +60,7 @@ class Stage(str, enum.Enum):
 class Orchestrator(str, enum.Enum):
     LOCAL_DOCKER = "LOCAL_DOCKER"
     LOCAL_DOCKER_LAMBDA = "LOCAL_DOCKER_LAMBDA"
+    LOCAL_DOCKER_K8S = "LOCAL_DOCKER_K8S"
     MINIKUBE = "MINIKUBE"
     AWS_SAGEMAKER = "AWS_SAGEMAKER"
     AWS_LAMBDA = "AWS_LAMBDA"
@@ -69,6 +74,7 @@ class PredictorFactory(object):
         "LOCAL_DOCKER_LAMBDA": LocalPredictor,
         "AWS_SAGEMAKER": AWSPredictor,
         "AWS_LAMBDA": AWSPredictor,
+        "AWS_EKS": AWSPredictor,
     }
 
     @staticmethod
@@ -984,7 +990,22 @@ class AI:
                     lambda_mode=is_lambda_orchestrator,
                     from_scratch=kwargs.get("build_all_layers", False),
                 )
-        elif orchestrator in [Orchestrator.AWS_EKS, Orchestrator.MINIKUBE, Orchestrator.GCP_KS]:
+        elif orchestrator in [Orchestrator.AWS_EKS, Orchestrator.LOCAL_DOCKER_K8S]:
+            k8s_config = self._prepare_k8s_dependencies(enable_cuda=enable_cuda, **kwargs)
+            if properties is None:
+                properties = {}
+            properties["kubernetes_config"] = k8s_config
+            if not skip_build:
+                self.build_image_s2i(
+                    self.name,
+                    str(self.version),
+                    enable_cuda=enable_cuda,
+                    enable_eia=enable_eia,
+                    lambda_mode=is_lambda_orchestrator,
+                    k8s_mode=True,
+                    from_scratch=kwargs.get("build_all_layers", False),
+                )
+        elif orchestrator in [Orchestrator.GCP_KS]:
             raise NotImplementedError()
         else:
             raise ValueError(f"Invalid Orchestrator, should be one of {[e for e in Orchestrator]}")
@@ -998,10 +1019,7 @@ class AI:
             if not skip_build:
                 ecr_image_name = self.push_model(self.name, str(self.version))
             else:
-                region = "us-east-1"
-                boto_session = boto3.Session(region_name=region)
-                account = boto_session.client("sts").get_caller_identity()["Account"]
-                ecr_image_name = f"{account}.dkr.ecr.{region}.amazonaws.com/{self.name}:{self.version}"
+                ecr_image_name = get_ecr_image_name(self.name, self.version)
             kwargs = dict(client=self.client, name=self.name, version=str(self.version))
             if self.id is None:
                 raise LookupError(
@@ -1083,6 +1101,38 @@ class AI:
                 entry_point_file_content: str = template.render(args)
                 entry_point_file.write(entry_point_file_content)
 
+    @staticmethod
+    def _get_base_name(
+        enable_eia: bool = False,
+        lambda_mode: bool = False,
+        enable_cuda: bool = False,
+        k8s_mode: bool = False,
+    ) -> str:
+        """Get Base Image given the configuration. By default the sagemaker CPU image name will be returned.
+
+        Args:
+            enable_eia: Return Elastic Inference base image name
+            lambda_mode: Return Lambda base image name
+            enable_cuda: Return GPU image names
+            k8s_mode: Return Kubernetes base image names
+
+        Return:
+            String image name
+        """
+        if enable_eia:
+            base_image = "superai-model-s2i-python3711-eia:1"
+        elif lambda_mode:
+            base_image = f"superai-model-s2i-python3711-cpu-lambda:1"
+        elif k8s_mode and enable_cuda:
+            base_image = f"superai-model-s2i-python3711-gpu-seldon:1"
+        elif k8s_mode:
+            base_image = f"superai-model-s2i-python3711-cpu-seldon:1"
+        elif enable_cuda:
+            base_image = f"superai-model-s2i-python3711-gpu:1"
+        else:
+            base_image = f"superai-model-s2i-python3711-cpu:1"
+        return base_image
+
     def _track_changes(self):
         # check the hash, if it doesn't exist, create one
         files = []
@@ -1121,22 +1171,28 @@ class AI:
         enable_cuda: bool = False,
         enable_eia: bool = False,
         lambda_mode: bool = False,
+        k8s_mode: bool = False,
         from_scratch: bool = False,
     ) -> None:
+        """
+        Build the image using s2i
+
+        Args:
+            image_name: Name of the image to be built
+            version_tag: Version tag of the image
+            enable_cuda: Enable CUDA in the images
+            enable_eia: Generate elastic inference compatible image
+            lambda_mode: Generate AWS Lambda compatible image
+            k8s_mode: Generate Kubernetes compatible image
+            from_scratch: Generate all layers from the scratch
+        """
         start = time.time()
         cwd = os.getcwd()
         os.chdir(self._location)
         changes_in_build = self._track_changes()
 
         client = docker.from_env()
-        if enable_eia:
-            base_image = "superai-model-s2i-python3711-eia:1"
-        elif lambda_mode:
-            base_image = f"superai-model-s2i-python3711-cpu-lambda:1"
-        elif enable_cuda:
-            base_image = f"superai-model-s2i-python3711-gpu:1"
-        else:
-            base_image = f"superai-model-s2i-python3711-cpu:1"
+        base_image = self._get_base_name(enable_eia, lambda_mode, enable_cuda, k8s_mode)
         try:
             _ = client.images.get(base_image)
             log.info(f"Base image '{base_image}' found locally.")
@@ -1167,9 +1223,14 @@ class AI:
                 from_scratch = True
         if from_scratch:
             self.environs.delete("BUILD_PIP")
+            self.environs.add_or_update("SUPERAI_CONFIG_ROOT", "/tmp/.superai")
             if lambda_mode:
                 self.environs.add_or_update("LAMBDA_MODE=true")
-                self.environs.add_or_update("SUPERAI_CONFIG_ROOT", "/tmp/.superai")
+            elif k8s_mode:
+                self.environs.add_or_update("SERVICE_TYPE=MODEL")
+                self.environs.add_or_update("PERSISTENCE=0")
+                self.environs.add_or_update("API_TYPE=REST")
+                self.environs.add_or_update("SELDON_MODE=true")
             command = (
                 f"s2i build -E {self.environs.location} "
                 f"-v {os.path.join(os.path.expanduser('~'), '.aws')}:/root/.aws "
@@ -1185,9 +1246,15 @@ class AI:
             if diff.total_seconds() > 2.0:
                 raise Exception(f"Image failed to create, this image is too old {diff.total_seconds()}s")
 
+        # fallback if the above environment adding is not run
+        self.environs.add_or_update("SUPERAI_CONFIG_ROOT", "/tmp/.superai")
         if lambda_mode:
             self.environs.add_or_update("LAMBDA_MODE=true")
-            self.environs.add_or_update("SUPERAI_CONFIG_ROOT", "/tmp/.superai")
+        elif k8s_mode:
+            self.environs.add_or_update("SERVICE_TYPE=MODEL")
+            self.environs.add_or_update("PERSISTENCE=0")
+            self.environs.add_or_update("API_TYPE=REST")
+            self.environs.add_or_update("SELDON_MODE=true")
         self.environs.add_or_update("BUILD_PIP=false")
         command = (
             f"s2i build -E {self.environs.location} "
@@ -1338,3 +1405,33 @@ class AI:
             model_parameters=model_parameters,
             callbacks=callbacks,
         )
+
+    def _prepare_k8s_dependencies(self, enable_cuda=False, **kwargs) -> dict:
+        """
+        Prepare dependencies like kubernetes CRD
+        Args:
+            enable_cuda: Use CUDA in the CRD or not
+            num_workers: Number of workers to run inside the pod
+            maxReplicas: Maximum number of allowed replicas
+            targetAverageUtilization: Estimated utilization to trigger autoscaling
+            gpuTargetAverageUtilization: Estimated utilization to trigger autoscaling for GPU
+            volumeMountName: Name of the volume to be mounted
+            mountPath: folder_name to be used for mounting. Please note that this should be the path
+            gpuBaseUtilization: GPU Base utilization
+
+        Return:
+             Dictionary of the CRD. This is saved in the save folder as well.
+        """
+        kubernetes_config = dict(
+            maxReplicas=kwargs.get("maxReplicas", 5),
+            targetAverageUtilization=kwargs.get("targetAverageUtilization", 60),
+            gpuTargetAverageUtilization=kwargs.get("gpuTargetAverageUtilization", 60),
+            volumeMountName=kwargs.get("volumeMountName", "efs-vpc"),
+            mountPath=kwargs.get("mountPath", "/shared"),
+            gpuBaseUtilization=kwargs.get("gpuBaseUtilization", 0.5),
+            numThreads=kwargs.get("worker_count", 1),
+            enableCuda=enable_cuda,
+        )
+        with open(os.path.join(self._location, f"{self.name}_config.json"), "w") as wfp:
+            json.dump(kubernetes_config, wfp, indent=2)
+        return kubernetes_config

@@ -34,14 +34,14 @@ else
   echo "starting microservice in environment '${CONDA_ENV_NAME}'"
   export PATH=/opt/conda/envs/"${CONDA_ENV_NAME}"/bin/:$PATH
   pip --version
-  if [[ -v LAMBDA_MODE ]]; then
+  if [ -n "$LAMBDA_MODE" ]; then
     echo "Starting serving with Lambda backend"
     if [ -z "${AWS_LAMBDA_RUNTIME_API}" ]; then
       exec /usr/local/bin/aws-lambda-rie python -m awslambdaric handler.processor
     else
       exec python -m awslambdaric handler.processor
     fi
-  elif [[ -v SELDON_MODE ]]; then
+  elif [ -n "$SELDON_MODE" ]; then
     echo "Starting Seldon microservice"
     if [ -n "$PERSISTENCE" ]; then
       exec seldon-core-microservice "$MODEL_NAME" --service-type "$SERVICE_TYPE" --persistence "$PERSISTENCE"

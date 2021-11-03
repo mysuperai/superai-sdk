@@ -4,8 +4,10 @@ import os
 import platform
 from typing import Optional, Dict, List, Union
 
+import boto3
 import pandas as pd
 from jinja2 import Template
+
 from superai import Client
 from superai.log import logger
 from superai.meta_ai.template_contents import entry_script
@@ -256,3 +258,12 @@ def get_user_model_class(model_name, path: str = "."):
     if path != ".":
         os.chdir(cwd)
     return user_class
+
+
+def get_ecr_image_name(name, version):
+    """Get the ECR image name containing the account id and region."""
+    boto_session = boto3.session.Session()
+    region = boto_session.region_name
+    account = boto_session.client("sts").get_caller_identity()["Account"]
+    ecr_image_name = f"{account}.dkr.ecr.{region}.amazonaws.com/{name}:{version}"
+    return ecr_image_name

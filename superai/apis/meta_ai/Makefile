@@ -11,4 +11,4 @@ schema:
 
 clean:
 	rm -f meta_ai_schema.json
-	rm meta_ai_graphql_schema.py
+	rm -f meta_ai_graphql_schema.py

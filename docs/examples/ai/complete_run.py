@@ -95,7 +95,7 @@ ai = AI(
     weights_path=os.path.join(os.path.dirname(__file__), "resources/my_model"),
 )
 
-predictor: LocalPredictor = ai.deploy(orchestrator=Orchestrator.LOCAL_DOCKER, enable_cuda=True)
+predictor: LocalPredictor = ai.deploy(orchestrator=Orchestrator.AWS_EKS, enable_cuda=True)
 
 time.sleep(5)
 log.info(

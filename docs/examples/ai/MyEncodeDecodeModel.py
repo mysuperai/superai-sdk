@@ -22,7 +22,7 @@ class MyEncodeDecodeModel(BaseModel):
         self.model = self.define_model()
         self.model.load_weights(weights_path)
 
-    def predict(self, input):
+    def predict(self, input, context=None):
         log.info(f"Predict Input: {input}")
         input = self.preprocess(input)
         pred = self.model.predict(input)
