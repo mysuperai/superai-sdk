@@ -1,10 +1,14 @@
 import os
+from uuid import UUID
 
 import boto3
 import click
 import json
 import signal
 import sys
+
+from click import Context
+from rich import print
 import yaml
 from botocore.exceptions import ClientError
 from datetime import datetime
@@ -108,6 +112,10 @@ def client(ctx):
         exit()
     ctx.obj = {}
     ctx.obj["client"] = Client(api_key=api_key)
+
+
+# Create decorator to pass client object when needed
+pass_client = click.make_pass_decorator(Client, ensure=True)
 
 
 @client.command(name="create_jobs")
@@ -530,6 +538,41 @@ def logout():
 def ai():
     """Build and push your model docker images"""
     pass
+
+
+@ai.command("list")
+@pass_client
+def list_ai(client):
+    """List all available models"""
+    print(client.get_all_models())
+
+
+@ai.command("view")
+@click.argument("id", type=click.UUID)
+@pass_client
+def get_ai(client, id: str):
+    """List all available models"""
+    print(client.get_model(str(id)))
+
+
+@ai.group(help="Deployed models running in our infrastructure")
+def deployment():
+    pass
+
+
+@deployment.command("list")
+@pass_client
+def list_deployments(client):
+    """List all available models"""
+    print(client.list_deployments())
+
+
+@deployment.command("view")
+@click.argument("id", type=click.UUID)
+@pass_client
+def view_deployments(client, id: str):
+    """List all available models"""
+    print(client.get_deployment(str(id)))
 
 
 @ai.group()
