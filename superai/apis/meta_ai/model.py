@@ -1,7 +1,7 @@
 import json
 import time
 from abc import ABC
-from typing import Tuple
+from typing import Tuple, List, Optional
 
 from sgqlc.operation import Operation  # type: ignore
 from rich.console import Console
@@ -24,6 +24,7 @@ from superai.apis.meta_ai.meta_ai_graphql_schema import (
     meta_ai_deployment_purpose_enum,
     meta_ai_deployment_status_enum,
     meta_ai_assignment_enum,
+    meta_ai_model,
 )
 
 log = logger.get_logger(__name__)
@@ -39,15 +40,17 @@ class ModelApiMixin(ABC):
     def resource(self):
         return self._resource
 
-    def get_all_models(self):
+    def get_all_models(self) -> List[meta_ai_model]:
         op = Operation(query_root)
-        op.meta_ai_model().__fields__("name", "version", "id")
+        op.meta_ai_model().__fields__("name", "version", "id", "ai_worker_id", "visibility")
         data = self.sess.perform_op(op)
         return (op + data).meta_ai_model
 
-    def get_model(self, idx):
+    def get_model(self, idx) -> Optional[meta_ai_model]:
         op = Operation(query_root)
-        op.meta_ai_model_by_pk(id=idx).__fields__("name", "version", "id")
+        op.meta_ai_model_by_pk(id=idx).__fields__(
+            "name", "version", "id", "ai_worker_id", "description", "visibility", "input_schema", "output_schema"
+        )
         data = self.sess.perform_op(op)
         return (op + data).meta_ai_model_by_pk
 
@@ -397,6 +400,19 @@ class DeploymentApiMixin(ABC):
         )
         data = self.sess.perform_op(opq)
         res = (opq + data).meta_ai_deployment_by_pk
+        return res
+
+    def list_deployments(self) -> List[meta_ai_model]:
+        """Retrieves deployment entry"""
+        opq = Operation(query_root)
+        models = opq.meta_ai_model()
+        deployments = models.deployment()
+        models.__fields__("name")
+        deployments.__fields__(
+            "model_id", "status", "target_status", "created_at", "updated_at", "purpose", "properties"
+        )
+        data = self.sess.perform_op(opq)
+        res = (opq + data).meta_ai_model
         return res
 
     def check_endpoint_is_available(self, model_id) -> bool:
