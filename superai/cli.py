@@ -1,13 +1,10 @@
 import os
-from uuid import UUID
 
-import boto3
 import click
 import json
 import signal
 import sys
 
-from click import Context
 from rich import print
 import yaml
 from botocore.exceptions import ClientError
@@ -22,13 +19,7 @@ from superai.exceptions import SuperAIAuthorizationError
 from superai.log import logger
 from superai.utils import load_api_key, remove_aws_credentials, save_api_key, save_aws_credentials, save_cognito_user
 from superai.utils.pip_config import pip_configure
-from superai.meta_ai.dockerizer import build_image, push_image
-from superai.meta_ai.dockerizer.sagemaker_endpoint import (
-    upload_model_to_s3,
-    invoke_sagemaker_endpoint,
-    create_endpoint,
-    invoke_local,
-)
+
 
 BASE_FOLDER = get_config_dir()
 COGNITO_USERPOOL_ID = settings.get("cognito", {}).get("userpool_id")
@@ -606,6 +597,8 @@ def docker():
     "--use-shell", "-u", help="Use shell to run the build process, which is more verbose. Used by default", default=True
 )
 def build_docker_image(image_name, entry_point, dockerfile, command, worker_count, entry_point_method, use_shell):
+    from superai.meta_ai.dockerizer import build_image
+
     build_image(
         image_name=image_name,
         entry_point=entry_point,
@@ -623,6 +616,8 @@ def build_docker_image(image_name, entry_point, dockerfile, command, worker_coun
 )
 @click.option("--region", "-r", help="AWS region.  Default: us-east-1", default="us-east-1")
 def push_docker_image(image_name, region):
+    from superai.meta_ai.dockerizer import push_image
+
     push_image(image_name=image_name, region=region)
 
 
@@ -672,6 +667,10 @@ def docker_run_local(image_name, model_path, gpu):
     "--body", "-b", required=True, help="Body of payload to be sent to the invocation. Can be a path to a file as well."
 )
 def docker_invoke_local(mime, body):
+    from superai.meta_ai.dockerizer.sagemaker_endpoint import (
+        invoke_local,
+    )
+
     invoke_local(mime, body)
 
 
