@@ -20,7 +20,7 @@ def memo(method, filename, folder=None, refresh=False):
     try:
         if folder is None:
             folder = "memo/{}".format(settings.name)
-        log.info("Executing memo of {}/{}...".format(settings.name, filename))
+        log.debug("Executing memo of {}/{}...".format(settings.name, filename))
         session = boto3.session.Session()
         client = session.resource("s3")
         s3_bucket = settings.memo_bucket
@@ -32,14 +32,16 @@ def memo(method, filename, folder=None, refresh=False):
         # TODO removing push function
         def push_to_s3(filename, client):
             # client.upload_file
-            client.meta.client.upload_file(filename, s3_bucket, filename)
+            client.meta.client.upload_file(
+                filename, s3_bucket, filename, Config=boto3.s3.transfer.TransferConfig(use_threads=False)
+            )
 
         def pull_from_s3(filename, client):
             dest_folder = os.path.dirname(filename)
             if not os.path.isdir(dest_folder):
                 os.makedirs(dest_folder)
             bucket = client.Bucket(s3_bucket)
-            bucket.download_file(filename, filename)
+            bucket.download_file(filename, filename, Config=boto3.s3.transfer.TransferConfig(use_threads=False))
 
         def refresh_push_to_s3(method, filepath, client):
             result = method()
@@ -60,12 +62,12 @@ def memo(method, filename, folder=None, refresh=False):
                 return joblib.load(filepath)
             except botocore.exceptions.ClientError as e:
                 if e.response["Error"]["Code"] == "404":  # no local/s3 cache, produce the task, cache in local and s3
-                    log.warning("The S3 and local cache does not exist.")
+                    log.debug("The S3 and local cache does not exist.")
                     return refresh_push_to_s3(method, filepath, client)
                 else:
                     raise  # other s3 errors
     finally:
-        log.info("Memo elapsed time: {} secs".format(time() - start_time))
+        log.debug("Memo elapsed time: {} secs".format(time() - start_time))
 
 
 # TODO: this is hacky way of implementing memoization of random task
