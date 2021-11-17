@@ -99,7 +99,7 @@ def task(
     input,
     output,
     humans=None,
-    ai=None,
+    ai=False,
     ai_input=None,
     qualifications=None,
     name=None,
@@ -124,8 +124,7 @@ def task(
     :param input: a list of input semantic items
     :param output: a list of output semantic items
     :param humans: a list of crowd heroes email addresses
-    :param ai: a canotic.ai object that exposes predict(ai_input) interface
-    :param ai_input: input to the ai
+    :param ai: bool, if True, the task will be sent to an AI
     :param qualifications: list of required hero qualifications
     :param name: task type
     :param price: price tag to be associated with the task
@@ -147,41 +146,31 @@ def task(
     :return:
     """
     # TODO(veselin): the number of parameters passed to this function is getting too long, we should organize it into class or dictionary
-    if ai is not None:
-        ai_output = ai.predict(ai_input)
-        if ai_output is not None:
-            f = future()
-            # Flag to differentiate a machine vs human response.
-            ai_output.update({"_ai_response": True})
-            f.set_result(ai_output)
-            print("Task was completed by Canotic meta-AI.")
-            return f
-
     if "CANOTIC_AGENT" in os.environ:
         return schedule_task(
-            name,
-            humans,
-            price,
-            input,
-            ai_input,
-            output,
-            title,
-            description,
-            paragraphs,
-            completed_tasks,
-            total_tasks,
-            included_ids,
-            excluded_ids,
-            explicit_id,
-            time_to_resolve_secs,
-            time_to_update_secs,
-            time_to_expire_secs,
-            qualifications,
-            show_reject,
-            groups,
-            excluded_groups,
-            amount,
-            get_current_version_id(),
+            name=name,
+            humans=humans,
+            price=price,
+            input=input,
+            output=output,
+            title=title,
+            description=description,
+            paragraphs=paragraphs,
+            completed_tasks=completed_tasks,
+            total_tasks=total_tasks,
+            includedIds=included_ids,
+            excludedIds=excluded_ids,
+            explicitId=explicit_id,
+            timeToResolveSec=time_to_resolve_secs,
+            timeToUpdateSec=time_to_update_secs,
+            timeToExpireSec=time_to_expire_secs,
+            qualifications=qualifications,
+            show_reject=show_reject,
+            groups=groups,
+            excluded_groups=excluded_groups,
+            amount=amount,
+            schema_version=get_current_version_id(),
+            is_ai=ai,
         )
     else:
         raise NotImplementedError("Little piggy not supported")
