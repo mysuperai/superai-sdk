@@ -527,7 +527,7 @@ def logout():
 
 @cli.group()
 def ai():
-    """Build and push your model docker images"""
+    """View, list and control models and their deployments."""
     pass
 
 
@@ -542,7 +542,7 @@ def list_ai(client):
 @click.argument("id", type=click.UUID)
 @pass_client
 def get_ai(client, id: str):
-    """List all available models"""
+    """View model parameters"""
     print(client.get_model(str(id)))
 
 
@@ -554,16 +554,92 @@ def deployment():
 @deployment.command("list")
 @pass_client
 def list_deployments(client):
-    """List all available models"""
-    print(client.list_deployments())
+    """List all deployments"""
+    d = client.list_deployments()
+    for deployment in d:
+        print(f"[b][u]Model: {deployment.name}[/b][/u]")
+        print(f"{deployment.deployment}\n")
 
 
 @deployment.command("view")
 @click.argument("id", type=click.UUID)
 @pass_client
-def view_deployments(client, id: str):
-    """List all available models"""
+def view_deployment(client, id: str):
+    """View deployment parameters"""
     print(client.get_deployment(str(id)))
+
+
+@deployment.command("start")
+@click.argument("id", type=click.UUID)
+@click.option(
+    "--wait",
+    type=click.INT,
+    default=0,
+    help="Allow command to block and wait for deployment to be ready. Returns when deployment is ONLINE.",
+)
+@pass_client
+def start_deployment(client, id: str, wait: int):
+    """Create a deployment for the model."""
+    print("Starting deployment...")
+    if wait:
+        print(f"Waiting for up to {wait} seconds. Note: Some deployments can take up to 15 minutes (900 seconds).")
+    reached_state = client.set_deployment_status(str(id), target_status="ONLINE", timeout=wait)
+    if reached_state:
+        print("Deployment online.")
+    else:
+        print("Stopped waiting for ONLINE status. Process is still running in the backend.")
+
+
+@deployment.command("stop")
+@click.argument("id", type=click.UUID)
+@click.option(
+    "--wait",
+    type=click.INT,
+    default=0,
+    help="Allow command to block and wait for deployment to be ready. Returns when deployment is ONLINE.",
+)
+@pass_client
+def stop_deployment(client, id: str, wait: int):
+    """Stop and tear-down a model deployment."""
+    print("Tearing down model deployment...")
+    if wait:
+        print(f"Waiting for up to {wait} seconds.")
+    reached_state = client.set_deployment_status(str(id), target_status="OFFLINE", timeout=wait)
+    if reached_state:
+        print("Deployment offline.")
+    else:
+        print("Stopped waiting for OFFLINE status. Process is still running in the backend.")
+
+
+@deployment.command(
+    "scaling",
+    help="Control scaling of deployed models. Currently only supports configuring the automatic scale-in of models after a period of no prediction activity.",
+)
+@click.argument("id", type=click.UUID)
+@click.option(
+    "--min_instances", type=click.INT, required=False, default=None, help="Minimum number of instances allowed."
+)
+@click.option(
+    "--scale_in_timeout",
+    type=click.INT,
+    required=False,
+    default=None,
+    help="Allow scale-in after this number of seconds without prediction. Should be higher than the time it takes to startup a model.",
+)
+@pass_client
+def scaling(client, id: str, min_instances: int, scale_in_timeout: int):
+    current = client.get_deployment(str(id))
+    print(
+        f"Current settings:"
+        f"\n\tmin_instances: {current['min_instances']}"
+        f"\n\tscale_in_timeout: {current['scale_in_timeout']}"
+    )
+    if min_instances is not None:
+        print("Changing config: min_instances")
+        print(client.set_min_instances(str(id), min_instances))
+    if scale_in_timeout is not None:
+        print("Changing config: scale_in_timeout")
+        print(client.set_scale_in_timeout(str(id), scale_in_timeout))
 
 
 @ai.group()

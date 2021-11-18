@@ -267,7 +267,10 @@ class DeploymentApiMixin(ABC):
             pk_columns=meta_ai_deployment_pk_columns_input(model_id=model_id),
         ).__fields__("target_status")
         data = self.sess.perform_op(op)
-        return (op + data).update_meta_ai_deployment_by_pk.target_status
+        try:
+            return (op + data).update_meta_ai_deployment_by_pk.target_status
+        except:
+            Exception("Could not set target status. Check if you have Ownership for this deployment.")
 
     def set_deployment_status(
         self, model_id: str, target_status: meta_ai_deployment_status_enum, timeout: int = 600
@@ -396,7 +399,15 @@ class DeploymentApiMixin(ABC):
         """Retrieves deployment entry"""
         opq = Operation(query_root)
         opq.meta_ai_deployment_by_pk(model_id=model_id).__fields__(
-            "model_id", "status", "target_status", "created_at", "updated_at", "purpose", "properties"
+            "model_id",
+            "status",
+            "target_status",
+            "created_at",
+            "updated_at",
+            "purpose",
+            "properties",
+            "min_instances",
+            "scale_in_timeout",
         )
         data = self.sess.perform_op(opq)
         res = (opq + data).meta_ai_deployment_by_pk
@@ -409,7 +420,15 @@ class DeploymentApiMixin(ABC):
         deployments = models.deployment()
         models.__fields__("name")
         deployments.__fields__(
-            "model_id", "status", "target_status", "created_at", "updated_at", "purpose", "properties"
+            "model_id",
+            "status",
+            "target_status",
+            "created_at",
+            "updated_at",
+            "purpose",
+            "properties",
+            "min_instances",
+            "scale_in_timeout",
         )
         data = self.sess.perform_op(opq)
         res = (opq + data).meta_ai_model
