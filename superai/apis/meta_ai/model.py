@@ -442,7 +442,7 @@ class DeploymentApiMixin(ABC):
                 return True
         return False
 
-    def predict_from_endpoint(self, model_id: str, input_data: dict, parameters: dict = None, timeout: int = 20):
+    def predict_from_endpoint(self, model_id: str, input_data: dict, parameters: dict = None, timeout: int = 60):
         """Query the endpoint name from deployment table, return prediction (using MetaAI sagemaker configuration)
 
         Args:
