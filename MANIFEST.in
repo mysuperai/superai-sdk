@@ -5,7 +5,9 @@ include LICENSE
 include README.md
 
 recursive-include tests *
+recursive-include superai/meta_ai/template_contents *
 recursive-include superai settings.yaml .secrets.yaml
+
 recursive-exclude * __pycache__
 recursive-exclude * *.py[co]
 recursive-exclude * examples
