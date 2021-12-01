@@ -6,11 +6,10 @@ from typing import Optional, Dict, List, Union
 
 import boto3
 import pandas as pd
-from jinja2 import Template
+from jinja2 import Environment, select_autoescape, PackageLoader
 
 from superai import Client
 from superai.log import logger
-from superai.meta_ai.template_contents import entry_script
 from superai.utils import load_api_key, load_auth_token, load_id_token
 
 log = logger.get_logger(__name__)
@@ -192,8 +191,11 @@ def prepare_dockerfile_string(
         )
     else:
         rie_url = "https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie"
+        jinja_env = Environment(
+            loader=PackageLoader("superai.meta_ai", package_path="template_contents"), autoescape=select_autoescape()
+        )
         with open(os.path.join(location, "entry_script.sh"), "w") as entry_file_writer:
-            template = Template(entry_script)
+            template = jinja_env.get_template("entry_script.sh")
             entry_script_args = dict(env=env_name)
             entry_file_content: str = template.render(entry_script_args)
             entry_file_writer.write(entry_file_content)
@@ -267,3 +269,31 @@ def get_ecr_image_name(name, version):
     account = boto_session.client("sts").get_caller_identity()["Account"]
     ecr_image_name = f"{account}.dkr.ecr.{region}.amazonaws.com/{name}:{version}"
     return ecr_image_name
+
+
+def create_model_entrypoint(worker_count: int) -> str:
+    """Creates model entrypoint python script for sagemaker deployments"""
+    assert worker_count > 0, "Worker count must be greater than 0"
+    jinja_env = Environment(
+        loader=PackageLoader("superai.meta_ai", package_path="template_contents"), autoescape=select_autoescape()
+    )
+    template = jinja_env.get_template("server_script.py")
+    args = dict(worker_count=worker_count)
+    entry_point_file_content: str = template.render(args)
+    return entry_point_file_content
+
+
+def create_model_handler(model_name: str, ai_cache: int, lambda_mode: bool) -> str:
+    """Creates a model handler python script called by sagemaker to wrap the AI class."""
+    assert model_name, "Model name must be provided"
+    jinja_env = Environment(
+        loader=PackageLoader("superai.meta_ai", package_path="template_contents"), autoescape=select_autoescape()
+    )
+    if not lambda_mode:
+        template = jinja_env.get_template("runner_script_s2i.py")
+        args = dict(model_name=model_name)
+    else:
+        template = jinja_env.get_template("lambda_script.py")
+        args = dict(ai_cache=ai_cache, model_name=model_name)
+    scripts_content: str = template.render(args)
+    return scripts_content

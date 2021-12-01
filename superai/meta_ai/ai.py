@@ -12,7 +12,7 @@ import subprocess
 import tarfile
 import time
 import traceback
-from typing import Dict, List, TYPE_CHECKING, Union, Optional, Tuple
+from typing import Dict, List, TYPE_CHECKING, Union, Optional
 from urllib.parse import urlparse
 
 import boto3  # type: ignore
@@ -20,7 +20,6 @@ import docker
 import requests
 import yaml
 from docker.errors import ImageNotFound
-from jinja2 import Template
 from superai import Client
 from superai import settings
 from superai.exceptions import ModelNotFoundError
@@ -30,17 +29,14 @@ from superai.meta_ai.ai_helper import (
     get_user_model_class,
     list_models,
     get_ecr_image_name,
+    create_model_entrypoint,
+    create_model_handler,
 )
 from superai.meta_ai.deployed_predictors import LocalPredictor, DeployedPredictor, AWSPredictor
 from superai.meta_ai.dockerizer import push_image
 from superai.meta_ai.environment_file import EnvironmentFileProcessor
 from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters, Config
 from superai.meta_ai.schema import Schema, SchemaParameters, EasyPredictions
-from superai.meta_ai.template_contents import (
-    runner_script_s2i,
-    server_script,
-    lambda_script,
-)
 from superai.utils import retry, load_api_key, load_auth_token, load_id_token
 
 if TYPE_CHECKING:
@@ -1085,20 +1081,13 @@ class AI:
         ai_cache: int = 32,
         dockerd_entrypoint: str = "dockerd-entrypoint.py",
     ) -> None:
+
         with open(os.path.join(self._location, "handler.py"), "w") as handler_file:
-            if not lambda_mode:
-                template = Template(runner_script_s2i)
-                args = dict(model_name=self.ai_template.model_class)
-            else:
-                template = Template(lambda_script)
-                args = dict(ai_cache=ai_cache, model_name=self.ai_template.model_class)
-            scripts_content: str = template.render(args)
+            scripts_content = create_model_handler(self.ai_template.model_class, ai_cache, lambda_mode)
             handler_file.write(scripts_content)
         if not lambda_mode:
             with open(os.path.join(self._location, dockerd_entrypoint), "w") as entry_point_file:
-                template = Template(server_script)
-                args = dict(worker_count=worker_count)
-                entry_point_file_content: str = template.render(args)
+                entry_point_file_content = create_model_entrypoint(worker_count)
                 entry_point_file.write(entry_point_file_content)
 
     @staticmethod
