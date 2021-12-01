@@ -23,6 +23,8 @@ class MyKerasModel(BaseModel):
 
     def predict(self, input, context=None):
         log.info(f"Predict Input: {input}")
+        if isinstance(input, str):
+            input = json.loads(input)
         image_url = input["data"]["image_url"]
         req = urlopen(image_url)
         arr = np.asarray(bytearray(req.read()), dtype=np.uint8)
