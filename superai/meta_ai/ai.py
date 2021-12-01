@@ -20,12 +20,12 @@ import docker
 import requests
 import yaml
 from docker.errors import ImageNotFound
+
 from superai import Client
 from superai import settings
 from superai.exceptions import ModelNotFoundError
 from superai.log import logger
 from superai.meta_ai.ai_helper import (
-    prepare_dockerfile_string,
     get_user_model_class,
     list_models,
     get_ecr_image_name,
@@ -1269,62 +1269,6 @@ class AI:
         process = subprocess.Popen(shlex.split(command), stdout=subprocess.PIPE)
         (out, err) = process.communicate()
         return out.decode("utf-8")
-
-    def _create_dockerfile(
-        self, worker_count: int = 1, lambda_mode=True, ai_cache=32, enable_cuda=False, force_amd64=True
-    ):
-        """Build model locally. This involves docker file creation and docker build operations.
-        Note that this is supported only in local mode, running this on docker can lead to docker-in-docker problems.
-        """
-        dockerd_entrypoint = "dockerd-entrypoint.py"
-
-        self._prepare_dependencies(
-            worker_count=worker_count,
-            lambda_mode=lambda_mode,
-            ai_cache=ai_cache,
-            dockerd_entrypoint=dockerd_entrypoint,
-        )
-
-        dockerfile_content = prepare_dockerfile_string(
-            force_amd64=force_amd64,
-            enable_cuda=enable_cuda,
-            lambda_mode=lambda_mode,
-            dockerd_entrypoint=dockerd_entrypoint,
-            conda_env=self.conda_env,
-            requirements=self.requirements,
-            artifacts=self.artifacts,
-            location=self._location,
-        )
-
-        ################################################################################################################
-        # Write dockerfile
-        ################################################################################################################
-        with open(os.path.join(self._location, "Dockerfile"), "w") as docker_file_writer:
-            docker_file_writer.write("\n".join(dockerfile_content))
-        log.info("Created Dockerfile...")
-        return dockerfile_content  # for testing
-
-    def build_image(self, image_name=None, version_tag="latest"):
-        start = time.time()
-        cwd = os.getcwd()
-        os.chdir(self._location)
-        os.environ["DOCKER_BUILDKIT"] = "1"
-        docker_command = f"docker build -t {image_name}:{version_tag} --secret id=aws,src=$HOME/.aws/credentials ."
-        log.info(f"Running {docker_command}")
-        try:
-            res = os.system(docker_command)
-            end = time.time()
-            if res != 0:
-                log.error("Some error occurred while building the image.")
-                raise Exception("Failed Docker Build. Check build logs for misconfiguration.")
-            else:
-                log.info(
-                    f"Image `{image_name}:{version_tag}` built successfully. Elapsed time: {end - start:.3f} secs."
-                )
-        except KeyboardInterrupt:
-            log.info(f"KeyboardInterrupt occurred")
-            raise KeyboardInterrupt()
-        os.chdir(cwd)
 
     def push_model(self, image_name: Optional[str] = None, version: Optional[str] = None) -> str:
         """Push model in ECR, involves tagging and pushing.

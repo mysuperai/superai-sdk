@@ -95,7 +95,8 @@ ai = AI(
     weights_path=os.path.join(os.path.dirname(__file__), "resources/my_model"),
 )
 
-predictor: LocalPredictor = ai.deploy(orchestrator=Orchestrator.AWS_EKS, enable_cuda=True)
+ai.push(update_weights=True, overwrite=True)
+predictor: AWSPredictor = ai.deploy(orchestrator=Orchestrator.AWS_EKS, enable_cuda=True, redeploy=True)
 
 time.sleep(5)
 log.info(
@@ -105,7 +106,7 @@ log.info(
         ),
     )
 )
-predictor.container.stop()
+predictor.terminate()
 
 template_2 = AITemplate(
     input_schema=Schema(),
@@ -137,7 +138,7 @@ log.info(
         ),
     )
 )
-predictor.container.stop()
+predictor.terminate()
 
 ai.push_model("my_mnist_model", "2")
 
