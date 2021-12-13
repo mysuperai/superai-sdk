@@ -1,12 +1,15 @@
+import json
 import os
 from functools import wraps
 from inspect import getframeinfo, stack
 from typing import Callable
 
 import requests
+from superai_schema.types import BaseModel, UiWidget
 
 from superai import Client
 from superai.data_program.protocol.task import _parse_args
+from superai.data_program.types import TaskIOPayload
 from superai.log import logger
 from superai.utils import load_api_key
 
@@ -78,3 +81,11 @@ def IgnoreInAgent(fn: Callable):
             return fn
 
     return wrapper
+
+
+def model_to_task_io_payload(m: BaseModel) -> TaskIOPayload:
+    return {
+        "schema": m.schema(),
+        "uiSchema": m.ui_schema() if isinstance(m, UiWidget) else {},
+        "formData": json.loads(m.json()),
+    }

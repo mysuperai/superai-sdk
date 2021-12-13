@@ -1,18 +1,29 @@
-####
 import inspect
+import json
 import os
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Type
 
 from superai_schema.generators import dynamic_generator
+from superai_schema.types import BaseModel
 from superai_schema.universal_schema import task_schema_functions as df
 
 from superai import Client
-from superai.data_program import Workflow
-from superai.data_program.base import DataProgramBase
+from superai.data_program import Workflow, Task
 from superai.data_program.Exceptions import UnknownTaskStatus
+from superai.data_program.base import DataProgramBase
 from superai.data_program.protocol.task import task as task
 from superai.data_program.router import BasicRouter, Router
-from superai.data_program.utils import parse_dp_definition
+from superai.data_program.schema_server import SchemaServer
+from superai.data_program.types import (
+    DataProgramDefinition,
+    Parameters,
+    Handler,
+    WorkflowConfig,
+    JobContext,
+    Output,
+    Input,
+)
+from superai.data_program.utils import parse_dp_definition, model_to_task_io_payload
 from superai.log import logger
 from superai.utils import load_api_key, load_auth_token, load_id_token
 
@@ -23,11 +34,12 @@ class DataProgram(DataProgramBase):
     def __init__(
         self,
         name: str,
-        definition: Dict = {},
+        definition: DataProgramDefinition,
         description: str = None,
         add_basic_workflow: bool = True,
         client: Client = None,
         router: Router = None,
+        metadata: dict = None,
         **kwargs,
     ):
         super().__init__(add_basic_workflow=add_basic_workflow)
@@ -61,8 +73,58 @@ class DataProgram(DataProgramBase):
         #     schemas (input, output, params)
         #  2. Link to code repository
 
-        self.__template_object = self.__create_template()
+        self.__template_object = self.__create_template(metadata=metadata)
         log.info(f"DataProgram created {self.qualified_name}")
+
+    @staticmethod
+    def run(
+        *, default_params: Parameters, handler: Handler[Parameters, Input, Output], workflows: List[WorkflowConfig]
+    ):
+        # TODO: Fix: start the DP without legacy dependencies
+        from canotic.hatchery import hatchery_config
+        from canotic.qumes_transport import start_threads
+
+        name = os.getenv("WF_PREFIX")
+        # Setting the SERVICE env variable indicates that we are running the Data Program as a service
+        service = os.getenv("SERVICE")
+        params_cls = default_params.__class__
+
+        if name is None:
+            raise Exception("Environment variable 'WF_PREFIX' is missing.")
+
+        if service is None:
+            raise Exception(
+                """Environment variable 'SERVICE' is missing.
+If you are running data program with 'canotic deploy' command,
+make sure to pass `--serve-schema` in order to opt-in schema server."""
+            )
+
+        if hatchery_config.get_transport_backend_config() != "qumes":
+            raise Exception("Non Qumes transport is not supported by this API.")
+
+        if service == "data_program":
+            log.info("Starting data_program service...")
+
+            log.info("Setting CANOTIC_AGENT=1 and IN_AGENT=YES")
+            os.environ["CANOTIC_AGENT"] = "1"
+            os.environ["IN_AGENT"] = "YES"
+
+            default_definition = DataProgram._get_definition_for_params(default_params, handler)
+            dp = DataProgram(name=name, metadata={}, add_basic_workflow=False, definition=default_definition)
+
+            for workflow_config in workflows:
+                dp._add_workflow_by_config(workflow_config, params_cls, handler)
+
+            dp.__init_router()
+            start_threads()
+            return
+
+        if service == "schema":
+            log.info("Starting schema service...")
+            SchemaServer(params_cls, handler).run()
+            return
+
+        raise Exception(f"{service} is invalid service. 'data_program' or 'schema' is available.")
 
     @property
     def gold_workflow(self) -> str:
@@ -106,7 +168,7 @@ class DataProgram(DataProgramBase):
 
         return default_workflow
 
-    def __create_template(self) -> Dict:
+    def __create_template(self, metadata: dict = None) -> Dict:
         """
             TODO: 1.Handle versions: This means that the API should a) Find if a tempalte with the same name exists,
                         b) if the templat exists, check that the input and output schema are the same and if so then
@@ -128,12 +190,16 @@ class DataProgram(DataProgramBase):
         if self.description is not None:
             body_json["description"] = self.description
 
-        body_json["metadata"] = dynamic_generator.create_metadata_boilerplate(
-            input_schema=self.input_schema,
-            output_schema=self.output_schema,
-            param_schema=self.parameter_schema,
-            name=name,
-            description=self.description,
+        body_json["metadata"] = (
+            dynamic_generator.create_metadata_boilerplate(
+                input_schema=self.input_schema,
+                output_schema=self.output_schema,
+                param_schema=self.parameter_schema,
+                name=name,
+                description=self.description,
+            )
+            if metadata is None
+            else metadata
         )
         # TODO:
         #  1. When duplicated dataprogram exists Nacelle responds with:
@@ -195,6 +261,33 @@ class DataProgram(DataProgramBase):
             **kkwargs,
         )
         return self._add_workflow_obj(workflow=workflow, default=default, gold=gold)
+
+    def _add_workflow_by_config(
+        self, workflow: WorkflowConfig, params_cls: Type[Parameters], handler: Handler[Parameters, Input, Output]
+    ):
+        def workflow_fn(inp, params):
+            params_model = params_cls.parse_obj(params)
+            input_model_cls, _, process_job = handler(params_model)
+            input_model = input_model_cls.parse_obj(inp)
+
+            def send_task(name: str, *, task_input: BaseModel, task_output: Output, max_attempts: int) -> Output:
+                my_task = Task(name=name, max_attempts=max_attempts)
+                my_task.process(
+                    [{"type": "", "schema_instance": model_to_task_io_payload(task_input)}],
+                    [{"type": "", "schema_instance": model_to_task_io_payload(task_output)}],
+                )
+                raw_result = my_task.output["values"][0]["schema_instance"]["formData"]
+                return task_output.parse_obj(raw_result)
+
+            return json.loads(process_job(input_model, JobContext[Output](workflow, send_task)).json())
+
+        self.add_workflow(
+            name=workflow.name,
+            description=workflow.description,
+            workflow=workflow_fn,
+            default=workflow.is_default,
+            gold=workflow.is_gold,
+        )
 
     def __add_basic_workflow(self):
         exists = next(filter(lambda w: w.name == "_basic", self.workflows), None)
@@ -347,3 +440,15 @@ class DataProgram(DataProgramBase):
             body = {"workflows": workflow_list}
             template_udpate = self.client.update_template(template_name=self.name, body=body)
             assert workflow.qualified_name in template_udpate.get("dpWorkflows")
+
+    @staticmethod
+    def _get_definition_for_params(
+        params: Parameters, handler: Handler[Parameters, Input, Output]
+    ) -> DataProgramDefinition:
+        input_model, output_model, _ = handler(params)
+
+        return {
+            "parameter_schema": params.schema(),
+            "input_schema": input_model.schema(),
+            "output_schema": output_model.schema(),
+        }
