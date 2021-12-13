@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 NAME = "superai"
-VERSION = "0.1.0.beta3.dev30"
+VERSION = "0.1.0.beta3.dev31"
 # To install the library, run the following
 #
 # python setup.py install
@@ -23,6 +23,7 @@ REQUIRES = [
     "cloudpickle==1.6.0",
     "dynaconf>=3.1.2",
     "docker>=4.0.0",
+    "fastapi>=0.70.0",
     "futures-then>=0.1.1",
     "genson>=1.2.2",
     "jinja2>=2.11.2",
@@ -39,6 +40,7 @@ REQUIRES = [
     "sgqlc>=14.1",
     "sentry-sdk>=0.19.4",
     "six",
+    "uvicorn>=0.15.0",
     "pycognito>=2021.3.1",
     "psutil~=5.6.7",
 ]
@@ -56,7 +58,7 @@ BUILD_REQUIRES = [
 DP_REQUIRES = [
     "awscli>=1.18.163",
     "superai-dataclient~=0.1.0",
-    "superai-schema~=0.1.8",
+    "superai-schema~=0.1.14",
 ]
 
 TEST_REQUIRES = [
