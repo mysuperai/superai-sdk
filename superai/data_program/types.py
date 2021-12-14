@@ -52,6 +52,7 @@ class DataProgramDefinition(TypedDict):
     input_schema: dict
     output_schema: dict
     parameter_schema: Optional[dict]
+    default_parameter: Optional[dict]
 
 
 class TaskIOPayload(TypedDict):

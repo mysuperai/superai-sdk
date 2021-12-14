@@ -933,6 +933,10 @@ def workflow(suffix, prefix=None):
             schema["app_params"] = function.__app_params__
             logger.debug("APP PARAMS\n{}".format(schema["app_params"]))
 
+            if hasattr(function, "__default_app_params__"):
+                schema["default_app_params"] = function.__default_app_params__
+                logger.debug("DEFAULT APP PARAMS\n{}".format(schema["default_app_params"]))
+
         if hasattr(function, "__app_metrics__"):
             schema["app_metrics"] = function.__app_metrics__
             logger.debug("APP METRICS\n{}".format(schema["app_metrics"]))
@@ -963,6 +967,7 @@ def _parse_args(*args, **kwargs):
     """
     f(name=asdfs)
     f(name=sdfs, schema=sdfs)
+    f(name=sdfs, schema=sdfs, default=sdfs)
     """
     if len(args) > 1:
         raise ValueError("Decorator takes max 1 positional argument")
@@ -972,12 +977,17 @@ def _parse_args(*args, **kwargs):
 
     f_args = dict()
     f_args["schema"] = None
+    f_args["default"] = None
 
     if len(args) == 1:
         f_args["name"] = args[0]
 
     f_args.update(kwargs)
-    if f_args["schema"]:
+
+    # Not having SERVICE environment variable indicates that legacy versioned schema is in use
+    is_using_versioned_schema = os.getenv("SERVICE") is None
+
+    if f_args["schema"] and is_using_versioned_schema:
         f_args["schema"] = list_to_schema(f_args["schema"])
         f_args["schema"]["$schema"] = get_current_version_id()
 
@@ -1041,7 +1051,15 @@ def param_schema(*args, **kwargs):
 
             function.__app_params__[dargs["name"]] = dargs["schema"]
 
-        logger.debug("APP_PARAMS DECORATOR: {}".format(function.__app_params__))
+            if "default" in dargs:
+                if not hasattr(function, "__default_app_params__"):
+                    function.__default_app_params__ = {}
+
+                function.__default_app_params__[dargs["name"]] = dargs["default"]
+
+        logger.debug(
+            "APP_PARAMS DECORATOR: {} (default: {})".format(function.__app_params__, function.__default_app_params__)
+        )
 
         return function
 
