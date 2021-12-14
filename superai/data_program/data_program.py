@@ -39,6 +39,7 @@ class DataProgram(DataProgramBase):
         client: Client = None,
         router: Router = None,
         metadata: dict = None,
+        auto_generate_metadata: bool = True,
         **kwargs,
     ):
         super().__init__(add_basic_workflow=add_basic_workflow)
@@ -79,6 +80,18 @@ class DataProgram(DataProgramBase):
         #     schemas (input, output, params)
         #  2. Link to code repository
 
+        self.metadata = (
+            dynamic_generator.create_metadata_boilerplate(
+                input_schema=self.input_schema,
+                output_schema=self.output_schema,
+                param_schema=self.parameter_schema,
+                name=name,
+                description=self.description,
+            )
+            if metadata == None and auto_generate_metadata
+            else metadata
+        )
+
         self.__template_object = self.__create_template(metadata=metadata)
         log.info(f"DataProgram created {self.qualified_name}")
 
@@ -88,7 +101,8 @@ class DataProgram(DataProgramBase):
         default_params: Parameters,
         handler: Handler[Parameters, Input, Output],
         workflows: List[WorkflowConfig],
-        metadata: dict = {},
+        metadata: dict = None,
+        auto_generate_metadata: bool = True,
     ):
         # TODO: Fix: start the DP without legacy dependencies
         from canotic.hatchery import hatchery_config
@@ -126,6 +140,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                 metadata=metadata,
                 add_basic_workflow=False,
                 definition=default_definition,
+                auto_generate_metadata=auto_generate_metadata,
             )
 
             for workflow_config in workflows:
@@ -184,7 +199,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
 
         return default_workflow
 
-    def __create_template(self, metadata: dict = None) -> Dict:
+    def __create_template(self) -> Dict:
         """
             TODO: 1.Handle versions: This means that the API should a) Find if a tempalte with the same name exists,
                         b) if the templat exists, check that the input and output schema are the same and if so then
@@ -207,18 +222,9 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
             body_json["default_app_params"] = self.default_parameter
         if self.description is not None:
             body_json["description"] = self.description
+        if self.metadata is not None:
+            body_json["metadata"] = self.metadata
 
-        body_json["metadata"] = (
-            dynamic_generator.create_metadata_boilerplate(
-                input_schema=self.input_schema,
-                output_schema=self.output_schema,
-                param_schema=self.parameter_schema,
-                name=name,
-                description=self.description,
-            )
-            if metadata is None
-            else metadata
-        )
         # TODO:
         #  1. When duplicated dataprogram exists Nacelle responds with:
         #     requests.exceptions.HTTPError: 400 Client Error: BAD REQUEST for url:
