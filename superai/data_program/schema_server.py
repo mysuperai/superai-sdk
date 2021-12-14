@@ -4,6 +4,7 @@ import fastapi
 import uvicorn
 from fastapi import HTTPException
 from jsonschema import validate, ValidationError
+from pydantic import BaseModel
 from superai_schema.types import UiWidget
 from typing_extensions import Literal
 
@@ -31,14 +32,17 @@ class SchemaServer(Generic[Parameters, Input, Output]):
         app = fastapi.FastAPI()
         cls = self.params_model
 
+        class RequestModel(BaseModel):
+            params: cls
+
         @app.post("/schema", response_model=SchemaServerResponse)
-        def handle_post(params: cls) -> SchemaServerResponse:
-            input_model, output_model, _ = self.generate(params)
+        def handle_post(app_params: RequestModel) -> SchemaServerResponse:
+            input_model, output_model, _ = self.generate(app_params.params)
 
             try:
                 # FastAPI's request body parser seems to ignore some directives
                 # in JSON schema (e.g. `uniqueItems`) so I need to validate again
-                validate(params.dict(), self.params_schema)
+                validate(app_params.params.dict(), self.params_schema)
             except ValidationError as e:
                 raise HTTPException(status_code=422, detail=f"{e.message}")
 

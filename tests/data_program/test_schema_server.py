@@ -48,7 +48,7 @@ def server():
 
 
 def test_serve_schema_ok(server):
-    resp = requests.post("http://127.0.0.1:8001/schema", json={"choices": ["Dog", "Cat", "UMA"]})
+    resp = requests.post("http://127.0.0.1:8001/schema", json={"params": {"choices": ["Dog", "Cat", "UMA"]}})
     expected = json.loads(
         """
         {
@@ -75,5 +75,5 @@ def test_serve_schema_invalid(server):
         {"detail": "['Dog', 'Dog', 'UMA'] has non-unique elements"}
         """
     )
-    resp = requests.post("http://127.0.0.1:8001/schema", json={"choices": ["Dog", "Dog", "UMA"]})
+    resp = requests.post("http://127.0.0.1:8001/schema", json={"params": {"choices": ["Dog", "Dog", "UMA"]}})
     assert resp.json() == expected
