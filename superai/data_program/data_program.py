@@ -60,6 +60,7 @@ class DataProgram(DataProgramBase):
             self.input_schema,
             self.output_schema,
             self.parameter_schema,
+            self.default_parameter,
         ) = parse_dp_definition(definition)
 
         self._default_workflow: str = None
@@ -94,6 +95,7 @@ class DataProgram(DataProgramBase):
         from canotic.qumes_transport import start_threads
 
         name = os.getenv("WF_PREFIX")
+
         # Setting the SERVICE env variable indicates that we are running the Data Program as a service
         service = os.getenv("SERVICE")
         params_cls = default_params.__class__
@@ -201,6 +203,8 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         name = self.qualified_name
         if self.parameter_schema is not None:
             body_json["parameter_schema"] = {"params": self.parameter_schema}
+        if self.default_parameter is not None:
+            body_json["default_app_params"] = self.default_parameter
         if self.description is not None:
             body_json["description"] = self.description
 
@@ -301,20 +305,10 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
             ) -> Output:
                 my_task = Task(name=name, max_attempts=max_attempts)
                 my_task.process(
-                    [
-                        {
-                            "type": "",
-                            "schema_instance": model_to_task_io_payload(task_input),
-                        }
-                    ],
-                    [
-                        {
-                            "type": "",
-                            "schema_instance": model_to_task_io_payload(task_output),
-                        }
-                    ],
+                    model_to_task_io_payload(task_input),
+                    model_to_task_io_payload(task_output),
                 )
-                raw_result = my_task.output["values"][0]["schema_instance"]["formData"]
+                raw_result = my_task.output["values"]["formData"]
                 return task_output.parse_obj(raw_result)
 
             return json.loads(process_job(input_model, JobContext[Output](workflow, send_task)).json())
@@ -489,4 +483,5 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
             "parameter_schema": params.schema(),
             "input_schema": input_model.schema(),
             "output_schema": output_model.schema(),
+            "default_parameter": json.loads(params.json(exclude_none=True)),
         }
