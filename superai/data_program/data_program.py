@@ -3,29 +3,28 @@ import json
 import os
 from typing import Callable, Dict, List, Optional, Type
 
-from superai_schema.generators import dynamic_generator
-from superai_schema.types import BaseModel
-from superai_schema.universal_schema import task_schema_functions as df
-
 from superai import Client
-from superai.data_program import Workflow, Task
-from superai.data_program.Exceptions import UnknownTaskStatus
+from superai.data_program import Task, Workflow
 from superai.data_program.base import DataProgramBase
+from superai.data_program.Exceptions import UnknownTaskStatus
 from superai.data_program.protocol.task import task as task
 from superai.data_program.router import BasicRouter, Router
 from superai.data_program.schema_server import SchemaServer
 from superai.data_program.types import (
     DataProgramDefinition,
-    Parameters,
     Handler,
-    WorkflowConfig,
+    Input,
     JobContext,
     Output,
-    Input,
+    Parameters,
+    WorkflowConfig,
 )
-from superai.data_program.utils import parse_dp_definition, model_to_task_io_payload
+from superai.data_program.utils import model_to_task_io_payload, parse_dp_definition
 from superai.log import logger
 from superai.utils import load_api_key, load_auth_token, load_id_token
+from superai_schema.generators import dynamic_generator
+from superai_schema.types import BaseModel
+from superai_schema.universal_schema import task_schema_functions as df
 
 log = logger.get_logger(__name__)
 
@@ -46,7 +45,13 @@ class DataProgram(DataProgramBase):
         assert "input_schema" in definition
         assert "output_schema" in definition
         self.client = (
-            client if client else Client(api_key=load_api_key(), auth_token=load_auth_token(), id_token=load_id_token())
+            client
+            if client
+            else Client(
+                api_key=load_api_key(),
+                auth_token=load_auth_token(),
+                id_token=load_id_token(),
+            )
         )
         # FIXME: Needs to register default_workflow, and workflows... not the router
         self.__dict__.update(definition)
@@ -78,7 +83,11 @@ class DataProgram(DataProgramBase):
 
     @staticmethod
     def run(
-        *, default_params: Parameters, handler: Handler[Parameters, Input, Output], workflows: List[WorkflowConfig]
+        *,
+        default_params: Parameters,
+        handler: Handler[Parameters, Input, Output],
+        workflows: List[WorkflowConfig],
+        metadata: dict = {},
     ):
         # TODO: Fix: start the DP without legacy dependencies
         from canotic.hatchery import hatchery_config
@@ -110,7 +119,12 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
             os.environ["IN_AGENT"] = "YES"
 
             default_definition = DataProgram._get_definition_for_params(default_params, handler)
-            dp = DataProgram(name=name, metadata={}, add_basic_workflow=False, definition=default_definition)
+            dp = DataProgram(
+                name=name,
+                metadata=metadata,
+                add_basic_workflow=False,
+                definition=default_definition,
+            )
 
             for workflow_config in workflows:
                 dp._add_workflow_by_config(workflow_config, params_cls, handler)
@@ -235,7 +249,12 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         return workflow_dict
 
     def add_workflow(
-        self, workflow: Callable, name: str = None, description: str = None, default: bool = False, gold: bool = False
+        self,
+        workflow: Callable,
+        name: str = None,
+        description: str = None,
+        default: bool = False,
+        gold: bool = False,
     ) -> Dict:
         """
         Assuming that if the _basic workflow is not deployed then the first workflow added will be the default and gold workflow
@@ -263,18 +282,37 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         return self._add_workflow_obj(workflow=workflow, default=default, gold=gold)
 
     def _add_workflow_by_config(
-        self, workflow: WorkflowConfig, params_cls: Type[Parameters], handler: Handler[Parameters, Input, Output]
+        self,
+        workflow: WorkflowConfig,
+        params_cls: Type[Parameters],
+        handler: Handler[Parameters, Input, Output],
     ):
         def workflow_fn(inp, params):
             params_model = params_cls.parse_obj(params)
             input_model_cls, _, process_job = handler(params_model)
             input_model = input_model_cls.parse_obj(inp)
 
-            def send_task(name: str, *, task_input: BaseModel, task_output: Output, max_attempts: int) -> Output:
+            def send_task(
+                name: str,
+                *,
+                task_input: BaseModel,
+                task_output: Output,
+                max_attempts: int,
+            ) -> Output:
                 my_task = Task(name=name, max_attempts=max_attempts)
                 my_task.process(
-                    [{"type": "", "schema_instance": model_to_task_io_payload(task_input)}],
-                    [{"type": "", "schema_instance": model_to_task_io_payload(task_output)}],
+                    [
+                        {
+                            "type": "",
+                            "schema_instance": model_to_task_io_payload(task_input),
+                        }
+                    ],
+                    [
+                        {
+                            "type": "",
+                            "schema_instance": model_to_task_io_payload(task_output),
+                        }
+                    ],
                 )
                 raw_result = my_task.output["values"][0]["schema_instance"]["formData"]
                 return task_output.parse_obj(raw_result)
