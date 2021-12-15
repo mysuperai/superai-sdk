@@ -941,6 +941,10 @@ def workflow(suffix, prefix=None):
             schema["app_metrics"] = function.__app_metrics__
             logger.debug("APP METRICS\n{}".format(schema["app_metrics"]))
 
+            if hasattr(function, "__default_app_metrics__"):
+                schema["default_app_metrics"] = function.__default_app_metrics__
+                logger.debug("DEFAULT APP METRICS\n{}".format(schema["default_app_metrics"]))
+
         if hasattr(function, "__example_data__"):
             schema["example"] = function.__example_data__
             logger.debug("EXAMPLE DATA\n{}".format(schema["example"]))
@@ -1075,6 +1079,12 @@ def metric_schema(*args, **kwargs):
                 function.__app_metrics__ = {}
 
             function.__app_metrics__[dargs["name"]] = dargs["schema"]
+
+            if "default" in dargs:
+                if not hasattr(function, "__default_app_metrics__"):
+                    function.__default_app_metrics__ = {}
+
+                function.__default_app_metrics__[dargs["name"]] = dargs["default"]
 
             logger.debug("APP_METRICS DECORATOR: {}".format(function.__app_metrics__))
 
