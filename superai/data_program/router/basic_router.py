@@ -95,7 +95,7 @@ class BasicRouter(Router):
         @workflow(self.name, self.prefix)
         @input_schema(name="inp", schema=self.input_schema)
         @param_schema(name="params", schema=self.parameter_schema, default=self.default_parameter)
-        @metric_schema(name="metric", schema=dt.bundle())
+        @metric_schema(name="metric", schema=dt.bundle(), default={})
         @output_schema(schema=self.output_schema)
         def router(inp, metric, params):
             app_id = get_job_app()
