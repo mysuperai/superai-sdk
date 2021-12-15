@@ -92,7 +92,7 @@ class DataProgram(DataProgramBase):
             else metadata
         )
 
-        self.__template_object = self.__create_template(metadata=metadata)
+        self.__template_object = self.__create_template()
         log.info(f"DataProgram created {self.qualified_name}")
 
     @staticmethod
