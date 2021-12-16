@@ -53,6 +53,9 @@ class Workflow:
             self._output_schema,
             self._parameter_schema,
             self._default_parameter,
+            self._input_ui_schema,
+            self._output_ui_schema,
+            self._parameter_ui_schema,
         ) = parse_dp_definition(dp_definition)
 
         # Adding this to kwargs because the Router will do the schema formatting using the task functions.

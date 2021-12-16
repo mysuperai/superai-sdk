@@ -62,6 +62,9 @@ class DataProgram(DataProgramBase):
             self.output_schema,
             self.parameter_schema,
             self.default_parameter,
+            self.input_ui_schema,
+            self.output_ui_schema,
+            self.parameter_ui_schema,
         ) = parse_dp_definition(definition)
 
         self._default_workflow: str = None
@@ -213,11 +216,15 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         """
         body_json = {
             "input_schema": self.input_schema,
+            "input_ui_schema": self.input_ui_schema,
             "output_schema": self.output_schema,
+            "output_ui_schema": self.output_ui_schema,
         }
         name = self.qualified_name
         if self.parameter_schema is not None:
             body_json["parameter_schema"] = {"params": self.parameter_schema}
+        if self.parameter_ui_schema is not None:
+            body_json["parameter_ui_schema"] = {"params": self.parameter_ui_schema}
         if self.default_parameter is not None:
             body_json["default_app_params"] = self.default_parameter
         if self.description is not None:
@@ -487,7 +494,10 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
 
         return {
             "parameter_schema": params.schema(),
+            "parameter_ui_schema": params.ui_schema(),
             "input_schema": input_model.schema(),
+            "input_ui_schema": input_model.ui_schema(),
             "output_schema": output_model.schema(),
+            "output_ui_schema": output_model.ui_schema(),
             "default_parameter": json.loads(params.json(exclude_none=True)),
         }

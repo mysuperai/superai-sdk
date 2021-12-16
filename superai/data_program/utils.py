@@ -19,7 +19,15 @@ def parse_dp_definition(dp_definition):
     output_schema = _parse_args(schema=dp_definition.get("output_schema")).get("schema")
     parameter_schema = _parse_args(schema=dp_definition.get("parameter_schema")).get("schema")
     default_parameter = dp_definition.get("default_parameter", None)
-    return input_schema, output_schema, parameter_schema, default_parameter
+    return (
+        input_schema,
+        output_schema,
+        parameter_schema,
+        default_parameter,
+        dp_definition.get("input_ui_schema"),
+        dp_definition.get("output_ui_schema"),
+        dp_definition.get("parameter_ui_schema"),
+    )
 
 
 def sign_url(url: str, client: Client = None):

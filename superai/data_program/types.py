@@ -50,8 +50,11 @@ class Handler(Protocol[Parameters, Input, Output]):
 
 class DataProgramDefinition(TypedDict):
     input_schema: dict
+    input_ui_schema: Optional[dict]
     output_schema: dict
+    output_ui_schema: Optional[dict]
     parameter_schema: Optional[dict]
+    parameter_ui_schema: Optional[dict]
     default_parameter: Optional[dict]
 
 
