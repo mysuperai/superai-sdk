@@ -837,9 +837,15 @@ def serve_workflow(function, suffix=None, schema=None, prefix=None):
 
 def schema_wrapper(subject, context, function):
     kwargs = {}
+
+    # Validation needs to be skipped if schema without version is being in use
+    # because input/output schema depends on app params.
+    # In this case, DataProgram class is responsible of ensuring validity
+    can_validate_input_output = _is_using_versioned_schema()
+
     if hasattr(function, "__input_param__"):
         (name, schema) = function.__input_param__
-        if schema is not None:
+        if schema is not None and can_validate_input_output:
             logger.debug("SCHEMA NAME: {}".format(name))
             logger.debug("VALIDATING SUBJECT: \n{} \nSCHEMA: \n{}".format(subject, schema))
             validate(subject, schema, validate_remote=True, client=DataHelper())
@@ -872,7 +878,7 @@ def schema_wrapper(subject, context, function):
     logger.debug("FUNCTION KWARGS = {}".format(kwargs))
     f_output = function(subject) if 0 == len(kwargs) and subject is not None else function(**kwargs)
 
-    if hasattr(function, "__output_param__"):
+    if hasattr(function, "__output_param__") and can_validate_input_output:
         schema = function.__output_param__
         if type(f_output) == tuple:
             logger.debug("VALIDATING OUTPUT_VALS: \n{} \nSCHEMA: \n{}".format(f_output[0], schema))
@@ -967,6 +973,11 @@ def workflow(suffix, prefix=None):
     return decorator(suffix) if callable(suffix) else decorator
 
 
+def _is_using_versioned_schema() -> bool:
+    # Not having SERVICE environment variable indicates that legacy versioned schema is in use
+    return os.getenv("SERVICE") is None
+
+
 def _parse_args(*args, **kwargs):
     """
     f(name=asdfs)
@@ -988,10 +999,7 @@ def _parse_args(*args, **kwargs):
 
     f_args.update(kwargs)
 
-    # Not having SERVICE environment variable indicates that legacy versioned schema is in use
-    is_using_versioned_schema = os.getenv("SERVICE") is None
-
-    if f_args["schema"] and is_using_versioned_schema:
+    if f_args["schema"] and _is_using_versioned_schema():
         f_args["schema"] = list_to_schema(f_args["schema"])
         f_args["schema"]["$schema"] = get_current_version_id()
 
