@@ -3,6 +3,8 @@ import json
 import os
 from typing import Callable, Dict, List, Optional, Type
 
+from jsonschema import validate
+
 from superai import Client
 from superai.data_program import Task, Workflow
 from superai.data_program.base import DataProgramBase
@@ -23,7 +25,7 @@ from superai.data_program.utils import model_to_task_io_payload, parse_dp_defini
 from superai.log import logger
 from superai.utils import load_api_key, load_auth_token, load_id_token
 from superai_schema.generators import dynamic_generator
-from superai_schema.types import BaseModel
+from superai_schema.types import BaseModel, UiWidget
 from superai_schema.universal_schema import task_schema_functions as df
 
 log = logger.get_logger(__name__)
@@ -306,8 +308,10 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
     ):
         def workflow_fn(inp, params):
             params_model = params_cls.parse_obj(params)
-            input_model_cls, _, process_job = handler(params_model)
-            input_model = input_model_cls.parse_obj(inp)
+            job_input_model_cls, _, process_job = handler(params_model)
+
+            # Load raw job input into model with validation
+            job_input_model = job_input_model_cls.parse_obj(inp)
 
             def send_task(
                 name: str,
@@ -324,7 +328,15 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                 raw_result = my_task.output["values"]["formData"]
                 return task_output.parse_obj(raw_result)
 
-            return json.loads(process_job(input_model, JobContext[Output](workflow, send_task)).json())
+            job_output = process_job(job_input_model, JobContext[Output](workflow, send_task))
+
+            # Validate job output
+            job_output_schema = job_output.schema()
+            job_output_dict = json.loads(job_output.json())
+            logger.debug(f"VALIDATING OUTPUT_VALS: \n{job_output_dict} \nSCHEMA: \n{job_output_schema}")
+            validate(job_output_dict, job_output_schema)
+
+            return job_output_dict
 
         self.add_workflow(
             name=workflow.name,
@@ -494,10 +506,10 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
 
         return {
             "parameter_schema": params.schema(),
-            "parameter_ui_schema": params.ui_schema(),
+            "parameter_ui_schema": params.ui_schema() if issubclass(input_model, UiWidget) else {},
             "input_schema": input_model.schema(),
-            "input_ui_schema": input_model.ui_schema(),
+            "input_ui_schema": input_model.ui_schema() if issubclass(input_model, UiWidget) else {},
             "output_schema": output_model.schema(),
-            "output_ui_schema": output_model.ui_schema(),
+            "output_ui_schema": output_model.ui_schema() if issubclass(input_model, UiWidget) else {},
             "default_parameter": json.loads(params.json(exclude_none=True)),
         }
