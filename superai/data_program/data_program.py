@@ -506,10 +506,10 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
 
         return {
             "parameter_schema": params.schema(),
-            "parameter_ui_schema": params.ui_schema() if issubclass(input_model, UiWidget) else {},
+            "parameter_ui_schema": params.ui_schema() if isinstance(params, UiWidget) else {},
             "input_schema": input_model.schema(),
             "input_ui_schema": input_model.ui_schema() if issubclass(input_model, UiWidget) else {},
             "output_schema": output_model.schema(),
-            "output_ui_schema": output_model.ui_schema() if issubclass(input_model, UiWidget) else {},
+            "output_ui_schema": output_model.ui_schema() if issubclass(output_model, UiWidget) else {},
             "default_parameter": json.loads(params.json(exclude_none=True)),
         }
