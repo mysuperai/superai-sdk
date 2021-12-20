@@ -58,7 +58,7 @@ BUILD_REQUIRES = [
 DP_REQUIRES = [
     "awscli>=1.18.163",
     "superai-dataclient~=0.1.0",
-    "superai-schema~=0.1.14",
+    "superai-schema~=0.1.15",
 ]
 
 TEST_REQUIRES = [
