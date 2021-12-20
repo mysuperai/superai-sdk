@@ -3,8 +3,6 @@ import json
 import os
 from typing import Callable, Dict, List, Optional, Type
 
-from jsonschema import validate
-
 from superai import Client
 from superai.data_program import Task, Workflow
 from superai.data_program.base import DataProgramBase
@@ -329,14 +327,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                 return task_output.parse_obj(raw_result)
 
             job_output = process_job(job_input_model, JobContext[Output](workflow, send_task))
-
-            # Validate job output
-            job_output_schema = job_output.schema()
-            job_output_dict = json.loads(job_output.json())
-            logger.debug(f"VALIDATING OUTPUT_VALS: \n{job_output_dict} \nSCHEMA: \n{job_output_schema}")
-            validate(job_output_dict, job_output_schema)
-
-            return job_output_dict
+            return json.loads(job_output.json())
 
         self.add_workflow(
             name=workflow.name,
