@@ -63,6 +63,15 @@ sandbox:
     console: true
   suffix: "-sandbox"
 
+staging:
+  name: "staging"
+  dependency_version: "staging"
+  log:
+    level: 20 #INFO=20, DEBUG=10
+    console: true
+  meta_ai_base: "https://metaai-stg.super.ai/v1/graphql"
+  suffix: "-staging"
+
 prod:
   name: "prod"
   cognito:
