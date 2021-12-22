@@ -165,7 +165,7 @@ class meta_ai_deployment_type_constraint(sgqlc.types.Enum):
 
 class meta_ai_deployment_type_enum(sgqlc.types.Enum):
     __schema__ = meta_ai_graphql_schema
-    __choices__ = ("AWS_EKS", "AWS_LAMBDA", "AWS_SAGEMAKER", "DUMMY")
+    __choices__ = ("AWS_EKS", "AWS_LAMBDA", "AWS_SAGEMAKER", "AWS_SAGEMAKER_ASYNC", "DUMMY")
 
 
 class meta_ai_deployment_type_select_column(sgqlc.types.Enum):
@@ -2912,7 +2912,7 @@ class meta_ai_predictions_by_day_variance_order_by(sgqlc.types.Input):
 
 class meta_ai_task_registry_bool_exp(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("_and", "_not", "_or", "app_id", "id", "model_id", "task_name")
+    __field_names__ = ("_and", "_not", "_or", "app_id", "id", "model", "model_id", "task_name")
     _and = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null("meta_ai_task_registry_bool_exp")), graphql_name="_and"
     )
@@ -2922,6 +2922,7 @@ class meta_ai_task_registry_bool_exp(sgqlc.types.Input):
     )
     app_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="app_id")
     id = sgqlc.types.Field(bigint_comparison_exp, graphql_name="id")
+    model = sgqlc.types.Field(meta_ai_model_bool_exp, graphql_name="model")
     model_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="model_id")
     task_name = sgqlc.types.Field(String_comparison_exp, graphql_name="task_name")
 
@@ -2934,9 +2935,10 @@ class meta_ai_task_registry_inc_input(sgqlc.types.Input):
 
 class meta_ai_task_registry_insert_input(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("app_id", "id", "model_id", "task_name")
+    __field_names__ = ("app_id", "id", "model", "model_id", "task_name")
     app_id = sgqlc.types.Field(uuid, graphql_name="app_id")
     id = sgqlc.types.Field(bigint, graphql_name="id")
+    model = sgqlc.types.Field(meta_ai_model_obj_rel_insert_input, graphql_name="model")
     model_id = sgqlc.types.Field(uuid, graphql_name="model_id")
     task_name = sgqlc.types.Field(String, graphql_name="task_name")
 
@@ -2954,9 +2956,10 @@ class meta_ai_task_registry_on_conflict(sgqlc.types.Input):
 
 class meta_ai_task_registry_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("app_id", "id", "model_id", "task_name")
+    __field_names__ = ("app_id", "id", "model", "model_id", "task_name")
     app_id = sgqlc.types.Field(order_by, graphql_name="app_id")
     id = sgqlc.types.Field(order_by, graphql_name="id")
+    model = sgqlc.types.Field(meta_ai_model_order_by, graphql_name="model")
     model_id = sgqlc.types.Field(order_by, graphql_name="model_id")
     task_name = sgqlc.types.Field(order_by, graphql_name="task_name")
 
@@ -5986,9 +5989,10 @@ class meta_ai_predictions_by_day_variance_fields(sgqlc.types.Type):
 
 class meta_ai_task_registry(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("app_id", "id", "model_id", "task_name")
+    __field_names__ = ("app_id", "id", "model", "model_id", "task_name")
     app_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="app_id")
     id = sgqlc.types.Field(sgqlc.types.non_null(bigint), graphql_name="id")
+    model = sgqlc.types.Field(sgqlc.types.non_null(meta_ai_model), graphql_name="model")
     model_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="model_id")
     task_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="task_name")
 

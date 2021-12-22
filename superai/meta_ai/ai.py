@@ -59,6 +59,7 @@ class Orchestrator(str, enum.Enum):
     LOCAL_DOCKER_K8S = "LOCAL_DOCKER_K8S"
     MINIKUBE = "MINIKUBE"
     AWS_SAGEMAKER = "AWS_SAGEMAKER"
+    AWS_SAGEMAKER_ASYNC = "AWS_SAGEMAKER_ASYNC"
     AWS_LAMBDA = "AWS_LAMBDA"
     AWS_EKS = "AWS_EKS"
     GCP_KS = "GCP_KS"
@@ -69,6 +70,7 @@ class PredictorFactory(object):
         "LOCAL_DOCKER": LocalPredictor,
         "LOCAL_DOCKER_LAMBDA": LocalPredictor,
         "AWS_SAGEMAKER": AWSPredictor,
+        "AWS_SAGEMAKER_ASYNC": AWSPredictor,
         "AWS_LAMBDA": AWSPredictor,
         "AWS_EKS": AWSPredictor,
     }
@@ -971,6 +973,7 @@ class AI:
             Orchestrator.LOCAL_DOCKER_LAMBDA,
             Orchestrator.AWS_LAMBDA,
             Orchestrator.AWS_SAGEMAKER,
+            Orchestrator.AWS_SAGEMAKER_ASYNC,
         ]:
             self._prepare_dependencies(
                 worker_count=kwargs.get("worker_count", 1),
