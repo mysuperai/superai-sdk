@@ -96,7 +96,12 @@ ai = AI(
 )
 
 ai.push(update_weights=True, overwrite=True)
-predictor: AWSPredictor = ai.deploy(orchestrator=Orchestrator.AWS_EKS, enable_cuda=True, redeploy=True)
+predictor: AWSPredictor = ai.deploy(
+    orchestrator=Orchestrator.AWS_EKS,
+    enable_cuda=True,
+    redeploy=True,
+    properties={"kubernetes_config": {"cooldownPeriod": 300}},
+)
 
 time.sleep(5)
 log.info(

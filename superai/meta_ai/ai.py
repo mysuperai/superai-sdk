@@ -990,9 +990,9 @@ class AI:
                     from_scratch=kwargs.get("build_all_layers", False),
                 )
         elif orchestrator in [Orchestrator.AWS_EKS, Orchestrator.LOCAL_DOCKER_K8S]:
-            k8s_config = self._prepare_k8s_dependencies(enable_cuda=enable_cuda, **kwargs)
             if properties is None:
                 properties = {}
+            k8s_config = self._prepare_k8s_dependencies(enable_cuda=enable_cuda, properties=properties, **kwargs)
             properties["kubernetes_config"] = k8s_config
             if not skip_build:
                 self.build_image_s2i(
@@ -1342,7 +1342,7 @@ class AI:
             callbacks=callbacks,
         )
 
-    def _prepare_k8s_dependencies(self, enable_cuda=False, **kwargs) -> dict:
+    def _prepare_k8s_dependencies(self, enable_cuda=False, properties=None, **kwargs) -> dict:
         """
         Prepare dependencies like kubernetes CRD
         Args:
@@ -1358,15 +1358,24 @@ class AI:
         Return:
              Dictionary of the CRD. This is saved in the save folder as well.
         """
-        kubernetes_config = dict(
-            maxReplicas=kwargs.get("maxReplicas", 5),
-            targetAverageUtilization=kwargs.get("targetAverageUtilization", 60),
-            gpuTargetAverageUtilization=kwargs.get("gpuTargetAverageUtilization", 60),
-            volumeMountName=kwargs.get("volumeMountName", "efs-vpc"),
-            mountPath=kwargs.get("mountPath", "/shared"),
-            gpuBaseUtilization=kwargs.get("gpuBaseUtilization", 0.5),
-            numThreads=kwargs.get("worker_count", 1),
-            enableCuda=enable_cuda,
+        if properties is None:
+            properties = {}
+        kubernetes_config = properties.get("kubernetes_config", {})
+        kubernetes_config.update(
+            dict(
+                maxReplicas=kwargs.get("maxReplicas", kubernetes_config.get("maxReplicas", 5)),
+                targetAverageUtilization=kwargs.get(
+                    "targetAverageUtilization", kubernetes_config.get("targetAverageUtilization", 60)
+                ),
+                gpuTargetAverageUtilization=kwargs.get(
+                    "gpuTargetAverageUtilization", kubernetes_config.get("gpuTargetAverageUtilization", 60)
+                ),
+                volumeMountName=kwargs.get("volumeMountName", kubernetes_config.get("volumeMountName", "efs-vpc")),
+                mountPath=kwargs.get("mountPath", kubernetes_config.get("mountPath", "/shared")),
+                gpuBaseUtilization=kwargs.get("gpuBaseUtilization", kubernetes_config.get("gpuBaseUtilization", 0.5)),
+                numThreads=kwargs.get("worker_count", kubernetes_config.get("worker_count", 1)),
+                enableCuda=enable_cuda,
+            )
         )
         with open(os.path.join(self._location, f"{self.name}_config.json"), "w") as wfp:
             json.dump(kubernetes_config, wfp, indent=2)
