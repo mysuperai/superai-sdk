@@ -5,7 +5,9 @@ import json
 import signal
 import sys
 
+from requests import ReadTimeout
 from rich import print
+from rich.console import Console
 import yaml
 from botocore.exceptions import ClientError
 from datetime import datetime
@@ -609,6 +611,46 @@ def stop_deployment(client, id: str, wait: int):
         print("Deployment offline.")
     else:
         print("Stopped waiting for OFFLINE status. Process is still running in the backend.")
+
+
+@deployment.command("predict")
+@click.argument("id", type=click.UUID)
+@click.argument(
+    "data",
+    type=str,
+)
+@click.option(
+    "--parameters",
+    type=str,
+    help="Parameters to be used for prediction. Expected as JSON encoded dictionary.",
+)
+@click.option(
+    "--timeout",
+    type=int,
+    help="Time to wait for prediction to complete. Default is 20 seconds. Maximum is 60 seconds",
+    default=20,
+)
+@pass_client
+def predict(client, id: str, data: str, parameters: str, timeout: int):
+    """
+    Predict using a deployed model
+
+    `DATA` is the input to be used for prediction. Expected as JSON encoded dictionary.
+
+    """
+    try:
+        console = Console()
+        with console.status("Waiting for prediction...", speed=1):
+            response = client.predict_from_endpoint(
+                model_id=str(id),
+                input_data=json.loads(data),
+                parameters=json.loads(parameters) if parameters else None,
+                timeout=timeout,
+            )
+            console.print("Prediction output:")
+            console.print(response)
+    except ReadTimeout:
+        print("Timeout waiting for prediction to complete. Try increasing --timeout value.")
 
 
 @deployment.command(
