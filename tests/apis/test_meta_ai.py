@@ -30,7 +30,7 @@ def my_vcr():
         serializer="yaml",
         cassette_library_dir=f"{pathlib.Path(__file__).resolve().parent}/cassettes",
         record_mode="none",
-        match_on=["body", "headers", "method", "uri", "query"],
+        match_on=["body", "headers", "method", "host", "path", "query"],
         filter_headers=["x-api-key", "x-app-id", "Content-Length", "User-Agent"],
         before_record_response=scrub_string(APP_ID, "FAKE_APP_ID"),
         before_record_request=before_record_cb,
