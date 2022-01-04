@@ -25,7 +25,7 @@ def my_vcr():
         cassette_library_dir=f"{pathlib.Path(__file__).resolve().parent}/cassettes",
         record_mode="none",
         match_on=["body", "headers", "method", "path"],
-        filter_headers=["x-api-key", "x-app-id", "Content-Length", "User-Agent", "API-KEY"],
+        filter_headers=["x-api-key", "x-app-id", "Content-Length", "User-Agent", "API-KEY", "Accept-Encoding"],
         decode_compressed_response=True,
     )
 
