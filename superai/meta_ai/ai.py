@@ -425,14 +425,14 @@ class AI:
         )
 
     def update_version_by_availability(self, loaded=False):
-        existing_models: List[Dict[str, str]] = self.ai_template.client.get_model_by_name(self.name)
+        existing_models = self.ai_template.client.get_model_by_name(self.name)
         if len(existing_models) and not loaded:
             if self.version in [x["version"] for x in existing_models]:
                 latest_version: int = self.ai_template.client.get_latest_version_of_model_by_name(self.name)
                 self.version = latest_version + 1
                 log.info(
-                    f"Found an existing for the name and model in the database, "
-                    f"setting version to the latest version version: {self.version}"
+                    f"Found an existing model with name {self.name} in the database, "
+                    f"incrementing version from the latest found version: {latest_version} -> {self.version}"
                 )
 
     @classmethod
@@ -1028,11 +1028,11 @@ class AI:
             log.info(f"Existing deployments : {existing_deployment}")
             if existing_deployment is None or "status" not in existing_deployment:
                 # check if weights are present in the database
-                models = self.client.get_model_by_name_version(self.name, self.version)
+                models = self.client.get_model_by_name_version(self.name, self.version, verbose=True)
                 model = models[0]
                 log.info(f"Model attributes: {model}")
                 assert (
-                    model["weightsPath"] is not None
+                    model["weights_path"] is not None
                 ), "Weights Path cannot be None in the database for the deployment to finish"
                 self.client.deploy(self.id, ecr_image_name, deployment_type=orchestrator.value, properties=properties)
             else:

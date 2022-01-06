@@ -1,7 +1,7 @@
 import json
 import time
 from abc import ABC
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Union, Dict, Optional
 
 from sgqlc.operation import Operation  # type: ignore
 from rich.console import Console
@@ -28,6 +28,8 @@ from superai.apis.meta_ai.meta_ai_graphql_schema import (
 )
 
 log = logger.get_logger(__name__)
+BASE_FIELDS = ["name", "version", "id", "ai_worker_id", "visibility"]
+EXTRA_FIELDS = ["description", "model_save_path", "weights_path", "input_schema", "output_schema"]
 
 
 class ModelApiMixin(ABC):
@@ -40,57 +42,46 @@ class ModelApiMixin(ABC):
     def resource(self):
         return self._resource
 
-    def get_all_models(self) -> List[meta_ai_model]:
-        op = Operation(query_root)
-        op.meta_ai_model().__fields__("name", "version", "id", "ai_worker_id", "visibility")
-        data = self.sess.perform_op(op)
-        return (op + data).meta_ai_model
+    @staticmethod
+    def _fields(verbose):
+        return BASE_FIELDS + EXTRA_FIELDS if verbose else BASE_FIELDS
 
-    def get_model(self, idx) -> Optional[meta_ai_model]:
+    @staticmethod
+    def _output_formatter(entries, to_json):
+        if not to_json:
+            return entries
+        elif isinstance(entries, (list, tuple)):
+            return [entry.__json_data__ for entry in entries]
+        else:
+            return entries.__json_data__  # single instance
+
+    def get_all_models(self, to_json=False, verbose=False) -> List[Union[meta_ai_model, Dict]]:
+        op = Operation(query_root)
+        op.meta_ai_model().__fields__(*self._fields(verbose))
+        data = self.sess.perform_op(op)
+        return self._output_formatter((op + data).meta_ai_model, to_json)
+
+    def get_model(self, idx, to_json=False) -> Optional[Union[meta_ai_model, Dict]]:
         op = Operation(query_root)
         op.meta_ai_model_by_pk(id=idx).__fields__(
             "name", "version", "id", "ai_worker_id", "description", "visibility", "input_schema", "output_schema"
         )
         data = self.sess.perform_op(op)
-        return (op + data).meta_ai_model_by_pk
+        return self._output_formatter((op + data).meta_ai_model_by_pk, to_json)
 
-    def get_model_by_name(self, name):
+    def get_model_by_name(self, name, to_json=False, verbose=False) -> List[Union[meta_ai_model, Dict]]:
         op = Operation(query_root)
-        op.meta_ai_model(where={"name": {"_eq": name}}).__fields__(
-            "name", "version", "id", "model_save_path", "weights_path"
-        )
+        op.meta_ai_model(where={"name": {"_eq": name}}).__fields__(*self._fields(verbose))
         data = self.sess.perform_op(op)
-        return list(
-            map(
-                lambda x: {
-                    "name": x.name,
-                    "version": x.version,
-                    "id": x.id,
-                    "modelSavePath": x.model_save_path,
-                    "weightsPath": x.weights_path,
-                },
-                (op + data).meta_ai_model,
-            )
-        )
+        return self._output_formatter((op + data).meta_ai_model, to_json)
 
-    def get_model_by_name_version(self, name, version):
+    def get_model_by_name_version(
+        self, name, version, to_json=False, verbose=False
+    ) -> List[Union[meta_ai_model, Dict]]:
         op = Operation(query_root)
-        op.meta_ai_model(where={"name": {"_eq": name}, "version": {"_eq": version}}).__fields__(
-            "name", "version", "id", "model_save_path", "weights_path"
-        )
+        op.meta_ai_model(where={"name": {"_eq": name}, "version": {"_eq": version}}).__fields__(*self._fields(verbose))
         data = self.sess.perform_op(op)
-        return list(
-            map(
-                lambda x: {
-                    "name": x.name,
-                    "version": x.version,
-                    "id": x.id,
-                    "modelSavePath": x.model_save_path,
-                    "weightsPath": x.weights_path,
-                },
-                (op + data).meta_ai_model,
-            )
-        )
+        return self._output_formatter((op + data).meta_ai_model, to_json)
 
     def add_model(
         self,
@@ -100,7 +91,7 @@ class ModelApiMixin(ABC):
         stage: str = "LOCAL",
         metadata: str = None,
         visibility: meta_ai_visibility_enum = "PRIVATE",
-    ):
+    ) -> int:
         op = Operation(mutation_root)
         op.insert_meta_ai_model_one(
             object=meta_ai_model_insert_input(
@@ -127,7 +118,7 @@ class ModelApiMixin(ABC):
         model_save_path: str = "",
         weights_path: str = "",
         visibility: meta_ai_visibility_enum = "PRIVATE",
-    ):
+    ) -> int:
         """Add a complete model entry in the database.
 
         Args:
@@ -159,7 +150,7 @@ class ModelApiMixin(ABC):
         log.info(f"Created new model: {data}")
         return (op + data).insert_meta_ai_model_one.id
 
-    def update_model(self, idx, **kwargs):
+    def update_model(self, idx, **kwargs) -> int:
         op = Operation(mutation_root)
         op.update_meta_ai_model_by_pk(
             _set=meta_ai_model_set_input(**kwargs),
@@ -168,7 +159,7 @@ class ModelApiMixin(ABC):
         data = self.sess.perform_op(op)
         return (op + data).update_meta_ai_model_by_pk.id
 
-    def update_model_by_name_version(self, name: str, version: int, **kwargs):
+    def update_model_by_name_version(self, name: str, version: int, **kwargs) -> int:
         opq = Operation(query_root)
         opq.meta_ai_model(
             where={"name": {"_eq": name}, "version": {"_eq": version}},
@@ -197,7 +188,7 @@ class ModelApiMixin(ABC):
             res = list(map(lambda x: x.version, res))
             return sorted(res, reverse=True)[0]
 
-    def delete_model(self, idx):
+    def delete_model(self, idx) -> int:
         op = Operation(mutation_root)
         op.delete_meta_ai_model_by_pk(id=idx).__fields__("name", "version", "id")
         data = self.sess.perform_op(op)

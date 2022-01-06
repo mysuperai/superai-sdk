@@ -534,10 +534,17 @@ def ai():
 
 
 @ai.command("list")
+@click.option("--name", required=False, help="Filter by model name.")
+@click.option("--version", required=False, help="Filter by model version.")
 @pass_client
-def list_ai(client):
-    """List all available models"""
-    print(client.get_all_models())
+def list_ai(client, name: str, version: str):
+    """List available models"""
+    if name is None:
+        print(client.get_all_models())
+    elif version is None:
+        print(client.get_model_by_name(str(name)))
+    else:
+        print(client.get_model_by_name_version(str(name), str(version)))
 
 
 @ai.command("view")
@@ -546,6 +553,25 @@ def list_ai(client):
 def get_ai(client, id: str):
     """View model parameters"""
     print(client.get_model(str(id)))
+
+
+@ai.command("update")
+@click.argument("id", type=click.UUID)
+@click.option("--name", required=False, help="Model name")
+@click.option("--description", required=False, help="Model description")
+@click.option("--visibility", required=False, type=click.Choice(["PRIVATE", "PUBLIC"]), help="Model visibility")
+@pass_client
+def update_ai(client, id: str, name: str, description: str, visibility: str):
+    """Update model parameters"""
+    params = {}
+    if name is not None:
+        params["name"] = name
+    if description is not None:
+        params["description"] = description
+    if visibility is not None:
+        params["visibility"] = visibility
+
+    print(client.update_model(str(id), **params))
 
 
 @ai.group(help="Deployed models running in our infrastructure")
