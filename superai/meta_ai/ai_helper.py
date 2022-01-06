@@ -32,8 +32,7 @@ def list_models(
         client: Instance of superai.client.
         ai_name: Name of the AI model.
     """
-
-    model_entries = client.get_model_by_name(ai_name)
+    model_entries: List[Dict] = client.get_model_by_name(ai_name, to_json=True)
     if raw:
         if verbose:
             log.info(json.dumps(model_entries, indent=1))
