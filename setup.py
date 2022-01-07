@@ -41,6 +41,7 @@ REQUIRES = [
     "uvicorn>=0.15.0",
     "pycognito>=2021.3.1",
     "psutil~=5.6.7",
+    "pandas>=1.2.5"
 ]
 
 BUILD_REQUIRES = [
