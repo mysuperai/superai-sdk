@@ -1365,14 +1365,13 @@ class AI:
             dict(
                 maxReplicas=kwargs.get("maxReplicas", kubernetes_config.get("maxReplicas", 5)),
                 targetAverageUtilization=kwargs.get(
-                    "targetAverageUtilization", kubernetes_config.get("targetAverageUtilization", 60)
+                    "targetAverageUtilization", kubernetes_config.get("targetAverageUtilization", 0.5)
                 ),
                 gpuTargetAverageUtilization=kwargs.get(
                     "gpuTargetAverageUtilization", kubernetes_config.get("gpuTargetAverageUtilization", 60)
                 ),
                 volumeMountName=kwargs.get("volumeMountName", kubernetes_config.get("volumeMountName", "efs-vpc")),
                 mountPath=kwargs.get("mountPath", kubernetes_config.get("mountPath", "/shared")),
-                gpuBaseUtilization=kwargs.get("gpuBaseUtilization", kubernetes_config.get("gpuBaseUtilization", 0.5)),
                 numThreads=kwargs.get("worker_count", kubernetes_config.get("worker_count", 1)),
                 enableCuda=enable_cuda,
             )
