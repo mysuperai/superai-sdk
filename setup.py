@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 NAME = "superai"
-VERSION = "0.1.0.beta3.dev48"
+VERSION = "0.1.0.beta3"
 # To install the library, run the following
 #
 # python setup.py install
@@ -34,8 +34,6 @@ REQUIRES = [
     "rich>=10.1",
     "pyyaml>=3.13",
     "requests>=2.22",
-    "sagemaker>=1.64.0",
-    "sentry-sdk>=0.19.4",
     "scikit-learn>=0.23.2",
     "sgqlc>=14.1",
     "sentry-sdk>=0.19.4",

@@ -1,0 +1,137 @@
+interactions:
+- request:
+    body: '{"query": "mutation {\ninsert_meta_ai_model_one(object: {description: \"\",
+      metadata: null, name: \"TestModel\", stage: LOCAL, version: 1, visibility: PRIVATE})
+      {\nname\nversion\nid\nstage\ndescription\n}\n}", "variables": null, "operationName":
+      null}'
+    headers:
+      Accept:
+      - application/json; charset=utf-8
+      Accept-Encoding:
+      - gzip
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json; charset=utf-8
+    method: POST
+    uri: http://localhost:54673/v1/graphql
+  response:
+    body:
+      string: '{"data":{"insert_meta_ai_model_one":{"name":"TestModel","version":1,"id":"cb9bc06a-a91b-4734-abb3-ac39b8b6a42c","stage":"LOCAL","description":""}}}'
+    headers:
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Fri, 30 Jul 2021 15:20:14 GMT
+      Server:
+      - Warp/3.3.10
+      Transfer-Encoding:
+      - chunked
+      content-length:
+      - '147'
+      x-request-id:
+      - 94372ae8-003c-4791-9551-9a460e2aa6d7
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"query": "mutation {\nupdate_meta_ai_model_by_pk(_set: {name: \"ChangedTestModel\"},
+      pk_columns: {id: \"cb9bc06a-a91b-4734-abb3-ac39b8b6a42c\"}) {\nname\nversion\nid\ndescription\n}\n}",
+      "variables": null, "operationName": null}'
+    headers:
+      Accept:
+      - application/json; charset=utf-8
+      Accept-Encoding:
+      - gzip
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json; charset=utf-8
+    method: POST
+    uri: http://localhost:54673/v1/graphql
+  response:
+    body:
+      string: '{"data":{"update_meta_ai_model_by_pk":{"name":"ChangedTestModel","version":1,"id":"cb9bc06a-a91b-4734-abb3-ac39b8b6a42c","description":""}}}'
+    headers:
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Fri, 30 Jul 2021 15:20:14 GMT
+      Server:
+      - Warp/3.3.10
+      Transfer-Encoding:
+      - chunked
+      content-length:
+      - '140'
+      x-request-id:
+      - af9f508d-ae24-437c-8acc-e2b18fee241e
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"query": "query {\nmeta_ai_model_by_pk(id: \"cb9bc06a-a91b-4734-abb3-ac39b8b6a42c\")
+      {\nname\nversion\nid\n}\n}", "variables": null, "operationName": null}'
+    headers:
+      Accept:
+      - application/json; charset=utf-8
+      Accept-Encoding:
+      - gzip
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json; charset=utf-8
+    method: POST
+    uri: http://localhost:54673/v1/graphql
+  response:
+    body:
+      string: '{"data":{"meta_ai_model_by_pk":{"name":"ChangedTestModel","version":1,"id":"cb9bc06a-a91b-4734-abb3-ac39b8b6a42c"}}}'
+    headers:
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Fri, 30 Jul 2021 15:20:14 GMT
+      Server:
+      - Warp/3.3.10
+      Transfer-Encoding:
+      - chunked
+      content-length:
+      - '116'
+      x-request-id:
+      - ff70c7af-41ff-4da6-8396-0ba7e1bfa32c
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"query": "mutation {\ndelete_meta_ai_model_by_pk(id: \"cb9bc06a-a91b-4734-abb3-ac39b8b6a42c\")
+      {\nname\nversion\nid\n}\n}", "variables": null, "operationName": null}'
+    headers:
+      Accept:
+      - application/json; charset=utf-8
+      Accept-Encoding:
+      - gzip
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json; charset=utf-8
+    method: POST
+    uri: http://localhost:54673/v1/graphql
+  response:
+    body:
+      string: '{"data":{"delete_meta_ai_model_by_pk":{"name":"ChangedTestModel","version":1,"id":"cb9bc06a-a91b-4734-abb3-ac39b8b6a42c"}}}'
+    headers:
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Fri, 30 Jul 2021 15:20:14 GMT
+      Server:
+      - Warp/3.3.10
+      Transfer-Encoding:
+      - chunked
+      content-length:
+      - '123'
+      x-request-id:
+      - 5dfaa1b2-3bfc-4720-b9cf-ca4c977e210e
+    status:
+      code: 200
+      message: OK
+version: 1
