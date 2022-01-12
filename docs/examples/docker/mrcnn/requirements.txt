@@ -7,7 +7,7 @@ keras==2.1.0
 opencv-python-headless==4.1.0.25
 h5py==2.10.0
 imgaug==0.4.0
-numpy==1.17.2
+numpy==1.21.0
 IPython[all]==7.6.1
 boto3==1.16.40
 pandas==1.0.5
