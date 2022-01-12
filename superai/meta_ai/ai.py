@@ -19,6 +19,7 @@ import boto3  # type: ignore
 import docker
 import requests
 import yaml
+from docker import DockerClient
 from docker.errors import ImageNotFound
 
 from superai import Client
@@ -964,6 +965,7 @@ class AI:
             build_all_layers: Perform a fresh build of all layers
             envs: Pass custom environment variables to the deployment. Should be a dictionary like
                   {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
+            download_base: Always download the base image to get the latest version from ECR
         """
         is_lambda_orchestrator = orchestrator in [Orchestrator.LOCAL_DOCKER_LAMBDA, Orchestrator.AWS_LAMBDA]
         # Updating environs before image builds
@@ -989,6 +991,7 @@ class AI:
                     enable_eia=enable_eia,
                     lambda_mode=is_lambda_orchestrator,
                     from_scratch=kwargs.get("build_all_layers", False),
+                    always_download=kwargs.get("download_base", False),
                 )
         elif orchestrator in [Orchestrator.AWS_EKS, Orchestrator.LOCAL_DOCKER_K8S]:
             if properties is None:
@@ -1004,6 +1007,7 @@ class AI:
                     lambda_mode=is_lambda_orchestrator,
                     k8s_mode=True,
                     from_scratch=kwargs.get("build_all_layers", False),
+                    always_download=kwargs.get("download_base", False),
                 )
         elif orchestrator in [Orchestrator.GCP_KS]:
             raise NotImplementedError()
@@ -1166,6 +1170,7 @@ class AI:
         lambda_mode: bool = False,
         k8s_mode: bool = False,
         from_scratch: bool = False,
+        always_download=False,
     ) -> None:
         """
         Build the image using s2i
@@ -1178,6 +1183,7 @@ class AI:
             lambda_mode: Generate AWS Lambda compatible image
             k8s_mode: Generate Kubernetes compatible image
             from_scratch: Generate all layers from the scratch
+            always_download: Always download the base image
         """
         start = time.time()
         cwd = os.getcwd()
@@ -1186,19 +1192,15 @@ class AI:
 
         client = docker.from_env()
         base_image = self._get_base_name(enable_eia, lambda_mode, enable_cuda, k8s_mode)
+        if always_download:
+            log.info(f"Downloading newest base image {base_image}...")
+            self._download_base_image(base_image, client)
         try:
             _ = client.images.get(base_image)
             log.info(f"Base image '{base_image}' found locally.")
         except ImageNotFound:
-            region = boto3.Session().region_name
-            account_id = boto3.client("sts").get_caller_identity()["Account"]
-            ecr_image_name = f"{account_id}.dkr.ecr.{region}.amazonaws.com/{base_image}"
-            log.info(f"Base image not found. Downloading from ECR '{ecr_image_name}'")
-            log.info("Logging in to ECR...")
-            os.system(f"$(aws ecr get-login --region {region} --no-include-email)")
-            os.system(f"docker pull {ecr_image_name}")
-            log.info(f"Re-tagging image to '{base_image}'")
-            client.images.get(f"{ecr_image_name}").tag(base_image)
+            log.info(f"Base image '{base_image}' not found locally, downloading...")
+            self._download_base_image(base_image, client)
         if shutil.which("s2i") is None:
             raise ModuleNotFoundError(
                 "s2i is not installed. Please install the package using "
@@ -1266,6 +1268,24 @@ class AI:
         log.info(f"Built main container `{image_name}:{version_tag}`")
         log.info(f"Time taken to build: {time.time() - start:.2f}s")
         os.chdir(cwd)
+
+    @staticmethod
+    def _download_base_image(base_image: str, client: DockerClient = docker.from_env()) -> None:
+        """
+        Download the base image from ECR
+        Args:
+            base_image: Name of the base image
+            client: Docker client
+        """
+        region = boto3.Session().region_name
+        account_id = boto3.client("sts").get_caller_identity()["Account"]
+        ecr_image_name = f"{account_id}.dkr.ecr.{region}.amazonaws.com/{base_image}"
+        log.info(f"Base image not found. Downloading from ECR '{ecr_image_name}'")
+        log.info("Logging in to ECR...")
+        os.system(f"$(aws ecr get-login --region {region} --no-include-email)")
+        os.system(f"docker pull {ecr_image_name}")
+        log.info(f"Re-tagging image to '{base_image}'")
+        client.images.get(f"{ecr_image_name}").tag(base_image)
 
     @staticmethod
     def _system(command):
