@@ -22,8 +22,8 @@ class MyEncodeDecodeModel(BaseModel):
         self.model = self.define_model()
         self.model.load_weights(weights_path)
 
-    def predict(self, input):
-        log.info("Predict Input: ", input)
+    def predict(self, input, context=None):
+        log.info(f"Predict Input: {input}")
         input = self.preprocess(input)
         pred = self.model.predict(input)
         return self.postprocess(pred)
@@ -133,7 +133,7 @@ class MyEncodeDecodeModel(BaseModel):
         decoder = keras.Sequential(
             [
                 keras.Input(shape=(64,)),
-                layers.Dense(len(self.output_schema.params.choices), activation="softmax", name="predictions"),
+                layers.Dense(len(self.output_parameters.choices), activation="softmax", name="predictions"),
             ]
         )
         decoder.trainable = trainable

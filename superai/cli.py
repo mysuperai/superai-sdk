@@ -1,15 +1,18 @@
 import os
 
-import boto3
 import click
 import json
 import signal
 import sys
+
+from requests import ReadTimeout
+from rich import print
+from rich.console import Console
 import yaml
 from botocore.exceptions import ClientError
 from datetime import datetime
 from typing import List
-from warrant import Cognito
+from pycognito import Cognito
 
 from superai import __version__
 from superai.client import Client
@@ -18,13 +21,7 @@ from superai.exceptions import SuperAIAuthorizationError
 from superai.log import logger
 from superai.utils import load_api_key, remove_aws_credentials, save_api_key, save_aws_credentials, save_cognito_user
 from superai.utils.pip_config import pip_configure
-from superai.meta_ai.dockerizer import build_image, push_image
-from superai.meta_ai.dockerizer.sagemaker_endpoint import (
-    upload_model_to_s3,
-    invoke_sagemaker_endpoint,
-    create_endpoint,
-    invoke_local,
-)
+
 
 BASE_FOLDER = get_config_dir()
 COGNITO_USERPOOL_ID = settings.get("cognito", {}).get("userpool_id")
@@ -108,6 +105,10 @@ def client(ctx):
         exit()
     ctx.obj = {}
     ctx.obj["client"] = Client(api_key=api_key)
+
+
+# Create decorator to pass client object when needed
+pass_client = click.make_pass_decorator(Client, ensure=True)
 
 
 @client.command(name="create_jobs")
@@ -528,8 +529,185 @@ def logout():
 
 @cli.group()
 def ai():
-    """Build and push your model docker images"""
+    """View, list and control models and their deployments."""
     pass
+
+
+@ai.command("list")
+@click.option("--name", required=False, help="Filter by model name.")
+@click.option("--version", required=False, help="Filter by model version.")
+@pass_client
+def list_ai(client, name: str, version: str):
+    """List available models"""
+    if name is None:
+        print(client.get_all_models())
+    elif version is None:
+        print(client.get_model_by_name(str(name)))
+    else:
+        print(client.get_model_by_name_version(str(name), str(version)))
+
+
+@ai.command("view")
+@click.argument("id", type=click.UUID)
+@pass_client
+def get_ai(client, id: str):
+    """View model parameters"""
+    print(client.get_model(str(id)))
+
+
+@ai.command("update")
+@click.argument("id", type=click.UUID)
+@click.option("--name", required=False, help="Model name")
+@click.option("--description", required=False, help="Model description")
+@click.option("--visibility", required=False, type=click.Choice(["PRIVATE", "PUBLIC"]), help="Model visibility")
+@pass_client
+def update_ai(client, id: str, name: str, description: str, visibility: str):
+    """Update model parameters"""
+    params = {}
+    if name is not None:
+        params["name"] = name
+    if description is not None:
+        params["description"] = description
+    if visibility is not None:
+        params["visibility"] = visibility
+
+    print(client.update_model(str(id), **params))
+
+
+@ai.group(help="Deployed models running in our infrastructure")
+def deployment():
+    pass
+
+
+@deployment.command("list")
+@pass_client
+def list_deployments(client):
+    """List all deployments"""
+    d = client.list_deployments()
+    for deployment in d:
+        print(f"[b][u]Model: {deployment.name}[/b][/u]")
+        print(f"{deployment.deployment}\n")
+
+
+@deployment.command("view")
+@click.argument("id", type=click.UUID)
+@pass_client
+def view_deployment(client, id: str):
+    """View deployment parameters"""
+    print(client.get_deployment(str(id)))
+
+
+@deployment.command("start")
+@click.argument("id", type=click.UUID)
+@click.option(
+    "--wait",
+    type=click.INT,
+    default=0,
+    help="Allow command to block and wait for deployment to be ready. Returns when deployment is ONLINE.",
+)
+@pass_client
+def start_deployment(client, id: str, wait: int):
+    """Create a deployment for the model."""
+    print("Starting deployment...")
+    if wait:
+        print(f"Waiting for up to {wait} seconds. Note: Some deployments can take up to 15 minutes (900 seconds).")
+    reached_state = client.set_deployment_status(str(id), target_status="ONLINE", timeout=wait)
+    if reached_state:
+        print("Deployment online.")
+    else:
+        print("Stopped waiting for ONLINE status. Process is still running in the backend.")
+
+
+@deployment.command("stop")
+@click.argument("id", type=click.UUID)
+@click.option(
+    "--wait",
+    type=click.INT,
+    default=0,
+    help="Allow command to block and wait for deployment to be ready. Returns when deployment is ONLINE.",
+)
+@pass_client
+def stop_deployment(client, id: str, wait: int):
+    """Stop and tear-down a model deployment."""
+    print("Tearing down model deployment...")
+    if wait:
+        print(f"Waiting for up to {wait} seconds.")
+    reached_state = client.set_deployment_status(str(id), target_status="OFFLINE", timeout=wait)
+    if reached_state:
+        print("Deployment offline.")
+    else:
+        print("Stopped waiting for OFFLINE status. Process is still running in the backend.")
+
+
+@deployment.command("predict")
+@click.argument("id", type=click.UUID)
+@click.argument(
+    "data",
+    type=str,
+)
+@click.option(
+    "--parameters",
+    type=str,
+    help="Parameters to be used for prediction. Expected as JSON encoded dictionary.",
+)
+@click.option(
+    "--timeout",
+    type=int,
+    help="Time to wait for prediction to complete. Default is 20 seconds. Maximum is 60 seconds",
+    default=20,
+)
+@pass_client
+def predict(client, id: str, data: str, parameters: str, timeout: int):
+    """
+    Predict using a deployed model
+
+    `DATA` is the input to be used for prediction. Expected as JSON encoded dictionary.
+
+    """
+    try:
+        console = Console()
+        with console.status("Waiting for prediction...", speed=1):
+            response = client.predict_from_endpoint(
+                model_id=str(id),
+                input_data=json.loads(data),
+                parameters=json.loads(parameters) if parameters else None,
+                timeout=timeout,
+            )
+            console.print("Prediction output:")
+            console.print(response)
+    except ReadTimeout:
+        print("Timeout waiting for prediction to complete. Try increasing --timeout value.")
+
+
+@deployment.command(
+    "scaling",
+    help="Control scaling of deployed models. Currently only supports configuring the automatic scale-in of models after a period of no prediction activity.",
+)
+@click.argument("id", type=click.UUID)
+@click.option(
+    "--min_instances", type=click.INT, required=False, default=None, help="Minimum number of instances allowed."
+)
+@click.option(
+    "--scale_in_timeout",
+    type=click.INT,
+    required=False,
+    default=None,
+    help="Allow scale-in after this number of seconds without prediction. Should be higher than the time it takes to startup a model.",
+)
+@pass_client
+def scaling(client, id: str, min_instances: int, scale_in_timeout: int):
+    current = client.get_deployment(str(id))
+    print(
+        f"Current settings:"
+        f"\n\tmin_instances: {current['min_instances']}"
+        f"\n\tscale_in_timeout: {current['scale_in_timeout']}"
+    )
+    if min_instances is not None:
+        print("Changing config: min_instances")
+        print(client.set_min_instances(str(id), min_instances))
+    if scale_in_timeout is not None:
+        print("Changing config: scale_in_timeout")
+        print(client.set_scale_in_timeout(str(id), scale_in_timeout))
 
 
 @ai.group()
@@ -563,6 +741,8 @@ def docker():
     "--use-shell", "-u", help="Use shell to run the build process, which is more verbose. Used by default", default=True
 )
 def build_docker_image(image_name, entry_point, dockerfile, command, worker_count, entry_point_method, use_shell):
+    from superai.meta_ai.dockerizer import build_image
+
     build_image(
         image_name=image_name,
         entry_point=entry_point,
@@ -580,6 +760,8 @@ def build_docker_image(image_name, entry_point, dockerfile, command, worker_coun
 )
 @click.option("--region", "-r", help="AWS region.  Default: us-east-1", default="us-east-1")
 def push_docker_image(image_name, region):
+    from superai.meta_ai.dockerizer import push_image
+
     push_image(image_name=image_name, region=region)
 
 
@@ -629,6 +811,10 @@ def docker_run_local(image_name, model_path, gpu):
     "--body", "-b", required=True, help="Body of payload to be sent to the invocation. Can be a path to a file as well."
 )
 def docker_invoke_local(mime, body):
+    from superai.meta_ai.dockerizer.sagemaker_endpoint import (
+        invoke_local,
+    )
+
     invoke_local(mime, body)
 
 

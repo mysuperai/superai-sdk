@@ -47,6 +47,7 @@ dev:
 testing:
   name: "test"
   suffix: "-test"
+  meta_ai_base: "http://localhost:8080/v1/graphql"
   user:
     api_key: "FAKE_API_KEY"
 
@@ -61,6 +62,15 @@ sandbox:
     level: 20 #INFO=20, DEBUG=10
     console: true
   suffix: "-sandbox"
+
+staging:
+  name: "staging"
+  dependency_version: "staging"
+  log:
+    level: 20 #INFO=20, DEBUG=10
+    console: true
+  meta_ai_base: "https://metaai-stg.super.ai/v1/graphql"
+  suffix: "-staging"
 
 prod:
   name: "prod"

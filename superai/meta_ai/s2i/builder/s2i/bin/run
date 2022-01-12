@@ -1,36 +1,55 @@
 #!/bin/bash -e
 
 function _get_conda_envs() {
-    # Printed value will be list of Conda envs
-    /opt/conda/bin/conda env list | tail -n +3 | head -n -1 | cut -d' ' -f1
+  # Printed value will be list of Conda envs
+  /opt/conda/bin/conda env list | tail -n +3 | head -n -1 | cut -d' ' -f1
 }
 
 function _is_env_present() {
-    # $1 is the Conda env we are probing
-    # Return value will be 0 if present (TRUE)
+  # $1 is the Conda env we are probing
+  # Return value will be 0 if present (TRUE)
 
-    # shellcheck disable=SC2155
-    local _conda_envs=$(_get_conda_envs)
-    echo "$_conda_envs" | grep -qw "$1"
-    return $?
+  # shellcheck disable=SC2155
+  local _conda_envs=$(_get_conda_envs)
+  echo "$_conda_envs" | grep -qw "$1"
+  return $?
 }
 
 #check environment vars
 if [[ -z "$MODEL_NAME" ]]; then
 
-    echo "Failed to find required env vars MODEL_NAME"
-    exit 1
+  echo "Failed to find required env vars MODEL_NAME"
+  exit 1
 
 else
-    cd /home/model-server
+  cd /home/model-server
 
-    if [[ -x before-run ]]; then
-        echo "Executing before-run script"
-        ./before-run
+  if [[ -x before-run ]]; then
+    echo "Executing before-run script"
+    ./before-run
+  fi
+
+  CONDA_ENV_NAME=${CONDA_ENV_NAME:-env}
+
+  echo "starting microservice in environment '${CONDA_ENV_NAME}'"
+  export PATH=/opt/conda/envs/"${CONDA_ENV_NAME}"/bin/:$PATH
+  pip --version
+  if [ -n "$LAMBDA_MODE" ]; then
+    echo "Starting serving with Lambda backend"
+    if [ -z "${AWS_LAMBDA_RUNTIME_API}" ]; then
+      exec /usr/local/bin/aws-lambda-rie python -m awslambdaric handler.processor
+    else
+      exec python -m awslambdaric handler.processor
     fi
-
-    CONDA_ENV_NAME=${CONDA_ENV_NAME:-env}
-
-    echo "starting microservice in environment '${CONDA_ENV_NAME}'"
-    exec /opt/conda/envs/"$CONDA_ENV_NAME"/bin/python /home/model-server/dockerd-entrypoint.py "$MODEL_NAME" serve
+  elif [ -n "$SELDON_MODE" ]; then
+    echo "Starting Seldon microservice"
+    if [ -n "$PERSISTENCE" ]; then
+      exec seldon-core-microservice "$MODEL_NAME" --service-type "$SERVICE_TYPE" --persistence "$PERSISTENCE"
+    else
+      exec seldon-core-microservice "$MODEL_NAME" --service-type "$SERVICE_TYPE"
+    fi
+  else
+    echo "Starting serving with Sagemaker Backend"
+    exec python /home/model-server/dockerd-entrypoint.py "$MODEL_NAME" serve
+  fi
 fi

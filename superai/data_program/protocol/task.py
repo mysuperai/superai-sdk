@@ -99,7 +99,7 @@ def task(
     input,
     output,
     humans=None,
-    ai=None,
+    ai=False,
     ai_input=None,
     qualifications=None,
     name=None,
@@ -124,8 +124,7 @@ def task(
     :param input: a list of input semantic items
     :param output: a list of output semantic items
     :param humans: a list of crowd heroes email addresses
-    :param ai: a canotic.ai object that exposes predict(ai_input) interface
-    :param ai_input: input to the ai
+    :param ai: bool, if True, the task will be sent to an AI
     :param qualifications: list of required hero qualifications
     :param name: task type
     :param price: price tag to be associated with the task
@@ -147,41 +146,31 @@ def task(
     :return:
     """
     # TODO(veselin): the number of parameters passed to this function is getting too long, we should organize it into class or dictionary
-    if ai is not None:
-        ai_output = ai.predict(ai_input)
-        if ai_output is not None:
-            f = future()
-            # Flag to differentiate a machine vs human response.
-            ai_output.update({"_ai_response": True})
-            f.set_result(ai_output)
-            print("Task was completed by Canotic meta-AI.")
-            return f
-
     if "CANOTIC_AGENT" in os.environ:
         return schedule_task(
-            name,
-            humans,
-            price,
-            input,
-            ai_input,
-            output,
-            title,
-            description,
-            paragraphs,
-            completed_tasks,
-            total_tasks,
-            included_ids,
-            excluded_ids,
-            explicit_id,
-            time_to_resolve_secs,
-            time_to_update_secs,
-            time_to_expire_secs,
-            qualifications,
-            show_reject,
-            groups,
-            excluded_groups,
-            amount,
-            get_current_version_id(),
+            name=name,
+            humans=humans,
+            price=price,
+            input=input,
+            output=output,
+            title=title,
+            description=description,
+            paragraphs=paragraphs,
+            completed_tasks=completed_tasks,
+            total_tasks=total_tasks,
+            includedIds=included_ids,
+            excludedIds=excluded_ids,
+            explicitId=explicit_id,
+            timeToResolveSec=time_to_resolve_secs,
+            timeToUpdateSec=time_to_update_secs,
+            timeToExpireSec=time_to_expire_secs,
+            qualifications=qualifications,
+            show_reject=show_reject,
+            groups=groups,
+            excluded_groups=excluded_groups,
+            amount=amount,
+            schema_version=get_current_version_id(),
+            is_ai=ai,
         )
     else:
         raise NotImplementedError("Little piggy not supported")
@@ -848,9 +837,15 @@ def serve_workflow(function, suffix=None, schema=None, prefix=None):
 
 def schema_wrapper(subject, context, function):
     kwargs = {}
+
+    # Validation needs to be skipped if schema without version is being in use
+    # because input/output schema depends on app params.
+    # In this case, DataProgram class is responsible of ensuring validity
+    can_validate_input_output = _is_using_versioned_schema()
+
     if hasattr(function, "__input_param__"):
         (name, schema) = function.__input_param__
-        if schema is not None:
+        if schema is not None and can_validate_input_output:
             logger.debug("SCHEMA NAME: {}".format(name))
             logger.debug("VALIDATING SUBJECT: \n{} \nSCHEMA: \n{}".format(subject, schema))
             validate(subject, schema, validate_remote=True, client=DataHelper())
@@ -883,7 +878,7 @@ def schema_wrapper(subject, context, function):
     logger.debug("FUNCTION KWARGS = {}".format(kwargs))
     f_output = function(subject) if 0 == len(kwargs) and subject is not None else function(**kwargs)
 
-    if hasattr(function, "__output_param__"):
+    if hasattr(function, "__output_param__") and can_validate_input_output:
         schema = function.__output_param__
         if type(f_output) == tuple:
             logger.debug("VALIDATING OUTPUT_VALS: \n{} \nSCHEMA: \n{}".format(f_output[0], schema))
@@ -944,9 +939,17 @@ def workflow(suffix, prefix=None):
             schema["app_params"] = function.__app_params__
             logger.debug("APP PARAMS\n{}".format(schema["app_params"]))
 
+            if hasattr(function, "__default_app_params__"):
+                schema["default_app_params"] = function.__default_app_params__
+                logger.debug("DEFAULT APP PARAMS\n{}".format(schema["default_app_params"]))
+
         if hasattr(function, "__app_metrics__"):
             schema["app_metrics"] = function.__app_metrics__
             logger.debug("APP METRICS\n{}".format(schema["app_metrics"]))
+
+            if hasattr(function, "__default_app_metrics__"):
+                schema["default_app_metrics"] = function.__default_app_metrics__
+                logger.debug("DEFAULT APP METRICS\n{}".format(schema["default_app_metrics"]))
 
         if hasattr(function, "__example_data__"):
             schema["example"] = function.__example_data__
@@ -970,10 +973,16 @@ def workflow(suffix, prefix=None):
     return decorator(suffix) if callable(suffix) else decorator
 
 
+def _is_using_versioned_schema() -> bool:
+    # Not having SERVICE environment variable indicates that legacy versioned schema is in use
+    return os.getenv("SERVICE") is None
+
+
 def _parse_args(*args, **kwargs):
     """
     f(name=asdfs)
     f(name=sdfs, schema=sdfs)
+    f(name=sdfs, schema=sdfs, default=sdfs)
     """
     if len(args) > 1:
         raise ValueError("Decorator takes max 1 positional argument")
@@ -983,12 +992,14 @@ def _parse_args(*args, **kwargs):
 
     f_args = dict()
     f_args["schema"] = None
+    f_args["default"] = None
 
     if len(args) == 1:
         f_args["name"] = args[0]
 
     f_args.update(kwargs)
-    if f_args["schema"]:
+
+    if f_args["schema"] and _is_using_versioned_schema():
         f_args["schema"] = list_to_schema(f_args["schema"])
         f_args["schema"]["$schema"] = get_current_version_id()
 
@@ -1052,7 +1063,15 @@ def param_schema(*args, **kwargs):
 
             function.__app_params__[dargs["name"]] = dargs["schema"]
 
-        logger.debug("APP_PARAMS DECORATOR: {}".format(function.__app_params__))
+            if "default" in dargs:
+                if not hasattr(function, "__default_app_params__"):
+                    function.__default_app_params__ = {}
+
+                function.__default_app_params__[dargs["name"]] = dargs["default"]
+
+        logger.debug(
+            "APP_PARAMS DECORATOR: {} (default: {})".format(function.__app_params__, function.__default_app_params__)
+        )
 
         return function
 
@@ -1068,6 +1087,12 @@ def metric_schema(*args, **kwargs):
                 function.__app_metrics__ = {}
 
             function.__app_metrics__[dargs["name"]] = dargs["schema"]
+
+            if "default" in dargs:
+                if not hasattr(function, "__default_app_metrics__"):
+                    function.__default_app_metrics__ = {}
+
+                function.__default_app_metrics__[dargs["name"]] = dargs["default"]
 
             logger.debug("APP_METRICS DECORATOR: {}".format(function.__app_metrics__))
 

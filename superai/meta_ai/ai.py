@@ -9,7 +9,6 @@ import re
 import shlex
 import shutil
 import subprocess
-import sys
 import tarfile
 import time
 import traceback
@@ -21,22 +20,23 @@ import docker
 import requests
 import yaml
 from docker.errors import ImageNotFound
-from jinja2 import Template
 
 from superai import Client
 from superai import settings
 from superai.exceptions import ModelNotFoundError
 from superai.log import logger
-from superai.meta_ai.ai_helper import prepare_dockerfile_string, get_user_model_class, list_models
+from superai.meta_ai.ai_helper import (
+    get_user_model_class,
+    list_models,
+    get_ecr_image_name,
+    create_model_entrypoint,
+    create_model_handler,
+)
 from superai.meta_ai.deployed_predictors import LocalPredictor, DeployedPredictor, AWSPredictor
 from superai.meta_ai.dockerizer import push_image
+from superai.meta_ai.environment_file import EnvironmentFileProcessor
 from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters, Config
 from superai.meta_ai.schema import Schema, SchemaParameters, EasyPredictions
-from superai.meta_ai.template_contents import (
-    runner_script_s2i,
-    server_script,
-    lambda_script,
-)
 from superai.utils import retry, load_api_key, load_auth_token, load_id_token
 
 if TYPE_CHECKING:
@@ -56,8 +56,10 @@ class Stage(str, enum.Enum):
 class Orchestrator(str, enum.Enum):
     LOCAL_DOCKER = "LOCAL_DOCKER"
     LOCAL_DOCKER_LAMBDA = "LOCAL_DOCKER_LAMBDA"
+    LOCAL_DOCKER_K8S = "LOCAL_DOCKER_K8S"
     MINIKUBE = "MINIKUBE"
     AWS_SAGEMAKER = "AWS_SAGEMAKER"
+    AWS_SAGEMAKER_ASYNC = "AWS_SAGEMAKER_ASYNC"
     AWS_LAMBDA = "AWS_LAMBDA"
     AWS_EKS = "AWS_EKS"
     GCP_KS = "GCP_KS"
@@ -68,7 +70,9 @@ class PredictorFactory(object):
         "LOCAL_DOCKER": LocalPredictor,
         "LOCAL_DOCKER_LAMBDA": LocalPredictor,
         "AWS_SAGEMAKER": AWSPredictor,
+        "AWS_SAGEMAKER_ASYNC": AWSPredictor,
         "AWS_LAMBDA": AWSPredictor,
+        "AWS_EKS": AWSPredictor,
     }
 
     @staticmethod
@@ -200,6 +204,7 @@ class AITemplate:
             )
         self.model_class = model_class
         self.model_class_path = model_class_path
+        self.environs: Optional[EnvironmentFileProcessor] = None
 
     @classmethod
     def load_local(cls, load_path: str) -> "AITemplate":
@@ -209,13 +214,13 @@ class AITemplate:
         conda_env = os.path.join(load_path, "conda.yml") if details.get("conda_env") is not None else None
         code_path = details.get("code_path")
         artifacts = details.get("artifacts")
-        model_class = details.get("model_class")
+        model_class = details["model_class"]
         name = details["name"]
         description = details["description"]
         input_schema = Schema.from_json(details["input_schema"])
         output_schema = Schema.from_json(details["output_schema"])
         configuration = Config.from_json(details["configuration"])
-        return AITemplate(
+        template = AITemplate(
             input_schema=input_schema,
             output_schema=output_schema,
             configuration=configuration,
@@ -228,6 +233,10 @@ class AITemplate:
             conda_env=conda_env,
             artifacts=artifacts,
         )
+        environs = EnvironmentFileProcessor(os.path.abspath(load_path))
+        environs.from_dict(details["environs"])
+        template.environs = environs
+        return template
 
     def save(self, version_save_path):
         if os.path.exists(f"{self.model_class}.py"):
@@ -239,10 +248,10 @@ class AITemplate:
                     yaml.dump(self.conda_env, conda_file, default_flow_style=False)
             elif (
                 type(self.conda_env) == str
-                and os.path.exists(self.conda_env)
+                and os.path.exists(os.path.abspath(self.conda_env))
                 and (self.conda_env.endswith(".yml") or self.conda_env.endswith(".yaml"))
             ):
-                shutil.copy(self.conda_env, os.path.join(version_save_path, "environment.yml"))
+                shutil.copy(os.path.abspath(self.conda_env), os.path.join(version_save_path, "environment.yml"))
             else:
                 raise ValueError("Make sure conda_env is a valid path to a .yml file or a dictionary.")
         log.info("Copying all code_path content")
@@ -270,16 +279,15 @@ class AITemplate:
         if self.artifacts is not None and "run" in self.artifacts:
             shutil.copy(os.path.abspath(self.artifacts["run"]), os.path.join(version_save_path, "setup.sh"))
         # create the environment file
-        with open(os.path.join(version_save_path, "environment"), "w") as environment_file:
-            content = [f"MODEL_NAME={self.model_class}"]
-            if os.path.exists(os.path.join(version_save_path, "environment.yml")):
-                with open(os.path.join(version_save_path, "environment.yml"), "r") as env_yaml:
-                    try:
-                        conda_env_yaml = yaml.safe_load(env_yaml)
-                        content.append(f"CONDA_ENV_NAME={conda_env_yaml.get('name', 'env')}")
-                    except yaml.YAMLError as exc:
-                        log.error(exc)
-            environment_file.write("\n".join(content))
+        self.environs = EnvironmentFileProcessor(os.path.abspath(version_save_path), filename="environment")
+        self.environs.add_or_update("MODEL_NAME", self.model_class)
+        if os.path.exists(os.path.join(version_save_path, "environment.yml")):
+            with open(os.path.join(version_save_path, "environment.yml"), "r") as env_yaml:
+                try:
+                    conda_env_yaml = yaml.safe_load(env_yaml)
+                    self.environs.add_or_update("CONDA_ENV_NAME", conda_env_yaml.get("name", "env"))
+                except yaml.YAMLError as exc:
+                    log.error(exc)
         with open(os.path.join(version_save_path, "AITemplateSaveFile.json"), "w") as ai_template_writer:
             content = {
                 "description": self.description,
@@ -295,6 +303,7 @@ class AITemplate:
                 "model_class": self.model_class,
                 "model_class_path": self.model_class_path,
                 "artifacts": self.artifacts,
+                "environs": self.environs.to_dict(),
             }
             json.dump(content, ai_template_writer, indent=1)
 
@@ -355,6 +364,7 @@ class AI:
 
         self.model_class_name = ai_template.model_class
         self.model_class_path = ai_template.model_class_path
+        self.environs: "EnvironmentFileProcessor" = ai_template.environs
         self.is_weights_loaded = False
 
         self.container = None
@@ -382,7 +392,7 @@ class AI:
     def deployed(self) -> Optional[bool]:
         if self.id:
             deployment = self.client.get_deployment(self.id)
-            if deployment and deployment.status == "ONLINE":
+            if deployment:
                 return True
         return False
 
@@ -415,14 +425,14 @@ class AI:
         )
 
     def update_version_by_availability(self, loaded=False):
-        existing_models: List[Dict[str, str]] = self.ai_template.client.get_model_by_name(self.name)
+        existing_models = self.ai_template.client.get_model_by_name(self.name)
         if len(existing_models) and not loaded:
             if self.version in [x["version"] for x in existing_models]:
                 latest_version: int = self.ai_template.client.get_latest_version_of_model_by_name(self.name)
                 self.version = latest_version + 1
                 log.info(
-                    f"Found an existing for the name and model in the database, "
-                    f"setting version to the latest version version: {self.version}"
+                    f"Found an existing model with name {self.name} in the database, "
+                    f"incrementing version from the latest found version: {latest_version} -> {self.version}"
                 )
 
     @classmethod
@@ -923,6 +933,7 @@ class AI:
         skip_build: bool = False,
         properties: Optional[dict] = None,
         enable_cuda: bool = False,
+        enable_eia: bool = False,
         redeploy: bool = False,
         **kwargs,
     ) -> "DeployedPredictor.Type":
@@ -936,6 +947,7 @@ class AI:
             orchestrator: Which orchestrator to be used to deploy.
             skip_build: Skip building
             enable_cuda: Create CUDA-Compatible image
+            enable_eia: Create Elastic Inference compatible image
             properties: Optional dictionary with properties for instance creation.
                 Possible values (with defaults) are:
                     "sagemaker_instance_type": "ml.m5.xlarge"
@@ -949,17 +961,23 @@ class AI:
             worker_count: Number of workers to use for serving with Sagemaker.
             ai_cache: Cache of ai objects for a lambda, 5 by default considering the short life of a lambda function
             build_all_layers: Perform a fresh build of all layers
+            envs: Pass custom environment variables to the deployment. Should be a dictionary like
+                  {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
         """
-        lambda_mode = orchestrator in [Orchestrator.LOCAL_DOCKER_LAMBDA, Orchestrator.AWS_LAMBDA]
+        is_lambda_orchestrator = orchestrator in [Orchestrator.LOCAL_DOCKER_LAMBDA, Orchestrator.AWS_LAMBDA]
+        # Updating environs before image builds
+        for key, value in kwargs.get("envs", {}).items():
+            self.environs.add_or_update(key, value)
         if orchestrator in [
             Orchestrator.LOCAL_DOCKER,
             Orchestrator.LOCAL_DOCKER_LAMBDA,
             Orchestrator.AWS_LAMBDA,
             Orchestrator.AWS_SAGEMAKER,
+            Orchestrator.AWS_SAGEMAKER_ASYNC,
         ]:
             self._prepare_dependencies(
                 worker_count=kwargs.get("worker_count", 1),
-                lambda_mode=lambda_mode,
+                lambda_mode=is_lambda_orchestrator,
                 ai_cache=kwargs.get("ai_cache", 5),
             )
             if not skip_build:
@@ -967,26 +985,40 @@ class AI:
                     self.name,
                     str(self.version),
                     enable_cuda=enable_cuda,
+                    enable_eia=enable_eia,
+                    lambda_mode=is_lambda_orchestrator,
                     from_scratch=kwargs.get("build_all_layers", False),
                 )
-        elif orchestrator in [Orchestrator.AWS_EKS, Orchestrator.MINIKUBE, Orchestrator.GCP_KS]:
+        elif orchestrator in [Orchestrator.AWS_EKS, Orchestrator.LOCAL_DOCKER_K8S]:
+            if properties is None:
+                properties = {}
+            k8s_config = self._prepare_k8s_dependencies(enable_cuda=enable_cuda, properties=properties, **kwargs)
+            properties["kubernetes_config"] = k8s_config
+            if not skip_build:
+                self.build_image_s2i(
+                    self.name,
+                    str(self.version),
+                    enable_cuda=enable_cuda,
+                    enable_eia=enable_eia,
+                    lambda_mode=is_lambda_orchestrator,
+                    k8s_mode=True,
+                    from_scratch=kwargs.get("build_all_layers", False),
+                )
+        elif orchestrator in [Orchestrator.GCP_KS]:
             raise NotImplementedError()
         else:
             raise ValueError(f"Invalid Orchestrator, should be one of {[e for e in Orchestrator]}")
         # build kwargs
         kwargs = {}
-        if orchestrator == Orchestrator.LOCAL_DOCKER:
+        if orchestrator in [Orchestrator.LOCAL_DOCKER, Orchestrator.LOCAL_DOCKER_LAMBDA]:
             kwargs["image_name"] = f"{self.name}:{self.version}"
             kwargs["weights_path"] = self.weights_path
-            kwargs["lambda_mode"] = lambda_mode
+            kwargs["lambda_mode"] = is_lambda_orchestrator
         else:
             if not skip_build:
                 ecr_image_name = self.push_model(self.name, str(self.version))
             else:
-                region = "us-east-1"
-                boto_session = boto3.Session(region_name=region)
-                account = boto_session.client("sts").get_caller_identity()["Account"]
-                ecr_image_name = f"{account}.dkr.ecr.{region}.amazonaws.com/{self.name}:{self.version}"
+                ecr_image_name = get_ecr_image_name(self.name, self.version)
             kwargs = dict(client=self.client, name=self.name, version=str(self.version))
             if self.id is None:
                 raise LookupError(
@@ -996,11 +1028,11 @@ class AI:
             log.info(f"Existing deployments : {existing_deployment}")
             if existing_deployment is None or "status" not in existing_deployment:
                 # check if weights are present in the database
-                models = self.client.get_model_by_name_version(self.name, self.version)
+                models = self.client.get_model_by_name_version(self.name, self.version, verbose=True)
                 model = models[0]
                 log.info(f"Model attributes: {model}")
                 assert (
-                    model["weightsPath"] is not None
+                    model["weights_path"] is not None
                 ), "Weights Path cannot be None in the database for the deployment to finish"
                 self.client.deploy(self.id, ecr_image_name, deployment_type=orchestrator.value, properties=properties)
             else:
@@ -1052,39 +1084,54 @@ class AI:
         ai_cache: int = 32,
         dockerd_entrypoint: str = "dockerd-entrypoint.py",
     ) -> None:
+
         with open(os.path.join(self._location, "handler.py"), "w") as handler_file:
-            if not lambda_mode:
-                template = Template(runner_script_s2i)
-                args = dict(model_name=self.ai_template.model_class)
-            else:
-                template = Template(lambda_script)
-                args = dict(ai_cache=ai_cache)
-            scripts_content: str = template.render(args)
+            scripts_content = create_model_handler(self.ai_template.model_class, ai_cache, lambda_mode)
             handler_file.write(scripts_content)
+        if not lambda_mode:
+            with open(os.path.join(self._location, dockerd_entrypoint), "w") as entry_point_file:
+                entry_point_file_content = create_model_entrypoint(worker_count)
+                entry_point_file.write(entry_point_file_content)
 
-        with open(os.path.join(self._location, dockerd_entrypoint), "w") as entry_point_file:
-            template = Template(server_script)
-            args = dict(worker_count=worker_count)
-            entry_point_file_content: str = template.render(args)
-            entry_point_file.write(entry_point_file_content)
-
-    def build_image_s2i(
-        self,
-        image_name: str,
-        version_tag: str = "latest",
+    @staticmethod
+    def _get_base_name(
+        enable_eia: bool = False,
+        lambda_mode: bool = False,
         enable_cuda: bool = False,
-        from_scratch: bool = False,
-    ) -> None:
-        start = time.time()
-        cwd = os.getcwd()
-        os.chdir(self._location)
-        environment_file = "environment"
+        k8s_mode: bool = False,
+    ) -> str:
+        """Get Base Image given the configuration. By default the sagemaker CPU image name will be returned.
+
+        Args:
+            enable_eia: Return Elastic Inference base image name
+            lambda_mode: Return Lambda base image name
+            enable_cuda: Return GPU image names
+            k8s_mode: Return Kubernetes base image names
+
+        Return:
+            String image name
+        """
+        if enable_eia:
+            base_image = "superai-model-s2i-python3711-eia:1"
+        elif lambda_mode:
+            base_image = f"superai-model-s2i-python3711-cpu-lambda:1"
+        elif k8s_mode and enable_cuda:
+            base_image = f"superai-model-s2i-python3711-gpu-seldon:1"
+        elif k8s_mode:
+            base_image = f"superai-model-s2i-python3711-cpu-seldon:1"
+        elif enable_cuda:
+            base_image = f"superai-model-s2i-python3711-gpu:1"
+        else:
+            base_image = f"superai-model-s2i-python3711-cpu:1"
+        return base_image
+
+    def _track_changes(self):
         # check the hash, if it doesn't exist, create one
         files = []
         if self.requirements:
             files.append("requirements.txt")
         if self.conda_env:
-            files.append(self.conda_env)
+            files.append("environment.yml")
         if self.artifacts:
             if "run" in self.artifacts:
                 files.append("setup.sh")
@@ -1107,11 +1154,37 @@ class AI:
             new_hash[file] = file_hash
         with open(hash_file, "w") as f_hash:
             json.dump(new_hash, f_hash)
+        return changes_in_build
 
-        with open(environment_file, "r") as env_file_reader:
-            env_list = env_file_reader.readlines()
+    def build_image_s2i(
+        self,
+        image_name: str,
+        version_tag: str = "latest",
+        enable_cuda: bool = False,
+        enable_eia: bool = False,
+        lambda_mode: bool = False,
+        k8s_mode: bool = False,
+        from_scratch: bool = False,
+    ) -> None:
+        """
+        Build the image using s2i
+
+        Args:
+            image_name: Name of the image to be built
+            version_tag: Version tag of the image
+            enable_cuda: Enable CUDA in the images
+            enable_eia: Generate elastic inference compatible image
+            lambda_mode: Generate AWS Lambda compatible image
+            k8s_mode: Generate Kubernetes compatible image
+            from_scratch: Generate all layers from the scratch
+        """
+        start = time.time()
+        cwd = os.getcwd()
+        os.chdir(self._location)
+        changes_in_build = self._track_changes()
+
         client = docker.from_env()
-        base_image = f"superai-model-s2i-python3711-{'gpu' if enable_cuda else 'cpu'}:1"
+        base_image = self._get_base_name(enable_eia, lambda_mode, enable_cuda, k8s_mode)
         try:
             _ = client.images.get(base_image)
             log.info(f"Base image '{base_image}' found locally.")
@@ -1141,11 +1214,17 @@ class AI:
                 log.info("Pip layer image not found, rebuilding")
                 from_scratch = True
         if from_scratch:
-            new_lines = list(filter(lambda x: "BUILD_PIP" not in x, env_list))
-            with open(environment_file, "w") as env_file_writer:
-                env_file_writer.writelines(new_lines)
+            self.environs.delete("BUILD_PIP")
+            self.environs.add_or_update("SUPERAI_CONFIG_ROOT", "/tmp/.superai")
+            if lambda_mode:
+                self.environs.add_or_update("LAMBDA_MODE=true")
+            elif k8s_mode:
+                self.environs.add_or_update("SERVICE_TYPE=MODEL")
+                self.environs.add_or_update("PERSISTENCE=0")
+                self.environs.add_or_update("API_TYPE=REST")
+                self.environs.add_or_update("SELDON_MODE=true")
             command = (
-                f"s2i build -E {environment_file} "
+                f"s2i build -E {self.environs.location} "
                 f"-v {os.path.join(os.path.expanduser('~'), '.aws')}:/root/.aws "
                 f"-v {os.path.join(os.path.expanduser('~'), '.superai')}:/root/.superai "
                 f"-v {os.path.join(os.path.expanduser('~'), '.canotic')}:/root/.canotic "
@@ -1159,17 +1238,21 @@ class AI:
             if diff.total_seconds() > 2.0:
                 raise Exception(f"Image failed to create, this image is too old {diff.total_seconds()}s")
 
-        with open(environment_file, "r") as env_file_reader:
-            env_list = env_file_reader.readlines()
-        found_build_pip = any(["BUILD_PIP" in line for line in env_list])
-        if not found_build_pip:
-            with open(environment_file, "a") as env_file_writer:
-                env_file_writer.write("\nBUILD_PIP=false")
+        # fallback if the above environment adding is not run
+        self.environs.add_or_update("SUPERAI_CONFIG_ROOT", "/tmp/.superai")
+        if lambda_mode:
+            self.environs.add_or_update("LAMBDA_MODE=true")
+        elif k8s_mode:
+            self.environs.add_or_update("SERVICE_TYPE=MODEL")
+            self.environs.add_or_update("PERSISTENCE=0")
+            self.environs.add_or_update("API_TYPE=REST")
+            self.environs.add_or_update("SELDON_MODE=true")
+        self.environs.add_or_update("BUILD_PIP=false")
         command = (
-            f"s2i build -E {environment_file} "
+            f"s2i build -E {self.environs.location} "
             f"-v {os.path.join(os.path.expanduser('~'), '.aws')}:/root/.aws "
             f"-v {os.path.join(os.path.expanduser('~'), '.superai')}:/root/.superai "
-            f"-v {os.path.join(os.path.expanduser('~'), '.canotic')}:/root/.canotic"
+            f"-v {os.path.join(os.path.expanduser('~'), '.canotic')}:/root/.canotic "
             f"--incremental=True . "
             f"{image_name}-pip-layer:{version_tag} {image_name}:{version_tag}"
         )
@@ -1189,62 +1272,6 @@ class AI:
         process = subprocess.Popen(shlex.split(command), stdout=subprocess.PIPE)
         (out, err) = process.communicate()
         return out.decode("utf-8")
-
-    def _create_dockerfile(
-        self, worker_count: int = 1, lambda_mode=True, ai_cache=32, enable_cuda=False, force_amd64=True
-    ):
-        """Build model locally. This involves docker file creation and docker build operations.
-        Note that this is supported only in local mode, running this on docker can lead to docker-in-docker problems.
-        """
-        dockerd_entrypoint = "dockerd-entrypoint.py"
-
-        self._prepare_dependencies(
-            worker_count=worker_count,
-            lambda_mode=lambda_mode,
-            ai_cache=ai_cache,
-            dockerd_entrypoint=dockerd_entrypoint,
-        )
-
-        dockerfile_content = prepare_dockerfile_string(
-            force_amd64=force_amd64,
-            enable_cuda=enable_cuda,
-            lambda_mode=lambda_mode,
-            dockerd_entrypoint=dockerd_entrypoint,
-            conda_env=self.conda_env,
-            requirements=self.requirements,
-            artifacts=self.artifacts,
-            location=self._location,
-        )
-
-        ################################################################################################################
-        # Write dockerfile
-        ################################################################################################################
-        with open(os.path.join(self._location, "Dockerfile"), "w") as docker_file_writer:
-            docker_file_writer.write("\n".join(dockerfile_content))
-        log.info("Created Dockerfile...")
-        return dockerfile_content  # for testing
-
-    def build_image(self, image_name=None, version_tag="latest"):
-        start = time.time()
-        cwd = os.getcwd()
-        os.chdir(self._location)
-        os.environ["DOCKER_BUILDKIT"] = "1"
-        docker_command = f"docker build -t {image_name}:{version_tag} --secret id=aws,src=$HOME/.aws/credentials ."
-        log.info(f"Running {docker_command}")
-        try:
-            res = os.system(docker_command)
-            end = time.time()
-            if res != 0:
-                log.error("Some error occurred while building the image.")
-                raise Exception("Failed Docker Build. Check build logs for misconfiguration.")
-            else:
-                log.info(
-                    f"Image `{image_name}:{version_tag}` built successfully. Elapsed time: {end - start:.3f} secs."
-                )
-        except KeyboardInterrupt:
-            log.info(f"KeyboardInterrupt occurred")
-            raise KeyboardInterrupt()
-        os.chdir(cwd)
 
     def push_model(self, image_name: Optional[str] = None, version: Optional[str] = None) -> str:
         """Push model in ECR, involves tagging and pushing.
@@ -1314,3 +1341,42 @@ class AI:
             model_parameters=model_parameters,
             callbacks=callbacks,
         )
+
+    def _prepare_k8s_dependencies(self, enable_cuda=False, properties=None, **kwargs) -> dict:
+        """
+        Prepare dependencies like kubernetes CRD
+        Args:
+            enable_cuda: Use CUDA in the CRD or not
+            num_workers: Number of workers to run inside the pod
+            maxReplicas: Maximum number of allowed replicas
+            targetAverageUtilization: Estimated utilization to trigger autoscaling
+            gpuTargetAverageUtilization: Estimated utilization to trigger autoscaling for GPU
+            volumeMountName: Name of the volume to be mounted
+            mountPath: folder_name to be used for mounting. Please note that this should be the path
+            gpuBaseUtilization: GPU Base utilization
+
+        Return:
+             Dictionary of the CRD. This is saved in the save folder as well.
+        """
+        if properties is None:
+            properties = {}
+        kubernetes_config = properties.get("kubernetes_config", {})
+        kubernetes_config.update(
+            dict(
+                maxReplicas=kwargs.get("maxReplicas", kubernetes_config.get("maxReplicas", 5)),
+                targetAverageUtilization=kwargs.get(
+                    "targetAverageUtilization", kubernetes_config.get("targetAverageUtilization", 60)
+                ),
+                gpuTargetAverageUtilization=kwargs.get(
+                    "gpuTargetAverageUtilization", kubernetes_config.get("gpuTargetAverageUtilization", 60)
+                ),
+                volumeMountName=kwargs.get("volumeMountName", kubernetes_config.get("volumeMountName", "efs-vpc")),
+                mountPath=kwargs.get("mountPath", kubernetes_config.get("mountPath", "/shared")),
+                gpuBaseUtilization=kwargs.get("gpuBaseUtilization", kubernetes_config.get("gpuBaseUtilization", 0.5)),
+                numThreads=kwargs.get("worker_count", kubernetes_config.get("worker_count", 1)),
+                enableCuda=enable_cuda,
+            )
+        )
+        with open(os.path.join(self._location, f"{self.name}_config.json"), "w") as wfp:
+            json.dump(kubernetes_config, wfp, indent=2)
+        return kubernetes_config

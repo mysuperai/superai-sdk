@@ -224,7 +224,7 @@ def test_predict_from_sagemaker(cleanup, caplog, monkeypatch):
         weights_path=".",
     )
 
-    predictor: LocalPredictor = ai.deploy(orchestrator=Orchestrator.AWS_SAGEMAKER, skip_build=True, lambda_mode=False)
+    predictor: LocalPredictor = ai.deploy(orchestrator=Orchestrator.AWS_SAGEMAKER, skip_build=True)
     # predictor.log()
     time.sleep(5)
 

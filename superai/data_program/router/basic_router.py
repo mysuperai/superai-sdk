@@ -60,6 +60,7 @@ class BasicRouter(Router):
 
         self.input_schema = self.workflows[0].input_schema
         self.parameter_schema = self.workflows[0].parameter_schema
+        self.default_parameter = self.workflows[0].default_parameter
         self.output_schema = self.workflows[0].output_schema
 
         self.name = name
@@ -93,8 +94,8 @@ class BasicRouter(Router):
     def subscribe_wf(self):
         @workflow(self.name, self.prefix)
         @input_schema(name="inp", schema=self.input_schema)
-        @param_schema(name="params", schema=self.parameter_schema)
-        @metric_schema(name="metric", schema=dt.bundle())
+        @param_schema(name="params", schema=self.parameter_schema, default=self.default_parameter)
+        @metric_schema(name="metric", schema=dt.bundle(), default={})
         @output_schema(schema=self.output_schema)
         def router(inp, metric, params):
             app_id = get_job_app()

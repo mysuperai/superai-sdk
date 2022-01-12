@@ -80,10 +80,10 @@ class Task:
                     return self._task_future_result
                 else:
                     log.warning("completed task, but empty task response.")
-                    log.info("resending task, trial no. ", n_tries + 1)
+                    log.info(f"resending task, trial no. {n_tries + 1}")
                     continue
             elif self._task_future_result.status() in ["EXPIRED", "REJECTED"]:
-                log.info("resending task, trial no. ", n_tries + 1)
+                log.info(f"resending task, trial no. {n_tries + 1}")
                 continue
             else:
                 raise UnknownTaskStatus(str(self._task_future_result.status()))

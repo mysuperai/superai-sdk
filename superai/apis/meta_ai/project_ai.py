@@ -213,3 +213,28 @@ class ProjectAiApiMixin(ABC):
         for r in res:
             ids.extend(r.predictions)
         return ids
+
+    def resolve_data_reference(self, prediction_id: str, instance_id: int, reference: str) -> str:
+        """
+        Files in the output of models are referenced by a service specific URI and are not accessible directly.
+        This function resolves the reference to an accessible URL.
+        Each referenced file is assigned to a specific prediction and instance.
+
+        Args:
+            prediction_id: str
+                UUID of prediction.
+            instance_id: int
+                Integer id of instance.
+            reference: str
+                Reference string given in the prediction output itself.
+                E.g. `data://ai/21ef3013-1ba4-437f-a7ba-77d9260e5699/1/image1.png`
+
+        Returns:
+            Accessible URL of file
+        """
+        sess = MetaAISession()
+        opq = Operation(query_root)
+        opq.resolve_data_ref(prediction_id=prediction_id, instance_id=instance_id, data_ref=reference).url()
+        data = sess.perform_op(opq)
+        res = (opq + data).resolve_data_ref
+        return res.url

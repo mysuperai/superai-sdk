@@ -1,11 +1,11 @@
 import ast
+import pathlib
 
 import pytest
 import vcr
-import json
-import os
 
 from superai.client import Client
+
 
 # To record new cassette, use real app_id and run pytest against runnig endpoint
 
@@ -19,19 +19,20 @@ def scrub_string(string, replacement=""):
     return before_record_response
 
 
-my_vcr = vcr.VCR(
-    serializer="yaml",
-    cassette_library_dir="fixtures/cassettes",
-    record_mode="none",
-    match_on=["body", "headers", "method", "path"],
-    filter_headers=["x-api-key", "x-app-id", "Content-Length", "User-Agent", "API-KEY"],
-    decode_compressed_response=True,
-)
+def my_vcr():
+    return vcr.VCR(
+        serializer="yaml",
+        cassette_library_dir=f"{pathlib.Path(__file__).resolve().parent}/cassettes",
+        record_mode="none",
+        match_on=["body", "headers", "method", "path"],
+        filter_headers=["x-api-key", "x-app-id", "Content-Length", "User-Agent", "API-KEY", "Accept-Encoding"],
+        decode_compressed_response=True,
+    )
 
 
 @pytest.fixture(scope="module")
 def client():
-    with my_vcr.use_cassette("data_api.yaml"):
+    with my_vcr().use_cassette("data_api.yaml"):
         yield Client("TEST_API_KEY")
 
 

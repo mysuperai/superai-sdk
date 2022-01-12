@@ -292,50 +292,31 @@ class task_future(future):
         super(task_future, self).set_result(task_result(response))
 
 
-#
-# qualifications = [{
-#   "name":"abc",
-#   "value": 12,
-#   "operator": 'EQUALS_TO'
-# },{
-#   "name":"def",
-#   "value": 3,
-#   "operator": 'GREATER_THAN'
-# }]
-#
-# 'EQUALS_TO'
-# 'EXISTS'
-# 'GREATER_THAN'
-# 'GREATER_THAN_OR_EQUALS_TO'
-# 'LESS_THAN'
-# 'LESS_THAN_OR_EQUALS_TO'
-# 'NOT_EXISTS'
-#
 @terminate_guard
 def schedule_task(
-    name,
-    humans,
-    price,
-    input,
-    ai_input,
-    output,
-    title,
-    description,
-    paragraphs,
-    completed_tasks,
-    total_tasks,
-    includedIds,
-    excludedIds,
-    explicitId,
-    timeToResolveSec,
-    timeToUpdateSec,
-    timeToExpireSec,
-    qualifications,
-    show_reject,
-    groups,
-    excluded_groups,
-    amount,
-    schema_version,
+    name=None,
+    humans=None,
+    price=None,
+    input=None,
+    output=None,
+    title=None,
+    description=None,
+    paragraphs=None,
+    completed_tasks=None,
+    total_tasks=None,
+    includedIds=None,
+    excludedIds=None,
+    explicitId=None,
+    timeToResolveSec=None,
+    timeToUpdateSec=None,
+    timeToExpireSec=None,
+    qualifications=None,
+    show_reject=None,
+    groups=None,
+    excluded_groups=None,
+    amount=None,
+    schema_version=None,
+    is_ai=None,
 ):
     """Schedule task for execution by inserting it into the future table"""
     seq = _context.sequence
@@ -382,6 +363,9 @@ def schedule_task(
     if (amount is None) and (price is None):
         constraints["priceTag"] = "EASY"
 
+    if is_ai:
+        constraints["type"] = "AI"
+
     params = {
         "type": "EVALUATE_TASK",
         "id": _context.id,
@@ -396,9 +380,6 @@ def schedule_task(
 
     params["payload"]["input"] = input
     params["payload"]["output"] = output
-
-    if ai_input is not None:
-        params["payload"]["modelInput"] = ai_input
 
     params["payload"]["taskInfo"] = {}
     params["payload"]["actions"] = {}

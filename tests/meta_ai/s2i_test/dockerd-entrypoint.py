@@ -16,7 +16,7 @@ def _start_mms(model_name):
     os.environ["SAGEMAKER_MODEL_SERVER_WORKERS"] = "1"
     os.environ["MODEL_NAME"] = model_name
     path = os.path.dirname(os.path.abspath(__file__))
-
+    os.environ["PATH"] = f"/opt/conda/envs/{os.environ.get('CONDA_ENV_NAME', 'env')}/bin:" + os.environ["PATH"]
     model_server.start_model_server(handler_service=f'{os.path.join(path, "handler.py")}:ModelService.handle')
 
 

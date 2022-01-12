@@ -21,8 +21,10 @@ class MyKerasModel(BaseModel):
         log.info("Loading weights")
         self.model = keras.models.load_model(weights_path)
 
-    def predict(self, input):
-        log.info("Predict Input: ", input)
+    def predict(self, input, context=None):
+        log.info(f"Predict Input: {input}")
+        if isinstance(input, str):
+            input = json.loads(input)
         image_url = input["data"]["image_url"]
         req = urlopen(image_url)
         arr = np.asarray(bytearray(req.read()), dtype=np.uint8)

@@ -52,6 +52,10 @@ class Workflow:
             self._input_schema,
             self._output_schema,
             self._parameter_schema,
+            self._default_parameter,
+            self._input_ui_schema,
+            self._output_ui_schema,
+            self._parameter_ui_schema,
         ) = parse_dp_definition(dp_definition)
 
         # Adding this to kwargs because the Router will do the schema formatting using the task functions.
@@ -80,6 +84,10 @@ class Workflow:
         return self._parameter_schema
 
     @property
+    def default_parameter(self):
+        return self._default_parameter
+
+    @property
     def workflow_fn(self):
         return self._workflow_fn
 
@@ -102,7 +110,7 @@ class Workflow:
     def subscribe_wf(self):
         @workflow(self.name, prefix=self.prefix)
         @input_schema(name="inp", schema=self.input_schema)
-        @param_schema(name="params", schema=self.parameter_schema)
+        @param_schema(name="params", schema=self.parameter_schema, default=self.default_parameter)
         @output_schema(schema=self.output_schema)
         def method(inp, params):
             return self.workflow_fn(inp, params)

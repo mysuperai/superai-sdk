@@ -36,6 +36,7 @@ class LocalPredictor(DeployedPredictor):
         super(LocalPredictor, self).__init__(*args, **kwargs)
         client = docker.from_env()
         self.lambda_mode = kwargs.get("lambda_mode", False)
+        self.k8s_mode = kwargs.get("k8s_mode", False)
         container_name = kwargs["image_name"].replace(":", "_")
         if not existing:
             try:
@@ -78,6 +79,8 @@ class LocalPredictor(DeployedPredictor):
     def predict(self, input, mime="application/json"):
         if self.lambda_mode:
             url = f"http://localhost:9000/2015-03-31/functions/function/invocations"
+        elif self.k8s_mode:
+            url = "http://localhost:9000/api/v1.0/predictions"
         else:
             url = f"http://localhost/invocations"
         headers = {"Content-Type": mime}
@@ -138,7 +141,8 @@ class AWSPredictor(DeployedPredictor):
 
     def predict(self, input, **kwargs):
         if self.client.check_endpoint_is_available(self.id):
-            result = self.client.predict_from_endpoint(self.id, input)
+            input_data, parameters = input.get("data", {}), input.get("parameters", {})
+            result = self.client.predict_from_endpoint(self.id, input_data, parameters)
             output = EasyPredictions(result).value
             return output
         else:

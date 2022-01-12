@@ -4,7 +4,7 @@ SHELL:=/bin/bash
 ifndef PYTHON_VERSION
 	PYTHON_VERSION=3.7.11
 endif
-IMAGE_PYTHON_VERSION=$(echo -n $(PYTHON_VERSION) | sed 's/\.//g')
+IMAGE_PYTHON_VERSION=$(shell echo -n $(PYTHON_VERSION) | sed 's/\.//g')
 
 ifndef mode
 	mode=cpu
@@ -12,6 +12,8 @@ endif
 
 ifeq ($(mode), cpu)
 	BASE_IMAGE=python:${PYTHON_VERSION}-slim-buster
+else ifeq ($(mode), eia)
+	BASE_IMAGE=763104351884.dkr.ecr.us-east-1.amazonaws.com/tensorflow-inference-eia:2.3.0-cpu-py37-ubuntu18.04
 else
 	BASE_IMAGE=nvidia/cuda:10.2-cudnn8-runtime-ubuntu18.04
 endif
@@ -30,16 +32,47 @@ permissions:
 push:
 	python -c "import superai.meta_ai.dockerizer as dock;dock.push_image('${IMAGE_NAME}','${IMAGE_VERSION}')"
 
+push-lambda:
+	python -c "import superai.meta_ai.dockerizer as dock;dock.push_image('${IMAGE_NAME}-lambda','${IMAGE_VERSION}')"
+
+push-seldon:
+	python -c "import superai.meta_ai.dockerizer as dock;dock.push_image('${IMAGE_NAME}-seldon','${IMAGE_VERSION}')"
+
+
 .PHONY: all build tag push permissions
 
+ifndef TARGET_PLATFORM
 TARGET_PLATFORM=linux/amd64
+endif
+
 build: permissions
 	DOCKER_BUILDKIT=1 docker build -f Dockerfile \
 		--platform=${TARGET_PLATFORM} \
 		--build-arg PYTHON_VERSION=${PYTHON_VERSION} \
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
+		--progress plain \
 		-t ${IMAGE_NAME}:${IMAGE_VERSION} \
 		--secret id=aws,src=${HOME}/.aws/credentials \
 		.
 
-all: build push
+build-lambda: permissions
+	DOCKER_BUILDKIT=1 docker build -f Dockerfile.lambda \
+		--platform=${TARGET_PLATFORM} \
+		--build-arg PYTHON_VERSION=${PYTHON_VERSION} \
+		--build-arg BASE_IMAGE=${BASE_IMAGE} \
+		--progress plain \
+		-t ${IMAGE_NAME}-lambda:${IMAGE_VERSION} \
+		--secret id=aws,src=${HOME}/.aws/credentials \
+		.
+
+build-seldon: permissions
+	DOCKER_BUILDKIT=1 docker build -f Dockerfile.seldon \
+		--platform=${TARGET_PLATFORM} \
+		--progress plain \
+		--build-arg PYTHON_VERSION=${PYTHON_VERSION} \
+		--build-arg BASE_IMAGE=${BASE_IMAGE} \
+		-t ${IMAGE_NAME}-seldon:${IMAGE_VERSION} \
+		--secret id=aws,src=${HOME}/.aws/credentials \
+		.
+
+all: build build-lambda build-seldon push push-lambda push-seldon

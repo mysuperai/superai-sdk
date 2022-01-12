@@ -1,20 +1,30 @@
-####
 import inspect
+import json
 import os
-from typing import Callable, Dict, List, Optional
-
-from superai_schema.generators import dynamic_generator
-from superai_schema.universal_schema import task_schema_functions as df
+from typing import Callable, Dict, List, Optional, Type
 
 from superai import Client
-from superai.data_program import Workflow
+from superai.data_program import Task, Workflow
 from superai.data_program.base import DataProgramBase
 from superai.data_program.Exceptions import UnknownTaskStatus
 from superai.data_program.protocol.task import task as task
 from superai.data_program.router import BasicRouter, Router
-from superai.data_program.utils import parse_dp_definition
+from superai.data_program.schema_server import SchemaServer
+from superai.data_program.types import (
+    DataProgramDefinition,
+    Handler,
+    Input,
+    JobContext,
+    Output,
+    Parameters,
+    WorkflowConfig,
+)
+from superai.data_program.utils import model_to_task_io_payload, parse_dp_definition
 from superai.log import logger
 from superai.utils import load_api_key, load_auth_token, load_id_token
+from superai_schema.generators import dynamic_generator
+from superai_schema.types import BaseModel, UiWidget
+from superai_schema.universal_schema import task_schema_functions as df
 
 log = logger.get_logger(__name__)
 
@@ -23,18 +33,26 @@ class DataProgram(DataProgramBase):
     def __init__(
         self,
         name: str,
-        definition: Dict = {},
+        definition: DataProgramDefinition,
         description: str = None,
         add_basic_workflow: bool = True,
         client: Client = None,
         router: Router = None,
+        metadata: dict = None,
+        auto_generate_metadata: bool = True,
         **kwargs,
     ):
         super().__init__(add_basic_workflow=add_basic_workflow)
         assert "input_schema" in definition
         assert "output_schema" in definition
         self.client = (
-            client if client else Client(api_key=load_api_key(), auth_token=load_auth_token(), id_token=load_id_token())
+            client
+            if client
+            else Client(
+                api_key=load_api_key(),
+                auth_token=load_auth_token(),
+                id_token=load_id_token(),
+            )
         )
         # FIXME: Needs to register default_workflow, and workflows... not the router
         self.__dict__.update(definition)
@@ -43,6 +61,10 @@ class DataProgram(DataProgramBase):
             self.input_schema,
             self.output_schema,
             self.parameter_schema,
+            self.default_parameter,
+            self.input_ui_schema,
+            self.output_ui_schema,
+            self.parameter_ui_schema,
         ) = parse_dp_definition(definition)
 
         self._default_workflow: str = None
@@ -61,8 +83,82 @@ class DataProgram(DataProgramBase):
         #     schemas (input, output, params)
         #  2. Link to code repository
 
+        self.metadata = (
+            dynamic_generator.create_metadata_boilerplate(
+                input_schema=self.input_schema,
+                output_schema=self.output_schema,
+                param_schema=self.parameter_schema,
+                name=name,
+                description=self.description,
+            )
+            if metadata == None and auto_generate_metadata
+            else metadata
+        )
+
         self.__template_object = self.__create_template()
         log.info(f"DataProgram created {self.qualified_name}")
+
+    @staticmethod
+    def run(
+        *,
+        default_params: Parameters,
+        handler: Handler[Parameters, Input, Output],
+        workflows: List[WorkflowConfig],
+        metadata: dict = None,
+        auto_generate_metadata: bool = True,
+    ):
+        # TODO: Fix: start the DP without legacy dependencies
+        from canotic.hatchery import hatchery_config
+        from canotic.qumes_transport import start_threads
+
+        name = os.getenv("WF_PREFIX")
+
+        # Setting the SERVICE env variable indicates that we are running the Data Program as a service
+        service = os.getenv("SERVICE")
+        params_cls = default_params.__class__
+
+        if name is None:
+            raise Exception("Environment variable 'WF_PREFIX' is missing.")
+
+        if service is None:
+            raise Exception(
+                """Environment variable 'SERVICE' is missing.
+If you are running data program with 'canotic deploy' command,
+make sure to pass `--serve-schema` in order to opt-in schema server."""
+            )
+
+        if hatchery_config.get_transport_backend_config() != "qumes":
+            raise Exception("Non Qumes transport is not supported by this API.")
+
+        if service == "data_program":
+            log.info("Starting data_program service...")
+
+            log.info("Setting CANOTIC_AGENT=1 and IN_AGENT=YES")
+            os.environ["CANOTIC_AGENT"] = "1"
+            os.environ["IN_AGENT"] = "YES"
+
+            default_definition = DataProgram._get_definition_for_params(default_params, handler)
+            dp = DataProgram(
+                name=name,
+                metadata=metadata,
+                add_basic_workflow=False,
+                definition=default_definition,
+                auto_generate_metadata=auto_generate_metadata,
+            )
+
+            for workflow_config in workflows:
+                dp._add_workflow_by_config(workflow_config, params_cls, handler)
+
+            dp.__init_router()
+            start_threads()
+            return
+
+        if service == "schema":
+            log.info("Starting schema service...")
+            SchemaServer(params_cls, handler).run()
+            return
+
+        raise Exception(f"{service} is invalid service. 'data_program' or 'schema' is available.")
 
     @property
     def gold_workflow(self) -> str:
@@ -120,21 +216,22 @@ class DataProgram(DataProgramBase):
         """
         body_json = {
             "input_schema": self.input_schema,
+            "input_ui_schema": self.input_ui_schema,
             "output_schema": self.output_schema,
+            "output_ui_schema": self.output_ui_schema,
         }
         name = self.qualified_name
         if self.parameter_schema is not None:
             body_json["parameter_schema"] = {"params": self.parameter_schema}
+        if self.parameter_ui_schema is not None:
+            body_json["parameter_ui_schema"] = {"params": self.parameter_ui_schema}
+        if self.default_parameter is not None:
+            body_json["default_app_params"] = self.default_parameter
         if self.description is not None:
             body_json["description"] = self.description
+        if self.metadata is not None:
+            body_json["metadata"] = self.metadata
 
-        body_json["metadata"] = dynamic_generator.create_metadata_boilerplate(
-            input_schema=self.input_schema,
-            output_schema=self.output_schema,
-            param_schema=self.parameter_schema,
-            name=name,
-            description=self.description,
-        )
         # TODO:
         #  1. When duplicated dataprogram exists Nacelle responds with:
         #     requests.exceptions.HTTPError: 400 Client Error: BAD REQUEST for url:
@@ -169,7 +266,12 @@ class DataProgram(DataProgramBase):
         return workflow_dict
 
     def add_workflow(
-        self, workflow: Callable, name: str = None, description: str = None, default: bool = False, gold: bool = False
+        self,
+        workflow: Callable,
+        name: str = None,
+        description: str = None,
+        default: bool = False,
+        gold: bool = False,
     ) -> Dict:
         """
         Assuming that if the _basic workflow is not deployed then the first workflow added will be the default and gold workflow
@@ -195,6 +297,45 @@ class DataProgram(DataProgramBase):
             **kkwargs,
         )
         return self._add_workflow_obj(workflow=workflow, default=default, gold=gold)
+
+    def _add_workflow_by_config(
+        self,
+        workflow: WorkflowConfig,
+        params_cls: Type[Parameters],
+        handler: Handler[Parameters, Input, Output],
+    ):
+        def workflow_fn(inp, params):
+            params_model = params_cls.parse_obj(params)
+            job_input_model_cls, _, process_job = handler(params_model)
+
+            # Load raw job input into model with validation
+            job_input_model = job_input_model_cls.parse_obj(inp)
+
+            def send_task(
+                name: str,
+                *,
+                task_input: BaseModel,
+                task_output: Output,
+                max_attempts: int,
+            ) -> Output:
+                my_task = Task(name=name, max_attempts=max_attempts)
+                my_task.process(
+                    model_to_task_io_payload(task_input),
+                    model_to_task_io_payload(task_output),
+                )
+                raw_result = my_task.output["values"]["formData"]
+                return task_output.parse_obj(raw_result)
+
+            job_output = process_job(job_input_model, JobContext[Output](workflow, send_task))
+            return json.loads(job_output.json())
+
+        self.add_workflow(
+            name=workflow.name,
+            description=workflow.description,
+            workflow=workflow_fn,
+            default=workflow.is_default,
+            gold=workflow.is_gold,
+        )
 
     def __add_basic_workflow(self):
         exists = next(filter(lambda w: w.name == "_basic", self.workflows), None)
@@ -347,3 +488,19 @@ class DataProgram(DataProgramBase):
             body = {"workflows": workflow_list}
             template_udpate = self.client.update_template(template_name=self.name, body=body)
             assert workflow.qualified_name in template_udpate.get("dpWorkflows")
+
+    @staticmethod
+    def _get_definition_for_params(
+        params: Parameters, handler: Handler[Parameters, Input, Output]
+    ) -> DataProgramDefinition:
+        input_model, output_model, _ = handler(params)
+
+        return {
+            "parameter_schema": params.schema(),
+            "parameter_ui_schema": params.ui_schema() if isinstance(params, UiWidget) else {},
+            "input_schema": input_model.schema(),
+            "input_ui_schema": input_model.ui_schema() if issubclass(input_model, UiWidget) else {},
+            "output_schema": output_model.schema(),
+            "output_ui_schema": output_model.ui_schema() if issubclass(output_model, UiWidget) else {},
+            "default_parameter": json.loads(params.json(exclude_none=True)),
+        }

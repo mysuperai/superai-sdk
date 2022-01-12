@@ -1,0 +1,65 @@
+# syntax=docker/dockerfile:1.2
+ARG BASE_IMAGE
+ARG PYTHON_VERSION
+
+FROM $BASE_IMAGE
+
+RUN apt-get update && \
+    apt-get -y install --no-install-recommends \
+      build-essential  \
+      ca-certificates  \
+      g++  \
+      make  \
+      cmake  \
+      unzip  \
+      libcurl4-openssl-dev  \
+      wget \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Download and install Anaconda.
+ARG ANACONDA_VERSION="py39_4.10.3"
+ARG PYTHON_VERSION
+RUN UNAME_M="$(uname -m)" \
+    && if [ "${UNAME_M}" = "x86_64" ]; then  \
+        MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-${ANACONDA_VERSION}-Linux-x86_64.sh";\
+       elif [ "${UNAME_M}" = "aarch64" ]; then \
+        MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-${ANACONDA_VERSION}-Linux-aarch64.sh";\
+    fi && wget -O /tmp/anaconda.sh "${MINICONDA_URL}" &&  \
+    chmod +x /tmp/anaconda.sh && \
+    mkdir /root/.conda && \
+    bash -c "/tmp/anaconda.sh -b -p /opt/conda" && \
+    rm /tmp/anaconda.sh && \
+    /opt/conda/bin/conda create -n env python=${PYTHON_VERSION} && \
+    echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc && \
+    echo "conda activate env" >> ~/.bashrc
+SHELL ["/opt/conda/bin/conda", "run", "--no-capture-output", "-n", "env", "/bin/bash", "-c"]
+
+# Create directories for code and model weights
+RUN mkdir -p /home/model-server && mkdir -p /opt/ml/model
+WORKDIR /home/model-server
+
+ADD https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie /usr/local/bin/aws-lambda-rie
+
+# Install requirements
+COPY requirements_lambda.txt /home/model-server/.lambda-requirements/base_requirements.txt
+RUN pip install --no-cache-dir awscli~=1.18.195 && chmod +x /usr/local/bin/aws-lambda-rie
+ARG AWS_DEFAULT_REGION=us-east-1
+RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true,uid=1000,gid=1000 \
+    --mount=type=cache,target=/root/.cache/pip \
+    aws codeartifact login --tool pip --domain superai --repository pypi-superai && \
+    pip install --no-cache-dir -r /home/model-server/.lambda-requirements/base_requirements.txt
+
+LABEL io.openshift.s2i.scripts-url="image:///s2i/bin"
+
+COPY s2i/bin /s2i/bin
+COPY s2i/bin /opt/program
+
+ENV PATH="/opt/program:${PATH}"
+
+RUN chmod a+rwx /opt/program && \
+    mkdir -p /.conda && \
+    chmod a+rwx /.conda
+
+EXPOSE 5000
+WORKDIR /opt/program

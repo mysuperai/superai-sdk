@@ -7,7 +7,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 NAME = "superai"
-VERSION = "0.1.0.beta2"
+VERSION = "0.1.0.beta3"
 # To install the library, run the following
 #
 # python setup.py install
@@ -23,6 +23,7 @@ REQUIRES = [
     "cloudpickle==1.6.0",
     "dynaconf>=3.1.2",
     "docker>=4.0.0",
+    "fastapi>=0.70.0",
     "futures-then>=0.1.1",
     "genson>=1.2.2",
     "jinja2>=2.11.2",
@@ -33,14 +34,15 @@ REQUIRES = [
     "rich>=10.1",
     "pyyaml>=3.13",
     "requests>=2.22",
-    "sagemaker>=1.64.0",
-    "sentry-sdk>=0.19.4",
     "scikit-learn>=0.23.2",
-    "sgqlc>=13.0",
+    "sgqlc>=14.1",
     "sentry-sdk>=0.19.4",
     "six",
-    "warrant>=0.6",
+    "uvicorn>=0.15.0",
+    "pycognito>=2021.3.1",
     "psutil~=5.6.7",
+    "pandas>=1.2.5",
+    "sagemaker>=1.64.1",
 ]
 
 BUILD_REQUIRES = [
@@ -50,13 +52,12 @@ BUILD_REQUIRES = [
     "Sphinx>=3.2.1",
     "twine>=3.2.0",
     "wheel>=0.35.1",
-    "sagemaker>=1.64.1",
 ]
 
 DP_REQUIRES = [
     "awscli>=1.18.163",
     "superai-dataclient~=0.1.0",
-    "superai-schema~=0.1.8",
+    "superai-schema~=0.1.15",
 ]
 
 TEST_REQUIRES = [
@@ -68,6 +69,7 @@ TEST_REQUIRES = [
     "pytest-env>=0.6.2",
     "vcrpy>=4.1.1",
     "pytest-mock~=3.3.1",
+    "seldon-core>=1.11.2",
 ]
 
 setup(

@@ -1,9 +1,14 @@
+import logging
 import os
 import shutil
 import tarfile
 
 import pytest
+
 from superai.meta_ai import AI
+from superai.meta_ai.ai import AITemplate
+from superai.meta_ai.parameters import Config
+from superai.meta_ai.schema import Schema
 
 
 @pytest.fixture
@@ -39,8 +44,49 @@ def test_compression():
     os.remove(path_to_tarfile)
 
 
+def test_track_changes(caplog):
+    caplog.set_level(logging.INFO)
+    template = AITemplate(
+        input_schema=Schema(),
+        output_schema=Schema(),
+        configuration=Config(),
+        model_class="MyKerasModel",
+        name="My_template",
+        description="Template for my new awesome project",
+        requirements=["tensorflow", "opencv-python-headless"],
+    )
+    ai = AI(
+        ai_template=template,
+        input_params=template.input_schema.parameters(),
+        output_params=template.output_schema.parameters(choices=map(str, range(0, 10))),
+        name="my_mnist_model",
+        version=1,
+    )
+    pwd = os.getcwd()
+    os.chdir(ai._location)
+    with open("requirements.txt", "r") as fp:
+        backup_content = fp.read()
+    with open("requirements.txt", "a") as fp:
+        fp.write("\nscipy")
+    assert ai._track_changes()
+    assert not ai._track_changes()
+    with open("requirements.txt", "w") as fp:
+        fp.write(backup_content)
+    assert ai._track_changes()
+    assert not ai._track_changes()
+    os.chdir(pwd)
+
+
 def test_system_commands():
     sys_func = AI._system
     command = "python --help"
     output = sys_func(command)
     assert "python [option]" in output
+
+
+def test_base_name():
+    assert AI._get_base_name() == f"superai-model-s2i-python3711-cpu:1"
+    assert AI._get_base_name(enable_cuda=True) == f"superai-model-s2i-python3711-gpu:1"
+    assert AI._get_base_name(lambda_mode=True) == f"superai-model-s2i-python3711-cpu-lambda:1"
+    assert AI._get_base_name(k8s_mode=True) == f"superai-model-s2i-python3711-cpu-seldon:1"
+    assert AI._get_base_name(k8s_mode=True, enable_cuda=True) == f"superai-model-s2i-python3711-gpu-seldon:1"
