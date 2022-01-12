@@ -69,6 +69,7 @@ class PredictorFactory(object):
     __predictor_classes = {
         "LOCAL_DOCKER": LocalPredictor,
         "LOCAL_DOCKER_LAMBDA": LocalPredictor,
+        "LOCAL_DOCKER_K8S": LocalPredictor,
         "AWS_SAGEMAKER": AWSPredictor,
         "AWS_SAGEMAKER_ASYNC": AWSPredictor,
         "AWS_LAMBDA": AWSPredictor,
@@ -1010,7 +1011,7 @@ class AI:
             raise ValueError(f"Invalid Orchestrator, should be one of {[e for e in Orchestrator]}")
         # build kwargs
         kwargs = {}
-        if orchestrator in [Orchestrator.LOCAL_DOCKER, Orchestrator.LOCAL_DOCKER_LAMBDA]:
+        if orchestrator in [Orchestrator.LOCAL_DOCKER, Orchestrator.LOCAL_DOCKER_LAMBDA, Orchestrator.LOCAL_DOCKER_K8S]:
             kwargs["image_name"] = f"{self.name}:{self.version}"
             kwargs["weights_path"] = self.weights_path
             kwargs["lambda_mode"] = is_lambda_orchestrator

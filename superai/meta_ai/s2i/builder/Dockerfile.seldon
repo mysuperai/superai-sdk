@@ -31,6 +31,7 @@ RUN UNAME_M="$(uname -m)" \
     bash -c "/tmp/anaconda.sh -b -p /opt/conda" && \
     rm /tmp/anaconda.sh && \
     /opt/conda/bin/conda create -n env python=${PYTHON_VERSION} && \
+    /opt/conda/bin/conda clean -ya && \
     echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc && \
     echo "conda activate env" >> ~/.bashrc
 SHELL ["/opt/conda/bin/conda", "run", "--no-capture-output", "-n", "env", "/bin/bash", "-c"]
@@ -40,13 +41,13 @@ RUN mkdir -p /home/model-server && mkdir -p /opt/ml/model
 WORKDIR /home/model-server
 
 # Install requirements
-COPY requirements_seldon.txt /home/model-server/.lambda-requirements/base_requirements.txt
+COPY requirements_seldon.txt /home/model-server/.requirements/base_requirements.txt
 RUN pip install --no-cache-dir awscli~=1.18.195
 ARG AWS_DEFAULT_REGION=us-east-1
 RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true,uid=1000,gid=1000 \
     --mount=type=cache,target=/root/.cache/pip \
     aws codeartifact login --tool pip --domain superai --repository pypi-superai && \
-    pip install --no-cache-dir -r /home/model-server/.lambda-requirements/base_requirements.txt
+    pip install --no-cache-dir -r /home/model-server/.requirements/base_requirements.txt
 
 LABEL io.openshift.s2i.scripts-url="image:///s2i/bin"
 

@@ -1,4 +1,5 @@
 #!/bin/bash -e
+set -x
 
 function _get_conda_envs() {
   # Printed value will be list of Conda envs
