@@ -7,7 +7,8 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 NAME = "superai"
-VERSION = "0.1.0.beta3.dev51"
+
+VERSION = "0.1.0.beta4.dev1"
 # To install the library, run the following
 #
 # python setup.py install
@@ -34,7 +35,6 @@ REQUIRES = [
     "rich>=10.1",
     "pyyaml>=3.13",
     "requests>=2.22",
-    "sagemaker>=1.64.0",
     "sentry-sdk>=0.19.4",
     "scikit-learn>=0.23.2",
     "sgqlc>=14.1",
@@ -43,6 +43,8 @@ REQUIRES = [
     "uvicorn>=0.15.0",
     "pycognito>=2021.3.1",
     "psutil~=5.6.7",
+    "pandas>=1.2.5",
+    "sagemaker>=1.64.1",
 ]
 
 BUILD_REQUIRES = [
@@ -52,7 +54,6 @@ BUILD_REQUIRES = [
     "Sphinx>=3.2.1",
     "twine>=3.2.0",
     "wheel>=0.35.1",
-    "sagemaker>=1.64.1",
 ]
 
 DP_REQUIRES = [

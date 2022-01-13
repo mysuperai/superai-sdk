@@ -19,6 +19,7 @@ import boto3  # type: ignore
 import docker
 import requests
 import yaml
+
 from docker import DockerClient
 from docker.errors import ImageNotFound
 
@@ -1270,7 +1271,7 @@ class AI:
         os.chdir(cwd)
 
     @staticmethod
-    def _download_base_image(base_image: str, client: DockerClient = docker.from_env()) -> None:
+    def _download_base_image(base_image: str, client: DockerClient) -> None:
         """
         Download the base image from ECR
         Args:

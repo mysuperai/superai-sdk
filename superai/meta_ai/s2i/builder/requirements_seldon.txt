@@ -1,4 +1,4 @@
-superai==0.1.0.b2
+superai==0.1.0.beta3
 superai_schema
 superai-dataclient
 seldon-core==1.11.1
