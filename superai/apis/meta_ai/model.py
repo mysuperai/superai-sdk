@@ -91,7 +91,7 @@ class ModelApiMixin(ABC):
         stage: str = "LOCAL",
         metadata: str = None,
         visibility: meta_ai_visibility_enum = "PRIVATE",
-    ) -> int:
+    ) -> str:
         op = Operation(mutation_root)
         op.insert_meta_ai_model_one(
             object=meta_ai_model_insert_input(
@@ -118,7 +118,7 @@ class ModelApiMixin(ABC):
         model_save_path: str = "",
         weights_path: str = "",
         visibility: meta_ai_visibility_enum = "PRIVATE",
-    ) -> int:
+    ) -> str:
         """Add a complete model entry in the database.
 
         Args:
@@ -150,7 +150,7 @@ class ModelApiMixin(ABC):
         log.info(f"Created new model: {data}")
         return (op + data).insert_meta_ai_model_one.id
 
-    def update_model(self, idx, **kwargs) -> int:
+    def update_model(self, idx, **kwargs) -> str:
         op = Operation(mutation_root)
         op.update_meta_ai_model_by_pk(
             _set=meta_ai_model_set_input(**kwargs),
@@ -159,7 +159,7 @@ class ModelApiMixin(ABC):
         data = self.sess.perform_op(op)
         return (op + data).update_meta_ai_model_by_pk.id
 
-    def update_model_by_name_version(self, name: str, version: int, **kwargs) -> int:
+    def update_model_by_name_version(self, name: str, version: int, **kwargs) -> str:
         opq = Operation(query_root)
         opq.meta_ai_model(
             where={"name": {"_eq": name}, "version": {"_eq": version}},
@@ -188,7 +188,7 @@ class ModelApiMixin(ABC):
             res = list(map(lambda x: x.version, res))
             return sorted(res, reverse=True)[0]
 
-    def delete_model(self, idx) -> int:
+    def delete_model(self, idx) -> str:
         op = Operation(mutation_root)
         op.delete_meta_ai_model_by_pk(id=idx).__fields__("name", "version", "id")
         data = self.sess.perform_op(op)

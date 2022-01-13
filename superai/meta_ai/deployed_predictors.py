@@ -13,6 +13,7 @@ from rich.prompt import Confirm
 
 from superai import Client
 from superai.meta_ai.schema import EasyPredictions
+from superai.meta_ai.dockerizer import get_docker_client
 from superai.utils import log
 
 
@@ -34,7 +35,7 @@ class DeployedPredictor(metaclass=ABCMeta):
 class LocalPredictor(DeployedPredictor):
     def __init__(self, *args, existing=False, remove=True, **kwargs):
         super(LocalPredictor, self).__init__(*args, **kwargs)
-        client = docker.from_env()
+        client = get_docker_client()
         self.lambda_mode = kwargs.get("lambda_mode", False)
         self.k8s_mode = kwargs.get("k8s_mode", False)
         container_name = kwargs["image_name"].replace(":", "_")
