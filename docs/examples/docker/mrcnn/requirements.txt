@@ -1,4 +1,4 @@
-Pillow==5.3.0
+Pillow==9.0.0
 cython==0.29.5
 matplotlib==3.0.3
 scikit-image==0.15.0
