@@ -35,7 +35,7 @@ from superai.meta_ai.ai_helper import (
     create_model_handler,
 )
 from superai.meta_ai.deployed_predictors import LocalPredictor, DeployedPredictor, AWSPredictor
-from superai.meta_ai.dockerizer import push_image
+from superai.meta_ai.dockerizer import get_docker_client, push_image
 from superai.meta_ai.environment_file import EnvironmentFileProcessor
 from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters, Config
 from superai.meta_ai.schema import Schema, SchemaParameters, EasyPredictions
@@ -1191,7 +1191,7 @@ class AI:
         os.chdir(self._location)
         changes_in_build = self._track_changes()
 
-        client = docker.from_env()
+        client = get_docker_client()
         base_image = self._get_base_name(enable_eia, lambda_mode, enable_cuda, k8s_mode)
         if always_download:
             log.info(f"Downloading newest base image {base_image}...")
