@@ -555,7 +555,7 @@ class AI:
         with tarfile.open(os.path.join(download_folder, "AISavedModel.tar.gz")) as tar:
             tar.extractall(path=os.path.join(download_folder, "AISavedModel"))
         return cls.load_local(
-            load_path=os.path.join(download_folder, "AISavedModel"),
+            load_path=os.path.join(download_folder, "AISavedModel", "ai"),
             weights_path=weights_path,
             download_folder=download_folder,
         )
