@@ -1020,6 +1020,7 @@ class AI:
             kwargs["image_name"] = f"{self.name}:{self.version}"
             kwargs["weights_path"] = self.weights_path
             kwargs["lambda_mode"] = is_lambda_orchestrator
+            kwargs["k8s_mode"] = orchestrator == Orchestrator.LOCAL_DOCKER_K8S
         else:
             if not skip_build:
                 ecr_image_name = self.push_model(self.name, str(self.version))

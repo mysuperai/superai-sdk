@@ -133,8 +133,10 @@ class LocalPredictor(DeployedPredictor):
         self.container.stop()
 
     def _get_port_assignment(self):
-        if self.lambda_mode or self.k8s_mode:
+        if self.lambda_mode:
             return {8080: 9000}
+        elif self.k8s_mode:
+            return {9000: 9000}
         else:
             return {8080: 80, 8081: 8081}
 
