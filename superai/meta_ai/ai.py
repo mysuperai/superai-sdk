@@ -1282,7 +1282,7 @@ class AI:
         region = boto3.Session().region_name
         account_id = boto3.client("sts").get_caller_identity()["Account"]
         ecr_image_name = f"{account_id}.dkr.ecr.{region}.amazonaws.com/{base_image}"
-        log.info(f"Base image not found. Downloading from ECR '{ecr_image_name}'")
+        log.info(f"Downloading base image from ECR '{ecr_image_name}'")
         log.info("Logging in to ECR...")
         os.system(f"$(aws ecr get-login --region {region} --no-include-email)")
         os.system(f"docker pull {ecr_image_name}")

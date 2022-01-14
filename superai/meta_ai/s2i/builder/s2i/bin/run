@@ -45,6 +45,7 @@ else
   elif [ -n "$SELDON_MODE" ]; then
     echo "Starting Seldon microservice"
     export PATH=/home/model-server:$PATH
+
     if [ -n "$PERSISTENCE" ]; then
       exec seldon-core-microservice "$MODEL_NAME" --service-type "$SERVICE_TYPE" --persistence "$PERSISTENCE"
     else

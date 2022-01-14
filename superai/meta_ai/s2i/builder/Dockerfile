@@ -43,6 +43,7 @@ WORKDIR /home/model-server
 
 # Install requirements
 RUN pip install --no-cache-dir awscli~=1.18.195
+
 COPY requirements.txt /home/model-server/.requirements/base_requirements.txt
 ARG AWS_DEFAULT_REGION=us-east-1
 RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true \
