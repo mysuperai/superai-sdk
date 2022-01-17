@@ -14,6 +14,7 @@ from datetime import datetime
 from typing import List
 from pycognito import Cognito
 
+from superai.apis.meta_ai.model import PredictionError
 from superai import __version__
 from superai.client import Client
 from superai.config import get_config_dir, list_env_configs, set_env_config, settings
@@ -653,7 +654,7 @@ def stop_deployment(client, id: str, wait: int):
 @click.option(
     "--timeout",
     type=int,
-    help="Time to wait for prediction to complete. Default is 20 seconds. Maximum is 60 seconds",
+    help="Time to wait for prediction to complete. Default is 20 seconds. Expect worst case timeouts of 900 seconds (15 minutes) for new deployment startups.",
     default=20,
 )
 @pass_client
@@ -665,18 +666,33 @@ def predict(client, id: str, data: str, parameters: str, timeout: int):
 
     """
     try:
-        console = Console()
-        with console.status("Waiting for prediction...", speed=1):
-            response = client.predict_from_endpoint(
-                model_id=str(id),
-                input_data=json.loads(data),
-                parameters=json.loads(parameters) if parameters else None,
-                timeout=timeout,
-            )
-            console.print("Prediction output:")
-            console.print(response)
+        response = client.predict_from_endpoint(
+            model_id=str(id),
+            input_data=json.loads(data),
+            parameters=json.loads(parameters) if parameters else None,
+            timeout=timeout,
+        )
+        print(response)
     except ReadTimeout:
         print("Timeout waiting for prediction to complete. Try increasing --timeout value.")
+    except PredictionError:
+        # TODO: Print error message when available in object
+        print("Prediction failed. Check the logs for more information.")
+
+
+@ai.group()
+def prediction():
+    """View and list predictions"""
+    pass
+
+
+@prediction.command("view")
+@click.argument("id", required=True, type=click.UUID)
+@pass_client
+def view_prediction(client, id):
+    """View prediction object"""
+    p = client.get_prediction_with_data(str(id))
+    print(p.__json_data__)
 
 
 @deployment.command(

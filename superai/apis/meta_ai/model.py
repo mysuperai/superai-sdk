@@ -3,11 +3,14 @@ import time
 from abc import ABC
 from typing import Tuple, List, Union, Dict, Optional
 
+from rich import box
+from rich.live import Live
+from rich.table import Table
 from sgqlc.operation import Operation  # type: ignore
 from rich.console import Console
 
 from superai.log import logger
-from .session import MetaAISession  # type: ignore
+from .session import MetaAISession, MetaAIWebsocketSession  # type: ignore
 
 
 from superai.apis.meta_ai.meta_ai_graphql_schema import (
@@ -25,11 +28,18 @@ from superai.apis.meta_ai.meta_ai_graphql_schema import (
     meta_ai_deployment_status_enum,
     meta_ai_assignment_enum,
     meta_ai_model,
+    subscription_root,
+    meta_ai_prediction,
+    meta_ai_prediction_state_enum,
 )
 
 log = logger.get_logger(__name__)
 BASE_FIELDS = ["name", "version", "id", "ai_worker_id", "visibility"]
 EXTRA_FIELDS = ["description", "model_save_path", "weights_path", "input_schema", "output_schema"]
+
+
+class PredictionError(Exception):
+    pass
 
 
 class ModelApiMixin(ABC):
@@ -433,8 +443,103 @@ class DeploymentApiMixin(ABC):
                 return True
         return False
 
-    def predict_from_endpoint(self, model_id: str, input_data: dict, parameters: dict = None, timeout: int = 60):
-        """Query the endpoint name from deployment table, return prediction (using MetaAI sagemaker configuration)
+    def wait_for_prediction_completion(
+        self,
+        prediction_id: str,
+        app_id: str = None,
+        timeout: int = 180,
+    ):
+        """
+        Wait for a prediction to complete.
+        Complete is either when the prediction is finished properly or it failed.
+        Args:
+            prediction_id: str
+                id of existing prediction
+            app_id: str (optional)
+                id of app the predection belongs to, used for authentication
+                Predictions could be created without an app_id.
+            timeout: int
+                timeout in seconds. Default is 180 seconds.
+                No upper limit is imposed even though predictions should never take
+                 longer than a fresh model deployment.
+                60 seconds * 15 minutes worst case deployment time = 900 seconds.
+
+        Returns:
+            str: prediction status
+
+        """
+        sess = MetaAIWebsocketSession(app_id=app_id)
+        opq = Operation(subscription_root)
+        prediction = opq.meta_ai_prediction_by_pk(id=prediction_id)
+        prediction.__fields__("state")
+        start = time.time()
+
+        def generate_table(id, state) -> Table:
+            """Make a new table."""
+            table = Table(box=box.MINIMAL)
+            table.add_column("ID")
+            table.add_column("Current State")
+            table.add_row(str(id), str(state))
+            return table
+
+        with Live(generate_table(prediction_id, ""), auto_refresh=False, transient=True) as live:
+            while time.time() - start < timeout:
+                data = next(sess.perform_op(opq))
+                res: meta_ai_prediction = (opq + data).meta_ai_prediction_by_pk
+                live.update(generate_table(prediction_id, res.state), refresh=True)
+                if res.state == meta_ai_prediction_state_enum.COMPLETED:
+                    return res
+                elif res.state == meta_ai_prediction_state_enum.FAILED:
+                    # TODO: return exception stored in prediction object
+                    raise PredictionError("Prediction failed.")
+            else:
+                raise TimeoutError("Waiting for Prediction result timed out. Try increasing timeout.")
+
+    def get_prediction_with_data(self, prediction_id: str) -> meta_ai_prediction:
+        """
+        Retrieve existing prediction with data from database.
+        Args:
+            prediction_id:
+
+        Returns:
+
+        """
+        op = Operation(query_root)
+        p = op.meta_ai_prediction_by_pk(id=prediction_id)
+        p.__fields__("id", "state", "created_at")
+        p.model.__fields__("id", "name", "version")
+        p.instances().__fields__("id", "output", "score")
+        data = self.sess.perform_op(op)
+        try:
+            output = (op + data).meta_ai_prediction_by_pk
+            return output
+        except AttributeError as e:
+            log.info(f"No prediction found for prediction_id:{prediction_id}.")
+
+    def submit_prediction_request(self, model_id: str, input_data: dict, parameters: dict = None) -> str:
+        """Submit a prediction request to the endpoint using input data and custom parameters.
+        Returns the prediction id.
+        The prediction id can be awaited using the `wait_for_prediction_completion` method.
+
+        Args:
+            model_id: id of the model deployed, acts as the primary key of the deployment
+            input_data: raw data or reference to stored object
+            parameters: parameters for the model inference
+        """
+
+        request = {"deployment_id": model_id, "data": json.dumps(input_data), "parameters": json.dumps(parameters)}
+        opq = Operation(query_root)
+        opq.predict_with_deployment_async(request=request).__fields__("prediction_id")
+        data = self.sess.perform_op(opq)
+        res = (opq + data).predict_with_deployment_async
+        prediction_id = res.prediction_id
+        return prediction_id
+
+    def predict_from_endpoint(
+        self, model_id: str, input_data: dict, parameters: dict = None, timeout: int = 180
+    ) -> List[Tuple[dict, float]]:
+        """Predict with endpoint using input data and custom parameters.
+        Returns a list of tuples of the form (output, score).
 
         Args:
             model_id: id of the model deployed, acts as the primary key of the deployment
@@ -443,12 +548,16 @@ class DeploymentApiMixin(ABC):
             timeout: timeout in seconds to await for a prediction
 
         """
-        request = {"deployment_id": model_id, "data": json.dumps(input_data), "parameters": json.dumps(parameters)}
-        opq = Operation(query_root)
-        opq.predict_with_deployment(request=request).__fields__("output", "score")
-        data = self.sess.perform_op(opq, timeout)
-        res = (opq + data).predict_with_deployment
-        return res
+        prediction_id = self.submit_prediction_request(model_id=model_id, input_data=input_data, parameters=parameters)
+        logger.info(f"Submitted prediction request with id: {prediction_id}")
+
+        # Wait for prediction to complete
+        state = self.wait_for_prediction_completion(prediction_id=prediction_id, timeout=timeout)
+        logger.info(f"Prediction {prediction_id} completed with state={state}")
+
+        # Retrieve finished data
+        prediction: query_root.meta_ai_prediction = self.get_prediction_with_data(prediction_id=prediction_id)
+        return [(instance.output, instance.score) for instance in prediction.instances]
 
 
 class TrainApiMixin(ABC):

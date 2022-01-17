@@ -8046,6 +8046,7 @@ class query_root(sgqlc.types.Type):
         "meta_ai_visibility_aggregate",
         "meta_ai_visibility_by_pk",
         "predict_with_deployment",
+        "predict_with_deployment_async",
         "request_prediction_of_app",
         "request_prediction_of_job",
         "resolve_data_ref",
@@ -8999,6 +9000,13 @@ class query_root(sgqlc.types.Type):
     predict_with_deployment = sgqlc.types.Field(
         sgqlc.types.list_of(RawPrediction),
         graphql_name="predict_with_deployment",
+        args=sgqlc.types.ArgDict(
+            (("request", sgqlc.types.Arg(PredictionRequest, graphql_name="request", default=None)),)
+        ),
+    )
+    predict_with_deployment_async = sgqlc.types.Field(
+        Prediction,
+        graphql_name="predict_with_deployment_async",
         args=sgqlc.types.ArgDict(
             (("request", sgqlc.types.Arg(PredictionRequest, graphql_name="request", default=None)),)
         ),
