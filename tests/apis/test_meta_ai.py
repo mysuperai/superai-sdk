@@ -1,5 +1,7 @@
+import logging
 import pathlib
 
+import superai.apis.meta_ai.model
 from superai import Client
 from superai.apis.meta_ai import ModelApiMixin, ProjectAiApiMixin
 import pytest
@@ -7,6 +9,8 @@ import vcr  # type: ignore
 import ast
 
 # To record new cassette, use real app_id and run pytest against running endpoint
+from superai.apis.meta_ai.meta_ai_graphql_schema import meta_ai_prediction, meta_ai_instance
+
 APP_ID = "1e266751-4f5e-4bdd-9709-c381c72ded6d"
 
 
@@ -152,7 +156,7 @@ def test_view_prediction_instance(model_api, existing_app_id, prediction_id):
     assert instance is not None
 
 
-def test_submit_prelabel(model_api: ProjectAiApiMixin, model: str, existing_app_id):
+def test_submit_prelabel(model_api: Client, model: str, existing_app_id):
     test_output = {"score": 1.0, "mask": [0, 1, 1, 0]}
     prediction_id = model_api.submit_prelabel(test_output, existing_app_id, 1, model, assignment="PRELABEL")
     assert prediction_id is not None
@@ -169,6 +173,19 @@ def test_submit_prelabel(model_api: ProjectAiApiMixin, model: str, existing_app_
 
 
 @pytest.mark.skip
+def test_submit_prediction_request(model_api: Client, model: str):
+    input_data = {
+        "test_key": "test_value",
+    }
+    prediction_id = model_api.submit_prediction_request(model_id=model, input_data=input_data)
+    assert prediction_id is not None
+
+    params = {"param1": "value1", "param2": "value2"}
+    prediction_id = model_api.submit_prediction_request(model_id=model, input_data=input_data, parameters=params)
+    assert prediction_id is not None
+
+
+@pytest.mark.skip
 def test_resolve_data_reference(model_api: ProjectAiApiMixin):
     url = model_api.resolve_data_reference(
         prediction_id="7bb07cdc-cbfa-4d26-a996-d4c48eca903f",
@@ -177,3 +194,34 @@ def test_resolve_data_reference(model_api: ProjectAiApiMixin):
     )
     assert url is not None
     assert "https" in url
+
+
+def test_predictions(model_api, mocker):
+
+    prediction_id = "396337dc-53a7-48ac-87c4-4a472bf52b41"
+    # Mock model api return values
+    mocker.patch.object(
+        superai.apis.meta_ai.model.DeploymentApiMixin, "submit_prediction_request", return_value=prediction_id
+    )
+    mocker.patch.object(
+        superai.apis.meta_ai.model.DeploymentApiMixin, "wait_for_prediction_completion", return_value="COMPLETED"
+    )
+
+    # Create prediction object mock
+    test_score = 1.0
+    instance = meta_ai_instance(json_data={"id": 0, "output": "test", "score": test_score})
+    prediction = meta_ai_prediction(json_data={"id": prediction_id, "instances": [instance]})
+    mocker.patch.object(
+        superai.apis.meta_ai.model.DeploymentApiMixin, "get_prediction_with_data", return_value=prediction
+    )
+
+    p = model_api.predict_from_endpoint(
+        model_id="9680e0e7-504e-4a94-a631-861bcb40e1ed",
+        input_data={
+            "merchant_name": "Test Merchant 123",
+            "line_of_business": "Test Line of Business",
+        },
+    )
+    assert p is not None
+    assert len(p) == 1
+    assert p[0][1] == test_score
