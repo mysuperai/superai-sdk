@@ -1311,7 +1311,10 @@ class AI:
             image_name = self.name
         if version is None:
             version = str(self.version)
-        return push_image(image_name=image_name, version=version)
+        id = self.id
+        if id is None:
+            raise Exception("No ID found. AI needs to be registered  via `push()` first.")
+        return push_image(image_name=image_name, model_id=id, version=version)
 
     def train(
         self,

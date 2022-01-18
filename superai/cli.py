@@ -770,15 +770,26 @@ def build_docker_image(image_name, entry_point, dockerfile, command, worker_coun
     )
 
 
-@docker.command(name="push", help="Push the docker image built by `superai model docker-build` to ECR. ")
+@docker.command(name="push")
+@click.argument("id", required=True, type=click.UUID)
 @click.option(
     "--image-name", "-i", required=True, help="Name of the image to be pushed. You can get this from `docker image ls`"
 )
 @click.option("--region", "-r", help="AWS region.  Default: us-east-1", default="us-east-1")
-def push_docker_image(image_name, region):
+def push_docker_image(model_id, image_name, region):
+    """Push the docker image built by `superai model docker-build` to ECR.
+
+    ID is the UUID of the AI model.
+    Check `superai ai list` to see the list of models with their UUIDs.
+    """
     from superai.meta_ai.dockerizer import push_image
 
-    push_image(image_name=image_name, region=region)
+    if ":" in image_name:
+        image, version = image_name.split(":")
+    else:
+        image = image_name
+        version = None
+    push_image(image_name=image, model_id=str(model_id), version=version, region=region)
 
 
 @docker.command(
