@@ -15,6 +15,7 @@ from superai.exceptions import ModelDeploymentError
 from rich.progress import Progress, BarColumn, DownloadColumn, Text, Task
 
 from .sagemaker_endpoint import create_endpoint, invoke_sagemaker_endpoint, upload_model_to_s3, invoke_local
+from ... import config
 
 log = logger.get_logger(__name__)
 
@@ -205,6 +206,7 @@ def build_image(
 
 def push_image(
     image_name: str,
+    model_id: str,
     version: str = "latest",
     region: str = "us-east-1",
     show_progress: bool = True,
@@ -213,6 +215,7 @@ def push_image(
     """
     Push container to ECR
     :param image_name: Name of the locally built image
+    :param model_id: UUID of the model/AI (in `AI` given by `id` property)
     :param version: Version string for docker container
     :param region: AWS region
     :param show_progress: Enable / disable progress bar
@@ -220,16 +223,25 @@ def push_image(
     """
     boto_session = get_boto_session(region_name=region)
     account = boto_session.client("sts").get_caller_identity()["Account"]
-    full_name = f"{account}.dkr.ecr.{region}.amazonaws.com/{image_name}:{version}"
+    env = config.settings.get("name")
+    MODEL_ROOT = "models"
+
+    full_suffix = f"{MODEL_ROOT}/{env}/{model_id}/{image_name}"
+    if len(full_suffix + str(version)) > 255:
+        # AWS allows 256 characters for the name
+        logger.warn("Image name is too long. Truncating to 255 characters...")
+        full_suffix = full_suffix[: 255 - len(str(version))]
+    full_name = f"{account}.dkr.ecr.{region}.amazonaws.com/{full_suffix}:{version}"
+    logger.info(f"Pushing image to ECR: {full_name}")
 
     docker_client = docker.from_env()
     ecr_client = boto_session.client("ecr")
     try:
-        ecr_client.describe_repositories(registryId=account, repositoryNames=[image_name])
+        ecr_client.describe_repositories(registryId=account, repositoryNames=[full_suffix])
     except Exception as e:
         log.info(e)
-        ecr_client.create_repository(repositoryName=image_name)
-        log.info(f"Created repository for `{image_name}`.")
+        ecr_client.create_repository(repositoryName=full_suffix)
+        log.info(f"Created repository for `{full_suffix}`.")
 
     log.info("Logging in to ECR...")
     os.system(f"$(aws ecr get-login --region {region} --no-include-email)")
