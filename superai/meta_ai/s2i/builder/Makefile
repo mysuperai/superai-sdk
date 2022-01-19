@@ -29,14 +29,21 @@ fullname=${ecr_account}/${IMAGE_NAME}:${IMAGE_VERSION}
 permissions:
 	chmod +x s2i/bin/*
 
-push:
-	python -c "import superai.meta_ai.dockerizer as dock;dock.push_image('${IMAGE_NAME}','${IMAGE_VERSION}')"
+docker-login:
+	$$(aws ecr get-login --no-include-email --region us-east-1)
 
-push-lambda:
-	python -c "import superai.meta_ai.dockerizer as dock;dock.push_image('${IMAGE_NAME}-lambda','${IMAGE_VERSION}')"
+push: docker-login
+	docker tag "superai-model-s2i-python3711-${mode}:1" "185169359328.dkr.ecr.us-east-1.amazonaws.com/superai-model-s2i-python3711-${mode}:1"
+	docker push "185169359328.dkr.ecr.us-east-1.amazonaws.com/superai-model-s2i-python3711-${mode}:1"
 
-push-seldon:
-	python -c "import superai.meta_ai.dockerizer as dock;dock.push_image('${IMAGE_NAME}-seldon','${IMAGE_VERSION}')"
+
+push-lambda: docker-login
+	docker tag "superai-model-s2i-python3711-${mode}-lambda:1" "185169359328.dkr.ecr.us-east-1.amazonaws.com/superai-model-s2i-python3711-${mode}-lambda:1"
+	docker push "185169359328.dkr.ecr.us-east-1.amazonaws.com/superai-model-s2i-python3711-${mode}-lambda:1"
+
+push-seldon: docker-login
+	docker tag "superai-model-s2i-python3711-${mode}-seldon:1" "185169359328.dkr.ecr.us-east-1.amazonaws.com/superai-model-s2i-python3711-${mode}-seldon:1"
+	docker push "185169359328.dkr.ecr.us-east-1.amazonaws.com/superai-model-s2i-python3711-${mode}-seldon:1"
 
 
 .PHONY: all build tag push permissions
@@ -50,7 +57,6 @@ build: permissions
 		--platform=${TARGET_PLATFORM} \
 		--build-arg PYTHON_VERSION=${PYTHON_VERSION} \
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
-		--progress plain \
 		-t ${IMAGE_NAME}:${IMAGE_VERSION} \
 		--secret id=aws,src=${HOME}/.aws/credentials \
 		.
@@ -60,7 +66,6 @@ build-lambda: permissions
 		--platform=${TARGET_PLATFORM} \
 		--build-arg PYTHON_VERSION=${PYTHON_VERSION} \
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
-		--progress plain \
 		-t ${IMAGE_NAME}-lambda:${IMAGE_VERSION} \
 		--secret id=aws,src=${HOME}/.aws/credentials \
 		.
@@ -68,7 +73,6 @@ build-lambda: permissions
 build-seldon: permissions
 	DOCKER_BUILDKIT=1 docker build -f Dockerfile.seldon \
 		--platform=${TARGET_PLATFORM} \
-		--progress plain \
 		--build-arg PYTHON_VERSION=${PYTHON_VERSION} \
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
 		-t ${IMAGE_NAME}-seldon:${IMAGE_VERSION} \
