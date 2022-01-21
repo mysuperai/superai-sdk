@@ -31,6 +31,7 @@ from superai.apis.meta_ai.meta_ai_graphql_schema import (
     subscription_root,
     meta_ai_prediction,
     meta_ai_prediction_state_enum,
+    RawPrediction,
 )
 
 log = logger.get_logger(__name__)
@@ -537,7 +538,7 @@ class DeploymentApiMixin(ABC):
 
     def predict_from_endpoint(
         self, model_id: str, input_data: dict, parameters: dict = None, timeout: int = 180
-    ) -> List[Tuple[dict, float]]:
+    ) -> List[RawPrediction]:
         """Predict with endpoint using input data and custom parameters.
         Returns a list of tuples of the form (output, score).
 
@@ -557,7 +558,10 @@ class DeploymentApiMixin(ABC):
 
         # Retrieve finished data
         prediction: query_root.meta_ai_prediction = self.get_prediction_with_data(prediction_id=prediction_id)
-        return [(instance.output, instance.score) for instance in prediction.instances]
+        return [
+            RawPrediction(json_data={"output": instance.output, "score": instance.score})
+            for instance in prediction.instances
+        ]
 
 
 class TrainApiMixin(ABC):
