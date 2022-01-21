@@ -69,6 +69,7 @@ TEST_REQUIRES = [
     "pytest>=6.1.2",
     "pytest-cov>=2.10.1",
     "pytest-env>=0.6.2",
+    "pytest-vcr>=1.0.2",
     "vcrpy>=4.1.1",
     "pytest-mock~=3.3.1",
     "seldon-core>=1.11.2",

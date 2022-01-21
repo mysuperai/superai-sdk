@@ -224,4 +224,4 @@ def test_predictions(model_api, mocker):
     )
     assert p is not None
     assert len(p) == 1
-    assert p[0][1] == test_score
+    assert p[0].score == test_score
