@@ -18,7 +18,7 @@ class Router(ABC):
     def __init__(
         self,
         name: str = "router",  # Can't get overriden for now
-        dataprorgam: "DataProgram" = None,
+        dataprogram: "DataProgram" = None,
         client: Client = None,
         **kwargs,
     ):
@@ -34,7 +34,7 @@ class Router(ABC):
 
         self.name = name
         self.client = client
-        self.dataprogram = dataprorgam
+        self.dataprogram = dataprogram
         self.kkwargs = kwargs
 
     @abstractmethod
