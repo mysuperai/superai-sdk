@@ -10,7 +10,6 @@ import superai_schema.universal_schema.data_types as dt
 from colorama import Fore, Style
 
 from superai import Client
-from superai.data_program import Workflow
 from superai.data_program.Exceptions import *
 from superai.data_program.protocol.task import (
     execute,
@@ -35,28 +34,28 @@ class BasicRouter(Router):
         self,
         name: str = "router",  # Can't get overriden for now
         client: Client = None,
-        dataprorgam: "DataProgram" = None,
+        dataprogram: "DataProgram" = None,
         **kwargs,
     ):
         # TODO: Enable measurer and notify
         super().__init__(
             name=name,
             client=client,
-            dataprorgam=dataprorgam,
+            dataprogram=dataprogram,
             **kwargs,
         )
         self.client = (
             client if client else Client(api_key=load_api_key(), auth_token=load_auth_token(), id_token=load_id_token())
         )
-        self.default_wf = dataprorgam.default_workflow
-        self.gold_wf = dataprorgam.gold_workflow
-        self.workflows = dataprorgam.workflows
+        self.default_wf = dataprogram.default_workflow
+        self.gold_wf = dataprogram.gold_workflow
+        self.workflows = dataprogram.workflows
 
         assert len(self.workflows) > 0, "Router must have at least one workflow"
         assert self.default_wf is not None, "No default method registered."
         assert self.gold_wf is not None, "No gold method registered."
 
-        self.prefix = dataprorgam.name
+        self.prefix = dataprogram.name
 
         self.input_schema = self.workflows[0].input_schema
         self.parameter_schema = self.workflows[0].parameter_schema
