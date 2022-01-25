@@ -67,14 +67,14 @@ sandbox:
     console: true
   suffix: "-sandbox"
 
-staging:
-  name: "staging"
-  dependency_version: "staging"
+stg:
+  name: "stg"
+  dependency_version: "stg"
+  base_url: "https://api-staging.super.ai/v1"
   log:
     level: 20 #INFO=20, DEBUG=10
     console: true
-  meta_ai_base: "metaai-stg.super.ai/v1/graphql"
-  suffix: "-staging"
+  suffix: "-stg"
 
 prod:
   name: "prod"
