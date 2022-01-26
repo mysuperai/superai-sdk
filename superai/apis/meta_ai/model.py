@@ -72,10 +72,18 @@ class ModelApiMixin(ABC):
         data = self.sess.perform_op(op)
         return self._output_formatter((op + data).meta_ai_model, to_json)
 
-    def get_model(self, idx, to_json=False) -> Optional[Union[meta_ai_model, Dict]]:
+    def get_model(self, model_id, to_json=False) -> Optional[Union[meta_ai_model, Dict]]:
         op = Operation(query_root)
-        op.meta_ai_model_by_pk(id=idx).__fields__(
-            "name", "version", "id", "ai_worker_id", "description", "visibility", "input_schema", "output_schema"
+        op.meta_ai_model_by_pk(id=model_id).__fields__(
+            "name",
+            "version",
+            "id",
+            "ai_worker_id",
+            "description",
+            "visibility",
+            "input_schema",
+            "output_schema",
+            "root_id",
         )
         data = self.sess.perform_op(op)
         return self._output_formatter((op + data).meta_ai_model_by_pk, to_json)
@@ -94,6 +102,71 @@ class ModelApiMixin(ABC):
         data = self.sess.perform_op(op)
         return self._output_formatter((op + data).meta_ai_model, to_json)
 
+    def list_model_versions(
+        self, model_id, to_json=False, verbose=False, sort_by_version=True, ascending=True
+    ) -> List[Union[meta_ai_model, Dict]]:
+        """
+        List all versions of a model which share a common root model (given by the root_id).
+        Args:
+            model_id: uuid
+                Does not need to be the id of the root model.
+            to_json:
+                If True, returns a list of dictionaries instead of schema objects.
+            verbose:
+                If True, returns all model fields.
+            sort_by_version: bool
+                Sort list by version number, depending on `ascending`
+            ascending: bool
+                If True, sort in ascending order. Root model is always first.
+                If False, sort in descending order, most recent model first.
+
+        Returns:
+
+        """
+        op = Operation(query_root)
+        # We query the root_model and then its sibling_models which gives us the whole lineage
+        op.meta_ai_model_by_pk(id=model_id).root_model().sibling_models().__fields__(*self._fields(verbose=verbose))
+        data = self.sess.perform_op(op)
+        models = (op + data).meta_ai_model_by_pk.root_model.sibling_models
+        if sort_by_version:
+            models = sorted(models, key=lambda x: x.version, reverse=not ascending)
+        return self._output_formatter(models, to_json)
+
+    def get_root_model(self, model_id, to_json=False, verbose=False) -> Optional[Union[meta_ai_model, Dict]]:
+        """
+        Get the root model,  i.e. the model that is the parent of all other models.
+        Currently, thats always the one with version=1.
+
+        Args:
+            model_id: uuid
+                Id of one of the models in the lineage.
+            to_json:
+                If True, returns a list of dictionaries instead of schema objects.
+            verbose:
+                If True, returns all model fields.
+
+        Returns:
+
+        """
+        op = Operation(query_root)
+        # We query the root_model and then its sibling_models which gives us the whole lineage
+        op.meta_ai_model_by_pk(id=model_id).root_model().__fields__(*self._fields(verbose=verbose))
+        data = self.sess.perform_op(op)
+        models = (op + data).meta_ai_model_by_pk.root_model
+        return self._output_formatter(models, to_json)
+
+    def get_latest_model(self, model_id, to_json=False, verbose=False) -> Optional[Union[meta_ai_model, Dict]]:
+        """
+        Get the latest (highest) model version of a model.
+
+
+        Returns:
+            meta_ai_model
+        """
+        # Get sorted model list
+        models = self.list_model_versions(model_id, sort_by_version=True, ascending=False, verbose=verbose)
+        return self._output_formatter(models[0], to_json)
+
     def add_model(
         self,
         name: str,
@@ -102,46 +175,43 @@ class ModelApiMixin(ABC):
         stage: str = "LOCAL",
         metadata: str = None,
         visibility: meta_ai_visibility_enum = "PRIVATE",
-    ) -> str:
-        op = Operation(mutation_root)
-        op.insert_meta_ai_model_one(
-            object=meta_ai_model_insert_input(
-                name=name,
-                description=description,
-                version=version,
-                metadata=metadata,
-                visibility=visibility,
-                stage=stage,
-            )
-        ).__fields__("name", "version", "id", "stage", "description")
-        data = self.sess.perform_op(op)
-        log.info(f"Created new model: {data}")
-        return (op + data).insert_meta_ai_model_one.id
-
-    def add_model_full_entry(
-        self,
-        name: str,
-        description: str = "",
-        version: int = 1,
-        metadata: str = None,
+        root_id: str = None,
         input_schema: dict = None,
         output_schema: dict = None,
         model_save_path: str = "",
         weights_path: str = "",
-        visibility: meta_ai_visibility_enum = "PRIVATE",
     ) -> str:
-        """Add a complete model entry in the database.
-
+        """
+        Add a new model to the database.
         Args:
             name:
+                Name of the model.
             description:
+                Description of the model.
             version:
+                Version of the model.
+            stage:
+                Stage of the model.
             metadata:
-            input_schema:
-            output_schema:
-            model_save_path:
-            weights_path:
+                Metadata of the model. Currently, this is a JSON string.
             visibility:
+                Visibility of the model. PUBLIC or PRIVATE.
+                PUBLIC models can be used by anyone.
+                PRIVATE models can only be used by the user who created it.
+            root_id:
+                Id of the root model. Establishes the lineage of the model.
+                Is mainly used in retraining a model and storing the weights of the model in a new version.
+            input_schema:
+                Input schema of the model. Is used to match data to compatible models.
+            output_schema:
+                Output schema of the model.
+            model_save_path:
+                URI to the stored model source code.
+            weights_path:
+                URI to the stored model weights.
+
+        Returns:
+
         """
         op = Operation(mutation_root)
         op.insert_meta_ai_model_one(
@@ -155,17 +225,31 @@ class ModelApiMixin(ABC):
                 output_schema=json.dumps(output_schema),
                 model_save_path=model_save_path,
                 weights_path=weights_path,
+                root_id=root_id,
+                stage=stage,
             )
-        ).__fields__("name", "version", "id", "description")
+        ).__fields__("name", "version", "id", "stage", "description", "visibility", "root_id")
         data = self.sess.perform_op(op)
         log.info(f"Created new model: {data}")
         return (op + data).insert_meta_ai_model_one.id
 
-    def update_model(self, idx, **kwargs) -> str:
+    def update_model(self, model_id: str, **kwargs: dict) -> str:
+        """
+        Update a model.
+
+        Args:
+            model_id:
+            **kwargs:
+                Check `add_model` for the list of available parameters.
+                e.g. `name="new_name"`
+
+        Returns:
+
+        """
         op = Operation(mutation_root)
         op.update_meta_ai_model_by_pk(
             _set=meta_ai_model_set_input(**kwargs),
-            pk_columns=meta_ai_model_pk_columns_input(id=idx),
+            pk_columns=meta_ai_model_pk_columns_input(id=model_id),
         ).__fields__("name", "version", "id", "description")
         data = self.sess.perform_op(op)
         return (op + data).update_meta_ai_model_by_pk.id

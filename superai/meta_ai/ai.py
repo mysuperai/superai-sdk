@@ -642,7 +642,7 @@ class AI:
         """
         log.info("Creating database entry...")
         if not self.id:
-            self._id = self.client.add_model_full_entry(**kwargs)
+            self._id = self.client.add_model(**kwargs)
         else:
             # TODO: Add proper exception class
             raise Exception("Model is already registered in the Database.")

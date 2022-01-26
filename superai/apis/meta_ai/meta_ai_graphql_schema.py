@@ -260,6 +260,7 @@ class meta_ai_model_select_column(sgqlc.types.Enum):
         "name",
         "outputSchema",
         "ownerId",
+        "root_id",
         "stage",
         "updatedAt",
         "version",
@@ -284,6 +285,7 @@ class meta_ai_model_update_column(sgqlc.types.Enum):
         "name",
         "outputSchema",
         "ownerId",
+        "root_id",
         "stage",
         "updatedAt",
         "version",
@@ -2033,6 +2035,9 @@ class meta_ai_model_bool_exp(sgqlc.types.Input):
         "output_schema",
         "owner_id",
         "predictions",
+        "root_id",
+        "root_model",
+        "sibling_models",
         "stage",
         "updated_at",
         "version",
@@ -2058,6 +2063,9 @@ class meta_ai_model_bool_exp(sgqlc.types.Input):
     output_schema = sgqlc.types.Field(jsonb_comparison_exp, graphql_name="outputSchema")
     owner_id = sgqlc.types.Field(bigint_comparison_exp, graphql_name="ownerId")
     predictions = sgqlc.types.Field("meta_ai_prediction_bool_exp", graphql_name="predictions")
+    root_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="root_id")
+    root_model = sgqlc.types.Field("meta_ai_model_bool_exp", graphql_name="root_model")
+    sibling_models = sgqlc.types.Field("meta_ai_model_bool_exp", graphql_name="sibling_models")
     stage = sgqlc.types.Field(meta_ai_environment_enum_comparison_exp, graphql_name="stage")
     updated_at = sgqlc.types.Field("timestamptz_comparison_exp", graphql_name="updatedAt")
     version = sgqlc.types.Field(Int_comparison_exp, graphql_name="version")
@@ -2117,6 +2125,9 @@ class meta_ai_model_insert_input(sgqlc.types.Input):
         "output_schema",
         "owner_id",
         "predictions",
+        "root_id",
+        "root_model",
+        "sibling_models",
         "stage",
         "updated_at",
         "version",
@@ -2139,6 +2150,9 @@ class meta_ai_model_insert_input(sgqlc.types.Input):
     output_schema = sgqlc.types.Field(jsonb, graphql_name="outputSchema")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
     predictions = sgqlc.types.Field("meta_ai_prediction_arr_rel_insert_input", graphql_name="predictions")
+    root_id = sgqlc.types.Field(uuid, graphql_name="root_id")
+    root_model = sgqlc.types.Field("meta_ai_model_obj_rel_insert_input", graphql_name="root_model")
+    sibling_models = sgqlc.types.Field(meta_ai_model_arr_rel_insert_input, graphql_name="sibling_models")
     stage = sgqlc.types.Field(meta_ai_environment_enum, graphql_name="stage")
     updated_at = sgqlc.types.Field(timestamptz, graphql_name="updatedAt")
     version = sgqlc.types.Field(Int, graphql_name="version")
@@ -2159,6 +2173,7 @@ class meta_ai_model_max_order_by(sgqlc.types.Input):
         "model_save_path",
         "name",
         "owner_id",
+        "root_id",
         "updated_at",
         "version",
         "weights_path",
@@ -2173,6 +2188,7 @@ class meta_ai_model_max_order_by(sgqlc.types.Input):
     model_save_path = sgqlc.types.Field(order_by, graphql_name="modelSavePath")
     name = sgqlc.types.Field(order_by, graphql_name="name")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
+    root_id = sgqlc.types.Field(order_by, graphql_name="root_id")
     updated_at = sgqlc.types.Field(order_by, graphql_name="updatedAt")
     version = sgqlc.types.Field(order_by, graphql_name="version")
     weights_path = sgqlc.types.Field(order_by, graphql_name="weightsPath")
@@ -2191,6 +2207,7 @@ class meta_ai_model_min_order_by(sgqlc.types.Input):
         "model_save_path",
         "name",
         "owner_id",
+        "root_id",
         "updated_at",
         "version",
         "weights_path",
@@ -2205,6 +2222,7 @@ class meta_ai_model_min_order_by(sgqlc.types.Input):
     model_save_path = sgqlc.types.Field(order_by, graphql_name="modelSavePath")
     name = sgqlc.types.Field(order_by, graphql_name="name")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
+    root_id = sgqlc.types.Field(order_by, graphql_name="root_id")
     updated_at = sgqlc.types.Field(order_by, graphql_name="updatedAt")
     version = sgqlc.types.Field(order_by, graphql_name="version")
     weights_path = sgqlc.types.Field(order_by, graphql_name="weightsPath")
@@ -2247,6 +2265,9 @@ class meta_ai_model_order_by(sgqlc.types.Input):
         "output_schema",
         "owner_id",
         "predictions_aggregate",
+        "root_id",
+        "root_model",
+        "sibling_models_aggregate",
         "stage",
         "updated_at",
         "version",
@@ -2270,6 +2291,11 @@ class meta_ai_model_order_by(sgqlc.types.Input):
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
     predictions_aggregate = sgqlc.types.Field(
         "meta_ai_prediction_aggregate_order_by", graphql_name="predictions_aggregate"
+    )
+    root_id = sgqlc.types.Field(order_by, graphql_name="root_id")
+    root_model = sgqlc.types.Field("meta_ai_model_order_by", graphql_name="root_model")
+    sibling_models_aggregate = sgqlc.types.Field(
+        meta_ai_model_aggregate_order_by, graphql_name="sibling_models_aggregate"
     )
     stage = sgqlc.types.Field(order_by, graphql_name="stage")
     updated_at = sgqlc.types.Field(order_by, graphql_name="updatedAt")
@@ -2308,6 +2334,7 @@ class meta_ai_model_set_input(sgqlc.types.Input):
         "name",
         "output_schema",
         "owner_id",
+        "root_id",
         "stage",
         "updated_at",
         "version",
@@ -2327,6 +2354,7 @@ class meta_ai_model_set_input(sgqlc.types.Input):
     name = sgqlc.types.Field(String, graphql_name="name")
     output_schema = sgqlc.types.Field(jsonb, graphql_name="outputSchema")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
+    root_id = sgqlc.types.Field(uuid, graphql_name="root_id")
     stage = sgqlc.types.Field(meta_ai_environment_enum, graphql_name="stage")
     updated_at = sgqlc.types.Field(timestamptz, graphql_name="updatedAt")
     version = sgqlc.types.Field(Int, graphql_name="version")
@@ -5153,6 +5181,10 @@ class meta_ai_model(sgqlc.types.Type):
         "owner_id",
         "predictions",
         "predictions_aggregate",
+        "root_id",
+        "root_model",
+        "sibling_models",
+        "sibling_models_aggregate",
         "stage",
         "updated_at",
         "version",
@@ -5293,6 +5325,62 @@ class meta_ai_model(sgqlc.types.Type):
             )
         ),
     )
+    root_id = sgqlc.types.Field(uuid, graphql_name="root_id")
+    root_model = sgqlc.types.Field("meta_ai_model", graphql_name="root_model")
+    sibling_models = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("meta_ai_model"))),
+        graphql_name="sibling_models",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "distinct_on",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_model_select_column)),
+                        graphql_name="distinct_on",
+                        default=None,
+                    ),
+                ),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                (
+                    "order_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_model_order_by)),
+                        graphql_name="order_by",
+                        default=None,
+                    ),
+                ),
+                ("where", sgqlc.types.Arg(meta_ai_model_bool_exp, graphql_name="where", default=None)),
+            )
+        ),
+    )
+    sibling_models_aggregate = sgqlc.types.Field(
+        sgqlc.types.non_null("meta_ai_model_aggregate"),
+        graphql_name="sibling_models_aggregate",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "distinct_on",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_model_select_column)),
+                        graphql_name="distinct_on",
+                        default=None,
+                    ),
+                ),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                (
+                    "order_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_model_order_by)),
+                        graphql_name="order_by",
+                        default=None,
+                    ),
+                ),
+                ("where", sgqlc.types.Arg(meta_ai_model_bool_exp, graphql_name="where", default=None)),
+            )
+        ),
+    )
     stage = sgqlc.types.Field(sgqlc.types.non_null(meta_ai_environment_enum), graphql_name="stage")
     updated_at = sgqlc.types.Field(timestamptz, graphql_name="updatedAt")
     version = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="version")
@@ -5375,6 +5463,7 @@ class meta_ai_model_max_fields(sgqlc.types.Type):
         "model_save_path",
         "name",
         "owner_id",
+        "root_id",
         "updated_at",
         "version",
         "weights_path",
@@ -5389,6 +5478,7 @@ class meta_ai_model_max_fields(sgqlc.types.Type):
     model_save_path = sgqlc.types.Field(String, graphql_name="modelSavePath")
     name = sgqlc.types.Field(String, graphql_name="name")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
+    root_id = sgqlc.types.Field(uuid, graphql_name="root_id")
     updated_at = sgqlc.types.Field(timestamptz, graphql_name="updatedAt")
     version = sgqlc.types.Field(Int, graphql_name="version")
     weights_path = sgqlc.types.Field(String, graphql_name="weightsPath")
@@ -5407,6 +5497,7 @@ class meta_ai_model_min_fields(sgqlc.types.Type):
         "model_save_path",
         "name",
         "owner_id",
+        "root_id",
         "updated_at",
         "version",
         "weights_path",
@@ -5421,6 +5512,7 @@ class meta_ai_model_min_fields(sgqlc.types.Type):
     model_save_path = sgqlc.types.Field(String, graphql_name="modelSavePath")
     name = sgqlc.types.Field(String, graphql_name="name")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
+    root_id = sgqlc.types.Field(uuid, graphql_name="root_id")
     updated_at = sgqlc.types.Field(timestamptz, graphql_name="updatedAt")
     version = sgqlc.types.Field(Int, graphql_name="version")
     weights_path = sgqlc.types.Field(String, graphql_name="weightsPath")
