@@ -33,7 +33,7 @@ def my_vcr():
     return vcr.VCR(
         serializer="yaml",
         cassette_library_dir=f"{pathlib.Path(__file__).resolve().parent}/cassettes",
-        record_mode="none",
+        record_mode="new",
         match_on=["body", "headers", "method", "host", "path", "query"],
         filter_headers=["x-api-key", "x-app-id", "Content-Length", "User-Agent"],
         before_record_response=scrub_string(APP_ID, "FAKE_APP_ID"),
@@ -57,25 +57,27 @@ def existing_app_id():
 def model(model_api):
     a = model_api.add_model(f"TestModel")
     assert a is not None
+    yield a
+    c = model_api.delete_model(a)
+    assert a == c
+
+
+def test_model(model_api, model):
 
     m = model_api.get_model_by_name("TestModel")
     assert "name" in m[0]
     assert m[0]["name"] == "TestModel"
 
-    m = model_api.get_model(a)
+    m = model_api.get_model(model)
     assert "name" in m
 
     m = model_api.get_all_models()
     assert len(m) >= 1
 
     new_name = "ChangedTestModel"
-    b = model_api.update_model(a, name=new_name)
-    assert a == b
-    assert new_name == model_api.get_model(a).name
-
-    yield a
-    c = model_api.delete_model(a)
-    assert a == c
+    b = model_api.update_model(model, name=new_name)
+    assert model == b
+    assert new_name == model_api.get_model(model).name
 
 
 @pytest.fixture()
@@ -109,7 +111,7 @@ def test_update_model_by_name_version(model_api):
 
 
 def test_add_model_full_entry(model_api):
-    a = model_api.add_model_full_entry(
+    a = model_api.add_model(
         "TestModel3",
         "some description",
         1,
@@ -125,14 +127,16 @@ def test_add_model_full_entry(model_api):
 
 def test_get_latest_version_of_model_by_name(model_api):
     a = model_api.add_model("TestModel5", version=1)
-    b = model_api.add_model("TestModel5", version=2)
+    b = model_api.add_model("TestModel5", version=2, root_id=a)
     assert a is not None and b is not None
     c = model_api.get_latest_version_of_model_by_name("TestModel5")
     assert c == 2
     with pytest.raises(Exception):
         _ = model_api.get_latest_version_of_model_by_name("SomeOtherName")
-    d = model_api.delete_model(a)
+    # First delete root model
     e = model_api.delete_model(b)
+    # Then delete child model, otherwise foreign key constraint fails
+    d = model_api.delete_model(a)
     assert d == a and e == b
 
 

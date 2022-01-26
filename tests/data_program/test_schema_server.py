@@ -1,4 +1,5 @@
 import json
+import socket
 import time
 from multiprocessing import Process
 from typing import List
@@ -47,8 +48,21 @@ def run_server():
     ).run()
 
 
+def local_port_open():
+    """Check if there is already a process listening on port 8001
+    We use this for the DP server.
+    Kubectl Dashboard is often listening on the same port.
+    """
+    a_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    location = ("127.0.0.1", 8001)
+    result_of_check = a_socket.connect_ex(location)
+    return result_of_check == 0
+
+
 @pytest.fixture(scope="module")
 def server():
+    if local_port_open():
+        raise RuntimeError("Port 8001 is already in use. Is Kubectl Dashboard running?")
     proc = Process(target=run_server, args=(), daemon=True)
     proc.start()
     time.sleep(5)  # time for the server to start
