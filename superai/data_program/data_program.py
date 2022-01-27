@@ -337,7 +337,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                 return task_output.parse_obj(raw_result)
 
             job_output = process_job(job_input_model, JobContext[Output](workflow, send_task))
-            return json.loads(job_output.json())
+            return json.loads(job_output.json(exclude_unset=True))
 
         self.add_workflow(
             name=workflow.name,
