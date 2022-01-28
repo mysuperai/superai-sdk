@@ -43,7 +43,7 @@ def my_vcr():
 
 
 @pytest.fixture(scope="module")
-def model_api(my_vcr):
+def model_api(my_vcr) -> Client:
     with my_vcr.use_cassette("model_api.yaml"):
         yield Client()
 
@@ -85,13 +85,24 @@ def prediction_id(model_api, existing_app_id, model):
     test_output = {"score": 1.0, "mask": [0, 1, 1, 0]}
     prediction_id = model_api.submit_prelabel(test_output, existing_app_id, 1, model, assignment="PRELABEL")
 
-    object = model_api.view_prediction(app_id=existing_app_id, prediction_id=prediction_id)
+    yield prediction_id
+
+    # Teardown
+    deleted = model_api.delete_prelabel(existing_app_id, prediction_id)
+    assert deleted == prediction_id
+
+
+def test_view_prediction(model_api, existing_app_id, prediction_id):
+    object: meta_ai_prediction = model_api.view_prediction(app_id=existing_app_id, prediction_id=prediction_id)
     assert "id" in object
     assert "state" in object
 
-    yield prediction_id
-    deleted = model_api.delete_prelabel(existing_app_id, prediction_id)
-    assert deleted == prediction_id
+
+def test_get_prediction(model_api: Client, prediction_id):
+    p = model_api.get_prediction_with_data(prediction_id=prediction_id)
+    assert p.created_at is not None
+    assert p.started_at is None
+    assert p.error_message is None
 
 
 def test_request_prediction_of_job(model_api, existing_app_id):
