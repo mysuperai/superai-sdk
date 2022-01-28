@@ -528,6 +528,17 @@ class DeploymentApiMixin(ABC):
                 return True
         return False
 
+    def get_prediction_error(self, prediction_id: str):
+        op = Operation(query_root)
+        p = op.meta_ai_prediction_by_pk(id=prediction_id)
+        p.__fields__("error_message", "state", "completed_at", "started_at")
+        data = self.sess.perform_op(op)
+        try:
+            output = (op + data).meta_ai_prediction_by_pk
+            return output
+        except AttributeError as e:
+            log.info(f"No prediction found for prediction_id:{prediction_id}.")
+
     def wait_for_prediction_completion(
         self,
         prediction_id: str,
@@ -575,26 +586,32 @@ class DeploymentApiMixin(ABC):
                 if res.state == meta_ai_prediction_state_enum.COMPLETED:
                     return res
                 elif res.state == meta_ai_prediction_state_enum.FAILED:
-                    # TODO: return exception stored in prediction object
-                    raise PredictionError("Prediction failed.")
+                    error_object = self.get_prediction_error(prediction_id)
+                    logger.warn(f"Prediction failed while waiting for completion:\n {error_object.error_message}")
+                    raise PredictionError(error_object["error_message"])
             else:
                 raise TimeoutError("Waiting for Prediction result timed out. Try increasing timeout.")
 
-    def get_prediction_with_data(self, prediction_id: str) -> meta_ai_prediction:
+    def get_prediction_with_data(self, prediction_id: str, app_id: str = None) -> meta_ai_prediction:
         """
         Retrieve existing prediction with data from database.
         Args:
-            prediction_id:
+            prediction_id: str
+                id of existing prediction
+            app_id: str
+                id of app the predection belongs to, used for authentication.
+                For predictions created without an app_id, this argument is not required.
 
         Returns:
 
         """
+        sess = MetaAISession(app_id=app_id)
         op = Operation(query_root)
         p = op.meta_ai_prediction_by_pk(id=prediction_id)
-        p.__fields__("id", "state", "created_at")
+        p.__fields__("id", "state", "created_at", "completed_at", "started_at", "error_message")
         p.model.__fields__("id", "name", "version")
         p.instances().__fields__("id", "output", "score")
-        data = self.sess.perform_op(op)
+        data = sess.perform_op(op)
         try:
             output = (op + data).meta_ai_prediction_by_pk
             return output

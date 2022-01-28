@@ -301,7 +301,21 @@ class meta_ai_prediction_constraint(sgqlc.types.Enum):
 
 class meta_ai_prediction_select_column(sgqlc.types.Enum):
     __schema__ = meta_ai_graphql_schema
-    __choices__ = ("appId", "createdAt", "id", "jobId", "jobUUID", "modelId", "retries", "state", "taskId", "type")
+    __choices__ = (
+        "appId",
+        "completedAt",
+        "createdAt",
+        "errorMessage",
+        "id",
+        "jobId",
+        "jobUUID",
+        "modelId",
+        "retries",
+        "startedAt",
+        "state",
+        "taskId",
+        "type",
+    )
 
 
 class meta_ai_prediction_state_constraint(sgqlc.types.Enum):
@@ -338,7 +352,21 @@ class meta_ai_prediction_state_update_column(sgqlc.types.Enum):
 
 class meta_ai_prediction_update_column(sgqlc.types.Enum):
     __schema__ = meta_ai_graphql_schema
-    __choices__ = ("appId", "createdAt", "id", "jobId", "jobUUID", "modelId", "retries", "state", "taskId", "type")
+    __choices__ = (
+        "appId",
+        "completedAt",
+        "createdAt",
+        "errorMessage",
+        "id",
+        "jobId",
+        "jobUUID",
+        "modelId",
+        "retries",
+        "startedAt",
+        "state",
+        "taskId",
+        "type",
+    )
 
 
 class meta_ai_predictions_by_day_select_column(sgqlc.types.Enum):
@@ -2479,7 +2507,9 @@ class meta_ai_prediction_bool_exp(sgqlc.types.Input):
         "_or",
         "app",
         "app_id",
+        "completed_at",
         "created_at",
+        "error_message",
         "id",
         "instances",
         "job",
@@ -2488,6 +2518,7 @@ class meta_ai_prediction_bool_exp(sgqlc.types.Input):
         "model",
         "model_id",
         "retries",
+        "started_at",
         "state",
         "task",
         "task_id",
@@ -2502,7 +2533,9 @@ class meta_ai_prediction_bool_exp(sgqlc.types.Input):
     )
     app = sgqlc.types.Field(meta_ai_app_bool_exp, graphql_name="app")
     app_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="appId")
+    completed_at = sgqlc.types.Field("timestamptz_comparison_exp", graphql_name="completedAt")
     created_at = sgqlc.types.Field("timestamptz_comparison_exp", graphql_name="createdAt")
+    error_message = sgqlc.types.Field(String_comparison_exp, graphql_name="errorMessage")
     id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="id")
     instances = sgqlc.types.Field(meta_ai_instance_bool_exp, graphql_name="instances")
     job = sgqlc.types.Field("turbine_job_bool_exp", graphql_name="job")
@@ -2511,6 +2544,7 @@ class meta_ai_prediction_bool_exp(sgqlc.types.Input):
     model = sgqlc.types.Field(meta_ai_model_bool_exp, graphql_name="model")
     model_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="modelId")
     retries = sgqlc.types.Field(Int_comparison_exp, graphql_name="retries")
+    started_at = sgqlc.types.Field("timestamptz_comparison_exp", graphql_name="startedAt")
     state = sgqlc.types.Field("meta_ai_prediction_state_enum_comparison_exp", graphql_name="state")
     task = sgqlc.types.Field("turbine_task_bool_exp", graphql_name="task")
     task_id = sgqlc.types.Field(bigint_comparison_exp, graphql_name="taskId")
@@ -2530,7 +2564,9 @@ class meta_ai_prediction_insert_input(sgqlc.types.Input):
     __field_names__ = (
         "app",
         "app_id",
+        "completed_at",
         "created_at",
+        "error_message",
         "id",
         "instances",
         "job",
@@ -2539,6 +2575,7 @@ class meta_ai_prediction_insert_input(sgqlc.types.Input):
         "model",
         "model_id",
         "retries",
+        "started_at",
         "state",
         "task",
         "task_id",
@@ -2546,7 +2583,9 @@ class meta_ai_prediction_insert_input(sgqlc.types.Input):
     )
     app = sgqlc.types.Field(meta_ai_app_obj_rel_insert_input, graphql_name="app")
     app_id = sgqlc.types.Field(uuid, graphql_name="appId")
+    completed_at = sgqlc.types.Field(timestamptz, graphql_name="completedAt")
     created_at = sgqlc.types.Field(timestamptz, graphql_name="createdAt")
+    error_message = sgqlc.types.Field(String, graphql_name="errorMessage")
     id = sgqlc.types.Field(uuid, graphql_name="id")
     instances = sgqlc.types.Field(meta_ai_instance_arr_rel_insert_input, graphql_name="instances")
     job = sgqlc.types.Field("turbine_job_obj_rel_insert_input", graphql_name="job")
@@ -2555,6 +2594,7 @@ class meta_ai_prediction_insert_input(sgqlc.types.Input):
     model = sgqlc.types.Field(meta_ai_model_obj_rel_insert_input, graphql_name="model")
     model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
     retries = sgqlc.types.Field(Int, graphql_name="retries")
+    started_at = sgqlc.types.Field(timestamptz, graphql_name="startedAt")
     state = sgqlc.types.Field(meta_ai_prediction_state_enum, graphql_name="state")
     task = sgqlc.types.Field("turbine_task_obj_rel_insert_input", graphql_name="task")
     task_id = sgqlc.types.Field(bigint, graphql_name="taskId")
@@ -2563,27 +2603,57 @@ class meta_ai_prediction_insert_input(sgqlc.types.Input):
 
 class meta_ai_prediction_max_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("app_id", "created_at", "id", "job_id", "job_uuid", "model_id", "retries", "task_id")
+    __field_names__ = (
+        "app_id",
+        "completed_at",
+        "created_at",
+        "error_message",
+        "id",
+        "job_id",
+        "job_uuid",
+        "model_id",
+        "retries",
+        "started_at",
+        "task_id",
+    )
     app_id = sgqlc.types.Field(order_by, graphql_name="appId")
+    completed_at = sgqlc.types.Field(order_by, graphql_name="completedAt")
     created_at = sgqlc.types.Field(order_by, graphql_name="createdAt")
+    error_message = sgqlc.types.Field(order_by, graphql_name="errorMessage")
     id = sgqlc.types.Field(order_by, graphql_name="id")
     job_id = sgqlc.types.Field(order_by, graphql_name="jobId")
     job_uuid = sgqlc.types.Field(order_by, graphql_name="jobUUID")
     model_id = sgqlc.types.Field(order_by, graphql_name="modelId")
     retries = sgqlc.types.Field(order_by, graphql_name="retries")
+    started_at = sgqlc.types.Field(order_by, graphql_name="startedAt")
     task_id = sgqlc.types.Field(order_by, graphql_name="taskId")
 
 
 class meta_ai_prediction_min_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("app_id", "created_at", "id", "job_id", "job_uuid", "model_id", "retries", "task_id")
+    __field_names__ = (
+        "app_id",
+        "completed_at",
+        "created_at",
+        "error_message",
+        "id",
+        "job_id",
+        "job_uuid",
+        "model_id",
+        "retries",
+        "started_at",
+        "task_id",
+    )
     app_id = sgqlc.types.Field(order_by, graphql_name="appId")
+    completed_at = sgqlc.types.Field(order_by, graphql_name="completedAt")
     created_at = sgqlc.types.Field(order_by, graphql_name="createdAt")
+    error_message = sgqlc.types.Field(order_by, graphql_name="errorMessage")
     id = sgqlc.types.Field(order_by, graphql_name="id")
     job_id = sgqlc.types.Field(order_by, graphql_name="jobId")
     job_uuid = sgqlc.types.Field(order_by, graphql_name="jobUUID")
     model_id = sgqlc.types.Field(order_by, graphql_name="modelId")
     retries = sgqlc.types.Field(order_by, graphql_name="retries")
+    started_at = sgqlc.types.Field(order_by, graphql_name="startedAt")
     task_id = sgqlc.types.Field(order_by, graphql_name="taskId")
 
 
@@ -2610,7 +2680,9 @@ class meta_ai_prediction_order_by(sgqlc.types.Input):
     __field_names__ = (
         "app",
         "app_id",
+        "completed_at",
         "created_at",
+        "error_message",
         "id",
         "instances_aggregate",
         "job",
@@ -2619,6 +2691,7 @@ class meta_ai_prediction_order_by(sgqlc.types.Input):
         "model",
         "model_id",
         "retries",
+        "started_at",
         "state",
         "task",
         "task_id",
@@ -2626,7 +2699,9 @@ class meta_ai_prediction_order_by(sgqlc.types.Input):
     )
     app = sgqlc.types.Field(meta_ai_app_order_by, graphql_name="app")
     app_id = sgqlc.types.Field(order_by, graphql_name="appId")
+    completed_at = sgqlc.types.Field(order_by, graphql_name="completedAt")
     created_at = sgqlc.types.Field(order_by, graphql_name="createdAt")
+    error_message = sgqlc.types.Field(order_by, graphql_name="errorMessage")
     id = sgqlc.types.Field(order_by, graphql_name="id")
     instances_aggregate = sgqlc.types.Field(meta_ai_instance_aggregate_order_by, graphql_name="instances_aggregate")
     job = sgqlc.types.Field("turbine_job_order_by", graphql_name="job")
@@ -2635,6 +2710,7 @@ class meta_ai_prediction_order_by(sgqlc.types.Input):
     model = sgqlc.types.Field(meta_ai_model_order_by, graphql_name="model")
     model_id = sgqlc.types.Field(order_by, graphql_name="modelId")
     retries = sgqlc.types.Field(order_by, graphql_name="retries")
+    started_at = sgqlc.types.Field(order_by, graphql_name="startedAt")
     state = sgqlc.types.Field(order_by, graphql_name="state")
     task = sgqlc.types.Field("turbine_task_order_by", graphql_name="task")
     task_id = sgqlc.types.Field(order_by, graphql_name="taskId")
@@ -2651,23 +2727,29 @@ class meta_ai_prediction_set_input(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
     __field_names__ = (
         "app_id",
+        "completed_at",
         "created_at",
+        "error_message",
         "id",
         "job_id",
         "job_uuid",
         "model_id",
         "retries",
+        "started_at",
         "state",
         "task_id",
         "type",
     )
     app_id = sgqlc.types.Field(uuid, graphql_name="appId")
+    completed_at = sgqlc.types.Field(timestamptz, graphql_name="completedAt")
     created_at = sgqlc.types.Field(timestamptz, graphql_name="createdAt")
+    error_message = sgqlc.types.Field(String, graphql_name="errorMessage")
     id = sgqlc.types.Field(uuid, graphql_name="id")
     job_id = sgqlc.types.Field(bigint, graphql_name="jobId")
     job_uuid = sgqlc.types.Field(uuid, graphql_name="jobUUID")
     model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
     retries = sgqlc.types.Field(Int, graphql_name="retries")
+    started_at = sgqlc.types.Field(timestamptz, graphql_name="startedAt")
     state = sgqlc.types.Field(meta_ai_prediction_state_enum, graphql_name="state")
     task_id = sgqlc.types.Field(bigint, graphql_name="taskId")
     type = sgqlc.types.Field(meta_ai_assignment_enum, graphql_name="type")
@@ -5595,7 +5677,9 @@ class meta_ai_prediction(sgqlc.types.Type):
     __field_names__ = (
         "app",
         "app_id",
+        "completed_at",
         "created_at",
+        "error_message",
         "id",
         "instances",
         "instances_aggregate",
@@ -5605,6 +5689,7 @@ class meta_ai_prediction(sgqlc.types.Type):
         "model",
         "model_id",
         "retries",
+        "started_at",
         "state",
         "task",
         "task_id",
@@ -5612,7 +5697,9 @@ class meta_ai_prediction(sgqlc.types.Type):
     )
     app = sgqlc.types.Field(meta_ai_app, graphql_name="app")
     app_id = sgqlc.types.Field(uuid, graphql_name="appId")
+    completed_at = sgqlc.types.Field(timestamptz, graphql_name="completedAt")
     created_at = sgqlc.types.Field(sgqlc.types.non_null(timestamptz), graphql_name="createdAt")
+    error_message = sgqlc.types.Field(String, graphql_name="errorMessage")
     id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="id")
     instances = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_instance))),
@@ -5674,6 +5761,7 @@ class meta_ai_prediction(sgqlc.types.Type):
     model = sgqlc.types.Field(sgqlc.types.non_null(meta_ai_model), graphql_name="model")
     model_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="modelId")
     retries = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="retries")
+    started_at = sgqlc.types.Field(timestamptz, graphql_name="startedAt")
     state = sgqlc.types.Field(meta_ai_prediction_state_enum, graphql_name="state")
     task = sgqlc.types.Field("turbine_task", graphql_name="task")
     task_id = sgqlc.types.Field(bigint, graphql_name="taskId")
@@ -5743,27 +5831,57 @@ class meta_ai_prediction_avg_fields(sgqlc.types.Type):
 
 class meta_ai_prediction_max_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("app_id", "created_at", "id", "job_id", "job_uuid", "model_id", "retries", "task_id")
+    __field_names__ = (
+        "app_id",
+        "completed_at",
+        "created_at",
+        "error_message",
+        "id",
+        "job_id",
+        "job_uuid",
+        "model_id",
+        "retries",
+        "started_at",
+        "task_id",
+    )
     app_id = sgqlc.types.Field(uuid, graphql_name="appId")
+    completed_at = sgqlc.types.Field(timestamptz, graphql_name="completedAt")
     created_at = sgqlc.types.Field(timestamptz, graphql_name="createdAt")
+    error_message = sgqlc.types.Field(String, graphql_name="errorMessage")
     id = sgqlc.types.Field(uuid, graphql_name="id")
     job_id = sgqlc.types.Field(bigint, graphql_name="jobId")
     job_uuid = sgqlc.types.Field(uuid, graphql_name="jobUUID")
     model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
     retries = sgqlc.types.Field(Int, graphql_name="retries")
+    started_at = sgqlc.types.Field(timestamptz, graphql_name="startedAt")
     task_id = sgqlc.types.Field(bigint, graphql_name="taskId")
 
 
 class meta_ai_prediction_min_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("app_id", "created_at", "id", "job_id", "job_uuid", "model_id", "retries", "task_id")
+    __field_names__ = (
+        "app_id",
+        "completed_at",
+        "created_at",
+        "error_message",
+        "id",
+        "job_id",
+        "job_uuid",
+        "model_id",
+        "retries",
+        "started_at",
+        "task_id",
+    )
     app_id = sgqlc.types.Field(uuid, graphql_name="appId")
+    completed_at = sgqlc.types.Field(timestamptz, graphql_name="completedAt")
     created_at = sgqlc.types.Field(timestamptz, graphql_name="createdAt")
+    error_message = sgqlc.types.Field(String, graphql_name="errorMessage")
     id = sgqlc.types.Field(uuid, graphql_name="id")
     job_id = sgqlc.types.Field(bigint, graphql_name="jobId")
     job_uuid = sgqlc.types.Field(uuid, graphql_name="jobUUID")
     model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
     retries = sgqlc.types.Field(Int, graphql_name="retries")
+    started_at = sgqlc.types.Field(timestamptz, graphql_name="startedAt")
     task_id = sgqlc.types.Field(bigint, graphql_name="taskId")
 
 
