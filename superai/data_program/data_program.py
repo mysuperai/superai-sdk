@@ -9,7 +9,7 @@ from superai.data_program.base import DataProgramBase
 from superai.data_program.Exceptions import UnknownTaskStatus
 from superai.data_program.protocol.task import task as task
 from superai.data_program.router import BasicRouter, Router
-from superai.data_program.schema_server import SchemaServer
+from superai.data_program.dp_server import DPServer
 from superai.data_program.types import (
     DataProgramDefinition,
     Handler,
@@ -18,6 +18,8 @@ from superai.data_program.types import (
     Output,
     Parameters,
     WorkflowConfig,
+    TaskTemplate,
+    Metric,
 )
 from superai.data_program.utils import model_to_task_io_payload, parse_dp_definition
 from superai.log import logger
@@ -112,6 +114,13 @@ class DataProgram(DataProgramBase):
         from canotic.qumes_transport import start_threads
 
         name = os.getenv("WF_PREFIX")
+        if len(workflows) == 1 and (workflows[0].is_default != True or workflows[0].is_gold != True):
+            log.info("WARNING: The only workflow should be default and gold")
+            workflows[0].is_default = True
+            workflows[0].is_gold = True
+        else:
+            assert len(list(filter(lambda w: w.is_default, workflows))) == 1, "There should be one default workflow"
+            assert len(list(filter(lambda w: w.is_gold, workflows))) == 1, "There should be one gold workflow"
 
         # Setting the SERVICE env variable indicates that we are running the Data Program as a service
         service = os.getenv("SERVICE")
@@ -155,7 +164,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
 
         if service == "schema":
             log.info("Starting schema service...")
-            SchemaServer(params_cls, handler).run()
+            DPServer(default_params, handler, name=name, workflows=workflows).run()
             return
 
         raise Exception(f"{service} is invalid service. 'data_program' or 'schema' is available.")
@@ -254,6 +263,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         if gold:
             self.gold_workflow = workflow.name
 
+        self._register_workflow(workflow)
         # Everything after this line can be ignored once the data program™ is already deployed
         if os.environ.get("IN_AGENT"):
             log.info(f"[DataProgramTemplate.add_workflow] ignoring because IN_AGENT = " f"{os.environ.get('IN_AGENT')}")
@@ -261,7 +271,6 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
 
         workflow_dict = workflow.put()
         assert workflow_dict.get("name") == workflow.qualified_name
-        self._register_workflow(workflow)
 
         return workflow_dict
 
@@ -306,7 +315,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
     ):
         def workflow_fn(inp, params):
             params_model = params_cls.parse_obj(params)
-            job_input_model_cls, _, process_job = handler(params_model)
+            job_input_model_cls, _, process_job, *_ = handler(params_model)
 
             # Load raw job input into model with validation
             job_input_model = job_input_model_cls.parse_obj(inp)
@@ -314,6 +323,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
             def send_task(
                 name: str,
                 *,
+                task_template: TaskTemplate,
                 task_input: BaseModel,
                 task_output: Output,
                 max_attempts: int,
@@ -327,7 +337,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                 return task_output.parse_obj(raw_result)
 
             job_output = process_job(job_input_model, JobContext[Output](workflow, send_task))
-            return json.loads(job_output.json())
+            return json.loads(job_output.json(exclude_unset=True))
 
         self.add_workflow(
             name=workflow.name,
@@ -472,13 +482,13 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         self.__add_basic_workflow()
 
         if not self.router:
-            self.router = BasicRouter(client=self.client, dataprorgam=self)
+            self.router = BasicRouter(client=self.client, dataprogram=self)
 
     def start(self):
         self.__init_router()
         self._run_local()
 
-    def _register_workflow(self, workflow):
+    def _register_workflow(self, workflow: Workflow):
         template = self.client.get_template(template_name=self.name)
         workflow_list: List[str] = template.get("dpWorkflows", []) or []
         if workflow.qualified_name in workflow_list:
@@ -493,7 +503,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
     def _get_definition_for_params(
         params: Parameters, handler: Handler[Parameters, Input, Output]
     ) -> DataProgramDefinition:
-        input_model, output_model, _ = handler(params)
+        input_model, output_model, *_ = handler(params)
 
         return {
             "parameter_schema": params.schema(),

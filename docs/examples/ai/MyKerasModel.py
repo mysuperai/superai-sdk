@@ -20,6 +20,7 @@ class MyKerasModel(BaseModel):
     def load_weights(self, weights_path):
         log.info("Loading weights")
         self.model = keras.models.load_model(weights_path)
+        log.info("Weight loading complete")
 
     def predict(self, input, context=None):
         log.info(f"Predict Input: {input}")

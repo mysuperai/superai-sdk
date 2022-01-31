@@ -6,7 +6,8 @@ default:
     websocket: "@jinja wss://bapi{{this.suffix | lower}}.super.ai/agent"
   backend: "ws"
   base_url: "@jinja https://api{{this.suffix | lower}}.super.ai/v1"
-  meta_ai_base: "@jinja https://metaai{{this.suffix | lower}}.super.ai/v1/graphql"
+  meta_ai_request_protocol: "https"
+  meta_ai_base: "@jinja metaai{{this.suffix | lower}}.super.ai/v1/graphql"
   build_manifest: "build_manifest.yml"
   cognito:
     client_id: "41t3in8ao7fesog76qtskpkkev"
@@ -25,6 +26,8 @@ default:
 
 local:
   name: "local"
+  meta_ai_request_protocol: "http"
+  meta_ai_base: "127.0.0.1:8080/v1/graphql"
   agent:
     host: "http://127.0.0.1:5001"
     websocket: "wss:////127.0.0.1:5002"
@@ -47,7 +50,8 @@ dev:
 testing:
   name: "test"
   suffix: "-test"
-  meta_ai_base: "http://localhost:8080/v1/graphql"
+  meta_ai_request_protocol: "http"
+  meta_ai_base: "localhost:8080/v1/graphql"
   user:
     api_key: "FAKE_API_KEY"
 
@@ -63,14 +67,14 @@ sandbox:
     console: true
   suffix: "-sandbox"
 
-staging:
-  name: "staging"
-  dependency_version: "staging"
+stg:
+  name: "stg"
+  dependency_version: "stg"
+  base_url: "https://api-staging.super.ai/v1"
   log:
     level: 20 #INFO=20, DEBUG=10
     console: true
-  meta_ai_base: "https://metaai-stg.super.ai/v1/graphql"
-  suffix: "-staging"
+  suffix: "-stg"
 
 prod:
   name: "prod"

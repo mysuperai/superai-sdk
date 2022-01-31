@@ -4,14 +4,30 @@ import time
 
 import boto3  # type: ignore
 import docker  # type: ignore
+import requests
+from docker import DockerClient  # type: ignore
+from docker.errors import APIError  # type: ignore
 from boto3.session import Session  # type: ignore
 from botocore.exceptions import ClientError  # type: ignore
 from jinja2 import Template
 from superai.log import logger
+from superai.exceptions import ModelDeploymentError
+from rich.progress import Progress, BarColumn, DownloadColumn, Text, Task
 
 from .sagemaker_endpoint import create_endpoint, invoke_sagemaker_endpoint, upload_model_to_s3, invoke_local
+from ... import config
 
 log = logger.get_logger(__name__)
+
+
+class UploadColumn(DownloadColumn):
+    """Renders uploaded and total layer size, e.g. 0.4/1.8 GB"""
+
+    def render(self, task: Task) -> Text:
+        # do not display column if no total size is available
+        if int(task.total) == 1:
+            return Text()
+        return super(UploadColumn, self).render(task)
 
 
 server_script = """
@@ -188,25 +204,44 @@ def build_image(
     log.info(f"Image `{image_name}:latest`" f" was built successfully. Elapsed time: {end - start:.3f} secs.")
 
 
-def push_image(image_name: str, version: str = "latest", region: str = "us-east-1") -> str:
+def push_image(
+    image_name: str,
+    model_id: str,
+    version: str = "latest",
+    region: str = "us-east-1",
+    show_progress: bool = True,
+    verbose: bool = False,
+) -> str:
     """
     Push container to ECR
     :param image_name: Name of the locally built image
-    :param version: version string for docker container
+    :param model_id: UUID of the model/AI (in `AI` given by `id` property)
+    :param version: Version string for docker container
     :param region: AWS region
+    :param show_progress: Enable / disable progress bar
+    :param verbose: Whether to log the image push stream
     """
     boto_session = get_boto_session(region_name=region)
     account = boto_session.client("sts").get_caller_identity()["Account"]
-    full_name = f"{account}.dkr.ecr.{region}.amazonaws.com/{image_name}:{version}"
+    env = config.settings.get("name")
+    MODEL_ROOT = "models"
+
+    full_suffix = f"{MODEL_ROOT}/{env}/{model_id}/{image_name}"
+    if len(full_suffix + str(version)) > 255:
+        # AWS allows 256 characters for the name
+        logger.warn("Image name is too long. Truncating to 255 characters...")
+        full_suffix = full_suffix[: 255 - len(str(version))]
+    full_name = f"{account}.dkr.ecr.{region}.amazonaws.com/{full_suffix}:{version}"
+    logger.info(f"Pushing image to ECR: {full_name}")
 
     docker_client = docker.from_env()
     ecr_client = boto_session.client("ecr")
     try:
-        ecr_client.describe_repositories(registryId=account, repositoryNames=[image_name])
+        ecr_client.describe_repositories(registryId=account, repositoryNames=[full_suffix])
     except Exception as e:
         log.info(e)
-        ecr_client.create_repository(repositoryName=image_name)
-        log.info(f"Created repository for `{image_name}`.")
+        ecr_client.create_repository(repositoryName=full_suffix)
+        log.info(f"Created repository for `{full_suffix}`.")
 
     log.info("Logging in to ECR...")
     os.system(f"$(aws ecr get-login --region {region} --no-include-email)")
@@ -215,11 +250,58 @@ def push_image(image_name: str, version: str = "latest", region: str = "us-east-
     docker_client.images.get(f"{image_name}:{version}").tag(full_name)
 
     log.info("Pushing image...")
-    for line in docker_client.images.push(repository=full_name, stream=True, decode=True):
-        log.info(line)
+    columns = [
+        "[progress.description]{task.description}",
+        BarColumn(),
+        "[progress.percentage]{task.percentage:>3.0f}%",
+        UploadColumn(),
+    ]
+    layers = {}  # keep track of pushed layers, keyed by layer ID
+    disable_progress = not show_progress
+
+    with Progress(*columns, disable=disable_progress) as progress:
+        for line in docker_client.images.push(repository=full_name, stream=True, decode=True):
+            if verbose:
+                log.info(line)
+
+            if "id" in line and "progressDetail" in line:
+                layer_id, status = line["id"], line["status"]
+                description = f"[blue]{layer_id}[/blue] - {status}"
+
+                if layer_id not in layers:
+                    # create a task for tracking progress for each layer
+                    layers[layer_id] = progress.add_task(description, total=1)
+
+                layer_task = layers.get(layer_id)
+                progress_detail = line.get("progressDetail", {})
+
+                params = {}
+                if status == "Layer already exists":
+                    params["completed"] = 1
+                elif progress_detail:
+                    params["completed"] = progress_detail["current"]
+                    params["total"] = max(progress_detail["current"], progress_detail.get("total", 0))
+
+                progress.update(layer_task, description=description, **params)
+
+        if "error" in line:
+            # errors in the ECR image push operation usually appear in the last line
+            raise ModelDeploymentError(f"Failed to push image to ECR - {line['error']}")
 
     log.info(f" Image pushed successfully to {full_name} ")
     return full_name
+
+
+def get_docker_client() -> DockerClient:
+    """
+    Returns a Docker client, raising a ModelDeploymentError if the Docker server is not accessible.
+    """
+    client = docker.from_env()
+    try:
+        client.ping()
+    except (requests.ConnectionError, APIError) as e:
+        raise ModelDeploymentError("Could not find a running Docker daemon. Is Docker running?")
+    return client
 
 
 def get_boto_session(profile_name="default", region_name="us-east-1") -> Session:

@@ -33,6 +33,7 @@ RUN CONDA_VERSION=${ANACONDA_VERSION} \
     bash -c "/tmp/anaconda.sh -b -p /opt/conda" && \
     rm /tmp/anaconda.sh && \
     /opt/conda/bin/conda create -n env python=${PYTHON_VERSION} && \
+    /opt/conda/bin/conda clean -ya && \
     echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc && \
     echo "conda activate env" >> ~/.bashrc
 SHELL ["/opt/conda/bin/conda", "run", "--no-capture-output", "-n", "env", "/bin/bash", "-c"]
@@ -42,12 +43,12 @@ WORKDIR /home/model-server
 
 # Install requirements
 RUN pip install --no-cache-dir awscli~=1.18.195
-COPY requirements.txt /home/model-server/.sagemaker-requirements/base_requirements.txt
+COPY requirements.txt /home/model-server/.requirements/base_requirements.txt
 ARG AWS_DEFAULT_REGION=us-east-1
 RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true \
     --mount=type=cache,target=/root/.cache/pip \
     aws codeartifact login --tool pip --domain superai --repository pypi-superai && \
-    pip install --no-cache-dir -r /home/model-server/.sagemaker-requirements/base_requirements.txt
+    pip install --no-cache-dir -r /home/model-server/.requirements/base_requirements.txt
 
 COPY s2i/bin /s2i/bin
 COPY s2i/bin /opt/program

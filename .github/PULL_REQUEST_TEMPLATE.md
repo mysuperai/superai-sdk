@@ -13,6 +13,10 @@ Take a look at our [CONTRIBUTING.md](TBD) guidelines for information on how to c
 - [ ] No. Skip the rest of this section.
 - [ ] Yes. Complete the sections below to define what is included in the release notes for super.AI users.
 
+## Documentation
+*Provide a link to the documentation of the new feature or paste an example on how to use it inline*
+- [ ] Link:
+
 ### How should the PR be classified in the release notes? Choose one:
 
 - [ ] `Major new feature` - A new landmark feature that notably expands the product 

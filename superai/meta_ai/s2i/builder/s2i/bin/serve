@@ -1,4 +1,5 @@
 #!/bin/bash -e
+set -x
 
 function _get_conda_envs() {
   # Printed value will be list of Conda envs
@@ -43,10 +44,11 @@ else
     fi
   elif [ -n "$SELDON_MODE" ]; then
     echo "Starting Seldon microservice"
+    export PATH=/home/model-server:$PATH
     if [ -n "$PERSISTENCE" ]; then
-      exec seldon-core-microservice "$MODEL_NAME" --service-type "$SERVICE_TYPE" --persistence "$PERSISTENCE"
+      exec seldon-core-microservice "$MODEL_NAME" --service-type "$SERVICE_TYPE" --persistence "$PERSISTENCE" --debug --tracing --log-level DEBUG
     else
-      exec seldon-core-microservice "$MODEL_NAME" --service-type "$SERVICE_TYPE"
+      exec seldon-core-microservice "$MODEL_NAME" --service-type "$SERVICE_TYPE" --debug --tracing --log-level DEBUG
     fi
   else
     echo "Starting serving with Sagemaker Backend"

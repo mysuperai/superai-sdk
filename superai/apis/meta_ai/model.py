@@ -3,11 +3,14 @@ import time
 from abc import ABC
 from typing import Tuple, List, Union, Dict, Optional
 
+from rich import box
+from rich.live import Live
+from rich.table import Table
 from sgqlc.operation import Operation  # type: ignore
 from rich.console import Console
 
 from superai.log import logger
-from .session import MetaAISession  # type: ignore
+from .session import MetaAISession, MetaAIWebsocketSession  # type: ignore
 
 
 from superai.apis.meta_ai.meta_ai_graphql_schema import (
@@ -25,11 +28,19 @@ from superai.apis.meta_ai.meta_ai_graphql_schema import (
     meta_ai_deployment_status_enum,
     meta_ai_assignment_enum,
     meta_ai_model,
+    subscription_root,
+    meta_ai_prediction,
+    meta_ai_prediction_state_enum,
+    RawPrediction,
 )
 
 log = logger.get_logger(__name__)
 BASE_FIELDS = ["name", "version", "id", "ai_worker_id", "visibility"]
 EXTRA_FIELDS = ["description", "model_save_path", "weights_path", "input_schema", "output_schema"]
+
+
+class PredictionError(Exception):
+    pass
 
 
 class ModelApiMixin(ABC):
@@ -61,10 +72,18 @@ class ModelApiMixin(ABC):
         data = self.sess.perform_op(op)
         return self._output_formatter((op + data).meta_ai_model, to_json)
 
-    def get_model(self, idx, to_json=False) -> Optional[Union[meta_ai_model, Dict]]:
+    def get_model(self, model_id, to_json=False) -> Optional[Union[meta_ai_model, Dict]]:
         op = Operation(query_root)
-        op.meta_ai_model_by_pk(id=idx).__fields__(
-            "name", "version", "id", "ai_worker_id", "description", "visibility", "input_schema", "output_schema"
+        op.meta_ai_model_by_pk(id=model_id).__fields__(
+            "name",
+            "version",
+            "id",
+            "ai_worker_id",
+            "description",
+            "visibility",
+            "input_schema",
+            "output_schema",
+            "root_id",
         )
         data = self.sess.perform_op(op)
         return self._output_formatter((op + data).meta_ai_model_by_pk, to_json)
@@ -83,6 +102,71 @@ class ModelApiMixin(ABC):
         data = self.sess.perform_op(op)
         return self._output_formatter((op + data).meta_ai_model, to_json)
 
+    def list_model_versions(
+        self, model_id, to_json=False, verbose=False, sort_by_version=True, ascending=True
+    ) -> List[Union[meta_ai_model, Dict]]:
+        """
+        List all versions of a model which share a common root model (given by the root_id).
+        Args:
+            model_id: uuid
+                Does not need to be the id of the root model.
+            to_json:
+                If True, returns a list of dictionaries instead of schema objects.
+            verbose:
+                If True, returns all model fields.
+            sort_by_version: bool
+                Sort list by version number, depending on `ascending`
+            ascending: bool
+                If True, sort in ascending order. Root model is always first.
+                If False, sort in descending order, most recent model first.
+
+        Returns:
+
+        """
+        op = Operation(query_root)
+        # We query the root_model and then its sibling_models which gives us the whole lineage
+        op.meta_ai_model_by_pk(id=model_id).root_model().sibling_models().__fields__(*self._fields(verbose=verbose))
+        data = self.sess.perform_op(op)
+        models = (op + data).meta_ai_model_by_pk.root_model.sibling_models
+        if sort_by_version:
+            models = sorted(models, key=lambda x: x.version, reverse=not ascending)
+        return self._output_formatter(models, to_json)
+
+    def get_root_model(self, model_id, to_json=False, verbose=False) -> Optional[Union[meta_ai_model, Dict]]:
+        """
+        Get the root model,  i.e. the model that is the parent of all other models.
+        Currently, thats always the one with version=1.
+
+        Args:
+            model_id: uuid
+                Id of one of the models in the lineage.
+            to_json:
+                If True, returns a list of dictionaries instead of schema objects.
+            verbose:
+                If True, returns all model fields.
+
+        Returns:
+
+        """
+        op = Operation(query_root)
+        # We query the root_model and then its sibling_models which gives us the whole lineage
+        op.meta_ai_model_by_pk(id=model_id).root_model().__fields__(*self._fields(verbose=verbose))
+        data = self.sess.perform_op(op)
+        models = (op + data).meta_ai_model_by_pk.root_model
+        return self._output_formatter(models, to_json)
+
+    def get_latest_model(self, model_id, to_json=False, verbose=False) -> Optional[Union[meta_ai_model, Dict]]:
+        """
+        Get the latest (highest) model version of a model.
+
+
+        Returns:
+            meta_ai_model
+        """
+        # Get sorted model list
+        models = self.list_model_versions(model_id, sort_by_version=True, ascending=False, verbose=verbose)
+        return self._output_formatter(models[0], to_json)
+
     def add_model(
         self,
         name: str,
@@ -91,46 +175,43 @@ class ModelApiMixin(ABC):
         stage: str = "LOCAL",
         metadata: str = None,
         visibility: meta_ai_visibility_enum = "PRIVATE",
-    ) -> int:
-        op = Operation(mutation_root)
-        op.insert_meta_ai_model_one(
-            object=meta_ai_model_insert_input(
-                name=name,
-                description=description,
-                version=version,
-                metadata=metadata,
-                visibility=visibility,
-                stage=stage,
-            )
-        ).__fields__("name", "version", "id", "stage", "description")
-        data = self.sess.perform_op(op)
-        log.info(f"Created new model: {data}")
-        return (op + data).insert_meta_ai_model_one.id
-
-    def add_model_full_entry(
-        self,
-        name: str,
-        description: str = "",
-        version: int = 1,
-        metadata: str = None,
+        root_id: str = None,
         input_schema: dict = None,
         output_schema: dict = None,
         model_save_path: str = "",
         weights_path: str = "",
-        visibility: meta_ai_visibility_enum = "PRIVATE",
-    ) -> int:
-        """Add a complete model entry in the database.
-
+    ) -> str:
+        """
+        Add a new model to the database.
         Args:
             name:
+                Name of the model.
             description:
+                Description of the model.
             version:
+                Version of the model.
+            stage:
+                Stage of the model.
             metadata:
-            input_schema:
-            output_schema:
-            model_save_path:
-            weights_path:
+                Metadata of the model. Currently, this is a JSON string.
             visibility:
+                Visibility of the model. PUBLIC or PRIVATE.
+                PUBLIC models can be used by anyone.
+                PRIVATE models can only be used by the user who created it.
+            root_id:
+                Id of the root model. Establishes the lineage of the model.
+                Is mainly used in retraining a model and storing the weights of the model in a new version.
+            input_schema:
+                Input schema of the model. Is used to match data to compatible models.
+            output_schema:
+                Output schema of the model.
+            model_save_path:
+                URI to the stored model source code.
+            weights_path:
+                URI to the stored model weights.
+
+        Returns:
+
         """
         op = Operation(mutation_root)
         op.insert_meta_ai_model_one(
@@ -144,22 +225,36 @@ class ModelApiMixin(ABC):
                 output_schema=json.dumps(output_schema),
                 model_save_path=model_save_path,
                 weights_path=weights_path,
+                root_id=root_id,
+                stage=stage,
             )
-        ).__fields__("name", "version", "id", "description")
+        ).__fields__("name", "version", "id", "stage", "description", "visibility", "root_id")
         data = self.sess.perform_op(op)
         log.info(f"Created new model: {data}")
         return (op + data).insert_meta_ai_model_one.id
 
-    def update_model(self, idx, **kwargs) -> int:
+    def update_model(self, model_id: str, **kwargs: dict) -> str:
+        """
+        Update a model.
+
+        Args:
+            model_id:
+            **kwargs:
+                Check `add_model` for the list of available parameters.
+                e.g. `name="new_name"`
+
+        Returns:
+
+        """
         op = Operation(mutation_root)
         op.update_meta_ai_model_by_pk(
             _set=meta_ai_model_set_input(**kwargs),
-            pk_columns=meta_ai_model_pk_columns_input(id=idx),
+            pk_columns=meta_ai_model_pk_columns_input(id=model_id),
         ).__fields__("name", "version", "id", "description")
         data = self.sess.perform_op(op)
         return (op + data).update_meta_ai_model_by_pk.id
 
-    def update_model_by_name_version(self, name: str, version: int, **kwargs) -> int:
+    def update_model_by_name_version(self, name: str, version: int, **kwargs) -> str:
         opq = Operation(query_root)
         opq.meta_ai_model(
             where={"name": {"_eq": name}, "version": {"_eq": version}},
@@ -188,7 +283,7 @@ class ModelApiMixin(ABC):
             res = list(map(lambda x: x.version, res))
             return sorted(res, reverse=True)[0]
 
-    def delete_model(self, idx) -> int:
+    def delete_model(self, idx) -> str:
         op = Operation(mutation_root)
         op.delete_meta_ai_model_by_pk(id=idx).__fields__("name", "version", "id")
         data = self.sess.perform_op(op)
@@ -433,8 +528,120 @@ class DeploymentApiMixin(ABC):
                 return True
         return False
 
-    def predict_from_endpoint(self, model_id: str, input_data: dict, parameters: dict = None, timeout: int = 60):
-        """Query the endpoint name from deployment table, return prediction (using MetaAI sagemaker configuration)
+    def get_prediction_error(self, prediction_id: str):
+        op = Operation(query_root)
+        p = op.meta_ai_prediction_by_pk(id=prediction_id)
+        p.__fields__("error_message", "state", "completed_at", "started_at")
+        data = self.sess.perform_op(op)
+        try:
+            output = (op + data).meta_ai_prediction_by_pk
+            return output
+        except AttributeError as e:
+            log.info(f"No prediction found for prediction_id:{prediction_id}.")
+
+    def wait_for_prediction_completion(
+        self,
+        prediction_id: str,
+        app_id: str = None,
+        timeout: int = 180,
+    ):
+        """
+        Wait for a prediction to complete.
+        Complete is either when the prediction is finished properly or it failed.
+        Args:
+            prediction_id: str
+                id of existing prediction
+            app_id: str (optional)
+                id of app the predection belongs to, used for authentication
+                Predictions could be created without an app_id.
+            timeout: int
+                timeout in seconds. Default is 180 seconds.
+                No upper limit is imposed even though predictions should never take
+                 longer than a fresh model deployment.
+                60 seconds * 15 minutes worst case deployment time = 900 seconds.
+
+        Returns:
+            str: prediction status
+
+        """
+        sess = MetaAIWebsocketSession(app_id=app_id)
+        opq = Operation(subscription_root)
+        prediction = opq.meta_ai_prediction_by_pk(id=prediction_id)
+        prediction.__fields__("state")
+        start = time.time()
+
+        def generate_table(id, state) -> Table:
+            """Make a new table."""
+            table = Table(box=box.MINIMAL)
+            table.add_column("ID")
+            table.add_column("Current State")
+            table.add_row(str(id), str(state))
+            return table
+
+        with Live(generate_table(prediction_id, ""), auto_refresh=False, transient=True) as live:
+            while time.time() - start < timeout:
+                data = next(sess.perform_op(opq))
+                res: meta_ai_prediction = (opq + data).meta_ai_prediction_by_pk
+                live.update(generate_table(prediction_id, res.state), refresh=True)
+                if res.state == meta_ai_prediction_state_enum.COMPLETED:
+                    return res
+                elif res.state == meta_ai_prediction_state_enum.FAILED:
+                    error_object = self.get_prediction_error(prediction_id)
+                    logger.warn(f"Prediction failed while waiting for completion:\n {error_object.error_message}")
+                    raise PredictionError(error_object["error_message"])
+            else:
+                raise TimeoutError("Waiting for Prediction result timed out. Try increasing timeout.")
+
+    def get_prediction_with_data(self, prediction_id: str, app_id: str = None) -> meta_ai_prediction:
+        """
+        Retrieve existing prediction with data from database.
+        Args:
+            prediction_id: str
+                id of existing prediction
+            app_id: str
+                id of app the predection belongs to, used for authentication.
+                For predictions created without an app_id, this argument is not required.
+
+        Returns:
+
+        """
+        sess = MetaAISession(app_id=app_id)
+        op = Operation(query_root)
+        p = op.meta_ai_prediction_by_pk(id=prediction_id)
+        p.__fields__("id", "state", "created_at", "completed_at", "started_at", "error_message")
+        p.model.__fields__("id", "name", "version")
+        p.instances().__fields__("id", "output", "score")
+        data = sess.perform_op(op)
+        try:
+            output = (op + data).meta_ai_prediction_by_pk
+            return output
+        except AttributeError as e:
+            log.info(f"No prediction found for prediction_id:{prediction_id}.")
+
+    def submit_prediction_request(self, model_id: str, input_data: dict, parameters: dict = None) -> str:
+        """Submit a prediction request to the endpoint using input data and custom parameters.
+        Returns the prediction id.
+        The prediction id can be awaited using the `wait_for_prediction_completion` method.
+
+        Args:
+            model_id: id of the model deployed, acts as the primary key of the deployment
+            input_data: raw data or reference to stored object
+            parameters: parameters for the model inference
+        """
+
+        request = {"deployment_id": model_id, "data": json.dumps(input_data), "parameters": json.dumps(parameters)}
+        opq = Operation(query_root)
+        opq.predict_with_deployment_async(request=request).__fields__("prediction_id")
+        data = self.sess.perform_op(opq)
+        res = (opq + data).predict_with_deployment_async
+        prediction_id = res.prediction_id
+        return prediction_id
+
+    def predict_from_endpoint(
+        self, model_id: str, input_data: dict, parameters: dict = None, timeout: int = 180
+    ) -> List[RawPrediction]:
+        """Predict with endpoint using input data and custom parameters.
+        Returns a list of tuples of the form (output, score).
 
         Args:
             model_id: id of the model deployed, acts as the primary key of the deployment
@@ -443,12 +650,19 @@ class DeploymentApiMixin(ABC):
             timeout: timeout in seconds to await for a prediction
 
         """
-        request = {"deployment_id": model_id, "data": json.dumps(input_data), "parameters": json.dumps(parameters)}
-        opq = Operation(query_root)
-        opq.predict_with_deployment(request=request).__fields__("output", "score")
-        data = self.sess.perform_op(opq, timeout)
-        res = (opq + data).predict_with_deployment
-        return res
+        prediction_id = self.submit_prediction_request(model_id=model_id, input_data=input_data, parameters=parameters)
+        logger.info(f"Submitted prediction request with id: {prediction_id}")
+
+        # Wait for prediction to complete
+        state = self.wait_for_prediction_completion(prediction_id=prediction_id, timeout=timeout)
+        logger.info(f"Prediction {prediction_id} completed with state={state}")
+
+        # Retrieve finished data
+        prediction: query_root.meta_ai_prediction = self.get_prediction_with_data(prediction_id=prediction_id)
+        return [
+            RawPrediction(json_data={"output": instance.output, "score": instance.score})
+            for instance in prediction.instances
+        ]
 
 
 class TrainApiMixin(ABC):

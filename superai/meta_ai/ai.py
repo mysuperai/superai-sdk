@@ -19,6 +19,8 @@ import boto3  # type: ignore
 import docker
 import requests
 import yaml
+
+from docker import DockerClient
 from docker.errors import ImageNotFound
 
 from superai import Client
@@ -33,7 +35,7 @@ from superai.meta_ai.ai_helper import (
     create_model_handler,
 )
 from superai.meta_ai.deployed_predictors import LocalPredictor, DeployedPredictor, AWSPredictor
-from superai.meta_ai.dockerizer import push_image
+from superai.meta_ai.dockerizer import get_docker_client, push_image
 from superai.meta_ai.environment_file import EnvironmentFileProcessor
 from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters, Config
 from superai.meta_ai.schema import Schema, SchemaParameters, EasyPredictions
@@ -69,6 +71,7 @@ class PredictorFactory(object):
     __predictor_classes = {
         "LOCAL_DOCKER": LocalPredictor,
         "LOCAL_DOCKER_LAMBDA": LocalPredictor,
+        "LOCAL_DOCKER_K8S": LocalPredictor,
         "AWS_SAGEMAKER": AWSPredictor,
         "AWS_SAGEMAKER_ASYNC": AWSPredictor,
         "AWS_LAMBDA": AWSPredictor,
@@ -552,7 +555,7 @@ class AI:
         with tarfile.open(os.path.join(download_folder, "AISavedModel.tar.gz")) as tar:
             tar.extractall(path=os.path.join(download_folder, "AISavedModel"))
         return cls.load_local(
-            load_path=os.path.join(download_folder, "AISavedModel"),
+            load_path=os.path.join(download_folder, "AISavedModel", "ai"),
             weights_path=weights_path,
             download_folder=download_folder,
         )
@@ -639,7 +642,7 @@ class AI:
         """
         log.info("Creating database entry...")
         if not self.id:
-            self._id = self.client.add_model_full_entry(**kwargs)
+            self._id = self.client.add_model(**kwargs)
         else:
             # TODO: Add proper exception class
             raise Exception("Model is already registered in the Database.")
@@ -963,6 +966,7 @@ class AI:
             build_all_layers: Perform a fresh build of all layers
             envs: Pass custom environment variables to the deployment. Should be a dictionary like
                   {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
+            download_base: Always download the base image to get the latest version from ECR
         """
         is_lambda_orchestrator = orchestrator in [Orchestrator.LOCAL_DOCKER_LAMBDA, Orchestrator.AWS_LAMBDA]
         # Updating environs before image builds
@@ -988,6 +992,7 @@ class AI:
                     enable_eia=enable_eia,
                     lambda_mode=is_lambda_orchestrator,
                     from_scratch=kwargs.get("build_all_layers", False),
+                    always_download=kwargs.get("download_base", False),
                 )
         elif orchestrator in [Orchestrator.AWS_EKS, Orchestrator.LOCAL_DOCKER_K8S]:
             if properties is None:
@@ -1003,6 +1008,7 @@ class AI:
                     lambda_mode=is_lambda_orchestrator,
                     k8s_mode=True,
                     from_scratch=kwargs.get("build_all_layers", False),
+                    always_download=kwargs.get("download_base", False),
                 )
         elif orchestrator in [Orchestrator.GCP_KS]:
             raise NotImplementedError()
@@ -1010,10 +1016,11 @@ class AI:
             raise ValueError(f"Invalid Orchestrator, should be one of {[e for e in Orchestrator]}")
         # build kwargs
         kwargs = {}
-        if orchestrator in [Orchestrator.LOCAL_DOCKER, Orchestrator.LOCAL_DOCKER_LAMBDA]:
+        if orchestrator in [Orchestrator.LOCAL_DOCKER, Orchestrator.LOCAL_DOCKER_LAMBDA, Orchestrator.LOCAL_DOCKER_K8S]:
             kwargs["image_name"] = f"{self.name}:{self.version}"
             kwargs["weights_path"] = self.weights_path
             kwargs["lambda_mode"] = is_lambda_orchestrator
+            kwargs["k8s_mode"] = orchestrator == Orchestrator.LOCAL_DOCKER_K8S
         else:
             if not skip_build:
                 ecr_image_name = self.push_model(self.name, str(self.version))
@@ -1165,6 +1172,7 @@ class AI:
         lambda_mode: bool = False,
         k8s_mode: bool = False,
         from_scratch: bool = False,
+        always_download=False,
     ) -> None:
         """
         Build the image using s2i
@@ -1177,27 +1185,24 @@ class AI:
             lambda_mode: Generate AWS Lambda compatible image
             k8s_mode: Generate Kubernetes compatible image
             from_scratch: Generate all layers from the scratch
+            always_download: Always download the base image
         """
         start = time.time()
         cwd = os.getcwd()
         os.chdir(self._location)
         changes_in_build = self._track_changes()
 
-        client = docker.from_env()
+        client = get_docker_client()
         base_image = self._get_base_name(enable_eia, lambda_mode, enable_cuda, k8s_mode)
+        if always_download:
+            log.info(f"Downloading newest base image {base_image}...")
+            self._download_base_image(base_image, client)
         try:
             _ = client.images.get(base_image)
             log.info(f"Base image '{base_image}' found locally.")
         except ImageNotFound:
-            region = boto3.Session().region_name
-            account_id = boto3.client("sts").get_caller_identity()["Account"]
-            ecr_image_name = f"{account_id}.dkr.ecr.{region}.amazonaws.com/{base_image}"
-            log.info(f"Base image not found. Downloading from ECR '{ecr_image_name}'")
-            log.info("Logging in to ECR...")
-            os.system(f"$(aws ecr get-login --region {region} --no-include-email)")
-            os.system(f"docker pull {ecr_image_name}")
-            log.info(f"Re-tagging image to '{base_image}'")
-            client.images.get(f"{ecr_image_name}").tag(base_image)
+            log.info(f"Base image '{base_image}' not found locally, downloading...")
+            self._download_base_image(base_image, client)
         if shutil.which("s2i") is None:
             raise ModuleNotFoundError(
                 "s2i is not installed. Please install the package using "
@@ -1267,6 +1272,24 @@ class AI:
         os.chdir(cwd)
 
     @staticmethod
+    def _download_base_image(base_image: str, client: DockerClient) -> None:
+        """
+        Download the base image from ECR
+        Args:
+            base_image: Name of the base image
+            client: Docker client
+        """
+        region = boto3.Session().region_name
+        account_id = boto3.client("sts").get_caller_identity()["Account"]
+        ecr_image_name = f"{account_id}.dkr.ecr.{region}.amazonaws.com/{base_image}"
+        log.info(f"Base image not found. Downloading from ECR '{ecr_image_name}'")
+        log.info("Logging in to ECR...")
+        os.system(f"$(aws ecr get-login --region {region} --no-include-email)")
+        os.system(f"docker pull {ecr_image_name}")
+        log.info(f"Re-tagging image to '{base_image}'")
+        client.images.get(f"{ecr_image_name}").tag(base_image)
+
+    @staticmethod
     def _system(command):
         log.info(f"Running '{command}'")
         process = subprocess.Popen(shlex.split(command), stdout=subprocess.PIPE)
@@ -1288,7 +1311,10 @@ class AI:
             image_name = self.name
         if version is None:
             version = str(self.version)
-        return push_image(image_name=image_name, version=version)
+        id = self.id
+        if id is None:
+            raise Exception("No ID found. AI needs to be registered  via `push()` first.")
+        return push_image(image_name=image_name, model_id=id, version=version)
 
     def train(
         self,
@@ -1365,14 +1391,13 @@ class AI:
             dict(
                 maxReplicas=kwargs.get("maxReplicas", kubernetes_config.get("maxReplicas", 5)),
                 targetAverageUtilization=kwargs.get(
-                    "targetAverageUtilization", kubernetes_config.get("targetAverageUtilization", 60)
+                    "targetAverageUtilization", kubernetes_config.get("targetAverageUtilization", 0.5)
                 ),
                 gpuTargetAverageUtilization=kwargs.get(
                     "gpuTargetAverageUtilization", kubernetes_config.get("gpuTargetAverageUtilization", 60)
                 ),
                 volumeMountName=kwargs.get("volumeMountName", kubernetes_config.get("volumeMountName", "efs-vpc")),
                 mountPath=kwargs.get("mountPath", kubernetes_config.get("mountPath", "/shared")),
-                gpuBaseUtilization=kwargs.get("gpuBaseUtilization", kubernetes_config.get("gpuBaseUtilization", 0.5)),
                 numThreads=kwargs.get("worker_count", kubernetes_config.get("worker_count", 1)),
                 enableCuda=enable_cuda,
             )

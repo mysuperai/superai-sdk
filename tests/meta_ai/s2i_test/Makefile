@@ -22,7 +22,7 @@ build: init
 
 run:
 	docker rm -f "test_predictor"
-	docker run --name "test_predictor" -p 5000:5000 -p 80:8080 -p 8081:8081 -v $(folder):/opt/ml/model test-model-py3-${mode}${seldon_substring}:0.1
+	docker run --name "test_predictor" -p 80:8080 -p 8081:8081 -p 9000:9000 -v $(folder):/opt/ml/model test-model-py3-${mode}${seldon_substring}:0.1
 
 run_d:
 	docker rm -f "test_predictor"

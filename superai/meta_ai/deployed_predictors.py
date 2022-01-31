@@ -13,6 +13,7 @@ from rich.prompt import Confirm
 
 from superai import Client
 from superai.meta_ai.schema import EasyPredictions
+from superai.meta_ai.dockerizer import get_docker_client
 from superai.utils import log
 
 
@@ -34,7 +35,7 @@ class DeployedPredictor(metaclass=ABCMeta):
 class LocalPredictor(DeployedPredictor):
     def __init__(self, *args, existing=False, remove=True, **kwargs):
         super(LocalPredictor, self).__init__(*args, **kwargs)
-        client = docker.from_env()
+        client = get_docker_client()
         self.lambda_mode = kwargs.get("lambda_mode", False)
         self.k8s_mode = kwargs.get("k8s_mode", False)
         container_name = kwargs["image_name"].replace(":", "_")
@@ -48,6 +49,7 @@ class LocalPredictor(DeployedPredictor):
                     )
                     container.kill()
                 except Exception as e:
+                    log.info(f"Ignorable exception: {e}")
                     pass
 
                 log.info(f"Starting new container with name {container_name}.")
@@ -62,7 +64,7 @@ class LocalPredictor(DeployedPredictor):
                             "mode": "rw",
                         }
                     },
-                    ports={8080: 9000} if self.lambda_mode else {8080: 80, 8081: 8081},
+                    ports=self._get_port_assignment(),
                 )
                 log.info("Started container in serving mode.")
             except APIError as e:
@@ -129,6 +131,14 @@ class LocalPredictor(DeployedPredictor):
     def terminate(self):
         log.info("Stopping container")
         self.container.stop()
+
+    def _get_port_assignment(self):
+        if self.lambda_mode:
+            return {8080: 9000}
+        elif self.k8s_mode:
+            return {9000: 9000}
+        else:
+            return {8080: 80, 8081: 8081}
 
 
 class AWSPredictor(DeployedPredictor):
