@@ -148,7 +148,7 @@ def test_metric_calculate(server):
 def test_method_names(server):
     expected = json.loads(
         """
-       [{"method_name": "Test_Server.top_heroes",  "role": "normal"}, {"method_name": "Test_Server.crowd_managers",  "role": "gold"}]
+       [{"method_name": "Test_Server.top_heroes",  "role": "normal"}, {"method_name": "Test_Server.crowd_managers",  "role": "normal"}, {"method_name": "Test_Server.crowd_managers",  "role": "gold"}]
         """
     )
     resp = requests.get("http://127.0.0.1:8001/methods")

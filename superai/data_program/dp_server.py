@@ -30,7 +30,7 @@ class DPServer:
     generate: Handler[Parameters, Input, Output]
     log_level: Literal["critical", "error", "warning", "info", "debug", "trace"]
     task_templates_dict: Dict[str, TaskTemplate]
-    workflows: Dict[str, str]  # {qualified_name: role}
+    workflows: List[MethodResponse]
     metrics_dict: Dict[str, Metric]
 
     def __init__(
@@ -47,7 +47,13 @@ class DPServer:
         self.generate = generate
         self.log_level = log_level
         (*_, task_templates, metrics) = generate(self.params)
-        self.workflows = {f"{self.name}.{method.name}": "gold" if method.is_gold else "normal" for method in workflows}
+        self.workflows = []
+        for method in workflows:
+            method_name = f"{self.name}.{method.name}"
+            if method.measure:
+                self.workflows.append(MethodResponse(method_name=method_name, role="normal"))
+            if method.is_gold:
+                self.workflows.append(MethodResponse(method_name=method_name, role="gold"))
 
         assert len(metrics) > 0, "At least one metric should be defined"
         self.metrics_dict = {metric.name: metric for metric in metrics}
@@ -114,7 +120,6 @@ class DPServer:
 
         @app.get("/methods", response_model=List[MethodResponse])
         def get_methods():
-
-            return list([MethodResponse(method_name=name, role=role) for name, role in self.workflows.items()])
+            return self.workflows
 
         uvicorn.run(app, host="0.0.0.0", port=8001, log_level=self.log_level)
