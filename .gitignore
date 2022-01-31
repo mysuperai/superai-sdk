@@ -112,6 +112,7 @@ celerybeat.pid
 # Environments
 # dotenv
 .env
+.cenv
 
 # virtualenv
 .venv
