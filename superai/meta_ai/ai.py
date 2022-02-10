@@ -1293,8 +1293,10 @@ class AI:
     def _system(command):
         log.info(f"Running '{command}'")
         process = subprocess.Popen(shlex.split(command), stdout=subprocess.PIPE)
-        (out, err) = process.communicate()
-        return out.decode("utf-8")
+        (out, _) = process.communicate()
+        if process.returncode != 0:
+            raise subprocess.CalledProcessError(process.returncode, command, output=out)
+        return process.returncode
 
     def push_model(self, image_name: Optional[str] = None, version: Optional[str] = None) -> str:
         """Push model in ECR, involves tagging and pushing.
