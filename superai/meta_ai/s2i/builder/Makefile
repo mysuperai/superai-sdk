@@ -20,10 +20,9 @@ endif
 
 IMAGE_NAME=superai-model-s2i-python${IMAGE_PYTHON_VERSION}-${mode}
 
-account=$(eval (aws sts get-caller-identity --query Account | sed -e 's/^"//' -e 's/"$//'))
-region=$(eval aws configure get region)
-ecr_account=${account}.dkr.ecr.${region}.amazonaws.com
-
+account:=$(shell (aws sts get-caller-identity --query Account --output text))
+region:=$(shell (aws configure get region))
+ecr_account:=${account}.dkr.ecr.${region}.amazonaws.com
 fullname=${ecr_account}/${IMAGE_NAME}:${IMAGE_VERSION}
 
 permissions:
