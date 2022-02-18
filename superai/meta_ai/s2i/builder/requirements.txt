@@ -1,6 +1,6 @@
 multi-model-server
 sagemaker-inference
 retrying
-superai==0.1.0.beta3
+superai==0.1.0.beta4
 superai_schema
 superai-dataclient
