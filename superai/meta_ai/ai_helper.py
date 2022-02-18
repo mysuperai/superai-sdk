@@ -1,6 +1,7 @@
 import importlib
 import json
 import os
+import sys
 from typing import Dict, List, Union
 
 import boto3
@@ -48,11 +49,13 @@ def list_models(
 def get_user_model_class(model_name, path: str = "."):
     """Obtain a class definition given the path to the class module"""
     cwd = os.getcwd()
+    path_dir = os.path.abspath(path)
     if path != ".":
-        os.chdir(path)
+        os.chdir(path_dir)
+        sys.path.append(path_dir)
     parts = model_name.rsplit(".", 1)
     if len(parts) == 1:
-        logger.info(f"Importing {model_name}")
+        logger.info(f"Importing {model_name} from {path} (Absolute path: {path_dir})")
         interface_file = importlib.import_module(model_name)
         user_class = getattr(interface_file, model_name)
     else:
@@ -61,6 +64,7 @@ def get_user_model_class(model_name, path: str = "."):
         user_class = getattr(interface_file, parts[1])
     if path != ".":
         os.chdir(cwd)
+        sys.path.remove(path_dir)
     return user_class
 
 

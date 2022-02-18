@@ -44,6 +44,7 @@ REQUIRES = [
     "pycognito>=2021.3.1",
     "psutil~=5.6.7",
     "pandas>=1.2.5",
+    "polyaxon>=1.14.3",
     "sagemaker>=1.64.1",
 ]
 

@@ -1,0 +1,35 @@
+version: 1.1
+kind: component
+tags: [examples, keras]
+
+inputs:
+- {name: conv1_size, type: int, value: 32, isOptional: true}
+- {name: conv2_size, type: int, value: 64, isOptional: true}
+- {name: dropout, type: float, value: 0.8, isOptional: true}
+- {name: hidden1_size, type: int, value: 500, isOptional: true}
+- {name: optimizer, type: str, value: adam, isOptional: true}
+- {name: log_learning_rate, type: int, value: -3, isOptional: true}
+- {name: epochs, type: int, value: 10, isOptional: true}
+
+run:
+  kind: job
+  container:
+    image: 185169359328.dkr.ecr.us-east-1.amazonaws.com/models/dev/daad6583-1fd7-4718-8b12-333701894fdb/mnist_training:1
+#    workingDir: "{{ globals.artifacts_path }}/polyaxon-examples/in_cluster/keras/mnist"
+    command: ["/opt/conda/envs/env/bin/superai", "ai", "method", "train"]
+    imagePullPolicy: Always
+    args: ["-p", "/home/model-server/",
+           "-tp","/tmp",
+           "-mp","/tmp",
+           "-m","conv1_size={{ conv1_size }}",
+           "-m","conv2_size={{ conv2_size }}",
+           "-m","dropout={{ dropout }}",
+           "-m","hidden1_size={{ hidden1_size }}",
+           "-h","optimizer={{ optimizer }}",
+           "-h","log_learning_rate={{ log_learning_rate }}",
+           "-h","epochs={{ epochs }}"]
+    resources:
+      limits:
+        nvidia.com/gpu: 1
+      requests:
+        nvidia.com/gpu: 1
