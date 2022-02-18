@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
 
 NAME = "superai"
 
-VERSION = "0.1.0.beta5.dev4"
+VERSION = "0.1.0.beta5.dev5"
 # To install the library, run the following
 #
 # python setup.py install
@@ -44,6 +44,7 @@ REQUIRES = [
     "pycognito>=2021.3.1",
     "psutil~=5.6.7",
     "pandas>=1.2.5",
+    "polyaxon>=1.14.3",
     "sagemaker>=1.64.1",
 ]
 

@@ -32,17 +32,17 @@ docker-login:
 	$$(aws ecr get-login --no-include-email --region us-east-1)
 
 push: docker-login
-	docker tag "superai-model-s2i-python3711-${mode}:1" "185169359328.dkr.ecr.us-east-1.amazonaws.com/superai-model-s2i-python3711-${mode}:1"
-	docker push "185169359328.dkr.ecr.us-east-1.amazonaws.com/superai-model-s2i-python3711-${mode}:1"
+	docker tag "superai-model-s2i-python3711-${mode}:1" "${ecr_account}/superai-model-s2i-python3711-${mode}:1"
+	docker push "${ecr_account}/superai-model-s2i-python3711-${mode}:1"
 
 
 push-lambda: docker-login
-	docker tag "superai-model-s2i-python3711-${mode}-lambda:1" "185169359328.dkr.ecr.us-east-1.amazonaws.com/superai-model-s2i-python3711-${mode}-lambda:1"
-	docker push "185169359328.dkr.ecr.us-east-1.amazonaws.com/superai-model-s2i-python3711-${mode}-lambda:1"
+	docker tag "superai-model-s2i-python3711-${mode}-lambda:1" "${ecr_account}/superai-model-s2i-python3711-${mode}-lambda:1"
+	docker push "${ecr_account}/superai-model-s2i-python3711-${mode}-lambda:1"
 
 push-seldon: docker-login
-	docker tag "superai-model-s2i-python3711-${mode}-seldon:1" "185169359328.dkr.ecr.us-east-1.amazonaws.com/superai-model-s2i-python3711-${mode}-seldon:1"
-	docker push "185169359328.dkr.ecr.us-east-1.amazonaws.com/superai-model-s2i-python3711-${mode}-seldon:1"
+	docker tag "superai-model-s2i-python3711-${mode}-seldon:1" "${ecr_account}/superai-model-s2i-python3711-${mode}-seldon:1"
+	docker push "${ecr_account}/superai-model-s2i-python3711-${mode}-seldon:1"
 
 
 .PHONY: all build tag push permissions

@@ -1,7 +1,11 @@
+import ast
 import enum
+import logging
 from typing import Optional, List, Union
 
-import jsonpickle
+import jsonpickle  # type: ignore
+
+logger = logging.getLogger(__file__)
 
 
 class Scalar:
@@ -87,7 +91,7 @@ class HyperParameterSpec:
         staircase=Boolean(default=False),
         batch_size: Union[int, ParamsSpec] = 128,
         eval_batch_size: Union[int, ParamsSpec] = 0,
-        bucketing_field=None,
+        bucketing_field: Optional[str] = None,
         validation_field=String(default="combined"),
         validation_metric=String(default="loss"),
         early_stop=Integer(default=20),
@@ -138,6 +142,37 @@ class HyperParameterSpec:
         self.skip_save_progress = skip_save_progress
         self.skip_save_log = skip_save_log
         self.args = kwargs
+        for k in kwargs.keys():
+            setattr(self, k, kwargs[k])
+
+    @classmethod
+    def load_from_list(cls, parameters: List[str]):
+        processed_params = parameter_processor(parameters)
+        return HyperParameterSpec(**processed_params)  # type: ignore
+
+
+def parameter_processor(parameters=None):
+    if parameters is None:
+        parameters = []
+    processed_params = {}
+    for param in parameters:
+        key, value = param.split("=")
+        try:
+            value = ast.literal_eval(value)
+        except Exception as e:
+            logger.debug(f"Error parsing value, leaving unchanged: {e}")
+        if isinstance(value, list):
+            cleaned_values = []
+            for val in value:
+                try:
+                    val = ast.literal_eval(val)
+                except Exception as e:
+                    logger.debug(f"Error parsing list value, leaving unchanged: {e}")
+                if isinstance(val, str):
+                    val = val.strip()
+                cleaned_values.append(val)
+        processed_params[key] = value
+    return processed_params
 
 
 class ModelParameters:
@@ -163,6 +198,7 @@ class ModelParameters:
         fc_bias_initializer=String(default="zeros"),
         fc_activation=String(default="relu"),
         fc_dropout=Integer(value=0),
+        **kwargs,
     ):
         self.conv_layers = conv_layers
         self.num_conv_layers = num_conv_layers
@@ -184,6 +220,14 @@ class ModelParameters:
         self.fc_bias_initializer = fc_bias_initializer
         self.fc_activation = fc_activation
         self.fc_dropout = fc_dropout
+        self.args = kwargs
+        for k in kwargs.keys():
+            setattr(self, k, kwargs[k])
+
+    @classmethod
+    def load_from_list(cls, parameters: List[str]):
+        processed_params = parameter_processor(parameters)
+        return ModelParameters(**processed_params)  # type: ignore
 
 
 class Config:
@@ -207,8 +251,8 @@ class Config:
     __call__ = parametrize
 
     @classmethod
-    def from_json(cls, input):
-        return jsonpickle.decode(input)
+    def from_json(cls, inputs):
+        return jsonpickle.decode(inputs)
 
     def __eq__(self, other):
         return self.to_json == other.to_json

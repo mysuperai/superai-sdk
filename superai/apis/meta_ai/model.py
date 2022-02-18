@@ -233,7 +233,7 @@ class ModelApiMixin(ABC):
         log.info(f"Created new model: {data}")
         return (op + data).insert_meta_ai_model_one.id
 
-    def update_model(self, model_id: str, **kwargs: dict) -> str:
+    def update_model(self, model_id: str, **kwargs) -> str:
         """
         Update a model.
 
