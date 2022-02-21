@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
 
 NAME = "superai"
 
-VERSION = "0.1.0.beta5.dev6"
+VERSION = "0.1.0.beta5.dev7"
 # To install the library, run the following
 #
 # python setup.py install
@@ -21,7 +21,6 @@ REQUIRES = [
     "boto3>=1.15",
     "click>=7.0",
     "colorama>=0.3.0",
-    "cloudpickle==1.6.0",
     "dynaconf>=3.1.2",
     "docker>=4.0.0",
     "fastapi>=0.70.0",
@@ -42,7 +41,6 @@ REQUIRES = [
     "six",
     "uvicorn>=0.15.0",
     "pycognito>=2021.3.1",
-    "psutil~=5.6.7",
     "pandas>=1.2.5",
     "polyaxon>=1.14.3",
     "sagemaker>=1.64.1",

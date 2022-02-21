@@ -449,7 +449,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                     # TODO: Handle task failure cases like in resend_task
                     log.info(f"task succeeded with response: {task_result.response()}")
                     if len(task_result.response()) > 0:
-                        log.info(f"ENRIQUE_TASK_RESULT {task_result.response()}")
+                        log.info(f"TASK_RESULT {task_result.response()}")
                         # return task_result
                     else:
                         log.info("WARNING: completed task, but empty task response.")
