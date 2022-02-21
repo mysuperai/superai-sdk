@@ -149,7 +149,6 @@ class AITemplate:
                             'channels': ['defaults'],
                             'dependencies': [
                                 'python=3.7.2',
-                                'cloudpickle==0.5.8'
                             ]
                         }
             artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs are resolved
