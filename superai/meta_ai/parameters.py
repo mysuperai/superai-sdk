@@ -1,7 +1,8 @@
 import ast
 import enum
+import json
 import logging
-from typing import Optional, List, Union
+from typing import Optional, List, Union, Any, Callable
 
 import jsonpickle  # type: ignore
 
@@ -80,37 +81,37 @@ class HyperParameterSpec:
 
     def __init__(
         self,
-        trainable=Boolean(default=False),
-        epochs=Integer(default=10),
+        trainable: Union[bool, Boolean] = Boolean(default=False),
+        epochs: Union[int, Integer] = Integer(default=10),
         regularization_lambda: Union[ParamsSpec, float] = 0.0,
         learning_rate: Union[ParamsSpec, float] = 0.001,
         # decay:bool=False,
         # decay_rate: Union[ParamsSpec, float]=0.96,
         # decay_steps=10000,
         decay: Optional[ParamsSpec] = None,  # ParamsSpec("decay", ParamsSpec.ParamType.DOUBLE,1, 0.01)
-        staircase=Boolean(default=False),
+        staircase: Union[bool, Boolean] = Boolean(default=False),
         batch_size: Union[int, ParamsSpec] = 128,
         eval_batch_size: Union[int, ParamsSpec] = 0,
         bucketing_field: Optional[str] = None,
-        validation_field=String(default="combined"),
-        validation_metric=String(default="loss"),
-        early_stop=Integer(default=20),
-        reduce_learning_rate_on_plateau=Double(default=0),
-        reduce_learning_rate_on_plateau_patience=Double(default=5),
-        reduce_learning_rate_on_plateau_rate=Double(default=0.5),
-        reduce_learning_rate_eval_metric=Tag.LOSS,
-        reduce_learning_rate_eval_split=Tag.TRAINING,
-        increase_batch_size_on_plateau=Double(default=0),
-        increase_batch_size_on_plateau_patience=Double(default=5),
-        increase_batch_size_on_plateau_rate=Double(default=2),
-        increase_batch_size_on_plateau_max=Double(default=512),
-        increase_batch_size_eval_metric=Tag.LOSS,
-        increase_batch_size_eval_split=Tag.TRAINING,
-        learning_rate_warmup_epochs=Integer(default=1),
-        resume=Boolean(default=False),
-        skip_save_model=Boolean(default=False),
-        skip_save_progress=Boolean(default=False),
-        skip_save_log=Boolean(default=False),
+        validation_field: Union[str, String] = String(default="combined"),
+        validation_metric: Union[str, String] = String(default="loss"),
+        early_stop: Union[int, Integer] = Integer(default=20),
+        reduce_learning_rate_on_plateau: Union[int, Double] = Double(default=0),
+        reduce_learning_rate_on_plateau_patience: Union[int, Double] = Double(default=5),
+        reduce_learning_rate_on_plateau_rate: Union[int, Double] = Double(default=0.5),
+        reduce_learning_rate_eval_metric: str = Tag.LOSS,
+        reduce_learning_rate_eval_split: str = Tag.TRAINING,
+        increase_batch_size_on_plateau: Union[int, Double] = Double(default=0),
+        increase_batch_size_on_plateau_patience: Union[int, Double] = Double(default=5),
+        increase_batch_size_on_plateau_rate: Union[int, Double] = Double(default=2),
+        increase_batch_size_on_plateau_max: Union[int, Double] = Double(default=512),
+        increase_batch_size_eval_metric: str = Tag.LOSS,
+        increase_batch_size_eval_split: str = Tag.TRAINING,
+        learning_rate_warmup_epochs: Union[int, Integer] = Integer(default=1),
+        resume: Union[bool, Boolean] = Boolean(default=False),
+        skip_save_model: Union[bool, Boolean] = Boolean(default=False),
+        skip_save_progress: Union[bool, Boolean] = Boolean(default=False),
+        skip_save_log: Union[bool, Boolean] = Boolean(default=False),
         **kwargs,
     ):
         self.trainable = trainable
@@ -178,26 +179,26 @@ def parameter_processor(parameters=None):
 class ModelParameters:
     def __init__(
         self,
-        conv_layers=Integer(default=None),
-        num_conv_layers=Integer(default=None),
-        filter_size=Integer(default=3),
-        num_filters=Integer(default=32),
-        strides: List[Integer] = [Integer(default=1), Integer(default=1)],
-        padding=String(default="valid"),
-        dilation_rate: List[Integer] = [Integer(default=1), Integer(default=1)],
-        conv_use_bias=Boolean(default=True),
-        conv_weights_initializer=String(default="glorot_uniform"),
-        conv_bias_initializer=String(default="zeros"),
-        conv_activation=String(default="relu"),
-        conv_dropout=Integer(default=0),
-        pool_function=String(default="max"),
-        num_fc_layers=Integer(default=1),
-        fc_size=Integer(default=128),
-        fc_use_bias=Boolean(default=True),
-        fc_weights_initializer=String(default="glorot_uniform"),
-        fc_bias_initializer=String(default="zeros"),
-        fc_activation=String(default="relu"),
-        fc_dropout=Integer(value=0),
+        conv_layers: Union[int, Integer] = Integer(default=None),
+        num_conv_layers: Union[int, Integer] = Integer(default=None),
+        filter_size: Union[int, Integer] = Integer(default=3),
+        num_filters: Union[int, Integer] = Integer(default=32),
+        strides: Union[List[int], List[Integer]] = [Integer(default=1), Integer(default=1)],
+        padding: Union[str, String] = String(default="valid"),
+        dilation_rate: Union[List[int], List[Integer]] = [Integer(default=1), Integer(default=1)],
+        conv_use_bias: Union[bool, Boolean] = Boolean(default=True),
+        conv_weights_initializer: Union[str, String] = String(default="glorot_uniform"),
+        conv_bias_initializer: Union[str, String] = String(default="zeros"),
+        conv_activation: Union[str, String] = String(default="relu"),
+        conv_dropout: Union[int, Integer] = Integer(default=0),
+        pool_function: Union[str, String] = String(default="max"),
+        num_fc_layers: Union[int, Integer] = Integer(default=1),
+        fc_size: Union[int, Integer] = Integer(default=128),
+        fc_use_bias: Union[bool, Boolean] = Boolean(default=True),
+        fc_weights_initializer: Union[str, String] = String(default="glorot_uniform"),
+        fc_bias_initializer: Union[str, String] = String(default="zeros"),
+        fc_activation: Union[str, String] = String(default="relu"),
+        fc_dropout: Union[int, Integer] = Integer(value=0),
         **kwargs,
     ):
         self.conv_layers = conv_layers
@@ -256,6 +257,44 @@ class Config:
 
     def __eq__(self, other):
         return self.to_json == other.to_json
+
+
+class TrainingParameters:
+    def __init__(
+        self,
+        model_save_path: Optional[str] = None,
+        training_data: Optional[str] = None,
+        test_data: Optional[str] = None,
+        production_data: Optional[str] = None,
+        validation_data: Optional[str] = None,
+        encoder_trainable: bool = True,
+        decoder_trainable: bool = True,
+        hyperparameters: Optional[HyperParameterSpec] = None,
+        model_parameter: Optional[ModelParameters] = None,
+        callbacks: Optional[Callable] = None,
+        train_logger: Optional[Any] = None,
+    ):
+        self.model_save_path = model_save_path
+        self.training_data = training_data
+        self.test_data = test_data
+        self.production_data = production_data
+        self.validation_data = validation_data
+        self.encoder_trainable = encoder_trainable
+        self.decoder_trainable = decoder_trainable
+        self.hyperparameters = hyperparameters
+        self.model_parameter = model_parameter
+        self.callbacks = callbacks
+        self.train_logger = train_logger
+        try:
+            self.to_json()
+        except Exception:
+            logger.exception(
+                "Could not JSON serialize the training parameters, please make sure the arguments are JSON serializable"
+            )
+            raise
+
+    def to_json(self):
+        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=2)
 
 
 if __name__ == "__main__":

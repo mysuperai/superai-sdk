@@ -1,4 +1,4 @@
-from superai.meta_ai.parameters import parameter_processor, HyperParameterSpec
+from superai.meta_ai.parameters import parameter_processor, HyperParameterSpec, ModelParameters, TrainingParameters
 
 
 def test_parameter_processor():
@@ -27,3 +27,23 @@ def test_hyperparam_loading_unknown_params():
     parameters = ["some_fancy_param=something else"]
     hps = HyperParameterSpec.load_from_list(parameters)
     assert hps.some_fancy_param == "something else"
+
+
+def test_training_parameters():
+    parameters = [
+        "trainable=True",
+        "learning_rate=0.1",
+        "validation_metric=accuracy",
+        "some_fancy_param=something else",
+    ]
+    hps = HyperParameterSpec.load_from_list(parameters)
+    mps = ModelParameters(conv_layers=10, strides=[1, 1, 1])
+    tps = TrainingParameters(
+        model_save_path="path",
+        training_data="some_training_data",
+        test_data="some_test_data",
+        hyperparameters=hps,
+        model_parameter=mps,
+    )
+    assert tps.to_json()
+    print(tps.to_json())

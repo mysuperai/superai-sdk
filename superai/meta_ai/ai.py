@@ -36,7 +36,7 @@ from superai.meta_ai.ai_helper import (
 from superai.meta_ai.deployed_predictors import LocalPredictor, DeployedPredictor, AWSPredictor
 from superai.meta_ai.dockerizer import get_docker_client, push_image
 from superai.meta_ai.environment_file import EnvironmentFileProcessor
-from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters, Config
+from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters, Config, TrainingParameters
 from superai.meta_ai.schema import Schema, SchemaParameters, EasyPredictions
 from superai.utils import retry, load_api_key, load_auth_token, load_id_token
 
@@ -1421,6 +1421,7 @@ class AI:
         skip_build: bool = False,
         properties: Optional[dict] = None,
         enable_cuda: bool = False,
+        training_parameters: Optional[TrainingParameters] = None,
         **kwargs,
     ):
         """Here we need to create a docker container with superai-sdk installed. Then we will create a run script
@@ -1474,4 +1475,6 @@ class AI:
                 raise LookupError(
                     "Cannot establish id, please make sure you push the AI model to create a database entry"
                 )
-            # TODO: Add sections on meta-ai deployment
+            assert training_parameters is not None
+            train_params_dict = json.loads(training_parameters.to_json())
+            # TODO: Now that training parameters are loaded, add sections on meta-ai deployment
