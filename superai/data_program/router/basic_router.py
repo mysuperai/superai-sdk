@@ -160,4 +160,4 @@ class BasicRouter(Router):
                         workflow, job_type, result, status
                     )
                 )
-            return job.result().response()
+            return job.result().response(), job.result().data(), None

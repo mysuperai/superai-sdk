@@ -13,6 +13,7 @@ from superai.data_program.dp_server import DPServer
 from superai.data_program.types import (
     DataProgramDefinition,
     Handler,
+    HandlerOutput,
     Input,
     JobContext,
     Output,
@@ -20,6 +21,7 @@ from superai.data_program.types import (
     WorkflowConfig,
     TaskTemplate,
     Metric,
+    PostProcessContext,
 )
 from superai.data_program.utils import model_to_task_io_payload, parse_dp_definition
 from superai.log import logger
@@ -104,7 +106,7 @@ class DataProgram(DataProgramBase):
     def run(
         *,
         default_params: Parameters,
-        handler: Handler[Parameters, Input, Output],
+        handler: Handler[Parameters],
         workflows: List[WorkflowConfig],
         metadata: dict = None,
         auto_generate_metadata: bool = True,
@@ -311,13 +313,16 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         self,
         workflow: WorkflowConfig,
         params_cls: Type[Parameters],
-        handler: Handler[Parameters, Input, Output],
+        handler: Handler[Parameters],
     ):
         def workflow_fn(inp, params):
             params_model = params_cls.parse_obj(params)
-            job_input_model_cls, _, process_job, *_ = handler(params_model)
+            handler_output = handler(params_model)
+            process_job = handler_output.process_fn
+            post_process_job = handler_output.post_process_fn
 
             # Load raw job input into model with validation
+            job_input_model_cls = handler_output.input_model
             job_input_model = job_input_model_cls.parse_obj(inp)
 
             def send_task(
@@ -336,7 +341,15 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                 raw_result = my_task.output["values"]["formData"]
                 return task_output.parse_obj(raw_result)
 
-            job_output = process_job(job_input_model, JobContext[Output](workflow, send_task))
+            job_context = JobContext[Output](workflow, send_task, use_job_cache=bool(post_process_job))
+            job_output = process_job(job_input_model, job_context)
+
+            if post_process_job is not None:
+                context = PostProcessContext(job_cache=job_context.job_cache)
+                response_data = post_process_job(job_output, context)
+
+                return json.loads(job_output.json(exclude_unset=True)), response_data, None
+
             return json.loads(job_output.json(exclude_unset=True))
 
         self.add_workflow(
@@ -500,10 +513,9 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
             assert workflow.qualified_name in template_udpate.get("dpWorkflows")
 
     @staticmethod
-    def _get_definition_for_params(
-        params: Parameters, handler: Handler[Parameters, Input, Output]
-    ) -> DataProgramDefinition:
-        input_model, output_model, *_ = handler(params)
+    def _get_definition_for_params(params: Parameters, handler: Handler[Parameters]) -> DataProgramDefinition:
+        handler_output = handler(params)
+        input_model, output_model = handler_output.input_model, handler_output.output_model
 
         return {
             "parameter_schema": params.schema(),

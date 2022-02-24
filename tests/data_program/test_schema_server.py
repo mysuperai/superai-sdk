@@ -8,7 +8,8 @@ import pytest
 import requests
 from superai_schema.types import BaseModel, Field, UiWidget
 
-from superai.data_program.dp_server import DPServer, Metric, WorkflowConfig
+from superai.data_program.dp_server import DPServer
+from superai.data_program.types import Metric, WorkflowConfig, HandlerOutput
 
 
 def run_server():
@@ -37,7 +38,13 @@ def run_server():
             index = len(job_input.__root__) % len(params.choices)
             return MyOutput(__root__=params.choices[index])
 
-        return MyInput, MyOutput, process_job, [], [Metric(name="f1_score", metric_fn=metric_func)]
+        return HandlerOutput(
+            input_model=MyInput,
+            output_model=MyOutput,
+            process_fn=process_job,
+            templates=[],
+            metrics=[Metric(name="f1_score", metric_fn=metric_func)],
+        )
 
     DPServer(
         params=Parameters(choices=["1", "2"]),

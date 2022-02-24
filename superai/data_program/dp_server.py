@@ -1,8 +1,8 @@
-from typing import List, Dict
+from typing import List, Dict, Optional, Callable, Union
 
 import fastapi
 import uvicorn
-from fastapi import HTTPException
+from fastapi import HTTPException, Response, status
 from jsonschema import validate, ValidationError
 from pydantic import BaseModel
 from superai_schema.types import UiWidget
@@ -20,15 +20,21 @@ from superai.data_program.types import (
     WorkflowConfig,
     TaskTemplate,
     Metric,
+    PostProcessContext,
+    PostProcessRequestModel,
 )
+from superai.log import logger
+
+log = logger.get_logger(__name__)
 
 
 class DPServer:
     name: str
     params: Parameters
     params_schema: dict
-    generate: Handler[Parameters, Input, Output]
+    generate: Handler[Parameters]
     log_level: Literal["critical", "error", "warning", "info", "debug", "trace"]
+    post_process_fn: Optional[Callable[[Output, PostProcessContext], str]]
     task_templates_dict: Dict[str, TaskTemplate]
     workflows: List[MethodResponse]
     metrics_dict: Dict[str, Metric]
@@ -36,7 +42,7 @@ class DPServer:
     def __init__(
         self,
         params: Parameters,
-        generate: Handler[Parameters, Input, Output],
+        generate: Handler[Parameters],
         name: str,
         workflows: List[WorkflowConfig],
         log_level: Literal["critical", "error", "warning", "info", "debug", "trace"] = "info",
@@ -46,7 +52,12 @@ class DPServer:
         self.params_schema = self.params.schema()
         self.generate = generate
         self.log_level = log_level
-        (*_, task_templates, metrics) = generate(self.params)
+
+        handler_output = generate(self.params)
+        self.input_model = handler_output.input_model
+        self.output_model = handler_output.output_model
+        self.post_process_fn = handler_output.post_process_fn
+
         self.workflows = []
         for method in workflows:
             method_name = f"{self.name}.{method.name}"
@@ -55,14 +66,14 @@ class DPServer:
             if method.is_gold:
                 self.workflows.append(MethodResponse(method_name=method_name, role="gold"))
 
-        assert len(metrics) > 0, "At least one metric should be defined"
-        self.metrics_dict = {metric.name: metric for metric in metrics}
+        assert len(handler_output.metrics) > 0, "At least one metric should be defined"
+        self.metrics_dict = {metric.name: metric for metric in handler_output.metrics}
 
-        for task_template in task_templates:
+        for task_template in handler_output.templates:
             assert (
                 task_template.metrics_dict.keys() == self.metrics_dict.keys()
             ), "The metric names in task template should be a same as in metrics"
-        self.task_templates_dict = {task_template.name: task_template for task_template in task_templates}
+        self.task_templates_dict = {task_template.name: task_template for task_template in handler_output.templates}
 
     def run(self):
         app = fastapi.FastAPI()
@@ -73,13 +84,15 @@ class DPServer:
 
         @app.post("/schema", response_model=SchemaServerResponse)
         def handle_post(app_params: RequestModel) -> SchemaServerResponse:
-            input_model, output_model, *_ = self.generate(app_params.params)
+            handler_output = self.generate(app_params.params)
+            input_model, output_model = handler_output.input_model, handler_output.output_model
 
             try:
                 # FastAPI's request body parser seems to ignore some directives
                 # in JSON schema (e.g. `uniqueItems`) so I need to validate again
                 validate(app_params.params.dict(), self.params_schema)
             except ValidationError as e:
+                log.exception(e)
                 raise HTTPException(status_code=422, detail=f"{e.message}")
 
             return SchemaServerResponse(
@@ -101,6 +114,7 @@ class DPServer:
             try:
                 return metric.metric_fn(payload.truths, payload.preds)
             except Exception as e:
+                log.exception(e)
                 raise HTTPException(status_code=422, detail=str(e))
 
         @app.post("/metrics/task/{task_name}/{metric_name}", response_model=Dict[str, MetricCalculateValueResponse])
@@ -116,10 +130,24 @@ class DPServer:
             try:
                 return metric.metric_fn(payload.truths, payload.preds)
             except Exception as e:
+                log.exception(e)
                 raise HTTPException(status_code=422, detail=str(e))
 
         @app.get("/methods", response_model=List[MethodResponse])
         def get_methods():
             return self.workflows
+
+        @app.post("/post-process", response_model=Optional[str])
+        def post_process(output: PostProcessRequestModel) -> Union[str, Response]:
+            if self.post_process_fn is None:
+                # this data program does not implement post-processing
+                return Response(status_code=status.HTTP_204_NO_CONTENT)
+            try:
+                output_response = self.output_model.parse_obj(output.response)
+                context = PostProcessContext(job_uuid=output.job_uuid)
+                return self.post_process_fn(output_response, context)
+            except Exception as e:
+                log.exception(e)
+                raise HTTPException(status_code=422, detail=str(e))
 
         uvicorn.run(app, host="0.0.0.0", port=8001, log_level=self.log_level)
