@@ -79,20 +79,41 @@ class WorkflowConfig:
 class JobContext(Generic[Output]):
     workflow: WorkflowConfig
     send_task: SendTask[Output]
+    job_cache: Optional[dict]
 
-    def __init__(self, workflow: WorkflowConfig, send_task: SendTask[Output]):
+    def __init__(self, workflow: WorkflowConfig, send_task: SendTask[Output], use_job_cache: bool = False):
         self.workflow = workflow
         self.send_task = send_task
+        self.job_cache = {} if use_job_cache else None
 
 
-class Handler(Protocol[Parameters, Input, Output]):
+class PostProcessContext:
+    job_uuid: Optional[str]
+    job_cache: Optional[dict]
+
+    def __init__(self, job_uuid: Optional[str] = None, job_cache: Optional[dict] = None):
+        self.job_uuid = job_uuid
+        self.job_cache = job_cache
+
+
+class HandlerOutput(BaseModel):
+    input_model: Type[Input]
+    output_model: Type[Output]
+    process_fn: Callable[[Input, JobContext], Output]
+    post_process_fn: Optional[Callable[[Output, PostProcessContext], str]]
+    templates: List[TaskTemplate]
+    metrics: List[Metric]
+
+    class Config:
+        arbitrary_types_allowed = True
+
+
+class Handler(Protocol[Parameters]):
     """
     Signature of the data program's "main logic"
     """
 
-    def __call__(
-        self, params: Parameters
-    ) -> Tuple[Type[Input], Type[Output], Callable[[Input, JobContext], Output], List[TaskTemplate], List[Metric]]:
+    def __call__(self, params: Parameters) -> HandlerOutput:
         pass
 
 
@@ -122,6 +143,11 @@ class SchemaServerResponse(BaseModel):
 class MetricRequestModel(BaseModel):
     truths: List[dict]
     preds: List[dict]
+
+
+class PostProcessRequestModel(BaseModel):
+    job_uuid: str
+    response: dict
 
 
 class MethodResponse(BaseModel):
