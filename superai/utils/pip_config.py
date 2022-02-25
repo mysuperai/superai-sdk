@@ -2,8 +2,8 @@ import os
 import subprocess
 
 import boto3
-
 from colorama import Fore, Style
+
 from superai.exceptions import SuperAIConfigurationError
 from superai.log import logger
 

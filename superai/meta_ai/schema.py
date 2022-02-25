@@ -1,4 +1,4 @@
-from typing import Optional, Union, Dict, List
+from typing import Dict, List, Optional, Union
 
 import jsonpickle  # type: ignore
 from apm import *  # type: ignore

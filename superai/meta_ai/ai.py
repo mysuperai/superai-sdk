@@ -12,33 +12,31 @@ import subprocess
 import tarfile
 import time
 import traceback
-from typing import Dict, List, TYPE_CHECKING, Union, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 from urllib.parse import urlparse
 
 import boto3  # type: ignore
 import requests
 import yaml
-
 from docker import DockerClient
 from docker.errors import ImageNotFound
 
-from superai import Client
-from superai import settings
+from superai import Client, settings
 from superai.exceptions import ModelNotFoundError
 from superai.log import logger
 from superai.meta_ai.ai_helper import (
-    get_user_model_class,
-    list_models,
-    get_ecr_image_name,
     create_model_entrypoint,
     create_model_handler,
+    get_ecr_image_name,
+    get_user_model_class,
+    list_models,
 )
-from superai.meta_ai.deployed_predictors import LocalPredictor, DeployedPredictor, AWSPredictor
+from superai.meta_ai.deployed_predictors import AWSPredictor, DeployedPredictor, LocalPredictor
 from superai.meta_ai.dockerizer import get_docker_client, push_image
 from superai.meta_ai.environment_file import EnvironmentFileProcessor
-from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters, Config, TrainingParameters
-from superai.meta_ai.schema import Schema, SchemaParameters, EasyPredictions
-from superai.utils import retry, load_api_key, load_auth_token, load_id_token
+from superai.meta_ai.parameters import Config, HyperParameterSpec, ModelParameters, TrainingParameters
+from superai.meta_ai.schema import EasyPredictions, Schema, SchemaParameters
+from superai.utils import load_api_key, load_auth_token, load_id_token, retry
 
 if TYPE_CHECKING:
     from superai.meta_ai import BaseModel
@@ -1467,14 +1465,14 @@ class AI:
             kwargs["k8s_mode"] = orchestrator == TrainingOrchestrator.LOCAL_DOCKER_K8S
         else:
             if not skip_build:
-                ecr_image_name = self.push_model(self.name, str(self.version))
+                self.push_model(self.name, str(self.version))
             else:
-                ecr_image_name = get_ecr_image_name(self.name, self.version)
+                get_ecr_image_name(self.name, self.version)
             kwargs = dict(client=self.client, name=self.name, version=str(self.version))
             if self.id is None:
                 raise LookupError(
                     "Cannot establish id, please make sure you push the AI model to create a database entry"
                 )
             assert training_parameters is not None
-            train_params_dict = json.loads(training_parameters.to_json())
+            json.loads(training_parameters.to_json())
             # TODO: Now that training parameters are loaded, add sections on meta-ai deployment

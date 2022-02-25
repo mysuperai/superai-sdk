@@ -233,7 +233,7 @@ def test_key_removed(with_tmp_secrets_file):
     assert secrets_after == content
     path = "my_key__sub_key__deleted_key"
     remove_secret_settings(path)
-    value = content.get("my_key").get("sub_key").pop("deleted_key")
+    content.get("my_key").get("sub_key").pop("deleted_key")
     with open(secrets_path, "r") as f:
         secrets_after = dict(yaml.load(f, yaml.SafeLoader) or {})
     assert secrets_after.items() <= content.items()

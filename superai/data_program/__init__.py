@@ -1,12 +1,11 @@
-from .task import Task, Worker
-from .workflow import Workflow
+from .task import Task, Worker  # noqa
+from .workflow import Workflow  # noqa
 from .data_program import (
     DataProgram,
-    WorkflowConfig,
     JobContext,
-    Metric,
-    HandlerOutput,
     PostProcessContext,
     TaskTemplate,
+    WorkflowConfig,
 )
+from .types import HandlerOutput, Metric
 from .project import Project

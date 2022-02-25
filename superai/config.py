@@ -8,7 +8,6 @@ import yaml
 from dynaconf import Dynaconf, Validator
 from jsonmerge import merge
 
-from superai.exceptions import SuperAIConfigurationError
 from superai.log import logger
 
 local = pathlib.Path(__file__).parent.absolute()
@@ -124,7 +123,7 @@ def add_secret_settings(content: dict = None):
     """
     content = content or {}
     secrets_path = os.path.expanduser(__secrets_path)
-    secrets_folder = os.path.dirname(__secrets_path)
+    os.path.dirname(__secrets_path)
     _log.debug(f"Secrets path {os.path.dirname(secrets_path)}")
     ensure_path_exists(secrets_path)
 

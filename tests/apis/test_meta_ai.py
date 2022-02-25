@@ -1,15 +1,15 @@
-import logging
+import ast
 import pathlib
+
+import pytest
+import vcr  # type: ignore
 
 import superai.apis.meta_ai.model
 from superai import Client
-from superai.apis.meta_ai import ModelApiMixin, ProjectAiApiMixin
-import pytest
-import vcr  # type: ignore
-import ast
+from superai.apis.meta_ai import ProjectAiApiMixin
 
 # To record new cassette, use real app_id and run pytest against running endpoint
-from superai.apis.meta_ai.meta_ai_graphql_schema import meta_ai_prediction, meta_ai_instance
+from superai.apis.meta_ai.meta_ai_graphql_schema import meta_ai_instance, meta_ai_prediction
 
 APP_ID = "1e266751-4f5e-4bdd-9709-c381c72ded6d"
 

@@ -1,6 +1,5 @@
 import sgqlc.types
 
-
 meta_ai_graphql_schema = sgqlc.types.Schema()
 
 
