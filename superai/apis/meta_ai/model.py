@@ -1,38 +1,36 @@
 import json
 import time
 from abc import ABC
-from typing import Tuple, List, Union, Dict, Optional
+from typing import Dict, List, Optional, Tuple, Union
 
 from rich import box
+from rich.console import Console
 from rich.live import Live
 from rich.table import Table
 from sgqlc.operation import Operation  # type: ignore
-from rich.console import Console
-
-from superai.log import logger
-from .session import MetaAISession, MetaAIWebsocketSession  # type: ignore
-
 
 from superai.apis.meta_ai.meta_ai_graphql_schema import (
+    RawPrediction,
+    meta_ai_deployment_insert_input,
+    meta_ai_deployment_pk_columns_input,
+    meta_ai_deployment_purpose_enum,
+    meta_ai_deployment_set_input,
+    meta_ai_deployment_status_enum,
+    meta_ai_deployment_type_enum,
+    meta_ai_model,
     meta_ai_model_insert_input,
     meta_ai_model_pk_columns_input,
     meta_ai_model_set_input,
-    meta_ai_deployment_insert_input,
-    meta_ai_deployment_pk_columns_input,
-    meta_ai_deployment_set_input,
+    meta_ai_prediction,
+    meta_ai_prediction_state_enum,
     meta_ai_visibility_enum,
     mutation_root,
     query_root,
-    meta_ai_deployment_type_enum,
-    meta_ai_deployment_purpose_enum,
-    meta_ai_deployment_status_enum,
-    meta_ai_assignment_enum,
-    meta_ai_model,
     subscription_root,
-    meta_ai_prediction,
-    meta_ai_prediction_state_enum,
-    RawPrediction,
 )
+from superai.log import logger
+
+from .session import MetaAISession, MetaAIWebsocketSession  # type: ignore
 
 log = logger.get_logger(__name__)
 BASE_FIELDS = ["name", "version", "id", "ai_worker_id", "visibility"]
@@ -536,7 +534,7 @@ class DeploymentApiMixin(ABC):
         try:
             output = (op + data).meta_ai_prediction_by_pk
             return output
-        except AttributeError as e:
+        except AttributeError:
             log.info(f"No prediction found for prediction_id:{prediction_id}.")
 
     def wait_for_prediction_completion(
@@ -615,7 +613,7 @@ class DeploymentApiMixin(ABC):
         try:
             output = (op + data).meta_ai_prediction_by_pk
             return output
-        except AttributeError as e:
+        except AttributeError:
             log.info(f"No prediction found for prediction_id:{prediction_id}.")
 
     def submit_prediction_request(self, model_id: str, input_data: dict, parameters: dict = None) -> str:

@@ -1,20 +1,19 @@
-import os
-
-import click
 import json
+import os
 import signal
 import sys
-
-from requests import ReadTimeout
-from rich import print
-import yaml
-from botocore.exceptions import ClientError
 from datetime import datetime
 from typing import List
-from pycognito import Cognito
 
-from superai.apis.meta_ai.model import PredictionError
+import click
+import yaml
+from botocore.exceptions import ClientError
+from pycognito import Cognito
+from requests import ReadTimeout
+from rich import print
+
 from superai import __version__
+from superai.apis.meta_ai.model import PredictionError
 from superai.client import Client
 from superai.config import get_config_dir, list_env_configs, set_env_config, settings
 from superai.exceptions import SuperAIAuthorizationError
@@ -22,7 +21,6 @@ from superai.log import logger
 from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters
 from superai.utils import load_api_key, remove_aws_credentials, save_api_key, save_aws_credentials, save_cognito_user
 from superai.utils.pip_config import pip_configure
-
 
 BASE_FOLDER = get_config_dir()
 COGNITO_USERPOOL_ID = settings.get("cognito", {}).get("userpool_id")
@@ -62,7 +60,6 @@ def env(ctx):
     """
     super.AI Config operations
     """
-    pass
 
 
 @env.command(name="list")
@@ -99,7 +96,7 @@ def client(ctx):
     api_key = ""
     try:
         api_key = load_api_key()
-    except Exception as e:
+    except Exception:
         pass
     if len(api_key) == 0:
         print("User needs to login or set api key")
@@ -537,7 +534,6 @@ def logout():
 @cli.group()
 def ai():
     """View, list and control models and their deployments."""
-    pass
 
 
 @ai.command("list")
@@ -590,7 +586,6 @@ def update_ai(client, id: str, name: str, description: str, visibility: str):
 @ai.group()
 def method():
     """Directly call the AI methods to train and predict"""
-    pass
 
 
 @method.command("train", help="Start training of an AI object")
@@ -823,7 +818,6 @@ def predict(client, id: str, data: str, parameters: str, timeout: int):
 @ai.group()
 def prediction():
     """View and list predictions"""
-    pass
 
 
 @prediction.command("view")
@@ -877,7 +871,6 @@ def scaling(client, id: str, min_instances: int, scale_in_timeout: int):
 @ai.group()
 def docker():
     """Docker specific commands"""
-    pass
 
 
 @docker.command(name="build", help="Build a docker image for a sagemaker model.")
@@ -988,9 +981,7 @@ def docker_run_local(image_name, model_path, gpu):
     "--body", "-b", required=True, help="Body of payload to be sent to the invocation. Can be a path to a file as well."
 )
 def docker_invoke_local(mime, body):
-    from superai.meta_ai.dockerizer.sagemaker_endpoint import (
-        invoke_local,
-    )
+    from superai.meta_ai.dockerizer.sagemaker_endpoint import invoke_local
 
     invoke_local(mime, body)
 

@@ -2,7 +2,7 @@ import ast
 import enum
 import json
 import logging
-from typing import Optional, List, Union, Any, Callable
+from typing import Any, Callable, List, Optional, Union
 
 import jsonpickle  # type: ignore
 

@@ -1,13 +1,13 @@
 import json
 import os
 
+import sklearn
+from test_local_folder.test_another_module import deep_imported_random_string
+from testing_local_module import random_string
+
 from superai.meta_ai import BaseModel
 from superai.meta_ai.base.base_ai import default_random_seed
 from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters
-
-import sklearn
-from testing_local_module import random_string
-from test_local_folder.test_another_module import deep_imported_random_string
 
 
 class Model(BaseModel):
@@ -15,7 +15,6 @@ class Model(BaseModel):
     def load_weights(cls, weights_path):
         print(sklearn.__version__)
         print(list(os.walk(weights_path)))
-        pass
 
     def predict(self, inputs, context=None):
         print(random_string())

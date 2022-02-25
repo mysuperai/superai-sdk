@@ -1,6 +1,8 @@
-from superai_schema.types import BaseModel, Field, UiWidget
-from superai.data_program.dp_server import DPServer, Metric, WorkflowConfig
 from typing import List
+
+from superai_schema.types import BaseModel, Field, UiWidget
+
+from superai.data_program.dp_server import DPServer, Metric, WorkflowConfig
 
 
 class Parameters(BaseModel):

@@ -12,8 +12,8 @@ from rich import print
 from rich.prompt import Confirm
 
 from superai import Client
-from superai.meta_ai.schema import EasyPredictions
 from superai.meta_ai.dockerizer import get_docker_client
+from superai.meta_ai.schema import EasyPredictions
 from superai.utils import log
 
 
@@ -50,7 +50,6 @@ class LocalPredictor(DeployedPredictor):
                     container.kill()
                 except Exception as e:
                     log.info(f"Ignorable exception: {e}")
-                    pass
 
                 log.info(f"Starting new container with name {container_name}.")
                 self.container: Container = client.containers.run(

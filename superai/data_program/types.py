@@ -1,8 +1,7 @@
-from typing import Callable, Optional, Type, TypeVar, Tuple, Generic, List, Dict
-from typing_extensions import Protocol, TypedDict
+from typing import Callable, Dict, Generic, List, Optional, Type, TypeVar
 
 from superai_schema.types import BaseModel
-
+from typing_extensions import Protocol, TypedDict
 
 Input = TypeVar("Input", bound=BaseModel)
 Output = TypeVar("Output", bound=BaseModel)

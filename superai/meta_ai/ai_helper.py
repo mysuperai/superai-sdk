@@ -6,7 +6,7 @@ from typing import Dict, List, Union
 
 import boto3
 import pandas as pd
-from jinja2 import Environment, select_autoescape, PackageLoader
+from jinja2 import Environment, PackageLoader, select_autoescape
 
 from superai import Client
 from superai.log import logger

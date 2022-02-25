@@ -2,8 +2,6 @@ import logging
 import time
 from functools import wraps
 
-from superai.log import logger
-
 
 def retry(exceptions, tries=5, delay=1, backoff=2, logger=logging):
     """

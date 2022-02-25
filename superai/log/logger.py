@@ -3,11 +3,12 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import itertools
 import logging
-import sys
 import os
+import sys
 from logging.handlers import RotatingFileHandler
-from rich.logging import RichHandler
 from typing import List
+
+from rich.logging import RichHandler
 
 DEBUG = logging.DEBUG
 INFO = logging.INFO

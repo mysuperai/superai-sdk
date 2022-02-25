@@ -1,6 +1,6 @@
 from abc import ABC
 
-from .model import ModelApiMixin, DeploymentApiMixin, TrainApiMixin
+from .model import DeploymentApiMixin, ModelApiMixin, TrainApiMixin
 from .project_ai import ProjectAiApiMixin
 
 

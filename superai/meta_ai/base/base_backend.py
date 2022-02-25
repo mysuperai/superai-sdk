@@ -21,13 +21,11 @@ class BaseBackend(object):
             port: Port to use for the AI deployment.
             host: Host to use for the AI deployment. Defaults to ``localhost``.
         """
-        pass
 
     def prepare_env(self, model_uri):
         """Performs any preparation necessary to predict or serve the AI, for example downloading dependencies or
         initializing a conda environment. After preparation, calling predict or serve should be fast.
         """
-        pass
 
     @abstractmethod
     def can_score_ai(self):
@@ -36,11 +34,11 @@ class BaseBackend(object):
         Returns:
             True if this flavor backend can be applied in the current environment.
         """
-        pass
 
     def can_build_image(self):
         """
         Returns:
-            True if this backend has a `build_image` method defined for building a docker container capable of serving the model. Otherwise, false.
+            True if this backend has a `build_image` method defined for building a docker container capable of serving
+            the model. Otherwise, false.
         """
         return callable(getattr(self.__class__, "build_image", None))

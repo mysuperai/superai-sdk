@@ -2,7 +2,7 @@ import logging
 import os
 
 import sentry_sdk
-from sentry_sdk.integrations.logging import ignore_logger, LoggingIntegration
+from sentry_sdk.integrations.logging import LoggingIntegration, ignore_logger
 
 from superai import __version__
 from superai.config import settings

@@ -4,10 +4,11 @@ from urllib.request import urlopen
 import cv2
 import numpy as np
 import superai_schema.universal_schema.task_schema_functions as df
-from superai.meta_ai import BaseModel
-from superai.utils import log
 from tensorflow import keras
 from tensorflow.keras import layers
+
+from superai.meta_ai import BaseModel
+from superai.utils import log
 
 
 class MyEncodeDecodeModel(BaseModel):

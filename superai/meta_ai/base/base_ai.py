@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 
 import boto3
 
-from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters, Config
+from superai.meta_ai.parameters import Config, HyperParameterSpec, ModelParameters
 from superai.meta_ai.schema import Schema, SchemaParameters
 from superai.meta_ai.tracking import SuperTracker
 
@@ -81,7 +81,6 @@ class BaseModel(metaclass=ABCMeta):
             context: A :class:`~BaseModelContext` instance containing artifacts §that the model
                         can use to perform inference.
         """
-        pass
 
     @abstractmethod
     def load_weights(self, weights_path: str):
@@ -91,7 +90,6 @@ class BaseModel(metaclass=ABCMeta):
         Args:
             weights_path: Relative path or remote S3 URI.
         """
-        pass
 
     def load(self):
         """Seldon helper function to call the load_weights method. Seldon runs this method during the provision of
@@ -176,7 +174,6 @@ class BaseModel(metaclass=ABCMeta):
         Returns
             Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
-        pass
 
     @abstractmethod
     def train(
@@ -210,7 +207,6 @@ class BaseModel(metaclass=ABCMeta):
         Returns:
             Model URI.
         """
-        pass
 
     def handle(self, data, context):
         """Call preprocess, inference, and post-process functions.
@@ -256,7 +252,6 @@ class BaseModel(metaclass=ABCMeta):
 
     def metrics(self):
         """Helper function to return metrics used by prometheus"""
-        pass
 
 
 class BaseModelContext(object):
