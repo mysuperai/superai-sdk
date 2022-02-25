@@ -8,15 +8,15 @@ import shutil
 import time
 
 import pytest
-import superai
 import vcr
-from superai import DeploymentApiMixin, ModelApiMixin, ProjectAiApiMixin
-from superai.meta_ai import BaseModel
-from superai.meta_ai.ai import AI, Orchestrator, DeployedPredictor, LocalPredictor, AWSPredictor, AITemplate
+
+import superai
+from superai.apis.meta_ai import ModelApiMixin, ProjectAiApiMixin, DeploymentApiMixin
+from superai.meta_ai.ai import AI, AITemplate, AWSPredictor, DeployedPredictor, LocalPredictor, Orchestrator
 from superai.meta_ai.parameters import Config
 from superai.meta_ai.schema import Schema
 from superai.utils import log
-from tests.apis.test_meta_ai import APP_ID, scrub_string, before_record_cb
+from tests.apis.test_meta_ai import APP_ID, before_record_cb, scrub_string
 
 weights_path = os.path.join(os.path.dirname(__file__), "../../docs/examples/ai/resources/my_model")
 
@@ -80,7 +80,6 @@ def ai(cleanup):
 def test_create_model(model_api, caplog):
     # TODO: Fix logging
     caplog.set_level(logging.INFO)
-    model_name = "my_mnist_model"
 
     template = AITemplate(
         input_schema=Schema(),

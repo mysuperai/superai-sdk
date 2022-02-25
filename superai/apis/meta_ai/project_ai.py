@@ -5,25 +5,24 @@ from typing import List, Union
 from sgqlc.operation import Operation
 
 from superai.log import logger
+
 from .session import MetaAISession
 
 log = logger.get_logger(__name__)
 
 from superai.apis.meta_ai.meta_ai_graphql_schema import (
     Boolean_comparison_exp,
-    String_comparison_exp,
     meta_ai_app_bool_exp,
     meta_ai_app_constraint,
     meta_ai_app_insert_input,
     meta_ai_app_on_conflict,
-    meta_ai_assignment_bool_exp,
     meta_ai_assignment_enum,
+    meta_ai_assignment_enum_comparison_exp,
     meta_ai_instance_insert_input,
     meta_ai_prediction_insert_input,
     mutation_root,
     query_root,
     uuid_comparison_exp,
-    meta_ai_assignment_enum_comparison_exp,
 )
 
 
@@ -51,7 +50,7 @@ class ProjectAiApiMixin(ABC):
         try:
             output = (op + data).meta_ai_app
             return output
-        except AttributeError as e:
+        except AttributeError:
             log.info(f"No models for project with id: {app_id} and assignment type {assignment}")
 
     def project_set_model(
@@ -93,7 +92,7 @@ class ProjectAiApiMixin(ABC):
         try:
             output = (op + data).meta_ai_app_by_pk.model.predictions
             return output
-        except AttributeError as e:
+        except AttributeError:
             log.info(f"No predictions for project with id: {app_id} and model_id:{model_id}")
 
     def list_prediction_instances(self, app_id: str, prediction_id: str):
@@ -104,7 +103,7 @@ class ProjectAiApiMixin(ABC):
         try:
             output = (op + data).meta_ai_prediction_by_pk.instances
             return output
-        except AttributeError as e:
+        except AttributeError:
             log.info(f"No prediction instances found for prediction_id:{prediction_id}.")
 
     def view_prediction_instance(self, app_id: str, prediction_id: str, instance_id):
@@ -118,7 +117,7 @@ class ProjectAiApiMixin(ABC):
         try:
             output = (op + data).meta_ai_instance_by_pk
             return output
-        except AttributeError as e:
+        except AttributeError:
             log.info(f"No prediction instance found for prediction_id:{prediction_id} and instance_id:{instance_id}")
 
     def view_prediction(self, app_id: str, prediction_id: str):
@@ -139,7 +138,7 @@ class ProjectAiApiMixin(ABC):
         try:
             output = (op + data).meta_ai_prediction_by_pk
             return output
-        except AttributeError as e:
+        except AttributeError:
             log.info(f"No prediction found for prediction_id:{prediction_id}.")
 
     def submit_prelabel(

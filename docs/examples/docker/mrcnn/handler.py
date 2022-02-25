@@ -189,7 +189,7 @@ class ModelService(BaseModel):
             prediction = self.predict_from_image(image_path)
             print("predict from image done.")
             new_masks = prediction["new_masks"]
-            aggregate_mask = prediction["aggregate_mask"]
+            prediction["aggregate_mask"]
             n_masks = new_masks.shape[-1]
             pred = []
             for inst in range(n_masks):

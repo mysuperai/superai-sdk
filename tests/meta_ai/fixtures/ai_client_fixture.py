@@ -2,6 +2,7 @@ import pathlib
 
 import pytest
 import vcr
+
 from superai import AiApiMixin
 
 """

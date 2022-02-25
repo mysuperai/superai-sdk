@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from sgqlc.endpoint.requests import RequestsEndpoint
 from sgqlc.endpoint.websocket import WebSocketEndpoint
 from sgqlc.operation import Operation
+
 from superai.config import settings
 from superai.utils.apikey_manager import load_api_key
 from superai.utils.decorators import retry

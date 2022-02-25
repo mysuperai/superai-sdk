@@ -6,7 +6,6 @@ import vcr
 
 from superai.client import Client
 
-
 # To record new cassette, use real app_id and run pytest against runnig endpoint
 
 

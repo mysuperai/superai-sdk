@@ -1,6 +1,7 @@
 import os.path
 
 import pytest
+
 from superai.meta_ai.environment_file import EnvironmentFileProcessor
 
 LOCATION = "."

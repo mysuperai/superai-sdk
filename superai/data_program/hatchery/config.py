@@ -1,7 +1,7 @@
 from typing import List
 
-from superai.utils import load_api_key
 from superai.config import settings
+from superai.utils import load_api_key
 
 
 class BuildConfig(object):

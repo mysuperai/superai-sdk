@@ -9,11 +9,12 @@ from superai.client import Client
 from superai.config import settings
 from superai.log import logger
 from superai.utils import load_api_key, load_auth_token, load_id_token
-from .base import DataProgramBase
-from .task import Worker
-from .data_program import DataProgram
-from .utils import IgnoreInAgent
+
 from ..meta_ai import AI
+from .base import DataProgramBase
+from .data_program import DataProgram
+from .task import Worker
+from .utils import IgnoreInAgent
 
 log = logger.get_logger(__name__)
 

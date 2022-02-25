@@ -1,4 +1,4 @@
-from superai.meta_ai.parameters import parameter_processor, HyperParameterSpec, ModelParameters, TrainingParameters
+from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters, TrainingParameters, parameter_processor
 
 
 def test_parameter_processor():

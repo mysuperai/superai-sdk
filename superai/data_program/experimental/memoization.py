@@ -193,7 +193,6 @@ def delete_all_objects(Bucket, Prefix, MaxKeys=50, KeyMarker=None):
         log.info(f"Deleted Memo Bucket={Bucket}, Delete='Objects': {objects}")
 
     except:
-        pass
         try:
             objects = []
             delete_markers = version_list["DeleteMarkers"]
@@ -204,6 +203,5 @@ def delete_all_objects(Bucket, Prefix, MaxKeys=50, KeyMarker=None):
 
             log.info(f"Deleted Memo Bucket={Bucket}, Delete='Objects': {objects}")
         except:
-            pass
-            IsTruncated = version_list["IsTruncated"]
+            IsTruncated = version_list["IsTruncated"]  # noqa
             KeyMarker = version_list["NextKeyMarker"]

@@ -9,7 +9,7 @@ import requests
 from superai_schema.types import BaseModel, Field, UiWidget
 
 from superai.data_program.dp_server import DPServer
-from superai.data_program.types import Metric, WorkflowConfig, HandlerOutput
+from superai.data_program.types import HandlerOutput, Metric, WorkflowConfig
 
 
 def run_server():

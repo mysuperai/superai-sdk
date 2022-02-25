@@ -5,17 +5,18 @@ import time
 import boto3  # type: ignore
 import docker  # type: ignore
 import requests
-from docker import DockerClient  # type: ignore
-from docker.errors import APIError  # type: ignore
 from boto3.session import Session  # type: ignore
 from botocore.exceptions import ClientError  # type: ignore
+from docker import DockerClient  # type: ignore
+from docker.errors import APIError  # type: ignore
 from jinja2 import Template
-from superai.log import logger
-from superai.exceptions import ModelDeploymentError
-from rich.progress import Progress, BarColumn, DownloadColumn, Text, Task
+from rich.progress import BarColumn, DownloadColumn, Progress, Task, Text
 
-from .sagemaker_endpoint import create_endpoint, invoke_sagemaker_endpoint, upload_model_to_s3, invoke_local
+from superai.exceptions import ModelDeploymentError
+from superai.log import logger
+
 from ... import config
+from .sagemaker_endpoint import create_endpoint, invoke_local, invoke_sagemaker_endpoint, upload_model_to_s3
 
 log = logger.get_logger(__name__)
 

@@ -6,9 +6,9 @@ import uuid
 from docs.examples.ai.utilities import MockedReturns
 from superai.data_program import Project, Worker
 from superai.meta_ai import AI
-from superai.meta_ai.ai import Orchestrator, LocalPredictor, AWSPredictor, list_models, AITemplate
-from superai.meta_ai.parameters import HyperParameterSpec, String, Config
-from superai.meta_ai.schema import Image, SingleChoice, Schema
+from superai.meta_ai.ai import AITemplate, AWSPredictor, LocalPredictor, Orchestrator, list_models
+from superai.meta_ai.parameters import Config, HyperParameterSpec, String
+from superai.meta_ai.schema import Image, Schema, SingleChoice
 from superai.utils import log
 
 ###########################################################################
@@ -267,7 +267,7 @@ with m.sage_check(False) as sch, m.undep as ud:
     my_ai.undeploy()
     try:
         log.info(f"AWS Predictions: { predictor.predict(input=inputs)}")
-    except LookupError as e:
+    except LookupError:
         pass
 
 ###########################################################################

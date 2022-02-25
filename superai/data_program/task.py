@@ -1,8 +1,8 @@
 import enum
+import uuid
 
 from superai.data_program.Exceptions import TaskExpired, UnknownTaskStatus
 from superai.data_program.protocol.task import task as task
-import uuid
 from superai.log import logger
 
 log = logger.get_logger(__name__)

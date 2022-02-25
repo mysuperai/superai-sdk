@@ -3,7 +3,7 @@ import uuid
 import superai_schema.universal_schema.data_types as dt
 import superai_schema.universal_schema.task_schema_functions as df
 
-from superai.data_program import Project, DataProgram, Worker, Task
+from superai.data_program import DataProgram, Project, Task, Worker
 
 # Defining the dataprogram interface
 dp_definition = {
