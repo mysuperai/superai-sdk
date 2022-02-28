@@ -3,7 +3,7 @@ import os
 import signal
 import sys
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 import click
 import yaml
@@ -19,7 +19,13 @@ from superai.config import get_config_dir, list_env_configs, set_env_config, set
 from superai.exceptions import SuperAIAuthorizationError
 from superai.log import logger
 from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters
-from superai.utils import load_api_key, remove_aws_credentials, save_api_key, save_aws_credentials, save_cognito_user
+from superai.utils import (
+    load_api_key,
+    remove_aws_credentials,
+    save_api_key,
+    save_aws_credentials,
+    save_cognito_user,
+)
 from superai.utils.pip_config import pip_configure
 
 BASE_FOLDER = get_config_dir()
@@ -713,12 +719,27 @@ def deployment():
 
 @deployment.command("list")
 @pass_client
-def list_deployments(client):
+@click.option(
+    "--model_id",
+    type=str,
+    default=None,
+    help="Filter deployments by model id. If not provided, all deployments will be listed",
+)
+@click.option(
+    "--status",
+    type=str,
+    default=None,
+    help="Filter deployments by status. "
+    "If not provided, all deployments will be listed. "
+    "Must be one of the values "
+    '"FAILED", "MAINTENANCE", "OFFLINE", "ONLINE", "PAUSED", "STARTING", "UNKNOWN"',
+)
+def list_deployments(client, model_id: Optional[str] = None, status: Optional[str] = None):
     """List all deployments"""
-    d = client.list_deployments()
+    d = client.list_deployments(model_id=model_id, status=status)
     for deployment in d:
-        print(f"[b][u]Model: {deployment.name}[/b][/u]")
-        print(f"{deployment.deployment}\n")
+        print(f"[b][u]Model: {deployment.model.name}[/b][/u]")
+        print(f"{deployment}\n")
 
 
 @deployment.command("view")

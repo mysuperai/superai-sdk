@@ -7,4 +7,10 @@ from .build import (
     get_build_manifest,
     init_build_path,
 )
-from .shell import create_python_command, execute, execute_verbose, get_directory_size, which
+from .shell import (
+    create_python_command,
+    execute,
+    execute_verbose,
+    get_directory_size,
+    which,
+)

@@ -6,7 +6,13 @@ import uuid
 from docs.examples.ai.utilities import MockedReturns
 from superai.data_program import Project, Worker
 from superai.meta_ai import AI
-from superai.meta_ai.ai import AITemplate, AWSPredictor, LocalPredictor, Orchestrator, list_models
+from superai.meta_ai.ai import (
+    AITemplate,
+    LocalPredictor,
+    Orchestrator,
+    RemotePredictor,
+    list_models,
+)
 from superai.meta_ai.parameters import Config, HyperParameterSpec, String
 from superai.meta_ai.schema import Image, Schema, SingleChoice
 from superai.utils import log
@@ -96,7 +102,7 @@ ai = AI(
 )
 
 ai.push(update_weights=True, overwrite=True)
-predictor: AWSPredictor = ai.deploy(
+predictor: RemotePredictor = ai.deploy(
     orchestrator=Orchestrator.AWS_EKS,
     enable_cuda=True,
     redeploy=True,
@@ -259,7 +265,7 @@ log.info(f"Local predictions: {predictor.predict(input=inputs)}")
 predictor.container.stop()
 
 with m.push as p, m.sage_check(True) as sc, m.sage_pred as sp:
-    predictor: AWSPredictor = my_ai.deploy(orchestrator=Orchestrator.AWS_SAGEMAKER)
+    predictor: RemotePredictor = my_ai.deploy(orchestrator=Orchestrator.AWS_SAGEMAKER)
     log.info(f"AWS Predictions: {predictor.predict(input=inputs)}")
 
 # might not be required for lambdas

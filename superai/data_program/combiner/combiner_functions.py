@@ -2,7 +2,10 @@ from collections import Counter
 
 import superai_schema.universal_schema.task_schema_functions as df
 
-from superai.data_program.combiner.schema_getters import get_exclusive_choice_tag, get_multiple_choice_tags
+from superai.data_program.combiner.schema_getters import (
+    get_exclusive_choice_tag,
+    get_multiple_choice_tags,
+)
 
 
 def basic_majority(value_list):

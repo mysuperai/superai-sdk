@@ -11,8 +11,15 @@ import pytest
 import vcr
 
 import superai
-from superai.apis.meta_ai import ModelApiMixin, ProjectAiApiMixin, DeploymentApiMixin
-from superai.meta_ai.ai import AI, AITemplate, AWSPredictor, DeployedPredictor, LocalPredictor, Orchestrator
+from superai.apis.meta_ai import DeploymentApiMixin, ModelApiMixin, ProjectAiApiMixin
+from superai.meta_ai.ai import (
+    AI,
+    AITemplate,
+    AWSPredictor,
+    DeployedPredictor,
+    LocalPredictor,
+    Orchestrator,
+)
 from superai.meta_ai.parameters import Config
 from superai.meta_ai.schema import Schema
 from superai.utils import log

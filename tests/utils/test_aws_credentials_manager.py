@@ -4,7 +4,10 @@ from pathlib import Path
 import pytest
 
 from superai.utils import save_aws_credentials
-from superai.utils.aws_credentials_manager import _default_aws_config_path, _default_aws_credentials_path
+from superai.utils.aws_credentials_manager import (
+    _default_aws_config_path,
+    _default_aws_credentials_path,
+)
 
 from ..test_config import cleanup_tmp, create_tmp_file
 
