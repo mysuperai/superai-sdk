@@ -21,3 +21,6 @@ exclude = '''
   | superai/apis/meta_ai/meta_ai_graphql_schema.py                   # the root of the project
 )
 '''
+
+[tool.isort]
+profile = "black"

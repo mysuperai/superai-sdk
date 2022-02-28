@@ -8,6 +8,7 @@ meta_ai_graphql_schema.py: meta_ai_schema.json
 
 schema: clean meta_ai_graphql_schema.py
 	black meta_ai_graphql_schema.py
+	isort meta_ai_graphql_schema.py
 
 clean:
 	rm -f meta_ai_schema.json
