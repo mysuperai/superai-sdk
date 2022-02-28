@@ -16,7 +16,12 @@ from superai.exceptions import ModelDeploymentError
 from superai.log import logger
 
 from ... import config
-from .sagemaker_endpoint import create_endpoint, invoke_local, invoke_sagemaker_endpoint, upload_model_to_s3
+from .sagemaker_endpoint import (
+    create_endpoint,
+    invoke_local,
+    invoke_sagemaker_endpoint,
+    upload_model_to_s3,
+)
 
 log = logger.get_logger(__name__)
 

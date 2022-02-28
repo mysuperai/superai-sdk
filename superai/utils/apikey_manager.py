@@ -1,6 +1,11 @@
 import warnings
 
-from superai.config import add_secret_settings, get_config_dir, remove_secret_settings, settings
+from superai.config import (
+    add_secret_settings,
+    get_config_dir,
+    remove_secret_settings,
+    settings,
+)
 from superai.log import logger
 
 BASE_FOLDER = get_config_dir()

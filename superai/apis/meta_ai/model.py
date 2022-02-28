@@ -11,11 +11,14 @@ from sgqlc.operation import Operation  # type: ignore
 
 from superai.apis.meta_ai.meta_ai_graphql_schema import (
     RawPrediction,
+    meta_ai_deployment,
+    meta_ai_deployment_bool_exp,
     meta_ai_deployment_insert_input,
     meta_ai_deployment_pk_columns_input,
     meta_ai_deployment_purpose_enum,
     meta_ai_deployment_set_input,
     meta_ai_deployment_status_enum,
+    meta_ai_deployment_status_enum_comparison_exp,
     meta_ai_deployment_type_enum,
     meta_ai_model,
     meta_ai_model_insert_input,
@@ -27,6 +30,7 @@ from superai.apis.meta_ai.meta_ai_graphql_schema import (
     mutation_root,
     query_root,
     subscription_root,
+    uuid_comparison_exp,
 )
 from superai.log import logger
 
@@ -34,7 +38,7 @@ from .session import MetaAISession, MetaAIWebsocketSession  # type: ignore
 
 log = logger.get_logger(__name__)
 BASE_FIELDS = ["name", "version", "id", "ai_worker_id", "visibility"]
-EXTRA_FIELDS = ["description", "model_save_path", "weights_path", "input_schema", "output_schema"]
+EXTRA_FIELDS = ["description", "model_save_path", "weights_path", "input_schema", "output_schema", "served_by"]
 
 
 class PredictionError(Exception):
@@ -82,6 +86,7 @@ class ModelApiMixin(ABC):
             "input_schema",
             "output_schema",
             "root_id",
+            "served_by",
         )
         data = self.sess.perform_op(op)
         return self._output_formatter((op + data).meta_ai_model_by_pk, to_json)
@@ -305,7 +310,7 @@ class DeploymentApiMixin(ABC):
         deployment_type: meta_ai_deployment_type_enum = "AWS_SAGEMAKER",
         purpose: str = "SERVING",
         properties: dict = None,
-    ):
+    ) -> str:
         """Mutation query to create a new entry in the deployment table, should deploy an endpoint in the action handler
         and store the endpoint name in the table.
 
@@ -320,6 +325,9 @@ class DeploymentApiMixin(ABC):
                     "sagemaker_initial_instance_count": 1
                     "lambda_memory": 256
                     "lambda_timeout": 30
+
+        Returns:
+            str: id of the newly created deployment
         """
         existing_deployment = self.get_deployment(model_id)
         if "status" not in existing_deployment:
@@ -333,22 +341,22 @@ class DeploymentApiMixin(ABC):
                     target_status="ONLINE",
                     properties=json.dumps(properties),
                 )
-            ).__fields__("model_id", "target_status", "created_at")
+            ).__fields__("id", "model_id", "target_status", "created_at")
             data = self.sess.perform_op(op)
             log.info(f"Created new deployment: {data}")
-            model_id = (op + data).insert_meta_ai_deployment_one.model_id
-            self._wait_for_state_change(model_id, field="status", target_status="ONLINE")
-            return model_id
+            deployment_id = (op + data).insert_meta_ai_deployment_one.id
+            self._wait_for_state_change(deployment_id, field="status", target_status="ONLINE")
+            return deployment_id
         else:
             log.info(f"Deployment already exists with properties: {existing_deployment} ")
 
     def _set_target_status(
-        self, model_id: str, target_status: meta_ai_deployment_status_enum
+        self, deployment_id: str, target_status: meta_ai_deployment_status_enum
     ) -> meta_ai_deployment_status_enum:
         op = Operation(mutation_root)
         op.update_meta_ai_deployment_by_pk(
             _set=meta_ai_deployment_set_input(target_status=target_status),
-            pk_columns=meta_ai_deployment_pk_columns_input(model_id=model_id),
+            pk_columns=meta_ai_deployment_pk_columns_input(id=deployment_id),
         ).__fields__("target_status")
         data = self.sess.perform_op(op)
         try:
@@ -357,39 +365,43 @@ class DeploymentApiMixin(ABC):
             Exception("Could not set target status. Check if you have Ownership for this deployment.")
 
     def set_deployment_status(
-        self, model_id: str, target_status: meta_ai_deployment_status_enum, timeout: int = 600
+        self, deployment_id: str, target_status: meta_ai_deployment_status_enum, timeout: int = 600
     ) -> bool:
         """Change status field of an existing deployment.
 
         Args:
-            model_id: The UUID of the model in MetaAI
+            deployment_id: The UUID of the deployment
             target_status: The designated status of the deployment which the backend will fulfill
             timeout: The number of seconds to wait for a status change in a polling fashion
         """
-        model_deployment = self.get_deployment(model_id)
+        model_deployment = self.get_deployment(deployment_id)
         current_status = model_deployment["status"]
         current_target_status = model_deployment["target_status"]
 
         if current_status == target_status:
             if current_status != target_status:
                 logger.info(f"Deployment status not consistent. Setting field target_status to {target_status}")
-                stored_target_status = self._set_target_status(model_id, target_status)
+                stored_target_status = self._set_target_status(deployment_id, target_status)
                 return stored_target_status == target_status
             return True
         elif current_status != target_status and current_target_status == target_status:
-            return self._wait_for_state_change(model_id, field="status", target_status=target_status, timeout=timeout)
+            return self._wait_for_state_change(
+                deployment_id, field="status", target_status=target_status, timeout=timeout
+            )
         else:
-            stored_target_status = self._set_target_status(model_id, target_status)
+            stored_target_status = self._set_target_status(deployment_id, target_status)
             assert stored_target_status == target_status, "Could not set Deployment target_status properly."
-            return self._wait_for_state_change(model_id, field="status", target_status=target_status, timeout=timeout)
+            return self._wait_for_state_change(
+                deployment_id, field="status", target_status=target_status, timeout=timeout
+            )
 
-    def _wait_for_state_change(self, model_id: str, field: str, target_status, timeout=600):
+    def _wait_for_state_change(self, deployment_id: str, field: str, target_status, timeout=600):
         console = Console()
         end_time = time.time() + timeout
         retries = 0
         with console.status("[bold green]Waiting for status change...") as status:
             while time.time() < end_time:
-                backend_status = self.get_deployment(model_id)[field]
+                backend_status = self.get_deployment(deployment_id)[field]
                 if backend_status == target_status:
                     console.log(f"[green]Success: [b]{field}[/b] achieved [b]{target_status}[/b]")
                     return True
@@ -404,85 +416,87 @@ class DeploymentApiMixin(ABC):
         console.log(f"[red][b]{field}[/b] did not reach [b]{target_status}[/b] after [b]{timeout}[/b] seconds")
         return False
 
-    def set_image(self, model_id: str, ecr_image_name: str) -> object:
+    def set_image(self, deployment_id: str, ecr_image_name: str) -> object:
         """Change image of an existing deployment.
 
         Args:
-            model_id:
-            ecr_image_name:
+            deployment_id: UUID of the deployment
+            ecr_image_name: URI of the ECR image
         """
         op = Operation(mutation_root)
         op.update_meta_ai_deployment_by_pk(
             _set=meta_ai_deployment_set_input(image=ecr_image_name),
-            pk_columns=meta_ai_deployment_pk_columns_input(model_id=model_id),
-        ).__fields__("model_id", "image")
+            pk_columns=meta_ai_deployment_pk_columns_input(id=deployment_id),
+        ).__fields__("id", "model_id", "image")
         data = self.sess.perform_op(op)
         return (op + data).update_meta_ai_deployment_by_pk
 
-    def set_min_instances(self, model_id: str, min_instances: int) -> object:
+    def set_min_instances(self, deployment_id: str, min_instances: int) -> object:
         """Change minimum instances of an existing deployment.
         Setting `min_instances=0` allows the backend to automatically pause deployments to save resources.
         To set the timeout for this behaviour, use `set_scale_in_timeout`.
 
         Args:
-            model_id:
+            deployment_id:
             min_instances:
         """
         assert min_instances >= 0, "min_instances needs to be non-negative"
         op = Operation(mutation_root)
         op.update_meta_ai_deployment_by_pk(
             _set=meta_ai_deployment_set_input(min_instances=min_instances),
-            pk_columns=meta_ai_deployment_pk_columns_input(model_id=model_id),
-        ).__fields__("model_id", "min_instances")
+            pk_columns=meta_ai_deployment_pk_columns_input(id=deployment_id),
+        ).__fields__("id", "model_id", "min_instances")
         data = self.sess.perform_op(op)
         return (op + data).update_meta_ai_deployment_by_pk
 
-    def set_scale_in_timeout(self, model_id: str, timeout_mins: int) -> object:
+    def set_scale_in_timeout(self, deployment_id: str, timeout_mins: int) -> object:
         """Change scale in timeout of an existing deployment.
         After a deployment makes no predictions for `timeout_mins` minutes, it gets `PAUSED`.
         A paused deployment has no active computing resources.
-        To resume a paused deployment, you can use `set_deployment_status(model_id=..., target_status=ONLINE)`
+        To resume a paused deployment, you can use `set_deployment_status(deployment_id=..., target_status=ONLINE)`
 
         Args:
-            model_id:
+            deployment_id:
             timeout_mins:
         """
         op = Operation(mutation_root)
         op.update_meta_ai_deployment_by_pk(
             _set=meta_ai_deployment_set_input(scale_in_timeout=timeout_mins),
-            pk_columns=meta_ai_deployment_pk_columns_input(model_id=model_id),
-        ).__fields__("model_id", "scale_in_timeout")
+            pk_columns=meta_ai_deployment_pk_columns_input(id=deployment_id),
+        ).__fields__("id", "model_id", "scale_in_timeout")
         data = self.sess.perform_op(op)
         return (op + data).update_meta_ai_deployment_by_pk
 
-    def set_deployment_properties(self, model_id: str, properties: dict) -> object:
+    def set_deployment_properties(self, deployment_id: str, properties: dict) -> object:
         """Change properties of a deployment used next time a deployment instance is created.
 
         Args:
-            model_id: str
+            deployment_id: str
             properties: dict
         """
         op = Operation(mutation_root)
         op.update_meta_ai_deployment_by_pk(
             _set=meta_ai_deployment_set_input(properties=json.dumps(properties)),
-            pk_columns=meta_ai_deployment_pk_columns_input(model_id=model_id),
-        ).__fields__("model_id", "properties")
+            pk_columns=meta_ai_deployment_pk_columns_input(id=deployment_id),
+        ).__fields__("id", "model_id", "properties")
         data = self.sess.perform_op(op)
         return (op + data).update_meta_ai_deployment_by_pk
 
-    def undeploy(self, model_id: str) -> bool:
-        """Remove an entry from the deployment table. Action handler should delete the endpoint.
-        Return True if deleted successfully.
-
+    def undeploy(self, deployment_id: str) -> bool:
+        """Stop a running deployment.
+        Return True if stopped successfully.
         Args:
-            model_id:
+            deployment_id:
         """
-        return self.set_deployment_status(model_id=model_id, target_status=meta_ai_deployment_status_enum.OFFLINE)
+        return self.set_deployment_status(
+            deployment_id=deployment_id, target_status=meta_ai_deployment_status_enum.OFFLINE
+        )
 
-    def get_deployment(self, model_id) -> dict:
+    def get_deployment(self, deployment_id: str) -> dict:
         """Retrieves deployment entry"""
         opq = Operation(query_root)
-        opq.meta_ai_deployment_by_pk(model_id=model_id).__fields__(
+        opq.meta_ai_deployment_by_pk(id=deployment_id).__fields__(
+            "id",
             "model_id",
             "status",
             "target_status",
@@ -497,14 +511,30 @@ class DeploymentApiMixin(ABC):
         res = (opq + data).meta_ai_deployment_by_pk
         return res
 
-    def list_deployments(self) -> List[meta_ai_model]:
-        """Retrieves deployment entry"""
+    def list_deployments(
+        self, model_id: Optional[str] = None, status: Optional[meta_ai_deployment_status_enum] = None
+    ) -> List[meta_ai_deployment]:
+        """
+        Retrieves list of deployments.
+        Allows filtering by model_id or status.
+
+        Args:
+            model_id: str
+            status: meta_ai_deployment_status_enum
+                One of "FAILED", "MAINTENANCE", "OFFLINE", "ONLINE", "PAUSED", "STARTING", "UNKNOWN"
+
+        """
         opq = Operation(query_root)
-        models = opq.meta_ai_model()
-        deployments = models.deployment()
-        models.__fields__("name")
+        filter = {}
+        if model_id:
+            filter["model_id"] = uuid_comparison_exp(_eq=model_id)
+        if status:
+            filter["status"] = meta_ai_deployment_status_enum_comparison_exp(_eq=status)
+        deployments = opq.meta_ai_deployment(where=meta_ai_deployment_bool_exp(**filter))
+        models = deployments.model()
+        models.__fields__("name", "id")
         deployments.__fields__(
-            "model_id",
+            "id",
             "status",
             "target_status",
             "created_at",
@@ -515,12 +545,12 @@ class DeploymentApiMixin(ABC):
             "scale_in_timeout",
         )
         data = self.sess.perform_op(opq)
-        res = (opq + data).meta_ai_model
+        res = (opq + data).meta_ai_deployment
         return res
 
-    def check_endpoint_is_available(self, model_id) -> bool:
+    def check_endpoint_is_available(self, deployment_id) -> bool:
         """Query to check if there is an active deployment"""
-        deployment = self.get_deployment(model_id=model_id)
+        deployment = self.get_deployment(deployment_id)
         if deployment is not None:
             if deployment["status"] == "ONLINE":
                 return True
@@ -616,18 +646,30 @@ class DeploymentApiMixin(ABC):
         except AttributeError:
             log.info(f"No prediction found for prediction_id:{prediction_id}.")
 
-    def submit_prediction_request(self, model_id: str, input_data: dict, parameters: dict = None) -> str:
-        """Submit a prediction request to the endpoint using input data and custom parameters.
+    def submit_prediction_request(
+        self, model_id: str = None, input_data: dict = None, deployment_id=None, parameters: dict = None
+    ) -> str:
+        """Submit a prediction request using input data and custom parameters.
+        Will use either a specific deployment or a deployment assigned to the model.
         Returns the prediction id.
         The prediction id can be awaited using the `wait_for_prediction_completion` method.
 
         Args:
-            model_id: id of the model deployed, acts as the primary key of the deployment
+            deployment_id: id of the deployment
+            model_id: id of the model. Will map to an assigned deployment in the backend
             input_data: raw data or reference to stored object
             parameters: parameters for the model inference
         """
-
-        request = {"deployment_id": model_id, "data": json.dumps(input_data), "parameters": json.dumps(parameters)}
+        if model_id is None and deployment_id is None:
+            raise ValueError("Either model_id or deployment_id must be specified.")
+        if not input_data:
+            raise ValueError("Input data must be specified.")
+        request = {
+            "model_id": model_id,
+            "deployment_id": deployment_id,
+            "data": json.dumps(input_data),
+            "parameters": json.dumps(parameters),
+        }
         opq = Operation(query_root)
         opq.predict_with_deployment_async(request=request).__fields__("prediction_id")
         data = self.sess.perform_op(opq)
@@ -636,19 +678,34 @@ class DeploymentApiMixin(ABC):
         return prediction_id
 
     def predict_from_endpoint(
-        self, model_id: str, input_data: dict, parameters: dict = None, timeout: int = 180
+        self,
+        model_id: str = None,
+        deployment_id: str = None,
+        input_data: dict = None,
+        parameters: dict = None,
+        timeout: int = 180,
     ) -> List[RawPrediction]:
         """Predict with endpoint using input data and custom parameters.
+        Endpoint is identified either by specific deployment_id or inferred using the model_id.
+
         Returns a list of tuples of the form (output, score).
 
         Args:
+            deployment_id: id of the model. Will map to an assigned deployment in the backend
             model_id: id of the model deployed, acts as the primary key of the deployment
             input_data: raw data or reference to stored object
             parameters: parameters for the model inference
             timeout: timeout in seconds to await for a prediction
 
         """
-        prediction_id = self.submit_prediction_request(model_id=model_id, input_data=input_data, parameters=parameters)
+        if model_id is None and deployment_id is None:
+            raise ValueError("Either model_id or deployment_id must be specified.")
+        if not input_data:
+            raise ValueError("Input data must be specified.")
+
+        prediction_id = self.submit_prediction_request(
+            deployment_id=deployment_id, model_id=model_id, input_data=input_data, parameters=parameters
+        )
         logger.info(f"Submitted prediction request with id: {prediction_id}")
 
         # Wait for prediction to complete

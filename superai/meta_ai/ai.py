@@ -31,10 +31,19 @@ from superai.meta_ai.ai_helper import (
     get_user_model_class,
     list_models,
 )
-from superai.meta_ai.deployed_predictors import AWSPredictor, DeployedPredictor, LocalPredictor
+from superai.meta_ai.deployed_predictors import (
+    DeployedPredictor,
+    LocalPredictor,
+    RemotePredictor,
+)
 from superai.meta_ai.dockerizer import get_docker_client, push_image
 from superai.meta_ai.environment_file import EnvironmentFileProcessor
-from superai.meta_ai.parameters import Config, HyperParameterSpec, ModelParameters, TrainingParameters
+from superai.meta_ai.parameters import (
+    Config,
+    HyperParameterSpec,
+    ModelParameters,
+    TrainingParameters,
+)
 from superai.meta_ai.schema import EasyPredictions, Schema, SchemaParameters
 from superai.utils import load_api_key, load_auth_token, load_id_token, retry
 
@@ -74,10 +83,10 @@ class PredictorFactory(object):
         "LOCAL_DOCKER": LocalPredictor,
         "LOCAL_DOCKER_LAMBDA": LocalPredictor,
         "LOCAL_DOCKER_K8S": LocalPredictor,
-        "AWS_SAGEMAKER": AWSPredictor,
-        "AWS_SAGEMAKER_ASYNC": AWSPredictor,
-        "AWS_LAMBDA": AWSPredictor,
-        "AWS_EKS": AWSPredictor,
+        "AWS_SAGEMAKER": RemotePredictor,
+        "AWS_SAGEMAKER_ASYNC": RemotePredictor,
+        "AWS_LAMBDA": RemotePredictor,
+        "AWS_EKS": RemotePredictor,
     }
 
     @staticmethod
@@ -374,6 +383,8 @@ class AI:
         self.container = None
         self._id = None
         self.model_class = None
+        # ID of deployment serving predictions
+        self.served_by: Optional[str] = None
 
     def _init_model_class(self):
         model_class_template = get_user_model_class(model_name=self.model_class_name, path=self.model_class_path)
@@ -393,9 +404,20 @@ class AI:
         return self._id
 
     @property
+    def deployment_id(self) -> str:
+        if self.served_by:
+            return self.served_by
+        else:
+            # Legacy method to retrieve one deployment with matching model_id
+            # Could lead to inconsistencies if multiple deployments are present
+            deployment_list = self.client.list_deployments(self.id)
+            if deployment_list:
+                return deployment_list[0]["id"]
+
+    @property
     def deployed(self) -> Optional[bool]:
-        if self.id:
-            deployment = self.client.get_deployment(self.id)
+        if self.id and self.deployment_id:
+            deployment = self.client.get_deployment(self.served_by)
             if deployment:
                 return True
         return False
@@ -1037,6 +1059,7 @@ class AI:
             existing_deployment = self.client.get_deployment(self.id)
             log.info(f"Existing deployments : {existing_deployment}")
             if existing_deployment is None or "status" not in existing_deployment:
+
                 # check if weights are present in the database
                 models = self.client.get_model_by_name_version(self.name, self.version, verbose=True)
                 model = models[0]
@@ -1044,7 +1067,11 @@ class AI:
                 assert (
                     model["weights_path"] is not None
                 ), "Weights Path cannot be None in the database for the deployment to finish"
-                self.client.deploy(self.id, ecr_image_name, deployment_type=orchestrator.value, properties=properties)
+
+                self.served_by = self.client.deploy(
+                    self.id, ecr_image_name, deployment_type=orchestrator.value, properties=properties
+                )
+                self.client.update_model(self.id, served_by=self.served_by)
             else:
                 if redeploy:
                     self.undeploy()
@@ -1052,12 +1079,12 @@ class AI:
                     raise Exception(
                         "Deployment with this version already exists. Try undeploy first or set `redeploy=True`."
                     )
-                self.client.set_image(model_id=self.id, ecr_image_name=ecr_image_name)
+                self.client.set_image(deployment_id=self.deployment_id, ecr_image_name=ecr_image_name)
                 if properties:
-                    self.client.set_deployment_properties(model_id=self.id, properties=properties)
-                self.client.set_deployment_status(model_id=self.id, target_status="ONLINE")
+                    self.client.set_deployment_properties(deployment_id=self.deployment_id, properties=properties)
+                self.client.set_deployment_status(deployment_id=self.deployment_id, target_status="ONLINE")
 
-            kwargs["id"] = self.id
+            kwargs["id"] = self.deployment_id
         # get predictor
         predictor_obj: DeployedPredictor.Type = PredictorFactory.get_predictor_obj(orchestrator=orchestrator, **kwargs)
 
@@ -1066,7 +1093,7 @@ class AI:
     def undeploy(self) -> Optional[bool]:
         if self.id:
             if self.deployed:
-                passed = self.client.undeploy(self.id)
+                passed = self.client.undeploy(self.deployment_id)
                 if passed:
                     log.info("Endpoint deletion request succeeded.")
                 # TODO: Add wait for deployment status to be OFFLINE

@@ -19,7 +19,11 @@ import sentry_sdk
 from colorama import Fore, Style
 from genson import SchemaBuilder
 from superai_dataclient.data_helper import DataHelper
-from superai_schema.universal_schema.data_types import get_current_version_id, list_to_schema, validate
+from superai_schema.universal_schema.data_types import (
+    get_current_version_id,
+    list_to_schema,
+    validate,
+)
 from superai_schema.universal_schema.task_schema_functions import text
 
 from superai.config import settings
@@ -36,6 +40,7 @@ sentry_helper.init()
 CACHE_FOLDER = "tmp"
 
 if settings.backend == "qumes":
+    # isort: off
     from canotic.qumes_transport import (
         schedule_task,
         schedule_workflow,
@@ -87,6 +92,8 @@ else:
         send_reward,
         subscribe_workflow,
     )  # noqa # nosort
+
+    # isort: off
 
 
 def task(
