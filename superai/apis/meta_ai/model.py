@@ -30,7 +30,11 @@ from superai.apis.meta_ai.meta_ai_graphql_schema import (
     mutation_root,
     query_root,
     subscription_root,
+    uuid,
     uuid_comparison_exp,
+    meta_ai_training_state_enum,
+    meta_ai_training_instance_insert_input,
+    meta_ai_training_template_insert_input,
 )
 from superai.log import logger
 
@@ -730,32 +734,165 @@ class TrainApiMixin(ABC):
     def resource(self):
         return self._resource
 
-    def create_training_entry(
-        self,
-        name,
-        version,
-        train_data,
-        ecr_image_name,
-    ):
+    @staticmethod
+    def create_training_template_entry(app_id: uuid, model_id: uuid, properties: dict):
         """
-        Mutation query to create a new entry in the training table, should deploy an endpoint in the action handler
-        and store the endpoint name in the table
+        Creates a new training template entry.
+
+        Returns: the id of the created entry
 
         Args:
-            train_data:
-            name:
-            version:
-            ecr_image_name: Can be queries from the meta_ai_table to populate
+            app_id: ref app id for the template
+            model_id: ref model if for the template
+            properties: the default properties that will get inherited during trainings
         """
-        raise NotImplementedError()
+        sess = MetaAISession(app_id=app_id)
+        op = Operation(mutation_root)
 
-    def delete_training_entry(self, name, version) -> Tuple[bool, str]:
-        """Remove an entry from the training table. Action handler should delete the endpoint. Return True if deleted
-         successfully.
+        op.insert_meta_ai_training_template_one(
+            object=meta_ai_training_template_insert_input(
+                model_id=model_id, app_id=app_id, properties=json.dumps(properties)
+            )
+        ).__fields__("id")
+
+        data = sess.perform_op(op)
+
+        log.info(f"Created training template {data}")
+        return (op + data).insert_meta_ai_training_template_one.id
+
+    @staticmethod
+    def get_training_templates(app_id: uuid, model_id: uuid):
+        """
+        Finds training templates from the app id and model id keys.
+
+        Returns: the training templates
 
         Args:
-            name:
-            stage:
-            version:
+            app_id: ref app id for the template
+            model_id: ref model if for the template
         """
-        raise NotImplementedError()
+        sess = MetaAISession(app_id=app_id)
+        op = Operation(query_root)
+
+        op.meta_ai_training_template(where={"app_id": {"_eq": app_id}, "model_id": {"_eq": model_id}}).__fields__(
+            "id", "properties", "created_at"
+        )
+        instance_data = sess.perform_op(op)
+
+        try:
+            q_out = (op + instance_data).meta_ai_training_template
+            if q_out and len(q_out) != 1:
+                raise AttributeError
+
+        except AttributeError as e:
+            log.info(f"No training templates found for app_id:{app_id}, model_id:{model_id}.")
+            return
+
+        return q_out
+
+    @staticmethod
+    def delete_training_template(id: uuid, app_id: uuid):
+        """
+        Deletes an existing template.
+
+        Returns: the id of the deleted entry
+
+        Args:
+            id: the id of the template you want to remove
+            app_id: ref app id for the template
+        """
+        sess = MetaAISession(app_id=app_id)
+        op = Operation(mutation_root)
+        op.delete_meta_ai_training_template_by_pk(id=id).__fields__("id")
+        data = sess.perform_op(op)
+        return (op + data).delete_meta_ai_training_template_by_pk.id
+
+    def create_training_entry(self, app_id: uuid, model_id: uuid, properties: dict = None):
+        """
+        Insert a new training instance, triggering a new training run
+
+        Returns: the id of the started training
+
+        Args:
+            app_id: ref app id for the training instance
+            model_id: ref model if for the training instance
+            properties: this is by default inherited from the default of the template, or can be
+            specified as a dict of properties custom for this run
+        """
+        sess = MetaAISession(app_id=app_id)
+        template = self.get_training_templates(app_id, model_id)
+
+        if not properties:
+            properties = template[0]["properties"]
+
+        op = Operation(mutation_root)
+
+        op.insert_meta_ai_training_instance_one(
+            object=meta_ai_training_instance_insert_input(
+                training_template_id=template[0]["id"], current_properties=json.dumps(properties)
+            )
+        ).__fields__("id")
+
+        data = sess.perform_op(op)
+
+        log.info(f"Created training instance {data}")
+        return (op + data).insert_meta_ai_training_instance_one.id
+
+    @staticmethod
+    def get_trainings(app_id: uuid, model_id: uuid, state: str = ""):
+        """
+        Finds training instances from the app id and model id keys.
+
+        Returns: the training runs
+
+        Args:
+            app_id: ref app id for the template
+            model_id: ref model if for the template
+            state: by default this quries for IN_PROGRESS run, but can be one the state in training state enum
+        """
+        sess = MetaAISession(app_id=app_id)
+        op = Operation(query_root)
+
+        filter = {"app_id": {"_eq": app_id}, "model_id": {"_eq": model_id}}
+
+        if state:
+            filter["state"] = {"_eq": state}
+
+        op.meta_ai_training_template(where=filter).training_instances().__fields__(
+            "id", "current_properties", "state", "created_at"
+        )
+        instance_data = sess.perform_op(op)
+
+        try:
+            q_out = (op + instance_data).meta_ai_training_template
+            if not q_out and len(q_out) != 1:
+                raise AttributeError
+
+        except AttributeError as e:
+            log.info(f"No training instances found for app_id:{app_id}, model_id:{model_id}.")
+            return
+
+        instances = q_out[0]["training_instances"]
+
+        logger.info(
+            f"Found a total of {len(instances)} {state} training instances for app_id:{app_id}, model_id:{model_id}."
+        )
+
+        return instances
+
+    @staticmethod
+    def delete_training(id: uuid, app_id: uuid):
+        """
+        Deletes an existing training run.
+
+        Returns: the id of the deleted entry
+
+        Args:
+            id: the id of the training run you want to remove
+            app_id: ref app id for the training run
+        """
+        sess = MetaAISession(app_id=app_id)
+        op = Operation(mutation_root)
+        op.delete_meta_ai_training_instance_by_pk(id=id).__fields__("id")
+        data = sess.perform_op(op)
+        return (op + data).delete_meta_ai_training_instance_by_pk.id
