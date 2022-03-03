@@ -1,5 +1,6 @@
 import ast
 import pathlib
+from re import template
 
 import pytest
 import vcr  # type: ignore
@@ -243,3 +244,19 @@ def test_predictions(model_api, mocker):
     assert p is not None
     assert len(p) == 1
     assert p[0].score == test_score
+
+
+@pytest.mark.skip
+def test_training(model_api, model, existing_app_id):
+    training_template = model_api.create_training_template_entry(existing_app_id, model, {})
+    assert training_template
+    training_instance = model_api.create_training_entry(existing_app_id, model, {})
+    assert training_instance
+
+    templates = model_api.get_training_templates(existing_app_id, model)
+    assert templates[0]["id"] == training_template
+    trainings = model_api.get_trainings(existing_app_id, model)
+    assert trainings[0]["id"] == training_instance
+
+    assert model_api.delete_training(training_instance, existing_app_id)
+    assert model_api.delete_training_template(training_template, existing_app_id)
