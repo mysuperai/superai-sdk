@@ -1007,6 +1007,50 @@ def docker_invoke_local(mime, body):
     invoke_local(mime, body)
 
 
+@ai.group()
+def training():
+    """View and manage trainings"""
+    pass
+
+
+@training.command(name="list")
+@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--model_id", "-m", help="Model id", required=True)
+@pass_client
+def list_trainings(client, app_id, model_id):
+    """
+    List ongoing trainings
+    """
+    trainings = client.get_trainings(app_id, model_id, "IN_PROGRESS")
+    if trainings:
+        print(trainings)
+
+
+@training.command(name="start")
+@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--model_id", "-m", help="Model id", required=True)
+@click.option(
+    "--properties",
+    "-p",
+    help="Custom properties, if not set default ones for the template will be used",
+    required=False,
+)
+@pass_client
+def start_training(client, app_id, model_id, properties: str):
+    """
+    Start a new training
+    """
+    try:
+        json_inputs = json.loads(properties)
+    except:
+        print("Couldn't read json inputs")
+        exit()
+
+    id = client.create_training_entry(app_id, model_id, json_inputs)
+    if id:
+        print(f"Started a new training with ID {id}")
+
+
 def main():
     signal.signal(signal.SIGINT, _signal_handler)
     sys.exit(cli())
