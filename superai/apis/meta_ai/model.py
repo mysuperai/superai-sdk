@@ -1,7 +1,7 @@
 import json
 import time
 from abc import ABC
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Union
 
 from rich import box
 from rich.console import Console
@@ -26,15 +26,14 @@ from superai.apis.meta_ai.meta_ai_graphql_schema import (
     meta_ai_model_set_input,
     meta_ai_prediction,
     meta_ai_prediction_state_enum,
+    meta_ai_training_instance_insert_input,
+    meta_ai_training_template_insert_input,
     meta_ai_visibility_enum,
     mutation_root,
     query_root,
     subscription_root,
     uuid,
     uuid_comparison_exp,
-    meta_ai_training_state_enum,
-    meta_ai_training_instance_insert_input,
-    meta_ai_training_template_insert_input,
 )
 from superai.log import logger
 
@@ -349,7 +348,10 @@ class DeploymentApiMixin(ABC):
             data = self.sess.perform_op(op)
             log.info(f"Created new deployment: {data}")
             deployment_id = (op + data).insert_meta_ai_deployment_one.id
-            self._wait_for_state_change(deployment_id, field="status", target_status="ONLINE")
+            try:
+                self._wait_for_state_change(deployment_id, field="status", target_status="ONLINE")
+            except Exception as e:
+                log.warning(f"Exception during wait, aborting wait: {e}")
             return deployment_id
         else:
             log.info(f"Deployment already exists with properties: {existing_deployment} ")
@@ -784,7 +786,7 @@ class TrainApiMixin(ABC):
             if q_out and len(q_out) != 1:
                 raise AttributeError
 
-        except AttributeError as e:
+        except AttributeError:
             log.info(f"No training templates found for app_id:{app_id}, model_id:{model_id}.")
             return
 
@@ -868,7 +870,7 @@ class TrainApiMixin(ABC):
             if not q_out and len(q_out) != 1:
                 raise AttributeError
 
-        except AttributeError as e:
+        except AttributeError:
             log.info(f"No training instances found for app_id:{app_id}, model_id:{model_id}.")
             return
 
