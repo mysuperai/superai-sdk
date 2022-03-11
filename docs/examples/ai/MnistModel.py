@@ -71,7 +71,7 @@ class MnistModel(BaseModel):
         tracking.init()
         (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
         x_train, y_train, x_test, y_test = self.transform_data(x_train, y_train, x_test, y_test)
-        optimizer = OPTIMIZERS[hyperparameters.optimizer](lr=10 ** hyperparameters.log_learning_rate)
+        optimizer = OPTIMIZERS[hyperparameters.optimizer](lr=10**hyperparameters.log_learning_rate)
         self.model = self.create_model(x_train, model_parameters)
         self.model.compile(
             optimizer=optimizer,
