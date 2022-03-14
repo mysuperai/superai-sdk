@@ -1056,7 +1056,9 @@ class AI:
                 raise LookupError(
                     "Cannot establish id, please make sure you push the AI model to create a database entry"
                 )
-            existing_deployment = self.client.get_deployment(self.id)
+
+            self.served_by = self.served_by or self.client.get_model(self.id)["served_by"]
+            existing_deployment = self.client.get_deployment(self.served_by) if self.served_by else None
             log.info(f"Existing deployments : {existing_deployment}")
             if existing_deployment is None or "status" not in existing_deployment:
 
