@@ -66,8 +66,10 @@ class MnistModel(BaseModel):
         callbacks=None,
         random_seed=default_random_seed,
     ):
-        if callbacks is None:
+        if callbacks is None or isinstance(callbacks, str):
             callbacks = []
+        print("Hyperparams: ", hyperparameters.__dict__)
+        print("Model params: ", model_parameters.__dict__)
         tracking.init()
         (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
         x_train, y_train, x_test, y_test = self.transform_data(x_train, y_train, x_test, y_test)

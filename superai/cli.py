@@ -617,25 +617,25 @@ def method():
     "-tp",
     help="Path to location where the training data is stored in the local file system.",
     required=True,
-    type=click.Path(exists=True, readable=True),
+    type=click.Path(exists=False, readable=False),
 )
 @click.option(
     "--test-data-path",
     "-tsp",
     help="Path to location where the test data is stored in the local file system.",
-    type=click.Path(exists=True, readable=True),
+    type=click.Path(exists=False, readable=False),
 )
 @click.option(
     "--validation-data-path",
     "-vp",
     help="Path to location where the validation data is stored in the local file system.",
-    type=click.Path(exists=True, readable=True),
+    type=click.Path(exists=False, readable=False),
 )
 @click.option(
     "--production-data-path",
     "-pp",
     help="Path to location where the production data is stored in the local file system.",
-    type=click.Path(exists=True, readable=True),
+    type=click.Path(exists=False, readable=False),
 )
 @click.option("--encoder-trainable/--no-encoder-trainable", default=False, show_default=True, type=bool)
 @click.option("--decoder-trainable/--no-decoder-trainable", default=False, show_default=True, type=bool)
@@ -652,6 +652,17 @@ def method():
     help="Model parameters to be passed. Please pass them as `-m some_parameter=0.2 -h other_parameter=False -h "
     "listed=['list','of','strings']`",
 )
+@click.option(
+    "--callbacks",
+    "-cl",
+    help="Callbacks to be passed to training (yet to be implemented)",
+)
+@click.option(
+    "--train-logger",
+    "-tl",
+    multiple=True,
+    help="Train logger (yet to be implemented)",
+)
 def train(
     path,
     model_save_path,
@@ -663,10 +674,15 @@ def train(
     decoder_trainable,
     hyperparameters,
     model_parameters,
+    callbacks,
+    train_logger,
 ):
     from superai.meta_ai.ai import AI
 
-    click.echo(f"Starting training from the path {path}")
+    click.echo(
+        f"Starting training from the path {path} with hyperparameters {hyperparameters} "
+        f"and model parameters {model_parameters}"
+    )
     processed_hyperparameters = HyperParameterSpec.load_from_list(hyperparameters)
     processed_model_parameters = ModelParameters.load_from_list(model_parameters)
     ai_object = AI.load_local(path)
@@ -680,6 +696,8 @@ def train(
         decoder_trainable=decoder_trainable,
         hyperparameters=processed_hyperparameters,
         model_parameters=processed_model_parameters,
+        callbacks=callbacks,
+        train_logger=train_logger,
     )
 
 
@@ -1010,7 +1028,6 @@ def docker_invoke_local(mime, body):
 @ai.group()
 def training():
     """View and manage trainings"""
-    pass
 
 
 @training.command(name="list")

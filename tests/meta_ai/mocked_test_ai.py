@@ -15,11 +15,11 @@ from superai.apis.meta_ai import DeploymentApiMixin, ModelApiMixin, ProjectAiApi
 from superai.meta_ai.ai import (
     AI,
     AITemplate,
-    AWSPredictor,
     DeployedPredictor,
     LocalPredictor,
     Orchestrator,
 )
+from superai.meta_ai.deployed_predictors import RemotePredictor
 from superai.meta_ai.parameters import Config
 from superai.meta_ai.schema import Schema
 from superai.utils import log
@@ -168,7 +168,7 @@ def test_mock_deploy_sagemaker(ai, monkeypatch):
 
     predictor = ai.deploy(orchestrator=Orchestrator.AWS_SAGEMAKER)
     # standard type checks
-    assert type(predictor) == AWSPredictor
+    assert type(predictor) == RemotePredictor
     assert issubclass(type(predictor), DeployedPredictor)
     assert predictor.endpoint_name == ai.name
 
@@ -197,7 +197,7 @@ def test_mock_predict_from_local_deployment(ai, monkeypatch):
 @pytest.mark.skip("TODO: Patching for ID is missing")
 def test_mock_predict_from_sagemaker(ai, monkeypatch):
     monkeypatch.setattr(AI, "push_model", lambda *a, **k: None)
-    monkeypatch.setattr(AWSPredictor, "predict", ai.predict)
+    monkeypatch.setattr(RemotePredictor, "predict", ai.predict)
     predictor = ai.deploy(orchestrator=Orchestrator.AWS_SAGEMAKER)
     assert predictor
     prediction = predictor.predict(
@@ -316,7 +316,7 @@ def test_create_endpoint(ai, monkeypatch):
     monkeypatch.setattr(DeploymentApiMixin, "check_endpoint_is_available", lambda *a, **k: True)
 
     predictor = ai.deploy(orchestrator=Orchestrator.AWS_SAGEMAKER)
-    assert type(predictor) == AWSPredictor
+    assert type(predictor) == RemotePredictor
     assert hasattr(predictor, "predict")
 
     monkeypatch.setattr(DeploymentApiMixin, "predict_from_endpoint", lambda *a, **k: 20)

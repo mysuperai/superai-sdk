@@ -1,6 +1,5 @@
 import ast
 import pathlib
-from re import template
 
 import pytest
 import vcr  # type: ignore

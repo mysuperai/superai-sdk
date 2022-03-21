@@ -5,8 +5,8 @@ from logging import Logger
 from typing import Dict
 
 import yaml
-from dynaconf import Dynaconf, Validator
-from jsonmerge import merge
+from dynaconf import Dynaconf, Validator  # type: ignore
+from jsonmerge import merge  # type: ignore
 
 from superai.log import logger
 
@@ -221,6 +221,7 @@ validators = [
         "MEMO_BUCKET",
         "PROJECT_ROOT",
         "S3_BUCKET",
+        "DUMMY_APP",
         must_exist=True,
     ),
     # validate a value is eq in specific env
