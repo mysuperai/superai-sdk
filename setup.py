@@ -8,7 +8,7 @@ with open("README.md", "r") as fh:
 
 NAME = "superai"
 
-VERSION = "0.1.0.beta5.dev16"
+VERSION = "0.1.0.beta5.dev17"
 # To install the library, run the following
 #
 # python setup.py install
@@ -72,6 +72,7 @@ TEST_REQUIRES = [
     "vcrpy>=4.1.1",
     "pytest-mock~=3.7.0",
     "seldon-core>=1.11.2",
+    "dictdiffer>=0.9.0",
 ]
 
 setup(

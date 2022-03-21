@@ -118,6 +118,7 @@ class AITemplate:
         folder_name: str = "meta_ai_models",
         bucket_name: str = "canotic-ai",
         parameters=None,
+        template_id=None,
     ):
         """Create an AI template for subsequently creating instances of AI objects
 
@@ -190,6 +191,7 @@ class AITemplate:
                                                                     padding='valid',
                                                                     dilation_rate=(1, 1),
                                                                     conv_use_bias=True)
+            template_id: Template ID from the DB
         """
         self.input_schema = input_schema
         self.output_schema = output_schema
@@ -219,6 +221,7 @@ class AITemplate:
         self.model_class = model_class
         self.model_class_path = model_class_path
         self.environs: Optional[EnvironmentFileProcessor] = None
+        self.template_id = template_id
 
     @classmethod
     def load_local(cls, load_path: str) -> "AITemplate":
@@ -321,6 +324,17 @@ class AITemplate:
             }
             json.dump(content, ai_template_writer, indent=1)
 
+    def get_or_create_training_entry(self, app_id: str, model_id: str, properties: dict = {}):
+        existing_template_id = self.client.get_training_templates(app_id, model_id)
+        if len(existing_template_id):
+            log.info(f"Found existing template {existing_template_id}")
+            self.template_id = existing_template_id[0].id
+        else:
+            template_id = self.client.create_training_template_entry(app_id, model_id, properties)
+            log.info(f"Created template : {template_id}")
+            self.template_id = template_id
+        return self.template_id
+
 
 class AI:
     def __init__(
@@ -335,6 +349,7 @@ class AI:
         description: Optional[str] = None,
         weights_path: str = None,
         overwrite=False,
+        app_id=None,
         **kwargs,
     ):
         """Creates an AI with custom inference logic and optional data dependencies as a superai artifact.
@@ -349,7 +364,7 @@ class AI:
             description: Optional; A free text description. Allows the user to describe the AI's intention.
             weights_path: Path to a file or directory containing model data. This is accessible in the
                           :func:`BaseModel.load_weights(weights_path) <superai.meta_ai.base.BaseModel.load_weights>
-
+            app_id: The app ID associated with the AI instance
             **kwargs: Arbitrary keyword arguments
         """
 
@@ -390,6 +405,12 @@ class AI:
         self.model_class = None
         # ID of deployment serving predictions
         self.served_by: Optional[str] = None
+
+        if app_id is not None:
+            self.app_id = app_id
+        else:
+            # assign dummy app_id
+            self.app_id = settings.dummy_app
 
     def _init_model_class(self):
         model_class_template = get_user_model_class(model_name=self.model_class_name, path=self.model_class_path)
@@ -1405,7 +1426,7 @@ class AI:
                 os.path.join(self._location, "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")),
             )
         log.info(f"If tensorboard callback is present, logging in {self.model_class.logger_dir}")
-        return self.model_class.train(
+        train_instance = self.model_class.train(
             model_save_path=model_save_path,
             training_data=training_data,
             validation_data=validation_data,
@@ -1417,6 +1438,7 @@ class AI:
             model_parameters=model_parameters,
             callbacks=callbacks,
         )
+        # TODO: upload weights
 
     def _prepare_k8s_dependencies(self, enable_cuda=False, properties=None, **kwargs) -> dict:
         """
@@ -1508,14 +1530,18 @@ class AI:
             kwargs["k8s_mode"] = orchestrator == TrainingOrchestrator.LOCAL_DOCKER_K8S
         else:
             if not skip_build:
-                self.push_model(self.name, str(self.version))
+                image_name = self.push_model(self.name, str(self.version))
             else:
-                get_ecr_image_name(self.name, self.version)
-            kwargs = dict(client=self.client, name=self.name, version=str(self.version))
+                image_name = get_ecr_image_name(self.name, self.version)
+            self.client.update_model(self.id, image=image_name)
             if self.id is None:
                 raise LookupError(
                     "Cannot establish id, please make sure you push the AI model to create a database entry"
                 )
             assert training_parameters is not None
-            json.loads(training_parameters.to_json())
-            # TODO: Now that training parameters are loaded, add sections on meta-ai deployment
+            loaded_parameters = json.loads(training_parameters.to_json())
+            # self.client.add_app_mapping(self.id, self.app_id)
+            if self.ai_template.template_id is None:
+                self.ai_template.get_or_create_training_entry(self.app_id, self.id)
+            instance_id = self.client.create_training_entry(self.app_id, self.id, properties=loaded_parameters)
+            log.info(f"Create training instance : {instance_id}")

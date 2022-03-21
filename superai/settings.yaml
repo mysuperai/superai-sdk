@@ -23,6 +23,7 @@ default:
   project_root: "@jinja {{this.current_env | dirname | abspath}}"
   s3_bucket: "superai-dataprogrammer-us-west-1"
   suffix: "<<<default>>>"
+  dummy_app: "82f49a16-11b0-4840-b97f-bce2572b7613"
 
 local:
   name: "local"

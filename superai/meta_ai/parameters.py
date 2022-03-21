@@ -142,7 +142,6 @@ class HyperParameterSpec:
         self.skip_save_model = skip_save_model
         self.skip_save_progress = skip_save_progress
         self.skip_save_log = skip_save_log
-        self.args = kwargs
         for k in kwargs.keys():
             setattr(self, k, kwargs[k])
 
@@ -221,7 +220,6 @@ class ModelParameters:
         self.fc_bias_initializer = fc_bias_initializer
         self.fc_activation = fc_activation
         self.fc_dropout = fc_dropout
-        self.args = kwargs
         for k in kwargs.keys():
             setattr(self, k, kwargs[k])
 
@@ -275,10 +273,10 @@ class TrainingParameters:
         train_logger: Optional[Any] = None,
     ):
         self.model_save_path = model_save_path
-        self.training_data = training_data
-        self.test_data = test_data
-        self.production_data = production_data
-        self.validation_data = validation_data
+        self.training_data_path = training_data
+        self.test_data_path = test_data
+        self.production_data_path = production_data
+        self.validation_data_path = validation_data
         self.encoder_trainable = encoder_trainable
         self.decoder_trainable = decoder_trainable
         self.hyperparameters = hyperparameters
