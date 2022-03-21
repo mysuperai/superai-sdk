@@ -34,6 +34,7 @@ from superai.apis.meta_ai.meta_ai_graphql_schema import (
     subscription_root,
     uuid,
     uuid_comparison_exp,
+    meta_ai_assignment_enum,
 )
 from superai.log import logger
 
@@ -295,6 +296,20 @@ class ModelApiMixin(ABC):
         data = self.sess.perform_op(op)
         return (op + data).delete_meta_ai_model_by_pk.id
 
+    def add_app_mapping(self, idx, app_id, assignment="RAW", active=False, threshold=0.1):
+        op = Operation(mutation_root)
+        op.insert_meta_ai_app_one(
+            model_id=idx,
+            id=app_id,
+            assigned=meta_ai_assignment_enum(assignment),
+            active=active,
+            threshold=threshold,
+        ).__fields__("id")
+        data = self.sess.perform_op(op)
+        log.info(f"Created a new app mapping for app_id {app_id} and model {idx}: {data}")
+        app_id = (op + data).insert_meta_ai_app_one.id
+        return app_id
+
 
 class DeploymentApiMixin(ABC):
     _resource = "deployment"
@@ -313,7 +328,7 @@ class DeploymentApiMixin(ABC):
         deployment_type: meta_ai_deployment_type_enum = "AWS_SAGEMAKER",
         purpose: str = "SERVING",
         properties: dict = None,
-    ) -> str:
+    ) -> Optional[str]:
         """Mutation query to create a new entry in the deployment table, should deploy an endpoint in the action handler
         and store the endpoint name in the table.
 
@@ -355,6 +370,7 @@ class DeploymentApiMixin(ABC):
             return deployment_id
         else:
             log.info(f"Deployment already exists with properties: {existing_deployment} ")
+            return None
 
     def _set_target_status(
         self, deployment_id: str, target_status: meta_ai_deployment_status_enum
@@ -368,7 +384,7 @@ class DeploymentApiMixin(ABC):
         try:
             return (op + data).update_meta_ai_deployment_by_pk.target_status
         except:
-            Exception("Could not set target status. Check if you have Ownership for this deployment.")
+            raise Exception("Could not set target status. Check if you have Ownership for this deployment.")
 
     def set_deployment_status(
         self, deployment_id: str, target_status: meta_ai_deployment_status_enum, timeout: int = 600
@@ -626,7 +642,8 @@ class DeploymentApiMixin(ABC):
             else:
                 raise TimeoutError("Waiting for Prediction result timed out. Try increasing timeout.")
 
-    def get_prediction_with_data(self, prediction_id: str, app_id: str = None) -> meta_ai_prediction:
+    @staticmethod
+    def get_prediction_with_data(prediction_id: str, app_id: str = None) -> Optional[meta_ai_prediction]:
         """
         Retrieve existing prediction with data from database.
         Args:
@@ -651,6 +668,7 @@ class DeploymentApiMixin(ABC):
             return output
         except AttributeError:
             log.info(f"No prediction found for prediction_id:{prediction_id}.")
+            return None
 
     def submit_prediction_request(
         self, model_id: str = None, input_data: dict = None, deployment_id=None, parameters: dict = None
@@ -748,7 +766,7 @@ class TrainApiMixin(ABC):
             model_id: ref model if for the template
             properties: the default properties that will get inherited during trainings
         """
-        sess = MetaAISession(app_id=app_id)
+        sess = MetaAISession(app_id=str(app_id))
         op = Operation(mutation_root)
 
         op.insert_meta_ai_training_template_one(
@@ -773,7 +791,7 @@ class TrainApiMixin(ABC):
             app_id: ref app id for the template
             model_id: ref model if for the template
         """
-        sess = MetaAISession(app_id=app_id)
+        sess = MetaAISession(app_id=str(app_id))
         op = Operation(query_root)
 
         op.meta_ai_training_template(where={"app_id": {"_eq": app_id}, "model_id": {"_eq": model_id}}).__fields__(
@@ -803,7 +821,7 @@ class TrainApiMixin(ABC):
             id: the id of the template you want to remove
             app_id: ref app id for the template
         """
-        sess = MetaAISession(app_id=app_id)
+        sess = MetaAISession(app_id=str(app_id))
         op = Operation(mutation_root)
         op.delete_meta_ai_training_template_by_pk(id=id).__fields__("id")
         data = sess.perform_op(op)
@@ -821,7 +839,7 @@ class TrainApiMixin(ABC):
             properties: this is by default inherited from the default of the template, or can be
             specified as a dict of properties custom for this run
         """
-        sess = MetaAISession(app_id=app_id)
+        sess = MetaAISession(app_id=str(app_id))
         template = self.get_training_templates(app_id, model_id)
 
         if not properties:
@@ -852,7 +870,7 @@ class TrainApiMixin(ABC):
             model_id: ref model if for the template
             state: by default this quries for IN_PROGRESS run, but can be one the state in training state enum
         """
-        sess = MetaAISession(app_id=app_id)
+        sess = MetaAISession(app_id=str(app_id))
         op = Operation(query_root)
 
         filter = {"app_id": {"_eq": app_id}, "model_id": {"_eq": model_id}}
@@ -893,7 +911,7 @@ class TrainApiMixin(ABC):
             id: the id of the training run you want to remove
             app_id: ref app id for the training run
         """
-        sess = MetaAISession(app_id=app_id)
+        sess = MetaAISession(app_id=str(app_id))
         op = Operation(mutation_root)
         op.delete_meta_ai_training_instance_by_pk(id=id).__fields__("id")
         data = sess.perform_op(op)

@@ -72,6 +72,7 @@ TEST_REQUIRES = [
     "vcrpy>=4.1.1",
     "pytest-mock~=3.7.0",
     "seldon-core>=1.11.2",
+    "dictdiffer>=0.9.0",
 ]
 
 setup(
