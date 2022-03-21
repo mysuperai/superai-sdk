@@ -2,7 +2,7 @@ import importlib
 import json
 import os
 import sys
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 
 import boto3
 import pandas as pd
@@ -103,3 +103,16 @@ def create_model_handler(model_name: str, ai_cache: int, lambda_mode: bool) -> s
         args = dict(ai_cache=ai_cache, model_name=model_name)
     scripts_content: str = template.render(args)
     return scripts_content
+
+
+def find_root_model(name, client) -> Optional[str]:
+    models = client.get_model_by_name(name)
+    possible_root_models = [x for x in models if x.version == 1]
+    if possible_root_models:
+        if len(possible_root_models) == 1:
+            log.warning("Found root model based on name. Its recommended to use an explicit root_id.")
+            return possible_root_models[0].id
+        else:
+            log.error(
+                "Found multiple possible root AIs based on name: {possible_root_models}. Please pass an explicit root_id."
+            )
