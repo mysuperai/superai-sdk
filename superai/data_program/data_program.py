@@ -1,8 +1,9 @@
 import inspect
 import json
 import os
-from typing import Callable, Dict, List, Optional, Type
+from typing import Callable, Dict, List, Optional, Type, Union
 
+from pydantic import ValidationError
 from superai_schema.generators import dynamic_generator
 from superai_schema.types import BaseModel, UiWidget
 from superai_schema.universal_schema import task_schema_functions as df
@@ -17,16 +18,19 @@ from superai.data_program.router import BasicRouter, Router
 from superai.data_program.types import (
     DataProgramDefinition,
     Handler,
+    Input,
     JobContext,
     Output,
     Parameters,
     PostProcessContext,
     TaskTemplate,
     WorkflowConfig,
+    TaskResponse,
 )
 from superai.data_program.utils import model_to_task_io_payload, parse_dp_definition
 from superai.log import logger
 from superai.utils import load_api_key, load_auth_token, load_id_token
+
 
 log = logger.get_logger(__name__)
 
@@ -323,21 +327,51 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
             job_input_model_cls = handler_output.input_model
             job_input_model = job_input_model_cls.parse_obj(inp)
 
-            def send_task(
-                name: str,
-                *,
-                task_template: TaskTemplate,
-                task_input: BaseModel,
-                task_output: Output,
-                max_attempts: int,
-            ) -> Output:
-                my_task = Task(name=name, max_attempts=max_attempts)
-                my_task.process(
-                    model_to_task_io_payload(task_input),
-                    model_to_task_io_payload(task_output),
-                )
-                raw_result = my_task.output["values"]["formData"]
-                return task_output.parse_obj(raw_result)
+            if not (handler_output.templates or len(handler_output.templates) < 1):
+
+                def send_task(
+                    name: str,
+                    *,
+                    task_template: TaskTemplate,
+                    task_input: Input,
+                    task_output: Output,
+                    max_attempts: int,
+                    excluded_ids: List[int] = None,
+                ) -> None:
+                    raise NotImplementedError("Can't send a task with no templates defined")
+
+            else:
+
+                def send_task(
+                    name: str,
+                    *,
+                    task_template: TaskTemplate,
+                    task_input: Input,
+                    task_output: Output,
+                    max_attempts: int,
+                    excluded_ids: List[int] = None,
+                ) -> Output:
+                    # checks task input type
+                    if not isinstance(task_input, task_template.input):
+                        raise ValidationError("The input type is not the one in the task template")
+
+                    my_task = Task(name=name, max_attempts=max_attempts)
+                    my_task.process(
+                        model_to_task_io_payload(task_input),
+                        model_to_task_io_payload(task_output),
+                        excluded_ids=excluded_ids,
+                    )
+                    raw_result = my_task.output["values"]["formData"]
+                    output = task_output.parse_obj(raw_result)
+
+                    # check task output type
+                    if not isinstance(output, task_template.output):
+                        raise ValidationError("The output type is not the one in the task template")
+
+                    return TaskResponse[Output](
+                        task_output=output,
+                        hero_id=my_task.output["hero"]["workerId"],
+                    )
 
             job_context = JobContext[Output](workflow, send_task, use_job_cache=bool(post_process_job))
             job_output = process_job(job_input_model, job_context)
@@ -346,7 +380,11 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                 context = PostProcessContext(job_cache=job_context.job_cache)
                 response_data = post_process_job(job_output, context)
 
-                return json.loads(job_output.json(exclude_unset=True)), response_data, None
+                return (
+                    json.loads(job_output.json(exclude_unset=True)),
+                    response_data,
+                    None,
+                )
 
             return json.loads(job_output.json(exclude_unset=True))
 
@@ -512,7 +550,10 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
     @staticmethod
     def _get_definition_for_params(params: Parameters, handler: Handler[Parameters]) -> DataProgramDefinition:
         handler_output = handler(params)
-        input_model, output_model = handler_output.input_model, handler_output.output_model
+        input_model, output_model = (
+            handler_output.input_model,
+            handler_output.output_model,
+        )
 
         return {
             "parameter_schema": params.schema(),
