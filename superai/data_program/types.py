@@ -47,7 +47,14 @@ class SendTask(Protocol[Output]):
     """
 
     def __call__(
-        self, name: str, *, task_template: TaskTemplate, task_input: BaseModel, task_output: Output, max_attempts: int
+        self,
+        name: str,
+        *,
+        task_template: TaskTemplate,
+        task_input: BaseModel,
+        task_output: Output,
+        max_attempts: int,
+        excluded_ids: List[int],
     ) -> Output:
         pass
 
@@ -80,7 +87,12 @@ class JobContext(Generic[Output]):
     send_task: SendTask[Output]
     job_cache: Optional[dict]
 
-    def __init__(self, workflow: WorkflowConfig, send_task: SendTask[Output], use_job_cache: bool = False):
+    def __init__(
+        self,
+        workflow: WorkflowConfig,
+        send_task: SendTask[Output],
+        use_job_cache: bool = False,
+    ):
         self.workflow = workflow
         self.send_task = send_task
         self.job_cache = {} if use_job_cache else None
@@ -152,3 +164,16 @@ class PostProcessRequestModel(BaseModel):
 class MethodResponse(BaseModel):
     method_name: str
     role: str
+
+
+class TaskResponse(Generic[Output]):
+    task_output: Output
+    hero_id: Optional[int]
+
+    def __init__(
+        self,
+        task_output: Output,
+        hero_id: Optional[int],
+    ):
+        self.task_output = task_output
+        self.hero_id = hero_id
