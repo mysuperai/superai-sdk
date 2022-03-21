@@ -27,6 +27,7 @@ from superai.log import logger
 from superai.meta_ai.ai_helper import (
     create_model_entrypoint,
     create_model_handler,
+    find_root_model,
     get_ecr_image_name,
     get_user_model_class,
     list_models,
@@ -330,6 +331,7 @@ class AI:
         name,
         configuration: Optional[Config] = None,
         version: int = None,
+        root_id: Optional[str] = None,
         description: Optional[str] = None,
         weights_path: str = None,
         overwrite=False,
@@ -342,6 +344,8 @@ class AI:
             output_params: Schema definition of the AI object output.
             name: Name of the AI. If the name already exists, an exception will be raised.
             version: AI integer version. If no version is specified the AI is set to version 1.
+            root_id: Id of the root AI. Establishes the lineage of AIs.
+                Is necessary when using `version` > 1.
             description: Optional; A free text description. Allows the user to describe the AI's intention.
             weights_path: Path to a file or directory containing model data. This is accessible in the
                           :func:`BaseModel.load_weights(weights_path) <superai.meta_ai.base.BaseModel.load_weights>
@@ -355,6 +359,7 @@ class AI:
         self.ai_template = ai_template
         self.name = name
         self.version = version
+        self.root_id = root_id
         self.folder_name = self.ai_template.folder_name
         self.bucket_name = self.ai_template.bucket_name
         self.description = description
@@ -662,7 +667,9 @@ class AI:
             model_save_path: Location in S3 where the AISaveModel has to be placed.
             weights_path: Location of weights.
             visibility: Visibility of model. Default visibility: PRIVATE.
+            root_id: Id of the root model. Establishes the lineage of the model.
             **kwargs: Arbitrary keyword arguments
+
         """
         log.info("Creating database entry...")
         if not self.id:
@@ -895,6 +902,12 @@ class AI:
                 log.warning("Model already exists in the DB and overwrite is not set.")
                 return self.id
         else:
+            if self.version > 1:
+                self.root_id = self.root_id or find_root_model(self.name, self.client)
+                if self.root_id is None:
+                    raise ValueError(
+                        "AIs with version > 1 must have a root_id. This should be the ID of the AI with version=1."
+                    )
             self._id = self._create_database_entry(
                 name=self.name,
                 version=self.version,
@@ -902,6 +915,7 @@ class AI:
                 metadata=self.artifacts,
                 input_schema=self.input_params.to_json,
                 output_schema=self.output_params.to_json,
+                root_id=self.root_id,
             )
 
         modelSavePath = self._upload_model_folder(self.id)
