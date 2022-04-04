@@ -34,19 +34,16 @@ class BasicRouter(Router):
         dataprogram: "DataProgram" = None,
         **kwargs,
     ):
-        # TODO: Enable measurer and notify
+
         super().__init__(
             name=name,
             client=client,
             dataprogram=dataprogram,
             **kwargs,
         )
-        self.client = (
-            client if client else Client(api_key=load_api_key(), auth_token=load_auth_token(), id_token=load_id_token())
-        )
+
         self.default_wf = dataprogram.default_workflow
         self.gold_wf = dataprogram.gold_workflow
-        self.workflows = dataprogram.workflows
 
         assert len(self.workflows) > 0, "Router must have at least one workflow"
         assert self.default_wf is not None, "No default method registered."
@@ -60,32 +57,10 @@ class BasicRouter(Router):
         self.output_schema = self.workflows[0].output_schema
 
         self.name = name
-        self.qualified_name = "{}.{}".format(self.prefix, self.name)
+        self.qualified_name = f"{self.prefix}.{self.name}"
 
         self.validate()
         self.subscribe_wf()
-
-    ## TODO: Maybe this validation shouldn't be performed here, the workflow should validate on creation
-    def validate(self):
-        self.validate_workflow_attribute("prefix")
-        self.validate_workflow_attribute("input_schema")
-        self.validate_workflow_attribute("parameter_schema")
-        self.validate_workflow_attribute("output_schema")
-
-    def validate_workflow_attribute(self, attr: str):
-
-        if not hasattr(self, attr):
-            log.warn(Fore.RED + f"{self.name} missing attribute {attr}" + Style.RESET_ALL)
-
-        for workflow in self.workflows:
-            if not hasattr(workflow, attr):
-                log.warn(Fore.RED + f"workflow {workflow.name} missing attribute {attr}" + Style.RESET_ALL)
-
-            if getattr(self, attr) != getattr(workflow, attr):
-                log.warn(
-                    Fore.RED + f"{self.name} with {attr}: {getattr(self, attr)} has workflow {workflow.name} with"
-                    f" {attr}: {getattr(workflow, attr)}" + Style.RESET_ALL
-                )
 
     def subscribe_wf(self):
         @workflow(self.name, self.prefix)
@@ -145,7 +120,7 @@ class BasicRouter(Router):
                 )
                 return job_response
             else:
-                raise JobTypeNotImplemented("Router does not support the given job type: {}".format(job_type))
+                raise JobTypeNotImplemented(f"Router does not support the given job type: {job_type}")
 
         def send_workflow_job(workflow, input, params, job_type, app_uuid):
             job = execute(workflow, params=input, app_params={"params": params}, tag=app_uuid)
@@ -153,8 +128,6 @@ class BasicRouter(Router):
             status = result.status()
             if not status or status != "COMPLETED":
                 raise ChildJobFailed(
-                    "{} method did not complete for {} job. Result {}. Status {}".format(
-                        workflow, job_type, result, status
-                    )
+                    f"{workflow} method did not complete for {job_type} job. Result {result}. Status {status}"
                 )
             return job.result().response(), job.result().data(), None
