@@ -15,6 +15,7 @@ from superai.data_program.dp_server import DPServer
 from superai.data_program.Exceptions import UnknownTaskStatus
 from superai.data_program.protocol.task import task as task
 from superai.data_program.router import BasicRouter, Router
+from superai.data_program.router.training import Training
 from superai.data_program.types import (
     DataProgramDefinition,
     Handler,
@@ -46,6 +47,8 @@ class DataProgram(DataProgramBase):
         router: Router = None,
         metadata: dict = None,
         auto_generate_metadata: bool = True,
+        dataprogram: str = None,
+        dataprogram_suffix: str = "router",
         **kwargs,
     ):
         super().__init__(add_basic_workflow=add_basic_workflow)
@@ -75,10 +78,16 @@ class DataProgram(DataProgramBase):
 
         self._default_workflow: str = None
         self._gold_workflow: str = None
-        self.name, self.template_name = name, name
+        self.name = name
         self.__validate_name()
-        self.qualified_name = f"{self.name}.router"
 
+        suffix = "router"
+        self.is_training = False
+        if dataprogram is not None:
+            self.parent_workflow = f"{dataprogram}.{dataprogram_suffix}"
+            self.is_training = True
+            suffix = "training"
+        self.qualified_name = f"{self.name}.{suffix}"
         self.description = description
         self.router = router
         self.task_templates = []
@@ -102,6 +111,8 @@ class DataProgram(DataProgramBase):
         )
 
         self.__template_object = self.__create_template()
+        if self.is_training:
+            self.__update_parent_training_workflow()
         log.info(f"DataProgram created {self.qualified_name}")
 
     @staticmethod
@@ -150,6 +161,8 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
             os.environ["CANOTIC_AGENT"] = "1"
             os.environ["IN_AGENT"] = "YES"
 
+            training_dataprogram = os.getenv("TRAINING_DATAPROGRAM")
+            is_training = training_dataprogram is not None and training_dataprogram != name
             default_definition = DataProgram._get_definition_for_params(default_params, handler)
             dp = DataProgram(
                 name=name,
@@ -157,6 +170,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                 add_basic_workflow=False,
                 definition=default_definition,
                 auto_generate_metadata=auto_generate_metadata,
+                dataprogram=training_dataprogram if is_training else None,
             )
 
             for workflow_config in workflows:
@@ -195,10 +209,10 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         if not workflow_name:
             self._default_workflow = self.__load_default_workflow()
         else:
-            body = {"default_workflow": f"{self.template_name}.{workflow_name}"}
-            template_update = self.client.update_template(template_name=self.template_name, body=body)
-            assert template_update.get("defaultWorkflow")
-            self._default_workflow = template_update.get("defaultWorkflow")
+            body = {"default_workflow": f"{self.name}.{workflow_name}"}
+            updated_template = self.client.update_template(template_name=self.qualified_name, body=body)
+            assert updated_template.get("defaultWorkflow")
+            self._default_workflow = updated_template.get("defaultWorkflow")
 
     def __validate_name(self):
         if not self.name:
@@ -209,7 +223,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
     def __load_default_workflow(self):
         default_workflow = None
         try:
-            default_workflow = self.client.get_template(self.template_name).get("default_workflow")
+            default_workflow = self.client.get_template(self.qualified_name).get("default_workflow")
         except Exception as e:
             log.error(f"Error retrieving default workflow : {e}")
 
@@ -256,6 +270,15 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         assert "uuid" in response
         assert "name" in response and response["name"].split(".")[0] == self.name
         self.template_uuid = response["uuid"]
+        return response
+
+    def __update_parent_training_workflow(self) -> Dict:
+        """Updates the training workflow in the parent workflow"""
+        body_json = {"training_workflow": self.qualified_name}
+
+        response = self.client.update_template(template_name=self.parent_workflow, body=body_json)
+
+        assert "uuid" in response
         return response
 
     def _add_workflow_obj(self, workflow: Workflow, default: bool = None, gold: bool = None) -> Optional[dict]:
@@ -317,6 +340,9 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         params_cls: Type[Parameters],
         handler: Handler[Parameters],
     ):
+        if self.is_training and not workflow.is_default:
+            return
+
         def workflow_fn(inp, params):
             params_model = params_cls.parse_obj(params)
             handler_output = handler(params_model)
@@ -373,7 +399,9 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                         hero_id=my_task.output["hero"]["workerId"],
                     )
 
-            job_context = JobContext[Output](workflow, send_task, use_job_cache=bool(post_process_job))
+            job_context = JobContext[Output](
+                workflow, send_task, use_job_cache=bool(post_process_job), is_training=self.is_training
+            )
             job_output = process_job(job_input_model, job_context)
 
             if post_process_job is not None:
@@ -439,7 +467,8 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                     task_inputs.append(df.text(params.get("instructions", "")))
 
                 # Using the schema types to create a function handler from task_schema_functions
-                for k, v in input_schema.get("properties", {}).items():  # TODO: Handle types recursively
+                # TODO: Handle types recursively
+                for k, v in input_schema.get("properties", {}).items():
                     schema_fun = getattr(
                         df, v.get("$ref").replace("-", "_")
                     )  # FIXME: Will throw an exception if the function is not in df
@@ -530,22 +559,26 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         self.__add_basic_workflow()
 
         if not self.router:
-            self.router = BasicRouter(client=self.client, dataprogram=self)
+            self.router = (
+                Training(client=self.client, training_dataprogram=self)
+                if self.is_training
+                else BasicRouter(client=self.client, dataprogram=self)
+            )
 
     def start(self):
         self.__init_router()
         self._run_local()
 
     def _register_workflow(self, workflow: Workflow):
-        template = self.client.get_template(template_name=self.name)
+        template = self.client.get_template(template_name=self.qualified_name)
         workflow_list: List[str] = template.get("dpWorkflows", []) or []
         if workflow.qualified_name in workflow_list:
             return
         else:
             workflow_list.append(workflow.qualified_name)
             body = {"workflows": workflow_list}
-            template_udpate = self.client.update_template(template_name=self.name, body=body)
-            assert workflow.qualified_name in template_udpate.get("dpWorkflows")
+            updated_template = self.client.update_template(template_name=self.qualified_name, body=body)
+            assert workflow.qualified_name in updated_template.get("dpWorkflows")
 
     @staticmethod
     def _get_definition_for_params(params: Parameters, handler: Handler[Parameters]) -> DataProgramDefinition:
