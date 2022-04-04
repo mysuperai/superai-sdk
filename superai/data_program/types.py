@@ -86,16 +86,19 @@ class JobContext(Generic[Output]):
     workflow: WorkflowConfig
     send_task: SendTask[Output]
     job_cache: Optional[dict]
+    is_training: bool
 
     def __init__(
         self,
         workflow: WorkflowConfig,
         send_task: SendTask[Output],
         use_job_cache: bool = False,
+        is_training: bool = False,
     ):
         self.workflow = workflow
         self.send_task = send_task
         self.job_cache = {} if use_job_cache else None
+        self.is_training = is_training
 
 
 class PostProcessContext:
