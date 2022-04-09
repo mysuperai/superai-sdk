@@ -197,7 +197,7 @@ def init_config(
             print(f"Exception creating dir {path.absolute()}: {e}")
 
     dot_env_file = os.path.join(root_dir, ".env")
-    if not os.path.exists(dot_env_file) and not os.environ[__env_switcher]:
+    if not os.path.exists(dot_env_file) and not os.getenv(__env_switcher):
         env_in_order = ["prod", "sandbox", "stg", "dev", "testing"]
         envs = list_env_configs()
         for e in env_in_order:
