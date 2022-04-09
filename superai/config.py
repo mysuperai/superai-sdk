@@ -86,7 +86,10 @@ def set_env_config(name, root_dir: str = __superai_root_dir, log: Logger = None)
 
     log.info(f"Setting config : {name}")
     with open(os.path.expanduser(f"{root_dir}/.env"), "w") as f:
-        f.write(f"ENV_FOR_SUPERAI={name}")
+        try:
+            f.write(f"{__env_switcher}={name}")
+        except Exception:
+            os.environ[__env_switcher] = name
 
 
 def ensure_path_exists(f_path: str, only_dir=False):
@@ -186,11 +189,15 @@ def init_config(
     # This is necessary so that the first time the user initializes the repository
     # dynaconf doesn't fail
     root_dir = os.path.expanduser(root_dir)
-    if not os.path.exists(root_dir):
-        os.mkdir(root_dir)
+    path = pathlib.Path(root_dir)
+    if not path.exists():
+        try:
+            path.mkdir(exist_ok=True, parents=True)
+        except Exception as e:
+            print(f"Exception creating dir {path.absolute()}: {e}")
 
     dot_env_file = os.path.join(root_dir, ".env")
-    if not os.path.exists(dot_env_file):
+    if not os.path.exists(dot_env_file) and not os.environ[__env_switcher]:
         env_in_order = ["prod", "sandbox", "stg", "dev", "testing"]
         envs = list_env_configs()
         for e in env_in_order:
