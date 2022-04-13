@@ -18,6 +18,7 @@ from superai.config import (
     list_env_configs,
     remove_secret_settings,
     set_env_config,
+    settings,
 )
 
 base_dir = Path(get_config_dir()).expanduser()
@@ -251,3 +252,8 @@ def test_remove_key_not_exists(with_tmp_secrets_file):
     with open(secrets_path, "r") as f:
         secrets_after = dict(yaml.load(f, yaml.SafeLoader) or {})
     assert secrets_after.items() <= content.items()
+
+
+def test_bucket():
+    assert settings.meta_ai_bucket == "meta-ai-test"
+    assert settings["meta_ai_bucket"] == "meta-ai-test"
