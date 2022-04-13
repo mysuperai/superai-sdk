@@ -8,6 +8,7 @@ default:
   base_url: "@jinja https://api{{this.suffix | lower}}.super.ai/v1"
   meta_ai_request_protocol: "https"
   meta_ai_base: "@jinja metaai{{this.suffix | lower}}.super.ai/v1/graphql"
+  meta_ai_bucket: "@jinja meta-ai-{{this.name | lower}}"
   build_manifest: "build_manifest.yml"
   cognito:
     client_id: "41t3in8ao7fesog76qtskpkkev"

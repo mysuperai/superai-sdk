@@ -116,7 +116,7 @@ class AITemplate:
         artifacts: Optional[Dict] = None,
         client: Client = None,
         folder_name: str = "meta_ai_models",
-        bucket_name: str = "canotic-ai",
+        bucket_name: str = None,
         parameters=None,
         template_id=None,
     ):
@@ -212,7 +212,7 @@ class AITemplate:
             )
         )
         self.folder_name = folder_name
-        self.bucket_name = bucket_name
+        self.bucket_name = bucket_name or settings["meta_ai_bucket"]
         self.parameters = parameters
         if model_class is None:
             raise NotImplementedError(
