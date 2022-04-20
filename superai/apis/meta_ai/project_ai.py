@@ -72,7 +72,6 @@ class ProjectAiApiMixin(ABC):
         conflict_handler = meta_ai_app_on_conflict(
             constraint=meta_ai_app_constraint("app_modelId_id_assigned_key"),
             update_columns=["modelId", "active", "threshold"],
-            where=None,
         )
         op.insert_meta_ai_app_one(object=insert_input, on_conflict=conflict_handler).__fields__(
             "id", "model_id", "assigned", "active"
