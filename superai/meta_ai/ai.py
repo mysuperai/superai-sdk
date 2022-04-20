@@ -1334,12 +1334,7 @@ class AI:
             f"--incremental=True . "
             f"{base_image_tag} {image_tag}"
         )
-        self._system(command)
-        image = client.images.get(f"{image_tag}")
-        tag_time = image.attrs["Metadata"]["LastTagTime"]
-        diff = datetime.datetime.utcnow() - datetime.datetime.fromisoformat(tag_time[:26])
-        if diff.total_seconds() > 2.0:
-            raise Exception(f"Image failed to create, this image is too old ({diff.total_seconds()}s)")
+        return self._system(command)
 
     @staticmethod
     def _download_base_image(base_image: str, client: DockerClient) -> None:
