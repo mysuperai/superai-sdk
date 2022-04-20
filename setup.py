@@ -36,7 +36,7 @@ REQUIRES = [
     "requests>=2.22",
     "sentry-sdk>=0.19.4",
     "scikit-learn>=0.23.2",
-    "sgqlc>=14.1",
+    "sgqlc>=16",
     "sentry-sdk>=0.19.4",
     "six",
     "uvicorn>=0.15.0",
