@@ -173,6 +173,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                 dataprogram=training_dataprogram if is_training else None,
             )
 
+            dp.check_workflow_deletion(workflows)
             for workflow_config in workflows:
                 dp._add_workflow_by_config(workflow_config, params_cls, handler)
 
@@ -201,6 +202,16 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
             self._default_workflow = self.__load_default_workflow()
 
         return self._default_workflow
+
+    def check_workflow_deletion(self, new_workflows):
+        template = self.client.get_template(template_name=self.name)
+        old_workflows_names: List[str] = template.get("dpWorkflows", []) or []
+
+        new_workflows_names = [self.name + "." + new_workflow.name for new_workflow in new_workflows]
+
+        if any(item not in new_workflows_names for item in old_workflows_names):
+            # Can't delete workflows!
+            raise Exception("DP deployment failed, you're trying to remove workflows, use the CLI for that")
 
     @default_workflow.setter
     def default_workflow(self, workflow_name):
@@ -400,7 +411,10 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                     )
 
             job_context = JobContext[Output](
-                workflow, send_task, use_job_cache=bool(post_process_job), is_training=self.is_training
+                workflow,
+                send_task,
+                use_job_cache=bool(post_process_job),
+                is_training=self.is_training,
             )
             job_output = process_job(job_input_model, job_context)
 
