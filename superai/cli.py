@@ -1112,10 +1112,16 @@ def create_template(client, app_id, model_id, properties: str):
     "--properties",
     "-p",
     help="Training parameters passed to the model when starting training.",
-    required=True,
+    required=False,
+)
+@click.option(
+    "--description",
+    "-d",
+    help="Description of the template",
+    required=False,
 )
 @pass_client
-def update_template(client, app_id, model_id, properties: str):
+def update_template(client, app_id, model_id, properties: str, description: str):
     """
     Update an exising template for trainings.
     The template is used to instantiate new training instances.
@@ -1128,8 +1134,7 @@ def update_template(client, app_id, model_id, properties: str):
             exit()
     else:
         json_inputs = None
-
-    id = client.update_training_template(app_id, model_id, json_inputs)
+    id = client.update_training_template(app_id, model_id, properties=json_inputs, description=description)
     if id:
         print(f"Updated training template with id={id}")
 
