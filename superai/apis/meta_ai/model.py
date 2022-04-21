@@ -7,10 +7,11 @@ from rich import box
 from rich.console import Console
 from rich.live import Live
 from rich.table import Table
-from sgqlc.operation import Operation  # type: ignore
+from sgqlc.operation import Operation
 
 from superai.apis.meta_ai.meta_ai_graphql_schema import (
     RawPrediction,
+    meta_ai_assignment_enum,
     meta_ai_deployment,
     meta_ai_deployment_bool_exp,
     meta_ai_deployment_insert_input,
@@ -28,21 +29,35 @@ from superai.apis.meta_ai.meta_ai_graphql_schema import (
     meta_ai_prediction_state_enum,
     meta_ai_training_instance_insert_input,
     meta_ai_training_template_insert_input,
+    meta_ai_training_template_pk_columns_input,
+    meta_ai_training_template_set_input,
     meta_ai_visibility_enum,
     mutation_root,
     query_root,
     subscription_root,
     uuid,
     uuid_comparison_exp,
-    meta_ai_assignment_enum,
 )
 from superai.log import logger
 
-from .session import MetaAISession, MetaAIWebsocketSession  # type: ignore
+from .session import (  # type: ignore
+    GraphQlException,
+    MetaAISession,
+    MetaAIWebsocketSession,
+)
 
 log = logger.get_logger(__name__)
-BASE_FIELDS = ["name", "version", "id", "ai_worker_id", "visibility"]
-EXTRA_FIELDS = ["description", "model_save_path", "weights_path", "input_schema", "output_schema", "served_by"]
+BASE_FIELDS = ["name", "version", "id", "ai_worker_id", "visibility", "trainable"]
+EXTRA_FIELDS = [
+    "description",
+    "model_save_path",
+    "weights_path",
+    "input_schema",
+    "output_schema",
+    "served_by",
+    "default_training_parameters",
+    "image",
+]
 
 
 class PredictionError(Exception):
@@ -91,6 +106,9 @@ class ModelApiMixin(ABC):
             "output_schema",
             "root_id",
             "served_by",
+            "trainable",
+            "default_training_parameters",
+            "image",
         )
         data = self.sess.perform_op(op)
         return self._output_formatter((op + data).meta_ai_model_by_pk, to_json)
@@ -187,6 +205,9 @@ class ModelApiMixin(ABC):
         output_schema: dict = None,
         model_save_path: str = "",
         weights_path: str = "",
+        default_training_parameters: dict = None,
+        trainable: bool = False,
+        image: str = None,
     ) -> str:
         """
         Add a new model to the database.
@@ -216,6 +237,13 @@ class ModelApiMixin(ABC):
                 URI to the stored model source code.
             weights_path:
                 URI to the stored model weights.
+            default_training_parameters:
+                Default training parameters for the model. Can be used to create training templates.
+            trainable:
+                If True, the model can be trained and a `train` method exists.
+            image:
+                Path to the docker image containing the model execution environment, currently only used for training execution.
+                The image property of the  `deployment` object is the one used for prediction. Tthat will be deprecated in the future.
 
         Returns:
 
@@ -754,8 +782,7 @@ class TrainApiMixin(ABC):
     def resource(self):
         return self._resource
 
-    @staticmethod
-    def create_training_template_entry(app_id: uuid, model_id: uuid, properties: dict):
+    def create_training_template_entry(self, app_id: uuid, model_id: uuid, properties: dict):
         """
         Creates a new training template entry.
 
@@ -773,12 +800,44 @@ class TrainApiMixin(ABC):
             object=meta_ai_training_template_insert_input(
                 model_id=model_id, app_id=app_id, properties=json.dumps(properties)
             )
-        ).__fields__("id")
-
-        data = sess.perform_op(op)
-
+        ).__fields__("id", "app_id", "model_id", "properties")
+        try:
+            data = sess.perform_op(op)
+        except GraphQlException as e:
+            if "duplicate" in str(e):
+                raise Exception(
+                    "Training template already exists. Currently only one template is allowed per app/model."
+                )
         log.info(f"Created training template {data}")
         return (op + data).insert_meta_ai_training_template_one.id
+
+    @staticmethod
+    def update_training_template(app_id: uuid, model_id: uuid, properties: dict):
+        """
+        Update existing training template entry.
+
+        Returns: the id of the updated entry
+
+        Args:
+            app_id: ref app id for the template
+            model_id: ref model if for the template
+            properties: the default properties that will get inherited during trainings
+        """
+        sess = MetaAISession(app_id=str(app_id))
+        op = Operation(mutation_root)
+
+        templates = TrainApiMixin.get_training_templates(app_id, model_id)
+        if len(templates) < 1:
+            raise Exception("Cannot update template. Template does not exist.")
+        template_id = templates[0].id
+
+        op.update_meta_ai_training_template_by_pk(
+            _set=meta_ai_training_template_set_input(properties=json.dumps(properties)),
+            pk_columns=meta_ai_training_template_pk_columns_input(id=template_id),
+        ).__fields__("id", "app_id", "model_id", "properties")
+        data = sess.perform_op(op)
+        log.info(f"Updated training template {data}")
+        return (op + data).update_meta_ai_training_template_by_pk.id
 
     @staticmethod
     def get_training_templates(app_id: uuid, model_id: uuid):
@@ -840,16 +899,23 @@ class TrainApiMixin(ABC):
             specified as a dict of properties custom for this run
         """
         sess = MetaAISession(app_id=str(app_id))
-        template = self.get_training_templates(app_id, model_id)
+        templates = self.get_training_templates(app_id, model_id)
+        if len(templates) < 1:
+            log.warning("No existing template found. Creating new one automatically.")
+            template = self.create_training_template_entry(app_id, model_id, properties)
+        else:
+            template = templates[0]
+            log.info(f"Creating new training run based on exising template: {template}")
 
         if not properties:
-            properties = template[0]["properties"]
+            log.info("No properties specified. Using default properties from template.")
+            properties = template["properties"]
 
         op = Operation(mutation_root)
 
         op.insert_meta_ai_training_instance_one(
             object=meta_ai_training_instance_insert_input(
-                training_template_id=template[0]["id"], current_properties=json.dumps(properties)
+                training_template_id=template["id"], current_properties=json.dumps(properties)
             )
         ).__fields__("id")
 
@@ -859,7 +925,7 @@ class TrainApiMixin(ABC):
         return (op + data).insert_meta_ai_training_instance_one.id
 
     @staticmethod
-    def get_trainings(app_id: uuid, model_id: uuid, state: str = ""):
+    def get_trainings(app_id: uuid, model_id: uuid = None, state: str = ""):
         """
         Finds training instances from the app id and model id keys.
 
@@ -873,10 +939,11 @@ class TrainApiMixin(ABC):
         sess = MetaAISession(app_id=str(app_id))
         op = Operation(query_root)
 
-        filter = {"app_id": {"_eq": app_id}, "model_id": {"_eq": model_id}}
-
+        filter = {"app_id": {"_eq": app_id}}
         if state:
             filter["state"] = {"_eq": state}
+        if model_id:
+            filter["model_id"] = {"_eq": model_id}
 
         op.meta_ai_training_template(where=filter).training_instances().__fields__(
             "id", "current_properties", "state", "created_at"

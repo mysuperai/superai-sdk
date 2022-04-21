@@ -1032,7 +1032,7 @@ def training():
 
 @training.command(name="list")
 @click.option("--app_id", "-a", help="Application id", required=True)
-@click.option("--model_id", "-m", help="Model id", required=True)
+@click.option("--model_id", "-m", help="Model id", required=False)
 @pass_client
 def list_trainings(client, app_id, model_id):
     """
@@ -1057,15 +1057,94 @@ def start_training(client, app_id, model_id, properties: str):
     """
     Start a new training
     """
-    try:
-        json_inputs = json.loads(properties)
-    except:
-        print("Couldn't read json inputs")
-        exit()
+    if properties:
+        try:
+            json_inputs = json.loads(properties)
+        except:
+            print("Couldn't read json inputs")
+            exit()
+    else:
+        json_inputs = None
 
     id = client.create_training_entry(app_id, model_id, json_inputs)
     if id:
         print(f"Started a new training with ID {id}")
+
+
+@training.group()
+def template():
+    """View and manage training templates"""
+
+
+@template.command(name="create")
+@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--model_id", "-m", help="Model id", required=True)
+@click.option(
+    "--properties",
+    "-p",
+    help="Training parameters passed to the model when starting training.",
+    required=True,
+)
+@pass_client
+def create_template(client, app_id, model_id, properties: str):
+    """
+    Create a template for trainings.
+    The template is used to instantiate new training instances.
+    """
+    if properties:
+        try:
+            json_inputs = json.loads(properties)
+        except:
+            print("Couldn't read json inputs")
+            exit()
+    else:
+        json_inputs = None
+
+    id = client.create_training_template_entry(app_id, model_id, json_inputs)
+    if id:
+        print(f"Created new training with ID {id}")
+
+
+@template.command(name="update")
+@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--model_id", "-m", help="Model id", required=True)
+@click.option(
+    "--properties",
+    "-p",
+    help="Training parameters passed to the model when starting training.",
+    required=True,
+)
+@pass_client
+def update_template(client, app_id, model_id, properties: str):
+    """
+    Update an exising template for trainings.
+    The template is used to instantiate new training instances.
+    """
+    if properties:
+        try:
+            json_inputs = json.loads(properties)
+        except:
+            print("Couldn't read json inputs")
+            exit()
+    else:
+        json_inputs = None
+
+    id = client.update_training_template(app_id, model_id, json_inputs)
+    if id:
+        print(f"Updated training template with id={id}")
+
+
+@template.command(name="list")
+@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--model_id", "-m", help="Model id", required=True)
+@pass_client
+def list_training_templates(client, app_id, model_id):
+    """
+    List existing training templates.
+    """
+    templates = client.get_training_templates(app_id, model_id)
+    if templates:
+        print(templates)
 
 
 def main():
