@@ -3,10 +3,15 @@ from polyaxon import tracking
 from polyaxon.tracking.contrib.keras import PolyaxonKerasCallback
 from tensorflow import keras
 
-from docs.examples.ai.mnist import OPTIMIZERS
 from superai.meta_ai import BaseModel
 from superai.meta_ai.base.base_ai import default_random_seed
 from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters
+
+OPTIMIZERS = {
+    "adam": tf.keras.optimizers.Adam,
+    "rmsprop": tf.keras.optimizers.RMSprop,
+    "sgd": tf.keras.optimizers.SGD,
+}
 
 
 class MnistModel(BaseModel):

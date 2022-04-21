@@ -15,15 +15,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_model_one":{"name":"TestModel","version":1,"id":"40cb6ae4-cf3f-446b-9981-0ed21739b825","stage":"LOCAL","description":"","visibility":"PRIVATE","root_id":"40cb6ae4-cf3f-446b-9981-0ed21739b825"}}}'
+      string: '{"data":{"insert_meta_ai_model_one":{"name":"TestModel","version":1,"id":"7b28f9e6-c8d8-43bc-80d0-fc9a301e2866","stage":"LOCAL","description":"","visibility":"PRIVATE","root_id":"7b28f9e6-c8d8-43bc-80d0-fc9a301e2866"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -31,14 +31,14 @@ interactions:
       content-length:
       - '219'
       x-request-id:
-      - 4e228366-bdd7-4c37-ada8-1d74df2b8fe6
+      - fc8aca46-baea-41e7-82fc-8951aedf87f5
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "query {\nmeta_ai_model(where: {name: {_eq: \"TestModel\"}})
-      {\nname\nversion\nid\nai_worker_id\nvisibility\n}\n}", "variables": null, "operationName":
-      null}'
+      {\nname\nversion\nid\nai_worker_id\nvisibility\ntrainable\n}\n}", "variables":
+      null, "operationName": null}'
     headers:
       Accept:
       - application/json; charset=utf-8
@@ -49,29 +49,29 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_model":[{"name":"TestModel","version":1,"id":"40cb6ae4-cf3f-446b-9981-0ed21739b825","ai_worker_id":null,"visibility":"PRIVATE"}]}}'
+      string: '{"data":{"meta_ai_model":[{"name":"TestModel","version":1,"id":"7b28f9e6-c8d8-43bc-80d0-fc9a301e2866","ai_worker_id":null,"visibility":"PRIVATE","trainable":false}]}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
       - chunked
       content-length:
-      - '148'
+      - '166'
       x-request-id:
-      - e660b9d7-4efc-4be6-a8ee-9d639963de49
+      - 13dc8d65-4dc2-4820-ab7e-d33b9bdea262
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_model_by_pk(id: \"40cb6ae4-cf3f-446b-9981-0ed21739b825\")
-      {\nname\nversion\nid\nai_worker_id\ndescription\nvisibility\ninputSchema\noutputSchema\nroot_id\nserved_by\n}\n}",
+    body: '{"query": "query {\nmeta_ai_model_by_pk(id: \"7b28f9e6-c8d8-43bc-80d0-fc9a301e2866\")
+      {\nname\nversion\nid\nai_worker_id\ndescription\nvisibility\ninputSchema\noutputSchema\nroot_id\nserved_by\ntrainable\ndefault_training_parameters\nimage\n}\n}",
       "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -83,28 +83,28 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_model_by_pk":{"name":"TestModel","version":1,"id":"40cb6ae4-cf3f-446b-9981-0ed21739b825","ai_worker_id":null,"description":"","visibility":"PRIVATE","inputSchema":"null","outputSchema":"null","root_id":"40cb6ae4-cf3f-446b-9981-0ed21739b825","served_by":null}}}'
+      string: '{"data":{"meta_ai_model_by_pk":{"name":"TestModel","version":1,"id":"7b28f9e6-c8d8-43bc-80d0-fc9a301e2866","ai_worker_id":null,"description":"","visibility":"PRIVATE","inputSchema":"null","outputSchema":"null","root_id":"7b28f9e6-c8d8-43bc-80d0-fc9a301e2866","served_by":null,"trainable":false,"default_training_parameters":null,"image":null}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
       - chunked
       content-length:
-      - '278'
+      - '344'
       x-request-id:
-      - 9b565e58-650e-4384-803f-82f24f856df9
+      - ac048069-c2a8-4b12-8864-c95a7e8e9204
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_model {\nname\nversion\nid\nai_worker_id\nvisibility\n}\n}",
+    body: '{"query": "query {\nmeta_ai_model {\nname\nversion\nid\nai_worker_id\nvisibility\ntrainable\n}\n}",
       "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -116,29 +116,30 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_model":[{"name":"TestModel","version":1,"id":"40cb6ae4-cf3f-446b-9981-0ed21739b825","ai_worker_id":null,"visibility":"PRIVATE"}]}}'
+      string: '{"data":{"meta_ai_model":[{"name":"DUMMY","version":1,"id":"bf6e549d-20dc-4bc1-9df9-0b28e733eacb","ai_worker_id":null,"visibility":"PRIVATE","trainable":false},
+        {"name":"TestModel","version":1,"id":"7b28f9e6-c8d8-43bc-80d0-fc9a301e2866","ai_worker_id":null,"visibility":"PRIVATE","trainable":false}]}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
       - chunked
       content-length:
-      - '148'
+      - '301'
       x-request-id:
-      - d36d9b3f-60cc-4526-816a-c5145f26ff09
+      - 2e08d682-63b6-4e0d-a82e-758171b5c675
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\nupdate_meta_ai_model_by_pk(_set: {name: \"ChangedTestModel\"},
-      pk_columns: {id: \"40cb6ae4-cf3f-446b-9981-0ed21739b825\"}) {\nname\nversion\nid\ndescription\n}\n}",
+      pk_columns: {id: \"7b28f9e6-c8d8-43bc-80d0-fc9a301e2866\"}) {\nname\nversion\nid\ndescription\n}\n}",
       "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -150,15 +151,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"update_meta_ai_model_by_pk":{"name":"ChangedTestModel","version":1,"id":"40cb6ae4-cf3f-446b-9981-0ed21739b825","description":""}}}'
+      string: '{"data":{"update_meta_ai_model_by_pk":{"name":"ChangedTestModel","version":1,"id":"7b28f9e6-c8d8-43bc-80d0-fc9a301e2866","description":""}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -166,13 +167,13 @@ interactions:
       content-length:
       - '140'
       x-request-id:
-      - 0659a840-9a33-403c-b2d5-ac1be84f2da8
+      - a7a97991-ce4e-4ebb-b937-1c0119ce14d2
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_model_by_pk(id: \"40cb6ae4-cf3f-446b-9981-0ed21739b825\")
-      {\nname\nversion\nid\nai_worker_id\ndescription\nvisibility\ninputSchema\noutputSchema\nroot_id\nserved_by\n}\n}",
+    body: '{"query": "query {\nmeta_ai_model_by_pk(id: \"7b28f9e6-c8d8-43bc-80d0-fc9a301e2866\")
+      {\nname\nversion\nid\nai_worker_id\ndescription\nvisibility\ninputSchema\noutputSchema\nroot_id\nserved_by\ntrainable\ndefault_training_parameters\nimage\n}\n}",
       "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -184,28 +185,28 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_model_by_pk":{"name":"ChangedTestModel","version":1,"id":"40cb6ae4-cf3f-446b-9981-0ed21739b825","ai_worker_id":null,"description":"","visibility":"PRIVATE","inputSchema":"null","outputSchema":"null","root_id":"40cb6ae4-cf3f-446b-9981-0ed21739b825","served_by":null}}}'
+      string: '{"data":{"meta_ai_model_by_pk":{"name":"ChangedTestModel","version":1,"id":"7b28f9e6-c8d8-43bc-80d0-fc9a301e2866","ai_worker_id":null,"description":"","visibility":"PRIVATE","inputSchema":"null","outputSchema":"null","root_id":"7b28f9e6-c8d8-43bc-80d0-fc9a301e2866","served_by":null,"trainable":false,"default_training_parameters":null,"image":null}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
       - chunked
       content-length:
-      - '285'
+      - '351'
       x-request-id:
-      - 3956cb57-bf4f-4e94-9142-f01998cc3eae
+      - 9f53756b-19b2-4f28-9d18-96668a04bb70
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "mutation {\ndelete_meta_ai_model_by_pk(id: \"40cb6ae4-cf3f-446b-9981-0ed21739b825\")
+    body: '{"query": "mutation {\ndelete_meta_ai_model_by_pk(id: \"7b28f9e6-c8d8-43bc-80d0-fc9a301e2866\")
       {\nname\nversion\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -217,15 +218,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"delete_meta_ai_model_by_pk":{"name":"ChangedTestModel","version":1,"id":"40cb6ae4-cf3f-446b-9981-0ed21739b825"}}}'
+      string: '{"data":{"delete_meta_ai_model_by_pk":{"name":"ChangedTestModel","version":1,"id":"7b28f9e6-c8d8-43bc-80d0-fc9a301e2866"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -233,7 +234,7 @@ interactions:
       content-length:
       - '123'
       x-request-id:
-      - 568eaeb7-09b1-4d78-8d0f-67d299e84afc
+      - e12575c8-d5ab-4a58-9d61-1bd17c686059
     status:
       code: 200
       message: OK
@@ -253,15 +254,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_model_one":{"name":"TestModel","version":1,"id":"1e67465f-eab3-4b86-8b31-2c73d2909fd5","stage":"LOCAL","description":"","visibility":"PRIVATE","root_id":"1e67465f-eab3-4b86-8b31-2c73d2909fd5"}}}'
+      string: '{"data":{"insert_meta_ai_model_one":{"name":"TestModel","version":1,"id":"0773cbc5-c8ed-4b06-9887-8df08fb017e0","stage":"LOCAL","description":"","visibility":"PRIVATE","root_id":"0773cbc5-c8ed-4b06-9887-8df08fb017e0"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -269,13 +270,13 @@ interactions:
       content-length:
       - '219'
       x-request-id:
-      - af0a62dd-2780-4866-9104-81b0a21b7c10
+      - 067bd41d-a575-4d1e-bc40-2a1c40cc0486
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\ninsert_meta_ai_prediction_one(object: {appId: \"FAKE_APP_ID\",
-      jobId: 1, modelId: \"1e67465f-eab3-4b86-8b31-2c73d2909fd5\", type: PRELABEL})
+      jobId: 1, modelId: \"0773cbc5-c8ed-4b06-9887-8df08fb017e0\", type: PRELABEL})
       {\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -287,15 +288,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_prediction_one":{"id":"f484cc3e-69ad-4fa6-9a27-9013e831a457"}}}'
+      string: '{"data":{"insert_meta_ai_prediction_one":{"id":"dc8a676f-c31d-4673-b1d2-3d3bbbecb4e5"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -303,13 +304,13 @@ interactions:
       content-length:
       - '88'
       x-request-id:
-      - 444a41e4-14c8-4904-803f-3380315d354e
+      - c97d9040-dbca-4928-ab8d-336a29903f30
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\ninsert_meta_ai_instance_one(object: {id: 0, predictionId:
-      \"f484cc3e-69ad-4fa6-9a27-9013e831a457\", score: 1.0}) {\nid\n}\n}", "variables":
+      \"dc8a676f-c31d-4673-b1d2-3d3bbbecb4e5\", score: 1.0}) {\nid\n}\n}", "variables":
       null, "operationName": null}'
     headers:
       Accept:
@@ -321,7 +322,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
       string: '{"data":{"insert_meta_ai_instance_one":{"id":0}}}'
@@ -329,7 +330,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -337,12 +338,12 @@ interactions:
       content-length:
       - '49'
       x-request-id:
-      - b5431ab2-e6cb-4320-8848-f85ae6eb78db
+      - 2ffaa214-05c7-44c5-bcfc-3a4c8fe5e23d
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_prediction_by_pk(id: \"f484cc3e-69ad-4fa6-9a27-9013e831a457\")
+    body: '{"query": "query {\nmeta_ai_prediction_by_pk(id: \"dc8a676f-c31d-4673-b1d2-3d3bbbecb4e5\")
       {\nid\nstate\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -354,15 +355,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_prediction_by_pk":{"id":"f484cc3e-69ad-4fa6-9a27-9013e831a457","state":"IN_PROGRESS"}}}'
+      string: '{"data":{"meta_ai_prediction_by_pk":{"id":"dc8a676f-c31d-4673-b1d2-3d3bbbecb4e5","state":"IN_PROGRESS"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -370,12 +371,12 @@ interactions:
       content-length:
       - '105'
       x-request-id:
-      - ab6fdf03-5def-4702-9006-deda3d1ee0a8
+      - 3c56e0ad-87cb-4043-94c0-78bf29def508
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "mutation {\ndelete_meta_ai_prediction_by_pk(id: \"f484cc3e-69ad-4fa6-9a27-9013e831a457\")
+    body: '{"query": "mutation {\ndelete_meta_ai_prediction_by_pk(id: \"dc8a676f-c31d-4673-b1d2-3d3bbbecb4e5\")
       {\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -387,15 +388,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"delete_meta_ai_prediction_by_pk":{"id":"f484cc3e-69ad-4fa6-9a27-9013e831a457"}}}'
+      string: '{"data":{"delete_meta_ai_prediction_by_pk":{"id":"dc8a676f-c31d-4673-b1d2-3d3bbbecb4e5"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -403,12 +404,12 @@ interactions:
       content-length:
       - '90'
       x-request-id:
-      - f0c18ce8-fc96-41ea-8e87-33db4e1d6b41
+      - bbc624d1-3b69-4020-ae0c-1e0ce9171d8b
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "mutation {\ndelete_meta_ai_model_by_pk(id: \"1e67465f-eab3-4b86-8b31-2c73d2909fd5\")
+    body: '{"query": "mutation {\ndelete_meta_ai_model_by_pk(id: \"0773cbc5-c8ed-4b06-9887-8df08fb017e0\")
       {\nname\nversion\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -420,15 +421,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"delete_meta_ai_model_by_pk":{"name":"TestModel","version":1,"id":"1e67465f-eab3-4b86-8b31-2c73d2909fd5"}}}'
+      string: '{"data":{"delete_meta_ai_model_by_pk":{"name":"TestModel","version":1,"id":"0773cbc5-c8ed-4b06-9887-8df08fb017e0"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -436,7 +437,7 @@ interactions:
       content-length:
       - '116'
       x-request-id:
-      - 9778d4a3-56d2-4c9a-a3fe-44e2d32595da
+      - 7857408d-b22c-440f-9a67-b9d7d31b18d7
     status:
       code: 200
       message: OK
@@ -456,15 +457,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_model_one":{"name":"TestModel","version":1,"id":"48e06714-054b-4462-866b-250a71e72b0a","stage":"LOCAL","description":"","visibility":"PRIVATE","root_id":"48e06714-054b-4462-866b-250a71e72b0a"}}}'
+      string: '{"data":{"insert_meta_ai_model_one":{"name":"TestModel","version":1,"id":"3cdd8298-d0f0-4cf1-8d27-ab1cb7651624","stage":"LOCAL","description":"","visibility":"PRIVATE","root_id":"3cdd8298-d0f0-4cf1-8d27-ab1cb7651624"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -472,13 +473,13 @@ interactions:
       content-length:
       - '219'
       x-request-id:
-      - 5b65359d-2181-4219-b6c3-165475534487
+      - 08bee3ae-fa40-489a-a2b3-3f2f1ec76ee2
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\ninsert_meta_ai_prediction_one(object: {appId: \"FAKE_APP_ID\",
-      jobId: 1, modelId: \"48e06714-054b-4462-866b-250a71e72b0a\", type: PRELABEL})
+      jobId: 1, modelId: \"3cdd8298-d0f0-4cf1-8d27-ab1cb7651624\", type: PRELABEL})
       {\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -490,15 +491,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_prediction_one":{"id":"42b4a41c-de4c-4838-a95b-cce105bab578"}}}'
+      string: '{"data":{"insert_meta_ai_prediction_one":{"id":"1c127d2a-7789-46fd-aee8-cc28026a5b62"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -506,13 +507,13 @@ interactions:
       content-length:
       - '88'
       x-request-id:
-      - 24d48b06-fdcf-4382-93ac-99456455568a
+      - c8adde8e-d533-4a6e-a656-596c98aceeba
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\ninsert_meta_ai_instance_one(object: {id: 0, predictionId:
-      \"42b4a41c-de4c-4838-a95b-cce105bab578\", score: 1.0}) {\nid\n}\n}", "variables":
+      \"1c127d2a-7789-46fd-aee8-cc28026a5b62\", score: 1.0}) {\nid\n}\n}", "variables":
       null, "operationName": null}'
     headers:
       Accept:
@@ -524,7 +525,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
       string: '{"data":{"insert_meta_ai_instance_one":{"id":0}}}'
@@ -532,7 +533,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -540,12 +541,12 @@ interactions:
       content-length:
       - '49'
       x-request-id:
-      - 88d04036-f3f1-45e4-91b2-5d3dbd691632
+      - 85882b94-1047-44d5-9926-0872ee6e0d1a
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_prediction_by_pk(id: \"42b4a41c-de4c-4838-a95b-cce105bab578\")
+    body: '{"query": "query {\nmeta_ai_prediction_by_pk(id: \"1c127d2a-7789-46fd-aee8-cc28026a5b62\")
       {\nid\nstate\ncreatedAt\ncompletedAt\nstartedAt\nerrorMessage\nmodel {\nid\nname\nversion\n}\ninstances
       {\nid\noutput\nscore\n}\n}\n}", "variables": null, "operationName": null}'
     headers:
@@ -558,15 +559,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_prediction_by_pk":{"id":"42b4a41c-de4c-4838-a95b-cce105bab578","state":"IN_PROGRESS","createdAt":"2022-04-20T11:22:58.071079+00:00","completedAt":null,"startedAt":null,"errorMessage":null,"model":{"id":"48e06714-054b-4462-866b-250a71e72b0a","name":"TestModel","version":1},"instances":[{"id":0,"output":null,"score":1}]}}}'
+      string: '{"data":{"meta_ai_prediction_by_pk":{"id":"1c127d2a-7789-46fd-aee8-cc28026a5b62","state":"IN_PROGRESS","createdAt":"2022-04-21T07:12:18.629937+00:00","completedAt":null,"startedAt":null,"errorMessage":null,"model":{"id":"3cdd8298-d0f0-4cf1-8d27-ab1cb7651624","name":"TestModel","version":1},"instances":[{"id":0,"output":null,"score":1}]}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -574,12 +575,12 @@ interactions:
       content-length:
       - '340'
       x-request-id:
-      - a595bc34-7ed3-41a3-b9f5-6adc2e4098a3
+      - 5b665f88-454b-4dd2-b13e-30ff55ee48a1
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "mutation {\ndelete_meta_ai_prediction_by_pk(id: \"42b4a41c-de4c-4838-a95b-cce105bab578\")
+    body: '{"query": "mutation {\ndelete_meta_ai_prediction_by_pk(id: \"1c127d2a-7789-46fd-aee8-cc28026a5b62\")
       {\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -591,15 +592,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"delete_meta_ai_prediction_by_pk":{"id":"42b4a41c-de4c-4838-a95b-cce105bab578"}}}'
+      string: '{"data":{"delete_meta_ai_prediction_by_pk":{"id":"1c127d2a-7789-46fd-aee8-cc28026a5b62"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -607,12 +608,12 @@ interactions:
       content-length:
       - '90'
       x-request-id:
-      - 21ea8f18-5d1e-4171-a7f0-22e7dfe4656c
+      - 0deb2820-69d9-4eb5-8754-c7118a8fea6b
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "mutation {\ndelete_meta_ai_model_by_pk(id: \"48e06714-054b-4462-866b-250a71e72b0a\")
+    body: '{"query": "mutation {\ndelete_meta_ai_model_by_pk(id: \"3cdd8298-d0f0-4cf1-8d27-ab1cb7651624\")
       {\nname\nversion\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -624,15 +625,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"delete_meta_ai_model_by_pk":{"name":"TestModel","version":1,"id":"48e06714-054b-4462-866b-250a71e72b0a"}}}'
+      string: '{"data":{"delete_meta_ai_model_by_pk":{"name":"TestModel","version":1,"id":"3cdd8298-d0f0-4cf1-8d27-ab1cb7651624"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -640,7 +641,7 @@ interactions:
       content-length:
       - '116'
       x-request-id:
-      - c0c0f147-cab5-46ea-abe2-00a2a4ef76c0
+      - b93d250f-191b-4db8-862c-636b03c9a63d
     status:
       code: 200
       message: OK
@@ -658,7 +659,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
       string: '{"data":{"request_prediction_of_job":[]}}'
@@ -666,7 +667,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -674,7 +675,7 @@ interactions:
       content-length:
       - '41'
       x-request-id:
-      - 28c8f2e2-abc3-43f1-84a3-ea45bd1f7eda
+      - 73c2f6b2-fd65-4699-a770-305e0f0fe32f
     status:
       code: 200
       message: OK
@@ -694,15 +695,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_model_one":{"name":"TestModel2","version":1,"id":"6f8af534-cd09-41d0-a14d-a0c23fb61b15","stage":"LOCAL","description":"","visibility":"PRIVATE","root_id":"6f8af534-cd09-41d0-a14d-a0c23fb61b15"}}}'
+      string: '{"data":{"insert_meta_ai_model_one":{"name":"TestModel2","version":1,"id":"56d73c7b-e6ab-4fea-8cab-a3f5324d2a1f","stage":"LOCAL","description":"","visibility":"PRIVATE","root_id":"56d73c7b-e6ab-4fea-8cab-a3f5324d2a1f"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -710,7 +711,7 @@ interactions:
       content-length:
       - '220'
       x-request-id:
-      - c295a5cc-af45-48bc-ba7c-5ec1ad152743
+      - ad2ceb4e-a9e7-4e70-b96d-ca99c0749888
     status:
       code: 200
       message: OK
@@ -728,15 +729,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_model":[{"name":"TestModel2","version":1,"id":"6f8af534-cd09-41d0-a14d-a0c23fb61b15","stage":"LOCAL"}]}}'
+      string: '{"data":{"meta_ai_model":[{"name":"TestModel2","version":1,"id":"56d73c7b-e6ab-4fea-8cab-a3f5324d2a1f","stage":"LOCAL"}]}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -744,13 +745,13 @@ interactions:
       content-length:
       - '122'
       x-request-id:
-      - d2871827-da56-4451-9835-8122102cce23
+      - 20078b5e-92c0-43b0-856d-edfca9e01287
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\nupdate_meta_ai_model_by_pk(_set: {description: \"TestModel_Something\"},
-      pk_columns: {id: \"6f8af534-cd09-41d0-a14d-a0c23fb61b15\"}) {\nname\nversion\nid\ndescription\n}\n}",
+      pk_columns: {id: \"56d73c7b-e6ab-4fea-8cab-a3f5324d2a1f\"}) {\nname\nversion\nid\ndescription\n}\n}",
       "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -762,15 +763,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"update_meta_ai_model_by_pk":{"name":"TestModel2","version":1,"id":"6f8af534-cd09-41d0-a14d-a0c23fb61b15","description":"TestModel_Something"}}}'
+      string: '{"data":{"update_meta_ai_model_by_pk":{"name":"TestModel2","version":1,"id":"56d73c7b-e6ab-4fea-8cab-a3f5324d2a1f","description":"TestModel_Something"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -778,13 +779,13 @@ interactions:
       content-length:
       - '153'
       x-request-id:
-      - 51f24e27-6e2f-4b11-a59d-6544fbb6d483
+      - c9fe4407-cf25-481d-84ce-33b472b3eb95
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_model_by_pk(id: \"6f8af534-cd09-41d0-a14d-a0c23fb61b15\")
-      {\nname\nversion\nid\nai_worker_id\ndescription\nvisibility\ninputSchema\noutputSchema\nroot_id\nserved_by\n}\n}",
+    body: '{"query": "query {\nmeta_ai_model_by_pk(id: \"56d73c7b-e6ab-4fea-8cab-a3f5324d2a1f\")
+      {\nname\nversion\nid\nai_worker_id\ndescription\nvisibility\ninputSchema\noutputSchema\nroot_id\nserved_by\ntrainable\ndefault_training_parameters\nimage\n}\n}",
       "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -796,28 +797,28 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_model_by_pk":{"name":"TestModel2","version":1,"id":"6f8af534-cd09-41d0-a14d-a0c23fb61b15","ai_worker_id":null,"description":"TestModel_Something","visibility":"PRIVATE","inputSchema":"null","outputSchema":"null","root_id":"6f8af534-cd09-41d0-a14d-a0c23fb61b15","served_by":null}}}'
+      string: '{"data":{"meta_ai_model_by_pk":{"name":"TestModel2","version":1,"id":"56d73c7b-e6ab-4fea-8cab-a3f5324d2a1f","ai_worker_id":null,"description":"TestModel_Something","visibility":"PRIVATE","inputSchema":"null","outputSchema":"null","root_id":"56d73c7b-e6ab-4fea-8cab-a3f5324d2a1f","served_by":null,"trainable":false,"default_training_parameters":null,"image":null}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
       - chunked
       content-length:
-      - '298'
+      - '364'
       x-request-id:
-      - f91dcf8e-18af-4595-98f5-b1f16ba1ad18
+      - 54eb1015-45a1-435c-adea-445a06337262
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "mutation {\ndelete_meta_ai_model_by_pk(id: \"6f8af534-cd09-41d0-a14d-a0c23fb61b15\")
+    body: '{"query": "mutation {\ndelete_meta_ai_model_by_pk(id: \"56d73c7b-e6ab-4fea-8cab-a3f5324d2a1f\")
       {\nname\nversion\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -829,15 +830,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"delete_meta_ai_model_by_pk":{"name":"TestModel2","version":1,"id":"6f8af534-cd09-41d0-a14d-a0c23fb61b15"}}}'
+      string: '{"data":{"delete_meta_ai_model_by_pk":{"name":"TestModel2","version":1,"id":"56d73c7b-e6ab-4fea-8cab-a3f5324d2a1f"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -845,7 +846,7 @@ interactions:
       content-length:
       - '117'
       x-request-id:
-      - 693609d6-ba86-476a-bfc6-07ebad44db6e
+      - 9ae16209-c0ad-4f54-b540-b53cb819e344
     status:
       code: 200
       message: OK
@@ -866,16 +867,16 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_model_one":{"name":"TestModel3","version":1,"id":"d84a3ccd-f540-4343-8aeb-58b76a8e0412","stage":"LOCAL","description":"some
-        description","visibility":"PRIVATE","root_id":"d84a3ccd-f540-4343-8aeb-58b76a8e0412"}}}'
+      string: '{"data":{"insert_meta_ai_model_one":{"name":"TestModel3","version":1,"id":"383ce90a-d3a2-44f3-b4eb-6ca835f3cf56","stage":"LOCAL","description":"some
+        description","visibility":"PRIVATE","root_id":"383ce90a-d3a2-44f3-b4eb-6ca835f3cf56"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -883,12 +884,12 @@ interactions:
       content-length:
       - '236'
       x-request-id:
-      - a9132b94-1b23-4a08-8a33-e4ec636536ef
+      - e83d5307-35bc-4a39-bab4-b02f2f275931
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "mutation {\ndelete_meta_ai_model_by_pk(id: \"d84a3ccd-f540-4343-8aeb-58b76a8e0412\")
+    body: '{"query": "mutation {\ndelete_meta_ai_model_by_pk(id: \"383ce90a-d3a2-44f3-b4eb-6ca835f3cf56\")
       {\nname\nversion\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -900,15 +901,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"delete_meta_ai_model_by_pk":{"name":"TestModel3","version":1,"id":"d84a3ccd-f540-4343-8aeb-58b76a8e0412"}}}'
+      string: '{"data":{"delete_meta_ai_model_by_pk":{"name":"TestModel3","version":1,"id":"383ce90a-d3a2-44f3-b4eb-6ca835f3cf56"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -916,7 +917,7 @@ interactions:
       content-length:
       - '117'
       x-request-id:
-      - 826413a7-6480-4fd0-b4bb-e190733fb626
+      - d27eaa71-e68f-4ae3-898f-4768b07b9318
     status:
       code: 200
       message: OK
@@ -936,15 +937,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_model_one":{"name":"TestModel5","version":1,"id":"672ee7f0-c70c-4d25-a018-67f5e71d45e2","stage":"LOCAL","description":"","visibility":"PRIVATE","root_id":"672ee7f0-c70c-4d25-a018-67f5e71d45e2"}}}'
+      string: '{"data":{"insert_meta_ai_model_one":{"name":"TestModel5","version":1,"id":"79b066fb-3513-422a-b4fd-2732b1bdb78a","stage":"LOCAL","description":"","visibility":"PRIVATE","root_id":"79b066fb-3513-422a-b4fd-2732b1bdb78a"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -952,14 +953,14 @@ interactions:
       content-length:
       - '220'
       x-request-id:
-      - 5f2f39c4-b80a-417c-b20b-1642ab2377ff
+      - 11b2d14e-85e3-4469-92a9-38a4e8866162
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\ninsert_meta_ai_model_one(object: {description: \"\",
       inputSchema: \"null\", metadata: null, modelSavePath: \"\", name: \"TestModel5\",
-      outputSchema: \"null\", root_id: \"672ee7f0-c70c-4d25-a018-67f5e71d45e2\", stage:
+      outputSchema: \"null\", root_id: \"79b066fb-3513-422a-b4fd-2732b1bdb78a\", stage:
       LOCAL, version: 2, visibility: PRIVATE, weightsPath: \"\"}) {\nname\nversion\nid\nstage\ndescription\nvisibility\nroot_id\n}\n}",
       "variables": null, "operationName": null}'
     headers:
@@ -972,15 +973,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_model_one":{"name":"TestModel5","version":2,"id":"593ccbf6-51de-4f1b-82cb-9af0331e6d2d","stage":"LOCAL","description":"","visibility":"PRIVATE","root_id":"672ee7f0-c70c-4d25-a018-67f5e71d45e2"}}}'
+      string: '{"data":{"insert_meta_ai_model_one":{"name":"TestModel5","version":2,"id":"53347748-3d9b-442b-9d5a-2b756497182f","stage":"LOCAL","description":"","visibility":"PRIVATE","root_id":"79b066fb-3513-422a-b4fd-2732b1bdb78a"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -988,7 +989,7 @@ interactions:
       content-length:
       - '220'
       x-request-id:
-      - 483cb48e-8d1a-42db-b25f-b4cac359e7f5
+      - da6f1993-52cb-4de0-96a9-6abe456b1f22
     status:
       code: 200
       message: OK
@@ -1005,7 +1006,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
       string: '{"data":{"meta_ai_model":[{"version":1}, {"version":2}]}}'
@@ -1013,7 +1014,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1021,7 +1022,7 @@ interactions:
       content-length:
       - '57'
       x-request-id:
-      - a244ba40-80ce-48da-bb76-4fd3554f799b
+      - 7bbdc5d8-645d-4e93-af6e-7b2c4c80dcf8
     status:
       code: 200
       message: OK
@@ -1038,7 +1039,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
       string: '{"data":{"meta_ai_model":[]}}'
@@ -1046,7 +1047,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1054,12 +1055,12 @@ interactions:
       content-length:
       - '29'
       x-request-id:
-      - 385ea0cf-3f9c-4678-b2dc-845e7150a7f8
+      - bfbf9936-3df8-4fe4-bbcb-0a044b7e8ed6
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "mutation {\ndelete_meta_ai_model_by_pk(id: \"593ccbf6-51de-4f1b-82cb-9af0331e6d2d\")
+    body: '{"query": "mutation {\ndelete_meta_ai_model_by_pk(id: \"53347748-3d9b-442b-9d5a-2b756497182f\")
       {\nname\nversion\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -1071,15 +1072,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"delete_meta_ai_model_by_pk":{"name":"TestModel5","version":2,"id":"593ccbf6-51de-4f1b-82cb-9af0331e6d2d"}}}'
+      string: '{"data":{"delete_meta_ai_model_by_pk":{"name":"TestModel5","version":2,"id":"53347748-3d9b-442b-9d5a-2b756497182f"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1087,12 +1088,12 @@ interactions:
       content-length:
       - '117'
       x-request-id:
-      - 44bb1a18-4f0e-48c6-859a-82fe982532e0
+      - 22f780e6-8f24-4f4c-b490-7e32747970d9
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "mutation {\ndelete_meta_ai_model_by_pk(id: \"672ee7f0-c70c-4d25-a018-67f5e71d45e2\")
+    body: '{"query": "mutation {\ndelete_meta_ai_model_by_pk(id: \"79b066fb-3513-422a-b4fd-2732b1bdb78a\")
       {\nname\nversion\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -1104,15 +1105,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"delete_meta_ai_model_by_pk":{"name":"TestModel5","version":1,"id":"672ee7f0-c70c-4d25-a018-67f5e71d45e2"}}}'
+      string: '{"data":{"delete_meta_ai_model_by_pk":{"name":"TestModel5","version":1,"id":"79b066fb-3513-422a-b4fd-2732b1bdb78a"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1120,7 +1121,7 @@ interactions:
       content-length:
       - '117'
       x-request-id:
-      - 29555680-2c86-4cbf-882c-37ad54322070
+      - 8416f682-2018-4565-847f-31a3d34a86c3
     status:
       code: 200
       message: OK
@@ -1140,15 +1141,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_model_one":{"name":"TestModel","version":1,"id":"3cc66915-6ecf-49df-9ac0-fd4557ed481d","stage":"LOCAL","description":"","visibility":"PRIVATE","root_id":"3cc66915-6ecf-49df-9ac0-fd4557ed481d"}}}'
+      string: '{"data":{"insert_meta_ai_model_one":{"name":"TestModel","version":1,"id":"9b85d38d-d134-4edd-9f96-39d26bb9a46d","stage":"LOCAL","description":"","visibility":"PRIVATE","root_id":"9b85d38d-d134-4edd-9f96-39d26bb9a46d"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1156,13 +1157,13 @@ interactions:
       content-length:
       - '219'
       x-request-id:
-      - ad393b6b-b79b-4b8d-9f32-cf3e45977d28
+      - faaa54d3-f761-4149-9fdf-d38885f6275f
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\ninsert_meta_ai_app_one(object: {assigned: PRELABEL,
-      id: \"FAKE_APP_ID\", modelId: \"3cc66915-6ecf-49df-9ac0-fd4557ed481d\", threshold:
+      id: \"FAKE_APP_ID\", modelId: \"9b85d38d-d134-4edd-9f96-39d26bb9a46d\", threshold:
       0.5}, on_conflict: {constraint: app_modelId_id_assigned_key, update_columns:
       [modelId, active, threshold]}) {\nid\nmodelId\nassigned\nactive\n}\n}", "variables":
       null, "operationName": null}'
@@ -1176,15 +1177,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_app_one":{"id":"FAKE_APP_ID","modelId":"3cc66915-6ecf-49df-9ac0-fd4557ed481d","assigned":"PRELABEL","active":true}}}'
+      string: '{"data":{"insert_meta_ai_app_one":{"id":"FAKE_APP_ID","modelId":"9b85d38d-d134-4edd-9f96-39d26bb9a46d","assigned":"PRELABEL","active":true}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1192,7 +1193,7 @@ interactions:
       content-length:
       - '166'
       x-request-id:
-      - 426903d8-bfc6-4562-ace8-7aec59649dca
+      - d7560ebb-6d12-45ad-b8f7-47f7be75bd34
     status:
       code: 200
       message: OK
@@ -1210,15 +1211,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_app":[{"threshold":0.5,"model":{"id":"3cc66915-6ecf-49df-9ac0-fd4557ed481d","name":"TestModel"}}]}}'
+      string: '{"data":{"meta_ai_app":[{"threshold":0.5,"model":{"id":"9b85d38d-d134-4edd-9f96-39d26bb9a46d","name":"TestModel"}}]}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1226,13 +1227,13 @@ interactions:
       content-length:
       - '117'
       x-request-id:
-      - 269333b1-ac1d-414c-a2eb-7c7499eb86e7
+      - 14e375b9-6d9a-4222-ae2a-a8cebbf75c29
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\ninsert_meta_ai_app_one(object: {active: false, assigned:
-      PRELABEL, id: \"FAKE_APP_ID\", modelId: \"3cc66915-6ecf-49df-9ac0-fd4557ed481d\"},
+      PRELABEL, id: \"FAKE_APP_ID\", modelId: \"9b85d38d-d134-4edd-9f96-39d26bb9a46d\"},
       on_conflict: {constraint: app_modelId_id_assigned_key, update_columns: [modelId,
       active, threshold]}) {\nid\nmodelId\nassigned\nactive\n}\n}", "variables": null,
       "operationName": null}'
@@ -1246,15 +1247,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_app_one":{"id":"FAKE_APP_ID","modelId":"3cc66915-6ecf-49df-9ac0-fd4557ed481d","assigned":"PRELABEL","active":false}}}'
+      string: '{"data":{"insert_meta_ai_app_one":{"id":"FAKE_APP_ID","modelId":"9b85d38d-d134-4edd-9f96-39d26bb9a46d","assigned":"PRELABEL","active":false}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1262,7 +1263,7 @@ interactions:
       content-length:
       - '167'
       x-request-id:
-      - faf887af-82a4-4b3b-8858-aef8286b5703
+      - 6b8770b0-996e-4e73-9c1c-c5b947aa5fa8
     status:
       code: 200
       message: OK
@@ -1280,15 +1281,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_app":[{"threshold":null,"model":{"id":"3cc66915-6ecf-49df-9ac0-fd4557ed481d","name":"TestModel"}}]}}'
+      string: '{"data":{"meta_ai_app":[{"threshold":null,"model":{"id":"9b85d38d-d134-4edd-9f96-39d26bb9a46d","name":"TestModel"}}]}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1296,12 +1297,12 @@ interactions:
       content-length:
       - '118'
       x-request-id:
-      - 76a4efdc-3e46-41e0-89b6-b145146b13f1
+      - 6cec3dec-dac5-489b-96e9-eb92f5238324
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "mutation {\ndelete_meta_ai_model_by_pk(id: \"3cc66915-6ecf-49df-9ac0-fd4557ed481d\")
+    body: '{"query": "mutation {\ndelete_meta_ai_model_by_pk(id: \"9b85d38d-d134-4edd-9f96-39d26bb9a46d\")
       {\nname\nversion\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -1313,15 +1314,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"delete_meta_ai_model_by_pk":{"name":"TestModel","version":1,"id":"3cc66915-6ecf-49df-9ac0-fd4557ed481d"}}}'
+      string: '{"data":{"delete_meta_ai_model_by_pk":{"name":"TestModel","version":1,"id":"9b85d38d-d134-4edd-9f96-39d26bb9a46d"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1329,7 +1330,7 @@ interactions:
       content-length:
       - '116'
       x-request-id:
-      - 30f697ed-0509-46a6-a4df-401cdc9c8839
+      - a5f53923-e6e3-4fb4-8af8-14498f4f79cf
     status:
       code: 200
       message: OK
@@ -1349,15 +1350,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_model_one":{"name":"TestModel","version":1,"id":"1b015674-026a-4777-a1ba-98959dc1c6e3","stage":"LOCAL","description":"","visibility":"PRIVATE","root_id":"1b015674-026a-4777-a1ba-98959dc1c6e3"}}}'
+      string: '{"data":{"insert_meta_ai_model_one":{"name":"TestModel","version":1,"id":"eff1d3a4-549b-4390-9d53-bf22f64d5f1a","stage":"LOCAL","description":"","visibility":"PRIVATE","root_id":"eff1d3a4-549b-4390-9d53-bf22f64d5f1a"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1365,13 +1366,13 @@ interactions:
       content-length:
       - '219'
       x-request-id:
-      - eb9bc3ca-7259-4e07-bb0f-1732275b7277
+      - a0473ecf-d8bb-496b-9b72-d41f34c3ee72
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\ninsert_meta_ai_prediction_one(object: {appId: \"FAKE_APP_ID\",
-      jobId: 1, modelId: \"1b015674-026a-4777-a1ba-98959dc1c6e3\", type: PRELABEL})
+      jobId: 1, modelId: \"eff1d3a4-549b-4390-9d53-bf22f64d5f1a\", type: PRELABEL})
       {\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -1383,15 +1384,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_prediction_one":{"id":"27c9d542-947d-4806-8f0e-da81528a696c"}}}'
+      string: '{"data":{"insert_meta_ai_prediction_one":{"id":"711c1fd3-14ba-4fe2-a719-37e645287be3"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1399,13 +1400,13 @@ interactions:
       content-length:
       - '88'
       x-request-id:
-      - 340f77de-1a53-4807-9353-627ec7089cf3
+      - 57dfd1e3-9aea-497f-8458-e2d815fcaf81
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\ninsert_meta_ai_instance_one(object: {id: 0, predictionId:
-      \"27c9d542-947d-4806-8f0e-da81528a696c\", score: 1.0}) {\nid\n}\n}", "variables":
+      \"711c1fd3-14ba-4fe2-a719-37e645287be3\", score: 1.0}) {\nid\n}\n}", "variables":
       null, "operationName": null}'
     headers:
       Accept:
@@ -1417,7 +1418,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
       string: '{"data":{"insert_meta_ai_instance_one":{"id":0}}}'
@@ -1425,7 +1426,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1433,12 +1434,12 @@ interactions:
       content-length:
       - '49'
       x-request-id:
-      - add64a5d-35f9-407d-ba7a-f8e23f2b95ab
+      - 1618732b-3694-4521-b01f-64353e44b9a3
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_prediction_by_pk(id: \"27c9d542-947d-4806-8f0e-da81528a696c\")
+    body: '{"query": "query {\nmeta_ai_prediction_by_pk(id: \"711c1fd3-14ba-4fe2-a719-37e645287be3\")
       {\ninstances {\nid\n}\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -1450,7 +1451,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
       string: '{"data":{"meta_ai_prediction_by_pk":{"instances":[{"id":0}]}}}'
@@ -1458,7 +1459,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1466,12 +1467,12 @@ interactions:
       content-length:
       - '62'
       x-request-id:
-      - 3ae3adea-2335-4e4c-93b7-e32aa4ccf7b8
+      - bab62704-fb1b-4877-82cf-c7fcc8653362
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_instance_by_pk(id: 0, predictionId: \"27c9d542-947d-4806-8f0e-da81528a696c\")
+    body: '{"query": "query {\nmeta_ai_instance_by_pk(id: 0, predictionId: \"711c1fd3-14ba-4fe2-a719-37e645287be3\")
       {\nid\nscore\noutput\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -1483,7 +1484,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
       string: '{"data":{"meta_ai_instance_by_pk":{"id":0,"score":1,"output":null}}}'
@@ -1491,7 +1492,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1499,12 +1500,12 @@ interactions:
       content-length:
       - '68'
       x-request-id:
-      - d1be938f-c11d-4a02-86fa-bbfb32a20e94
+      - e4f4bf7f-970c-4f31-95ba-96b6ff070e00
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "mutation {\ndelete_meta_ai_prediction_by_pk(id: \"27c9d542-947d-4806-8f0e-da81528a696c\")
+    body: '{"query": "mutation {\ndelete_meta_ai_prediction_by_pk(id: \"711c1fd3-14ba-4fe2-a719-37e645287be3\")
       {\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -1516,15 +1517,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"delete_meta_ai_prediction_by_pk":{"id":"27c9d542-947d-4806-8f0e-da81528a696c"}}}'
+      string: '{"data":{"delete_meta_ai_prediction_by_pk":{"id":"711c1fd3-14ba-4fe2-a719-37e645287be3"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1532,12 +1533,12 @@ interactions:
       content-length:
       - '90'
       x-request-id:
-      - 8f6a7bf8-edd8-4a74-aeb5-5ccba8b80cb7
+      - b9fa2031-3cb7-4a1e-9a40-e90118057056
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "mutation {\ndelete_meta_ai_model_by_pk(id: \"1b015674-026a-4777-a1ba-98959dc1c6e3\")
+    body: '{"query": "mutation {\ndelete_meta_ai_model_by_pk(id: \"eff1d3a4-549b-4390-9d53-bf22f64d5f1a\")
       {\nname\nversion\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -1549,15 +1550,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"delete_meta_ai_model_by_pk":{"name":"TestModel","version":1,"id":"1b015674-026a-4777-a1ba-98959dc1c6e3"}}}'
+      string: '{"data":{"delete_meta_ai_model_by_pk":{"name":"TestModel","version":1,"id":"eff1d3a4-549b-4390-9d53-bf22f64d5f1a"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1565,7 +1566,7 @@ interactions:
       content-length:
       - '116'
       x-request-id:
-      - 75de86f8-f4f0-4e2b-9c3e-493f284d5c2f
+      - e03bae67-947d-4551-a298-a408ad8ff365
     status:
       code: 200
       message: OK
@@ -1585,15 +1586,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_model_one":{"name":"TestModel","version":1,"id":"2dac849a-d670-4fbc-9832-ab2a617c5502","stage":"LOCAL","description":"","visibility":"PRIVATE","root_id":"2dac849a-d670-4fbc-9832-ab2a617c5502"}}}'
+      string: '{"data":{"insert_meta_ai_model_one":{"name":"TestModel","version":1,"id":"3473f379-d8d1-4818-85e1-57dc075b3105","stage":"LOCAL","description":"","visibility":"PRIVATE","root_id":"3473f379-d8d1-4818-85e1-57dc075b3105"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1601,13 +1602,13 @@ interactions:
       content-length:
       - '219'
       x-request-id:
-      - 4b67f2ef-fcd9-490d-986f-d91b525432a9
+      - 25ae93a2-456e-4ec5-a803-965f31718d61
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\ninsert_meta_ai_prediction_one(object: {appId: \"FAKE_APP_ID\",
-      jobId: 1, modelId: \"2dac849a-d670-4fbc-9832-ab2a617c5502\", type: PRELABEL})
+      jobId: 1, modelId: \"3473f379-d8d1-4818-85e1-57dc075b3105\", type: PRELABEL})
       {\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -1619,15 +1620,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_prediction_one":{"id":"0a71aa92-1fbe-4df9-b086-227b8a0ac994"}}}'
+      string: '{"data":{"insert_meta_ai_prediction_one":{"id":"4a11d425-dfc5-4971-910c-5796c4cd1dfe"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1635,13 +1636,13 @@ interactions:
       content-length:
       - '88'
       x-request-id:
-      - 2f58c8f0-22c5-4bae-ab2b-6b29cec95319
+      - e2c5a67c-2fd1-4c07-8d4c-7b40f5ed346b
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\ninsert_meta_ai_instance_one(object: {id: 0, predictionId:
-      \"0a71aa92-1fbe-4df9-b086-227b8a0ac994\", score: 1.0}) {\nid\n}\n}", "variables":
+      \"4a11d425-dfc5-4971-910c-5796c4cd1dfe\", score: 1.0}) {\nid\n}\n}", "variables":
       null, "operationName": null}'
     headers:
       Accept:
@@ -1653,7 +1654,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
       string: '{"data":{"insert_meta_ai_instance_one":{"id":0}}}'
@@ -1661,7 +1662,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1669,13 +1670,13 @@ interactions:
       content-length:
       - '49'
       x-request-id:
-      - 33312f57-cb7a-4c7f-b896-9f24d3afc2d0
+      - 7bcc3cb9-f20f-4340-95e8-6825a71017f8
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\ninsert_meta_ai_prediction_one(object: {appId: \"FAKE_APP_ID\",
-      jobId: 2, modelId: \"2dac849a-d670-4fbc-9832-ab2a617c5502\", type: PRELABEL})
+      jobId: 2, modelId: \"3473f379-d8d1-4818-85e1-57dc075b3105\", type: PRELABEL})
       {\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -1687,15 +1688,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_prediction_one":{"id":"3c863bfb-0c40-4305-8393-c268ced49ed8"}}}'
+      string: '{"data":{"insert_meta_ai_prediction_one":{"id":"551771f6-06c3-4031-87a9-3a810c60f2d1"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1703,13 +1704,13 @@ interactions:
       content-length:
       - '88'
       x-request-id:
-      - f481e5d2-c293-43c4-9b3c-ac0cb88d456f
+      - 9b0bb8c1-68c3-4d5f-a5ca-e8dbfdb2c23f
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\ninsert_meta_ai_instance_one(object: {id: 0, predictionId:
-      \"3c863bfb-0c40-4305-8393-c268ced49ed8\", score: 1.0}) {\nid\n}\n}", "variables":
+      \"551771f6-06c3-4031-87a9-3a810c60f2d1\", score: 1.0}) {\nid\n}\n}", "variables":
       null, "operationName": null}'
     headers:
       Accept:
@@ -1721,7 +1722,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
       string: '{"data":{"insert_meta_ai_instance_one":{"id":0}}}'
@@ -1729,7 +1730,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1737,13 +1738,13 @@ interactions:
       content-length:
       - '49'
       x-request-id:
-      - d0b51176-91e7-4d32-a5d5-d991b79ffe70
+      - 69da9d52-aeb3-45fd-8e7b-b5fd7ee8fe7c
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\ninsert_meta_ai_instance_one(object: {id: 1, predictionId:
-      \"3c863bfb-0c40-4305-8393-c268ced49ed8\"}) {\nid\n}\n}", "variables": null,
+      \"551771f6-06c3-4031-87a9-3a810c60f2d1\"}) {\nid\n}\n}", "variables": null,
       "operationName": null}'
     headers:
       Accept:
@@ -1755,7 +1756,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
       string: '{"data":{"insert_meta_ai_instance_one":{"id":1}}}'
@@ -1763,7 +1764,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1771,12 +1772,12 @@ interactions:
       content-length:
       - '49'
       x-request-id:
-      - f16cdb3c-c39e-4641-876e-10a299533a90
+      - 60a92764-8e28-45b9-ad52-961f93e624e7
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_prediction_by_pk(id: \"3c863bfb-0c40-4305-8393-c268ced49ed8\")
+    body: '{"query": "query {\nmeta_ai_prediction_by_pk(id: \"551771f6-06c3-4031-87a9-3a810c60f2d1\")
       {\ninstances {\nid\n}\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -1788,7 +1789,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
       string: '{"data":{"meta_ai_prediction_by_pk":{"instances":[{"id":0}, {"id":1}]}}}'
@@ -1796,7 +1797,7 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1804,12 +1805,12 @@ interactions:
       content-length:
       - '72'
       x-request-id:
-      - 9d6198a1-4508-44ac-907d-1e71a817af90
+      - ee7b1598-9719-4c9b-84b5-1dd2e877cd67
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "mutation {\ndelete_meta_ai_model_by_pk(id: \"2dac849a-d670-4fbc-9832-ab2a617c5502\")
+    body: '{"query": "mutation {\ndelete_meta_ai_model_by_pk(id: \"3473f379-d8d1-4818-85e1-57dc075b3105\")
       {\nname\nversion\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -1821,15 +1822,15 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
     method: POST
-    uri: http://localhost:61291/v1/graphql
+    uri: http://localhost:61751/v1/graphql
   response:
     body:
-      string: '{"data":{"delete_meta_ai_model_by_pk":{"name":"TestModel","version":1,"id":"2dac849a-d670-4fbc-9832-ab2a617c5502"}}}'
+      string: '{"data":{"delete_meta_ai_model_by_pk":{"name":"TestModel","version":1,"id":"3473f379-d8d1-4818-85e1-57dc075b3105"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Wed, 20 Apr 2022 11:22:57 GMT
+      - Thu, 21 Apr 2022 07:12:18 GMT
       Server:
       - Warp/3.3.14
       Transfer-Encoding:
@@ -1837,7 +1838,7 @@ interactions:
       content-length:
       - '116'
       x-request-id:
-      - 56ff96ce-2e07-4af0-b58f-c7a143ae3e31
+      - 25b6f435-c2a4-4c9a-abd9-c331076f7458
     status:
       code: 200
       message: OK
