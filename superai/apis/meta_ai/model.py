@@ -782,7 +782,7 @@ class TrainApiMixin(ABC):
     def resource(self):
         return self._resource
 
-    def create_training_template_entry(self, app_id: uuid, model_id: uuid, properties: dict):
+    def create_training_template_entry(self, app_id: uuid, model_id: uuid, properties: dict, description: str = None):
         """
         Creates a new training template entry.
 
@@ -798,9 +798,9 @@ class TrainApiMixin(ABC):
 
         op.insert_meta_ai_training_template_one(
             object=meta_ai_training_template_insert_input(
-                model_id=model_id, app_id=app_id, properties=json.dumps(properties)
+                model_id=model_id, app_id=app_id, properties=json.dumps(properties), description=description
             )
-        ).__fields__("id", "app_id", "model_id", "properties")
+        ).__fields__("id", "app_id", "model_id", "properties", "description")
         try:
             data = sess.perform_op(op)
         except GraphQlException as e:
@@ -812,7 +812,7 @@ class TrainApiMixin(ABC):
         return (op + data).insert_meta_ai_training_template_one.id
 
     @staticmethod
-    def update_training_template(app_id: uuid, model_id: uuid, properties: dict):
+    def update_training_template(app_id: uuid, model_id: uuid, properties: dict = None, description: str = None):
         """
         Update existing training template entry.
 
@@ -822,6 +822,7 @@ class TrainApiMixin(ABC):
             app_id: ref app id for the template
             model_id: ref model if for the template
             properties: the default properties that will get inherited during trainings
+            description: optional description for the template
         """
         sess = MetaAISession(app_id=str(app_id))
         op = Operation(mutation_root)
@@ -831,10 +832,16 @@ class TrainApiMixin(ABC):
             raise Exception("Cannot update template. Template does not exist.")
         template_id = templates[0].id
 
+        update_dict = {}
+        if properties:
+            update_dict["properties"] = json.dumps(properties)
+        if description:
+            update_dict["description"] = description
+
         op.update_meta_ai_training_template_by_pk(
-            _set=meta_ai_training_template_set_input(properties=json.dumps(properties)),
+            _set=meta_ai_training_template_set_input(**update_dict),
             pk_columns=meta_ai_training_template_pk_columns_input(id=template_id),
-        ).__fields__("id", "app_id", "model_id", "properties")
+        ).__fields__("id", "app_id", "model_id", "properties", "description")
         data = sess.perform_op(op)
         log.info(f"Updated training template {data}")
         return (op + data).update_meta_ai_training_template_by_pk.id
@@ -854,7 +861,7 @@ class TrainApiMixin(ABC):
         op = Operation(query_root)
 
         op.meta_ai_training_template(where={"app_id": {"_eq": app_id}, "model_id": {"_eq": model_id}}).__fields__(
-            "id", "properties", "created_at"
+            "id", "properties", "created_at", "description"
         )
         instance_data = sess.perform_op(op)
 
@@ -946,7 +953,7 @@ class TrainApiMixin(ABC):
             filter["model_id"] = {"_eq": model_id}
 
         op.meta_ai_training_template(where=filter).training_instances().__fields__(
-            "id", "current_properties", "state", "created_at"
+            "id", "current_properties", "state", "created_at", "artifacts"
         )
         instance_data = sess.perform_op(op)
 
