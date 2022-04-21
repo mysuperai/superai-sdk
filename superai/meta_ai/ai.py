@@ -1528,7 +1528,7 @@ class AI:
                 image_name = self.push_model(self.name, str(self.version))
             else:
                 image_name = get_ecr_image_name(self.name, self.version)
-            self.client.update_model(self.id, image=image_name)
+            self.client.update_model(self.id, image=image_name, trainable=True)
             if self.id is None:
                 raise LookupError(
                     "Cannot establish id, please make sure you push the AI model to create a database entry"
