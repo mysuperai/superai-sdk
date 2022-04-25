@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
+
 from colorama import Fore, Style
 
 if TYPE_CHECKING:
@@ -7,7 +8,6 @@ if TYPE_CHECKING:
 
 from superai import Client
 from superai.log import logger
-
 from superai.utils import load_api_key, load_auth_token, load_id_token
 
 log = logger.get_logger(__name__)

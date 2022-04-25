@@ -144,3 +144,5 @@ meta_ai_schema.json
 
 .AISave/
 environment
+
+.test

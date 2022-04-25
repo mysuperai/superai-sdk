@@ -1,14 +1,28 @@
 # coding: utf-8
 
 
+import sys
+
 from setuptools import find_packages, setup  # type: ignore
 
-with open("README.md", "r") as fh:
-    long_description = fh.read()
+try:
+    with open("README.md", "r") as fh:
+        long_description = fh.read()
+except FileNotFoundError:
+    # Remove dependency on external files in case we only want to install requirements
+    print("README.md not found")
+    long_description = ""
 
 NAME = "superai"
 
-VERSION = "0.1.0.beta5.dev27"
+# VERSION is defined in superai/version.py
+try:
+    sys.path[0:0] = [NAME]
+    from version import __version__  # type: ignore
+except ImportError:
+    # Fallback in case we only want to install requirements
+    __version__ = "0.0.0"
+
 # To install the library, run the following
 #
 # python setup.py install
@@ -77,7 +91,7 @@ TEST_REQUIRES = [
 
 setup(
     name=NAME,
-    version=VERSION,
+    version=__version__,
     description="super.AI API",
     author="super.AI",
     author_email="support@super.ai",
