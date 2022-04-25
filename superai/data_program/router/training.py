@@ -5,8 +5,8 @@ from superai.data_program.router import Router
 
 if TYPE_CHECKING:
     from superai.data_program import DataProgram
-from superai import Client
 
+from superai import Client
 from superai.data_program.Exceptions import ChildJobFailed, JobTypeNotImplemented
 from superai.data_program.protocol.task import (
     execute,

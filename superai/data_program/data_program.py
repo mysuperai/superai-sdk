@@ -1,11 +1,11 @@
 import inspect
 import json
 import os
-from typing import Callable, Dict, List, Optional, Type, Union
+from typing import Callable, Dict, List, Optional, Type
 
 from pydantic import ValidationError
 from superai_schema.generators import dynamic_generator
-from superai_schema.types import BaseModel, UiWidget
+from superai_schema.types import UiWidget
 from superai_schema.universal_schema import task_schema_functions as df
 
 from superai import Client
@@ -24,14 +24,13 @@ from superai.data_program.types import (
     Output,
     Parameters,
     PostProcessContext,
+    TaskResponse,
     TaskTemplate,
     WorkflowConfig,
-    TaskResponse,
 )
 from superai.data_program.utils import model_to_task_io_payload, parse_dp_definition
 from superai.log import logger
 from superai.utils import load_api_key, load_auth_token, load_id_token
-
 
 log = logger.get_logger(__name__)
 
