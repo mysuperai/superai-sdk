@@ -48,7 +48,7 @@ class DPServer:
     ):
         self.name = name
         self.params = params
-        self.params_schema = self.params.schema()
+        self.params_schema = params.schema()
         self.generate = generate
         self.log_level = log_level
 

@@ -595,6 +595,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
 
     @staticmethod
     def _get_definition_for_params(params: Parameters, handler: Handler[Parameters]) -> DataProgramDefinition:
+        param_schema = params.schema()
         handler_output = handler(params)
         input_model, output_model = (
             handler_output.input_model,
@@ -602,7 +603,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         )
 
         return {
-            "parameter_schema": params.schema(),
+            "parameter_schema": param_schema if param_schema else None,
             "parameter_ui_schema": params.ui_schema() if isinstance(params, UiWidget) else {},
             "input_schema": input_model.schema(),
             "input_ui_schema": input_model.ui_schema() if issubclass(input_model, UiWidget) else {},
