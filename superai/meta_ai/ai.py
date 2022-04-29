@@ -20,9 +20,10 @@ import requests
 import yaml
 from docker import DockerClient
 from docker.errors import ImageNotFound
+from rich.prompt import Confirm
 
 from superai import Client, settings
-from superai.exceptions import ModelNotFoundError
+from superai.exceptions import ModelDeploymentError, ModelNotFoundError
 from superai.log import logger
 from superai.meta_ai.ai_helper import (
     create_model_entrypoint,
@@ -922,6 +923,14 @@ class AI:
             if not overwrite:
                 log.warning("Model already exists in the DB and overwrite is not set.")
                 return self.id
+            else:
+                if settings.current_env == "prod":
+                    confirmed = Confirm.ask(
+                        "Do you [bold]really[/bold] want to push weights for a [red]production[/red] AI? This can negatively impact Data Programs relying on the existing AI."
+                    )
+                    if not confirmed:
+                        log.warning("Aborting push")
+                        raise ModelDeploymentError("Push aborted by User")
         else:
             if self.version > 1:
                 self.root_id = self.root_id or find_root_model(self.name, self.client)
@@ -1028,6 +1037,15 @@ class AI:
                   {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
             download_base: Always download the base image to get the latest version from ECR
         """
+        if redeploy and settings.current_env == "prod":
+            confirmed = Confirm.ask(
+                "Do you [bold]really[/bold] want to redeploy a [red]production[/red] AI? This can negatively impact Data Programs relying on the existing AI."
+            )
+            if not confirmed:
+                log.warning("Aborting deployment")
+                raise ModelDeploymentError("Deployment aborted by User")
+        assert False
+
         is_lambda_orchestrator = orchestrator in [Orchestrator.LOCAL_DOCKER_LAMBDA, Orchestrator.AWS_LAMBDA]
         # Updating environs before image builds
         for key, value in kwargs.get("envs", {}).items():
