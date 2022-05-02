@@ -1044,7 +1044,6 @@ class AI:
             if not confirmed:
                 log.warning("Aborting deployment")
                 raise ModelDeploymentError("Deployment aborted by User")
-        assert False
 
         is_lambda_orchestrator = orchestrator in [Orchestrator.LOCAL_DOCKER_LAMBDA, Orchestrator.AWS_LAMBDA]
         # Updating environs before image builds
