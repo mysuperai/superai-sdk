@@ -1191,6 +1191,7 @@ class AI:
         lambda_mode: bool = False,
         enable_cuda: bool = False,
         k8s_mode: bool = False,
+        version: int = 1,
     ) -> str:
         """Get Base Image given the configuration. By default the sagemaker CPU image name will be returned.
 
@@ -1203,19 +1204,29 @@ class AI:
         Return:
             String image name
         """
-        if enable_eia:
-            base_image = "superai-model-s2i-python3711-eia:1"
-        elif lambda_mode:
-            base_image = f"superai-model-s2i-python3711-cpu-lambda:1"
-        elif k8s_mode and enable_cuda:
-            base_image = f"superai-model-s2i-python3711-gpu-seldon:1"
-        elif k8s_mode:
-            base_image = f"superai-model-s2i-python3711-cpu-seldon:1"
-        elif enable_cuda:
-            base_image = f"superai-model-s2i-python3711-gpu:1"
+        if enable_eia and (lambda_mode or enable_cuda or k8s_mode):
+            raise ValueError("Cannot use EIA with other options")
+        if enable_cuda and lambda_mode:
+            raise ValueError("Cannot use CUDA with Lambda")
+
+        base_image = "superai-model-s2i-python3711"
+
+        if enable_cuda:
+            base_image += "-gpu"
+        elif enable_eia:
+            base_image += "-eia"
         else:
-            base_image = f"superai-model-s2i-python3711-cpu:1"
-        return base_image
+            base_image += "-cpu"
+
+        if settings.current_env == "dev":
+            base_image += "-internal"
+
+        if lambda_mode:
+            base_image += "-lambda"
+        elif k8s_mode:
+            base_image += "-seldon"
+
+        return f"{base_image}:{version}"
 
     def _track_changes(self):
         # check the hash, if it doesn't exist, create one
@@ -1551,8 +1562,11 @@ class AI:
                 raise LookupError(
                     "Cannot establish id, please make sure you push the AI model to create a database entry"
                 )
-            assert training_parameters is not None
-            loaded_parameters = json.loads(training_parameters.to_json())
+            if training_parameters:
+                loaded_parameters = json.loads(training_parameters.to_json())
+            else:
+                # TODO: load default parameters from AI
+                loaded_parameters = {}
             # self.client.add_app_mapping(self.id, self.app_id)
             if self.ai_template.template_id is None:
                 self.ai_template.get_or_create_training_entry(self.app_id, self.id)
