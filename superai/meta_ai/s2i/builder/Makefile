@@ -29,33 +29,56 @@ permissions:
 	chmod +x s2i/bin/*
 
 docker-login:
-	$$(aws ecr get-login --no-include-email --region us-east-1)
+	aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ecr_account}
+
+ifndef INTERNAL
+  INTERNAL=true
+endif
+
+ifeq ($(INTERNAL), true)
+    IMAGE_NAME=superai-model-s2i-python${IMAGE_PYTHON_VERSION}-${mode}-internal
+else
+    IMAGE_NAME=superai-model-s2i-python${IMAGE_PYTHON_VERSION}-${mode}
+endif
 
 push: docker-login
-	docker tag "superai-model-s2i-python3711-${mode}:1" "${ecr_account}/superai-model-s2i-python3711-${mode}:1"
-	docker push "${ecr_account}/superai-model-s2i-python3711-${mode}:1"
+	docker tag "${IMAGE_NAME}:${IMAGE_VERSION}" "${ecr_account}/${IMAGE_NAME}:${IMAGE_VERSION}"
+	aws ecr create-repository --repository-name ${IMAGE_NAME} || true
+	docker push "${ecr_account}/${IMAGE_NAME}:${IMAGE_VERSION}"
 
 
 push-lambda: docker-login
-	docker tag "superai-model-s2i-python3711-${mode}-lambda:1" "${ecr_account}/superai-model-s2i-python3711-${mode}-lambda:1"
-	docker push "${ecr_account}/superai-model-s2i-python3711-${mode}-lambda:1"
+	docker tag "${IMAGE_NAME}-lambda:${IMAGE_VERSION}" "${ecr_account}/${IMAGE_NAME}-lambda:${IMAGE_VERSION}"
+	aws ecr create-repository --repository-name ${IMAGE_NAME}-lambda || true
+	docker push "${ecr_account}/${IMAGE_NAME}-lambda:${IMAGE_VERSION}"
 
 push-seldon: docker-login
-	docker tag "superai-model-s2i-python3711-${mode}-seldon:1" "${ecr_account}/superai-model-s2i-python3711-${mode}-seldon:1"
-	docker push "${ecr_account}/superai-model-s2i-python3711-${mode}-seldon:1"
+	docker tag "${IMAGE_NAME}-seldon:${IMAGE_VERSION}" "${ecr_account}/${IMAGE_NAME}-seldon:${IMAGE_VERSION}"
+	aws ecr create-repository --repository-name ${IMAGE_NAME}-seldon || true
+	docker push "${ecr_account}/${IMAGE_NAME}-seldon:${IMAGE_VERSION}"
 
 
-.PHONY: all build tag push permissions
+.PHONY: all build tag push permissions build-all push-all
 
 ifndef TARGET_PLATFORM
-TARGET_PLATFORM=linux/amd64
+  TARGET_PLATFORM=linux/amd64
+endif
+
+
+
+ifeq ($(INTERNAL), true)
+    PIP_REPO=pypi-superai-internal
+else
+    PIP_REPO=pypi-superai
 endif
 
 build: permissions
 	DOCKER_BUILDKIT=1 docker build -f Dockerfile \
 		--platform=${TARGET_PLATFORM} \
+		--progress=plain \
 		--build-arg PYTHON_VERSION=${PYTHON_VERSION} \
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
+		--build-arg PIP_REPO=${PIP_REPO} \
 		-t ${IMAGE_NAME}:${IMAGE_VERSION} \
 		--secret id=aws,src=${HOME}/.aws/credentials \
 		.
@@ -63,8 +86,10 @@ build: permissions
 build-lambda: permissions
 	DOCKER_BUILDKIT=1 docker build -f Dockerfile.lambda \
 		--platform=${TARGET_PLATFORM} \
+		--progress=plain \
 		--build-arg PYTHON_VERSION=${PYTHON_VERSION} \
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
+		--build-arg PIP_REPO=${PIP_REPO} \
 		-t ${IMAGE_NAME}-lambda:${IMAGE_VERSION} \
 		--secret id=aws,src=${HOME}/.aws/credentials \
 		.
@@ -72,10 +97,16 @@ build-lambda: permissions
 build-seldon: permissions
 	DOCKER_BUILDKIT=1 docker build -f Dockerfile.seldon \
 		--platform=${TARGET_PLATFORM} \
+		--progress=plain \
 		--build-arg PYTHON_VERSION=${PYTHON_VERSION} \
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
+		--build-arg PIP_REPO=${PIP_REPO} \
 		-t ${IMAGE_NAME}-seldon:${IMAGE_VERSION} \
 		--secret id=aws,src=${HOME}/.aws/credentials \
 		.
 
-all: build build-lambda build-seldon push push-lambda push-seldon
+build-all: build build-lambda build-seldon
+
+push-all: push push-lambda push-seldon
+
+all: build-all push-all

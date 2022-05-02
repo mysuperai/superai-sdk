@@ -43,13 +43,15 @@ WORKDIR /home/model-server
 ADD https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie /usr/local/bin/aws-lambda-rie
 
 # Install requirements
+RUN pip install --no-cache-dir -U pip awscli~=1.18.195 && chmod +x /usr/local/bin/aws-lambda-rie
 COPY requirements_lambda.txt /home/model-server/.requirements/base_requirements.txt
-RUN pip install --no-cache-dir awscli~=1.18.195 && chmod +x /usr/local/bin/aws-lambda-rie
 ARG AWS_DEFAULT_REGION=us-east-1
+ARG PIP_REPO
 RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true,uid=1000,gid=1000 \
     --mount=type=cache,target=/root/.cache/pip \
-    aws codeartifact login --tool pip --domain superai --repository pypi-superai && \
-    pip install --no-cache-dir -r /home/model-server/.requirements/base_requirements.txt
+    aws codeartifact login --tool pip --domain superai --repository ${PIP_REPO} && \
+    pip install -r /home/model-server/.requirements/base_requirements.txt && \
+    pip install --pre superai
 
 LABEL io.openshift.s2i.scripts-url="image:///s2i/bin"
 
