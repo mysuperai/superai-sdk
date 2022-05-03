@@ -51,9 +51,9 @@ def test_track_changes(caplog):
         input_schema=Schema(),
         output_schema=Schema(),
         configuration=Config(),
-        model_class="MyKerasModel",
         name="My_template",
         description="Template for my new awesome project",
+        model_class="MyKerasModel",
         requirements=["tensorflow", "opencv-python-headless"],
     )
     ai = AI(

@@ -446,6 +446,7 @@ class meta_ai_training_instance_select_column(sgqlc.types.Enum):
         "dataset_id",
         "deployment_id",
         "id",
+        "modelId",
         "state",
         "trainingTemplateId",
         "updated_at",
@@ -461,6 +462,7 @@ class meta_ai_training_instance_update_column(sgqlc.types.Enum):
         "dataset_id",
         "deployment_id",
         "id",
+        "modelId",
         "state",
         "trainingTemplateId",
         "updated_at",
@@ -3766,6 +3768,8 @@ class meta_ai_training_instance_bool_exp(sgqlc.types.Input):
         "deployment",
         "deployment_id",
         "id",
+        "model",
+        "model_id",
         "state",
         "training_template_id",
         "training_state",
@@ -3787,6 +3791,8 @@ class meta_ai_training_instance_bool_exp(sgqlc.types.Input):
     deployment = sgqlc.types.Field(meta_ai_deployment_bool_exp, graphql_name="deployment")
     deployment_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="deployment_id")
     id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="id")
+    model = sgqlc.types.Field(meta_ai_model_bool_exp, graphql_name="model")
+    model_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="modelId")
     state = sgqlc.types.Field("meta_ai_training_state_enum_comparison_exp", graphql_name="state")
     training_template_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="trainingTemplateId")
     training_state = sgqlc.types.Field("meta_ai_training_state_bool_exp", graphql_name="training_state")
@@ -3825,6 +3831,8 @@ class meta_ai_training_instance_insert_input(sgqlc.types.Input):
         "deployment",
         "deployment_id",
         "id",
+        "model",
+        "model_id",
         "state",
         "training_template_id",
         "training_state",
@@ -3839,6 +3847,8 @@ class meta_ai_training_instance_insert_input(sgqlc.types.Input):
     deployment = sgqlc.types.Field(meta_ai_deployment_obj_rel_insert_input, graphql_name="deployment")
     deployment_id = sgqlc.types.Field(uuid, graphql_name="deployment_id")
     id = sgqlc.types.Field(uuid, graphql_name="id")
+    model = sgqlc.types.Field(meta_ai_model_obj_rel_insert_input, graphql_name="model")
+    model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
     state = sgqlc.types.Field(meta_ai_training_state_enum, graphql_name="state")
     training_template_id = sgqlc.types.Field(uuid, graphql_name="trainingTemplateId")
     training_state = sgqlc.types.Field("meta_ai_training_state_obj_rel_insert_input", graphql_name="training_state")
@@ -3856,6 +3866,7 @@ class meta_ai_training_instance_max_order_by(sgqlc.types.Input):
         "dataset_id",
         "deployment_id",
         "id",
+        "model_id",
         "training_template_id",
         "updated_at",
     )
@@ -3864,6 +3875,7 @@ class meta_ai_training_instance_max_order_by(sgqlc.types.Input):
     dataset_id = sgqlc.types.Field(order_by, graphql_name="dataset_id")
     deployment_id = sgqlc.types.Field(order_by, graphql_name="deployment_id")
     id = sgqlc.types.Field(order_by, graphql_name="id")
+    model_id = sgqlc.types.Field(order_by, graphql_name="modelId")
     training_template_id = sgqlc.types.Field(order_by, graphql_name="trainingTemplateId")
     updated_at = sgqlc.types.Field(order_by, graphql_name="updated_at")
 
@@ -3876,6 +3888,7 @@ class meta_ai_training_instance_min_order_by(sgqlc.types.Input):
         "dataset_id",
         "deployment_id",
         "id",
+        "model_id",
         "training_template_id",
         "updated_at",
     )
@@ -3884,6 +3897,7 @@ class meta_ai_training_instance_min_order_by(sgqlc.types.Input):
     dataset_id = sgqlc.types.Field(order_by, graphql_name="dataset_id")
     deployment_id = sgqlc.types.Field(order_by, graphql_name="deployment_id")
     id = sgqlc.types.Field(order_by, graphql_name="id")
+    model_id = sgqlc.types.Field(order_by, graphql_name="modelId")
     training_template_id = sgqlc.types.Field(order_by, graphql_name="trainingTemplateId")
     updated_at = sgqlc.types.Field(order_by, graphql_name="updated_at")
 
@@ -3912,6 +3926,8 @@ class meta_ai_training_instance_order_by(sgqlc.types.Input):
         "deployment",
         "deployment_id",
         "id",
+        "model",
+        "model_id",
         "state",
         "training_template_id",
         "training_state",
@@ -3926,6 +3942,8 @@ class meta_ai_training_instance_order_by(sgqlc.types.Input):
     deployment = sgqlc.types.Field(meta_ai_deployment_order_by, graphql_name="deployment")
     deployment_id = sgqlc.types.Field(order_by, graphql_name="deployment_id")
     id = sgqlc.types.Field(order_by, graphql_name="id")
+    model = sgqlc.types.Field(meta_ai_model_order_by, graphql_name="model")
+    model_id = sgqlc.types.Field(order_by, graphql_name="modelId")
     state = sgqlc.types.Field(order_by, graphql_name="state")
     training_template_id = sgqlc.types.Field(order_by, graphql_name="trainingTemplateId")
     training_state = sgqlc.types.Field("meta_ai_training_state_order_by", graphql_name="training_state")
@@ -3954,6 +3972,7 @@ class meta_ai_training_instance_set_input(sgqlc.types.Input):
         "dataset_id",
         "deployment_id",
         "id",
+        "model_id",
         "state",
         "training_template_id",
         "updated_at",
@@ -3964,6 +3983,7 @@ class meta_ai_training_instance_set_input(sgqlc.types.Input):
     dataset_id = sgqlc.types.Field(uuid, graphql_name="dataset_id")
     deployment_id = sgqlc.types.Field(uuid, graphql_name="deployment_id")
     id = sgqlc.types.Field(uuid, graphql_name="id")
+    model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
     state = sgqlc.types.Field(meta_ai_training_state_enum, graphql_name="state")
     training_template_id = sgqlc.types.Field(uuid, graphql_name="trainingTemplateId")
     updated_at = sgqlc.types.Field(timestamptz, graphql_name="updated_at")
@@ -8100,6 +8120,8 @@ class meta_ai_training_instance(sgqlc.types.Type):
         "deployment",
         "deployment_id",
         "id",
+        "model",
+        "model_id",
         "state",
         "training_template_id",
         "training_state",
@@ -8118,12 +8140,12 @@ class meta_ai_training_instance(sgqlc.types.Type):
     deployment = sgqlc.types.Field(meta_ai_deployment, graphql_name="deployment")
     deployment_id = sgqlc.types.Field(uuid, graphql_name="deployment_id")
     id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="id")
+    model = sgqlc.types.Field(meta_ai_model, graphql_name="model")
+    model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
     state = sgqlc.types.Field(sgqlc.types.non_null(meta_ai_training_state_enum), graphql_name="state")
-    training_template_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="trainingTemplateId")
+    training_template_id = sgqlc.types.Field(uuid, graphql_name="trainingTemplateId")
     training_state = sgqlc.types.Field(sgqlc.types.non_null("meta_ai_training_state"), graphql_name="training_state")
-    training_template = sgqlc.types.Field(
-        sgqlc.types.non_null("meta_ai_training_template"), graphql_name="training_template"
-    )
+    training_template = sgqlc.types.Field("meta_ai_training_template", graphql_name="training_template")
     updated_at = sgqlc.types.Field(timestamptz, graphql_name="updated_at")
 
 
@@ -8168,6 +8190,7 @@ class meta_ai_training_instance_max_fields(sgqlc.types.Type):
         "dataset_id",
         "deployment_id",
         "id",
+        "model_id",
         "training_template_id",
         "updated_at",
     )
@@ -8176,6 +8199,7 @@ class meta_ai_training_instance_max_fields(sgqlc.types.Type):
     dataset_id = sgqlc.types.Field(uuid, graphql_name="dataset_id")
     deployment_id = sgqlc.types.Field(uuid, graphql_name="deployment_id")
     id = sgqlc.types.Field(uuid, graphql_name="id")
+    model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
     training_template_id = sgqlc.types.Field(uuid, graphql_name="trainingTemplateId")
     updated_at = sgqlc.types.Field(timestamptz, graphql_name="updated_at")
 
@@ -8188,6 +8212,7 @@ class meta_ai_training_instance_min_fields(sgqlc.types.Type):
         "dataset_id",
         "deployment_id",
         "id",
+        "model_id",
         "training_template_id",
         "updated_at",
     )
@@ -8196,6 +8221,7 @@ class meta_ai_training_instance_min_fields(sgqlc.types.Type):
     dataset_id = sgqlc.types.Field(uuid, graphql_name="dataset_id")
     deployment_id = sgqlc.types.Field(uuid, graphql_name="deployment_id")
     id = sgqlc.types.Field(uuid, graphql_name="id")
+    model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
     training_template_id = sgqlc.types.Field(uuid, graphql_name="trainingTemplateId")
     updated_at = sgqlc.types.Field(timestamptz, graphql_name="updated_at")
 
