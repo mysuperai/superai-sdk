@@ -183,6 +183,7 @@ class BaseModel(metaclass=ABCMeta):
         validation_data=None,
         test_data=None,
         production_data=None,
+        weights_path=None,
         encoder_trainable: bool = True,
         decoder_trainable: bool = True,
         hyperparameters: HyperParameterSpec = None,
@@ -203,6 +204,7 @@ class BaseModel(metaclass=ABCMeta):
             model_save_path:
             hyperparameters:
             model_parameters:
+            weights_path:
 
         Returns:
             Model URI.

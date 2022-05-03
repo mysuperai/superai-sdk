@@ -637,6 +637,12 @@ def method():
     help="Path to location where the production data is stored in the local file system.",
     type=click.Path(exists=False, readable=False),
 )
+@click.option(
+    "--weights-path",
+    "-wp",
+    help="Path to location where the existing weights is stored local file system.",
+    type=click.Path(exists=False, readable=False),
+)
 @click.option("--encoder-trainable/--no-encoder-trainable", default=False, show_default=True, type=bool)
 @click.option("--decoder-trainable/--no-decoder-trainable", default=False, show_default=True, type=bool)
 @click.option(
@@ -670,6 +676,7 @@ def train(
     test_data_path,
     validation_data_path,
     production_data_path,
+    weights_path,
     encoder_trainable,
     decoder_trainable,
     hyperparameters,
@@ -692,6 +699,7 @@ def train(
         test_data=test_data_path,
         production_data=production_data_path,
         validation_data=validation_data_path,
+        weights_path=weights_path,
         encoder_trainable=encoder_trainable,
         decoder_trainable=decoder_trainable,
         hyperparameters=processed_hyperparameters,
