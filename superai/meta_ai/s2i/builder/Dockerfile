@@ -50,8 +50,14 @@ ARG PIP_REPO
 RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true \
     --mount=type=cache,target=/root/.cache/pip \
     aws codeartifact login --tool pip --domain superai --repository ${PIP_REPO} && \
-    pip install -r /home/model-server/.requirements/base_requirements.txt && \
-    pip install --pre superai
+    pip install -r /home/model-server/.requirements/base_requirements.txt
+    
+# Install superai version from local path/repository
+COPY .dist/*.whl /home/model-server/.requirements/
+RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true \
+    --mount=type=cache,target=/root/.cache/pip \
+    aws codeartifact login --tool pip --domain superai --repository ${PIP_REPO} && \
+    pip install /home/model-server/.requirements/*.whl
 
 COPY s2i/bin /s2i/bin
 COPY s2i/bin /opt/program
