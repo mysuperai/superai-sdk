@@ -1416,6 +1416,7 @@ class AI:
         training_data,
         test_data=None,
         production_data=None,
+        weights_path=None,
         encoder_trainable: bool = True,
         decoder_trainable: bool = True,
         hyperparameters: Optional[HyperParameterSpec] = None,
@@ -1427,17 +1428,18 @@ class AI:
         """Please fill hyperparameters and model parameters accordingly.
 
         Args:
-            validation_data:
-            callbacks:
-            test_data:
-            production_data:
-            encoder_trainable:
-            decoder_trainable:
-            hyperparameters:
-            model_parameters:
-            model_save_path:
-            training_data:
-            train_logger:
+            model_save_path: Save location of model
+            training_data: Path to training data
+            validation_data: Path to validation data
+            test_data: Path to test data
+            production_data: Path to production data
+            callbacks: List of callbacks to be used
+            weights_path: Path to existing weights to be trained on
+            encoder_trainable: Whether encoder is trainable or not
+            decoder_trainable: Whether decoder is trainable or not
+            hyperparameters: Hyperparameters for training
+            model_parameters: Model parameters for training
+            train_logger: Logger for training
         """
         if self.model_class is None:
             self._init_model_class()
@@ -1454,13 +1456,13 @@ class AI:
             validation_data=validation_data,
             test_data=test_data,
             production_data=production_data,
+            weights_path=weights_path,
             encoder_trainable=encoder_trainable,
             decoder_trainable=decoder_trainable,
             hyperparameters=hyperparameters,
             model_parameters=model_parameters,
             callbacks=callbacks,
         )
-        # TODO: upload weights
 
     def _prepare_k8s_dependencies(self, enable_cuda=False, properties=None, **kwargs) -> dict:
         """
@@ -1517,7 +1519,9 @@ class AI:
             skip_build: Skip building
             enable_cuda: Create CUDA-Compatible image
             properties: An optional dictionary with properties for instance creation.
-                Possible values (with defaults) are:
+            training_data_dir: Path to training data
+            training_parameters: A TrainingParameters object used for all training parameters to be passed to
+                                BaseModel train method
 
             # Hidden kwargs
             worker_count: Number of workers to use for serving with Sagemaker.
@@ -1577,7 +1581,7 @@ class AI:
                 self._upload_training_data(training_data_dir, training_id=instance_id)
             else:
                 # TODO: Add alternative logic to inject app data
-                logger.warning("No training data directory provided, skipping upload")
+                log.warning("No training data directory provided, skipping upload")
 
             self.client.update_training_instance(instance_id, state="STARTING")
             log.info(f"Create training instance : {instance_id}")
