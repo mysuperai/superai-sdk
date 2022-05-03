@@ -28,6 +28,8 @@ from superai.apis.meta_ai.meta_ai_graphql_schema import (
     meta_ai_prediction,
     meta_ai_prediction_state_enum,
     meta_ai_training_instance_insert_input,
+    meta_ai_training_instance_pk_columns_input,
+    meta_ai_training_instance_set_input,
     meta_ai_training_template_insert_input,
     meta_ai_training_template_pk_columns_input,
     meta_ai_training_template_set_input,
@@ -893,36 +895,55 @@ class TrainApiMixin(ABC):
         data = sess.perform_op(op)
         return (op + data).delete_meta_ai_training_template_by_pk.id
 
-    def create_training_entry(self, app_id: uuid, model_id: uuid, properties: dict = None):
+    def create_training_entry(
+        self,
+        model_id: uuid,
+        app_id: Optional[uuid] = None,
+        properties: dict = None,
+        starting_state: Optional[str] = None,
+    ):
         """
         Insert a new training instance, triggering a new training run
 
         Returns: the id of the started training
 
         Args:
-            app_id: ref app id for the training instance
             model_id: ref model if for the training instance
+            app_id: ref app id for the training instance, can be used to create dataset from
             properties: this is by default inherited from the default of the template, or can be
             specified as a dict of properties custom for this run
+            starting_state: the starting state of the training, can be one of: STOPPED, STARTING
+                Stopped starting state can be used to delay the start of the training until data is uploaded
         """
-        sess = MetaAISession(app_id=str(app_id))
-        templates = self.get_training_templates(app_id, model_id)
-        if len(templates) < 1:
-            log.warning("No existing template found. Creating new one automatically.")
-            template = self.create_training_template_entry(app_id, model_id, properties)
-        else:
-            template = templates[0]
-            log.info(f"Creating new training run based on exising template: {template}")
+        assert starting_state in [None, "STOPPED", "STARTING"], "starting_state must be one of: STOPPED, STARTING"
 
-        if not properties:
+        app_id_str = str(app_id) if app_id else None
+        sess = MetaAISession(app_id=app_id_str)
+
+        template = None
+        if app_id:
+            templates = self.get_training_templates(app_id, model_id)
+            if len(templates) < 1:
+                log.warning("No existing template found. Creating new one automatically.")
+                template = self.create_training_template_entry(app_id, model_id, properties)
+            else:
+                template = templates[0]
+                log.info(f"Creating new training run based on exising template: {template}")
+
+        if not properties and template:
             log.info("No properties specified. Using default properties from template.")
             properties = template["properties"]
+        else:
+            log.warning("No training properties specified. Falling back to empty properties `{}`.")
 
         op = Operation(mutation_root)
 
         op.insert_meta_ai_training_instance_one(
             object=meta_ai_training_instance_insert_input(
-                training_template_id=template["id"], current_properties=json.dumps(properties)
+                training_template_id=template["id"] if template else None,
+                current_properties=json.dumps(properties),
+                model_id=model_id,
+                state=starting_state,
             )
         ).__fields__("id")
 
@@ -932,7 +953,7 @@ class TrainApiMixin(ABC):
         return (op + data).insert_meta_ai_training_instance_one.id
 
     @staticmethod
-    def get_trainings(app_id: uuid, model_id: uuid = None, state: str = ""):
+    def get_trainings(app_id: uuid = None, model_id: uuid = None, state: str = ""):
         """
         Finds training instances from the app id and model id keys.
 
@@ -943,22 +964,30 @@ class TrainApiMixin(ABC):
             model_id: ref model if for the template
             state: by default this quries for IN_PROGRESS run, but can be one the state in training state enum
         """
-        sess = MetaAISession(app_id=str(app_id))
+        app_id_str = str(app_id) if app_id else None
+        sess = MetaAISession(app_id=app_id_str)
         op = Operation(query_root)
 
-        filter = {"app_id": {"_eq": app_id}}
+        filter = {}
         if state:
             filter["state"] = {"_eq": state}
         if model_id:
             filter["model_id"] = {"_eq": model_id}
 
-        op.meta_ai_training_template(where=filter).training_instances().__fields__(
-            "id", "current_properties", "state", "created_at", "artifacts"
-        )
+        if app_id:
+            template_filter = {}
+            template_filter["app_id"] = {"_eq": app_id}
+            op.meta_ai_training_template(where=template_filter).training_instances(where=filter).__fields__(
+                "id", "current_properties", "state", "created_at", "artifacts", "model_id"
+            )
+        else:
+            op.meta_ai_training_instance(where=filter).__fields__(
+                "id", "current_properties", "state", "created_at", "artifacts", "model_id"
+            )
         instance_data = sess.perform_op(op)
 
         try:
-            q_out = (op + instance_data).meta_ai_training_template
+            q_out = (op + instance_data).meta_ai_training_instance
             if not q_out and len(q_out) != 1:
                 raise AttributeError
 
@@ -990,3 +1019,17 @@ class TrainApiMixin(ABC):
         op.delete_meta_ai_training_instance_by_pk(id=id).__fields__("id")
         data = sess.perform_op(op)
         return (op + data).delete_meta_ai_training_instance_by_pk.id
+
+    @staticmethod
+    def update_training_instance(instance_id: uuid, app_id: str = None, state: str = None):
+        assert state in [None, "STARTING"], "Only STARTING state is supported for now."
+
+        sess = MetaAISession(app_id=str(app_id) if app_id else None)
+        op = Operation(mutation_root)
+
+        op.update_meta_ai_training_instance_by_pk(
+            _set=meta_ai_training_instance_set_input(**dict(state=state)),
+            pk_columns=meta_ai_training_instance_pk_columns_input(id=instance_id),
+        ).__fields__("id", "model_id", "current_properties", "state")
+        data = sess.perform_op(op)
+        return (op + data).update_meta_ai_training_instance_by_pk.id

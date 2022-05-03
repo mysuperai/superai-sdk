@@ -1,7 +1,9 @@
+import glob
 import importlib
 import json
 import os
 import sys
+from pathlib import Path
 from typing import Dict, List, Optional, Union
 
 import boto3
@@ -116,3 +118,36 @@ def find_root_model(name, client) -> Optional[str]:
             log.error(
                 "Found multiple possible root AIs based on name: {possible_root_models}. Please pass an explicit root_id."
             )
+
+
+def upload_dir(localDir, awsInitDir, bucketName, prefix="/"):
+    """
+    from current working directory, upload a 'localDir' with all its subcontents (files and subdirectories...)
+    to a aws bucket
+    Parameters
+    ----------
+    localDir :   localDirectory to be uploaded, with respect to current working directory
+    awsInitDir : prefix 'directory' in aws
+    bucketName : bucket in aws
+    prefix :     to remove initial '/' from file names
+
+    https://stackoverflow.com/a/64445594/15820564
+    Returns
+    -------
+    None
+    """
+    s3 = boto3.resource("s3")
+    cwd = str(Path.cwd())
+    p = Path(os.path.join(Path.cwd(), localDir))
+    mydirs = list(p.glob("**"))
+    for mydir in mydirs:
+        fileNames = glob.glob(os.path.join(mydir, "*"))
+        fileNames = [f for f in fileNames if not Path(f).is_dir()]
+        len(fileNames)
+        for i, fileName in enumerate(fileNames):
+            fileName = str(fileName).replace(os.path.join(cwd, localDir), "")
+            if fileName.startswith(prefix):  # only modify the text if it starts with the prefix
+                fileName = fileName.replace(prefix, "", 1)  # remove one instance of prefix
+            log.info("Uploading file: {}".format(fileName))
+            awsPath = os.path.join(awsInitDir, str(fileName))
+            s3.meta.client.upload_file(os.path.join(localDir, fileName), bucketName, awsPath)

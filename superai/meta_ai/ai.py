@@ -12,6 +12,7 @@ import subprocess
 import tarfile
 import time
 import traceback
+from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
 from urllib.parse import urlparse
 
@@ -32,6 +33,7 @@ from superai.meta_ai.ai_helper import (
     get_ecr_image_name,
     get_user_model_class,
     list_models,
+    upload_dir,
 )
 from superai.meta_ai.deployed_predictors import (
     DeployedPredictor,
@@ -119,7 +121,6 @@ class AITemplate:
         folder_name: str = "meta_ai_models",
         bucket_name: str = None,
         parameters=None,
-        template_id=None,
     ):
         """Create an AI template for subsequently creating instances of AI objects
 
@@ -192,7 +193,6 @@ class AITemplate:
                                                                     padding='valid',
                                                                     dilation_rate=(1, 1),
                                                                     conv_use_bias=True)
-            template_id: Template ID from the DB
         """
         self.input_schema = input_schema
         self.output_schema = output_schema
@@ -222,7 +222,6 @@ class AITemplate:
         self.model_class = model_class
         self.model_class_path = model_class_path
         self.environs: Optional[EnvironmentFileProcessor] = None
-        self.template_id = template_id
 
     @classmethod
     def load_local(cls, load_path: str) -> "AITemplate":
@@ -242,10 +241,10 @@ class AITemplate:
             input_schema=input_schema,
             output_schema=output_schema,
             configuration=configuration,
-            model_class=model_class,
-            model_class_path=load_path,
             name=name,
             description=description,
+            model_class=model_class,
+            model_class_path=load_path,
             requirements=requirements,
             code_path=code_path,
             conda_env=conda_env,
@@ -350,7 +349,6 @@ class AI:
         description: Optional[str] = None,
         weights_path: str = None,
         overwrite=False,
-        app_id=None,
         **kwargs,
     ):
         """Creates an AI with custom inference logic and optional data dependencies as a superai artifact.
@@ -365,7 +363,6 @@ class AI:
             description: Optional; A free text description. Allows the user to describe the AI's intention.
             weights_path: Path to a file or directory containing model data. This is accessible in the
                           :func:`BaseModel.load_weights(weights_path) <superai.meta_ai.base.BaseModel.load_weights>
-            app_id: The app ID associated with the AI instance
             **kwargs: Arbitrary keyword arguments
         """
 
@@ -406,12 +403,6 @@ class AI:
         self.model_class = None
         # ID of deployment serving predictions
         self.served_by: Optional[str] = None
-
-        if app_id is not None:
-            self.app_id = app_id
-        else:
-            # assign dummy app_id
-            self.app_id = settings.dummy_app
 
     def _init_model_class(self):
         model_class_template = get_user_model_class(model_name=self.model_class_name, path=self.model_class_path)
@@ -965,6 +956,14 @@ class AI:
         log.info(f"Uploaded AI object to '{modelSavePath}'")
         return modelSavePath
 
+    def _upload_training_data(self, local_directory: str, training_id: str) -> str:
+        training_data_path = os.path.join("training/data", training_id)
+        # TODO: replace s3 push with push via signed url or similar
+        local_directory_path = Path(local_directory)
+        upload_dir(local_directory_path, training_data_path, self.bucket_name, prefix="/")
+        log.info(f"Uploaded Training data to {training_data_path}.")
+        return training_data_path
+
     def _upload_weights(self, idx: str, update_weights: bool, weights_path: Optional[str]) -> Optional[str]:
         s3_client = boto3.client("s3")
         weights: Optional[str] = None
@@ -1504,6 +1503,7 @@ class AI:
     def training_deploy(
         self,
         orchestrator: "TrainingOrchestrator" = TrainingOrchestrator.LOCAL_DOCKER_K8S,
+        training_data_dir: Optional[Union[str, Path]] = None,
         skip_build: bool = False,
         properties: Optional[dict] = None,
         enable_cuda: bool = False,
@@ -1527,6 +1527,8 @@ class AI:
                   {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
             download_base: Always download the base image to get the latest version from ECR
         """
+        for key, value in kwargs.get("envs", {}).items():
+            self.environs.add_or_update(key, value)
         if orchestrator in [TrainingOrchestrator.AWS_EKS, TrainingOrchestrator.LOCAL_DOCKER_K8S]:
             if properties is None:
                 properties = {}
@@ -1544,6 +1546,7 @@ class AI:
                     always_download=kwargs.get("download_base", False),
                 )
         else:
+            # TODO: Add support for local training
             raise ValueError(f"Invalid Orchestrator, should be one of {[e for e in TrainingOrchestrator]}")
         # build kwargs
         kwargs = {}
@@ -1566,8 +1569,15 @@ class AI:
             else:
                 # TODO: load default parameters from AI
                 loaded_parameters = {}
-            # self.client.add_app_mapping(self.id, self.app_id)
-            if self.ai_template.template_id is None:
-                self.ai_template.get_or_create_training_entry(self.app_id, self.id)
-            instance_id = self.client.create_training_entry(self.app_id, self.id, properties=loaded_parameters)
+            # check if we have a training data directory
+            instance_id = self.client.create_training_entry(
+                model_id=self.id, properties=loaded_parameters, starting_state="STOPPED"
+            )
+            if training_data_dir is not None:
+                self._upload_training_data(training_data_dir, training_id=instance_id)
+            else:
+                # TODO: Add alternative logic to inject app data
+                logger.warning("No training data directory provided, skipping upload")
+
+            self.client.update_training_instance(instance_id, state="STARTING")
             log.info(f"Create training instance : {instance_id}")

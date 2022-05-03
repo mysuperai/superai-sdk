@@ -66,9 +66,9 @@ def ai(cleanup):
         input_schema=Schema(),
         output_schema=Schema(),
         configuration=Config(),
-        model_class="MyKerasModel",
         name="My_template",
         description="Template for my new awesome project",
+        model_class="MyKerasModel",
         requirements=["tensorflow==2.1.0", "opencv-python-headless"],
     )
     ai = AI(
@@ -92,9 +92,9 @@ def test_create_model(model_api, caplog):
         input_schema=Schema(),
         output_schema=Schema(),
         configuration=Config(),
-        model_class="MyKerasModel",
         name="My_template",
         description="Template for my new awesome project",
+        model_class="MyKerasModel",
         requirements=["tensorflow==2.1.0", "opencv-python-headless"],
     )
     my_ai = AI(
@@ -215,9 +215,9 @@ def test_predict_from_sagemaker(cleanup, caplog, monkeypatch):
         input_schema=Schema(),
         output_schema=Schema(),
         configuration=Config(),
-        model_class="MyKerasModel",
         name="Genre_Template",
         description="Template for genre models",
+        model_class="MyKerasModel",
         requirements=["torch>=1.6"],
     )
 
@@ -247,9 +247,9 @@ def test_train_and_predict(cleanup):
         input_schema=Schema(),
         output_schema=Schema(),
         configuration=Config(),
-        model_class="MyKerasModel",
         name="My_template",
         description="Template for my new awesome project",
+        model_class="MyKerasModel",
         requirements=["tensorflow", "opencv-python-headless"],
     )
     ai = AI(
@@ -289,12 +289,12 @@ def test_build_image():
         input_schema=Schema(),
         output_schema=Schema(),
         configuration=Config(),
-        model_class="MyKerasModel",
         name="My_template",
         description="Template for my new awesome project",
+        model_class="MyKerasModel",
         requirements=["tensorflow", "opencv-python-headless"],
-        artifacts={"run": "runDir/run_this.sh"},
         code_path=["resources/runDir"],
+        artifacts={"run": "runDir/run_this.sh"},
     )
     ai = AI(
         ai_template=template,
