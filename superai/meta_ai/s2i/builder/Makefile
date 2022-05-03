@@ -62,6 +62,7 @@ push-seldon: docker-login
 
 ifndef TARGET_PLATFORM
   TARGET_PLATFORM=linux/amd64
+  #TARGET_PLATFORM=linux/arm64 # used for faster debugging on Mac M1 chips
 endif
 
 
@@ -72,7 +73,14 @@ else
     PIP_REPO=pypi-superai
 endif
 
-build: permissions
+
+superai-wheel:
+	rm -rf .dist/* || true
+	$(MAKE) -C ../../../../ dist
+	mkdir .dist || true
+	cp ../../../../dist/superai-*.whl ./.dist/
+
+build: permissions superai-wheel
 	DOCKER_BUILDKIT=1 docker build -f Dockerfile \
 		--platform=${TARGET_PLATFORM} \
 		--progress=plain \
@@ -83,7 +91,7 @@ build: permissions
 		--secret id=aws,src=${HOME}/.aws/credentials \
 		.
 
-build-lambda: permissions
+build-lambda: permissions superai-wheel
 	DOCKER_BUILDKIT=1 docker build -f Dockerfile.lambda \
 		--platform=${TARGET_PLATFORM} \
 		--progress=plain \
@@ -94,7 +102,7 @@ build-lambda: permissions
 		--secret id=aws,src=${HOME}/.aws/credentials \
 		.
 
-build-seldon: permissions
+build-seldon: permissions superai-wheel
 	DOCKER_BUILDKIT=1 docker build -f Dockerfile.seldon \
 		--platform=${TARGET_PLATFORM} \
 		--progress=plain \

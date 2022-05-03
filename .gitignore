@@ -146,3 +146,5 @@ meta_ai_schema.json
 environment
 
 .test
+
+**/.dist
