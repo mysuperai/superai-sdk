@@ -44,9 +44,9 @@ my_ai_template = AITemplate(
     input_schema=ai_definition["input_schema"],
     output_schema=ai_definition["output_schema"],
     configuration=Config(padding=String(default="valid")),
-    model_class="MyKerasModel",
     name="my_awesome_template",
     description="Template for the MNIST model experiment with AI tool",
+    model_class="MyKerasModel",
     requirements=["tensorflow", "opencv-python-headless"],
 )
 
@@ -56,6 +56,7 @@ my_ai = AI(
     output_params=my_ai_template.input_schema.parameters(
         choices=["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
     ),
+    name=model_name,
     configuration=my_ai_template.configuration(
         conv_layers=None,
         num_conv_layers=None,
@@ -66,10 +67,9 @@ my_ai = AI(
         dilation_rate=(1, 1),
         conv_use_bias=True,
     ),
-    name=model_name,
     version=1,
-    weights_path=os.path.join(os.path.dirname(__file__), "resources/my_model"),
     description="My super fancy AI model instance",
+    weights_path=os.path.join(os.path.dirname(__file__), "resources/my_model"),
 )
 log.info(my_ai)
 log.info(os.system("tree .AISave"))
@@ -85,12 +85,12 @@ template = AITemplate(
     input_schema=Schema(),
     output_schema=Schema(),
     configuration=Config(),
-    model_class="MyKerasModel",
     name="My_template",
     description="Template for my new awesome project",
+    model_class="MyKerasModel",
     requirements=["tensorflow==2.1.0", "opencv-python-headless"],
-    artifacts={"run": "resources/runDir/run_this.sh"},
     code_path=["resources/runDir"],
+    artifacts={"run": "resources/runDir/run_this.sh"},
 )
 ai = AI(
     ai_template=template,
@@ -123,12 +123,12 @@ template_2 = AITemplate(
     input_schema=Schema(),
     output_schema=Schema(),
     configuration=Config(),
-    model_class="MyKerasModel",
     name="My_template",
     description="Template for my new awesome project",
+    model_class="MyKerasModel",
+    code_path=["resources/runDir"],
     conda_env="resources/conda.yaml",
     artifacts={"run": "resources/runDir/run_this.sh"},
-    code_path=["resources/runDir"],
 )
 ai_2 = AI(
     ai_template=template_2,
@@ -161,9 +161,9 @@ new_template = AITemplate(
     input_schema=ai_definition["input_schema"],
     output_schema=ai_definition["output_schema"],
     configuration=Config(padding=String(default="valid")),
-    model_class="MyEncodeDecodeModel",
     name="my_new_awesome_template",
     description="Template for the MNIST model experiment with AI tool, containing encoder decoder",
+    model_class="MyEncodeDecodeModel",
     requirements=["tensorflow", "opencv-python-headless"],
 )
 
@@ -288,8 +288,8 @@ loaded_ai = AI(
     ),
     name=model_name,
     version=3,
-    weights_path=os.path.join(os.path.dirname(__file__), "resources/my_model"),
     description="My super fancy AI model instance",
+    weights_path=os.path.join(os.path.dirname(__file__), "resources/my_model"),
 )
 predictions = loaded_ai.predict(inputs)
 log.info(f"Result : {predictions}")

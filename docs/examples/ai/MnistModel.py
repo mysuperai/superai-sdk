@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import tensorflow as tf
 from polyaxon import tracking
 from polyaxon.tracking.contrib.keras import PolyaxonKerasCallback
@@ -71,6 +73,13 @@ class MnistModel(BaseModel):
         callbacks=None,
         random_seed=default_random_seed,
     ):
+        print("Training data: ", training_data)
+        training_dir = Path(training_data)
+        print("Training dir: ", training_dir)
+        print("Training dir exists: ", training_dir.exists())
+        print("Training dir is dir: ", training_dir.is_dir())
+        print("Training dir content: ", list(training_dir.iterdir()))
+
         if callbacks is None or isinstance(callbacks, str):
             callbacks = []
         print("Hyperparams: ", hyperparameters.__dict__)

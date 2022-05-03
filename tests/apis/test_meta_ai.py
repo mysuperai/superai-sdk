@@ -249,7 +249,7 @@ def test_predictions(model_api, mocker):
 def test_training(model_api, model, existing_app_id):
     training_template = model_api.create_training_template_entry(existing_app_id, model, {})
     assert training_template
-    training_instance = model_api.create_training_entry(existing_app_id, model, {})
+    training_instance = model_api.create_training_entry(model, existing_app_id, {})
     assert training_instance
 
     templates = model_api.get_training_templates(existing_app_id, model)

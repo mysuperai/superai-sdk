@@ -32,12 +32,12 @@ template = AITemplate(
     input_schema=Schema(),
     output_schema=Schema(),
     configuration=Config(),
-    model_class="MyKerasModel",
     name="My_template",
     description="Template for my new awesome project",
+    model_class="MyKerasModel",
     requirements=["tensorflow==2.1.0", "opencv-python-headless"],
-    artifacts={"run": "runDir/run_this.sh"},
     code_path=["resources/runDir"],
+    artifacts={"run": "runDir/run_this.sh"},
 )
 ai1 = AI(
     ai_template=template,

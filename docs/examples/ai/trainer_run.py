@@ -21,9 +21,9 @@ template = AITemplate(
     name="MnistTrainingTemplate",
     description="Template of Sample MNIST training",
     model_class="MnistModel",
-    requirements=["tensorflow-gpu==2.3.0", "polyaxon"],
-    artifacts={"run": "resources/runDir/run_this.sh"},
+    requirements=["tensorflow==2.3.0", "polyaxon"],
     code_path=["resources/runDir"],
+    artifacts={"run": "resources/runDir/run_this.sh"},
 )
 ai = AI(
     ai_template=template,
@@ -32,17 +32,16 @@ ai = AI(
     name="mnist_training",
     version=1,
     description="AI instance of sample MNIST training",
-    app_id="c1bed1ac-6418-40e3-9ce0-15a17d1bc38c",
 )
 #%%
 ai.push(overwrite=True)
 #%%
 ai.training_deploy(
     orchestrator=TrainingOrchestrator.AWS_EKS,
-    build_all_layers=True,
+    training_data_dir="./training_data",
+    build_all_layers=False,
     training_parameters=TrainingParameters(
         model_save_path="/tmp",
-        training_data="/tmp",
         hyperparameters=HyperParameterSpec(trainable=True, optimizer="adam", log_learning_rate=-3, epochs=10),
         model_parameter=ModelParameters(conv1_size=32, conv2_size=64, hidden1_size=500, dropout=0.8),
     ),

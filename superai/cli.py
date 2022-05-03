@@ -610,7 +610,7 @@ def method():
     help="Path to location where the weights will be saved.",
     required=True,
     show_default=True,
-    type=click.Path(exists=True, writable=True, dir_okay=True),
+    type=click.Path(),
 )
 @click.option(
     "--training-data-path",
@@ -1031,7 +1031,7 @@ def training():
 
 
 @training.command(name="list")
-@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--app_id", "-a", help="Application id", required=False)
 @click.option("--model_id", "-m", help="Model id", required=False)
 @pass_client
 def list_trainings(client, app_id, model_id):
@@ -1066,7 +1066,7 @@ def start_training(client, app_id, model_id, properties: str):
     else:
         json_inputs = None
 
-    id = client.create_training_entry(app_id, model_id, json_inputs)
+    id = client.create_training_entry(model_id, app_id, json_inputs)
     if id:
         print(f"Started a new training with ID {id}")
 
