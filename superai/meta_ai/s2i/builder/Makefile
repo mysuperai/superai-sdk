@@ -65,6 +65,10 @@ ifndef TARGET_PLATFORM
   #TARGET_PLATFORM=linux/arm64 # used for faster debugging on Mac M1 chips
 endif
 
+ifndef AWS_CREDENTIAL_FILE
+  AWS_CREDENTIAL_FILE=${HOME}/.aws/credentials
+endif
+
 
 
 ifeq ($(INTERNAL), true)
@@ -88,7 +92,7 @@ build: permissions superai-wheel
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
 		--build-arg PIP_REPO=${PIP_REPO} \
 		-t ${IMAGE_NAME}:${IMAGE_VERSION} \
-		--secret id=aws,src=${HOME}/.aws/credentials \
+		--secret id=aws,src=${AWS_CREDENTIAL_FILE} \
 		.
 
 build-lambda: permissions superai-wheel
@@ -99,7 +103,7 @@ build-lambda: permissions superai-wheel
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
 		--build-arg PIP_REPO=${PIP_REPO} \
 		-t ${IMAGE_NAME}-lambda:${IMAGE_VERSION} \
-		--secret id=aws,src=${HOME}/.aws/credentials \
+		--secret id=aws,src=${AWS_CREDENTIAL_FILE} \
 		.
 
 build-seldon: permissions superai-wheel
@@ -110,7 +114,7 @@ build-seldon: permissions superai-wheel
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
 		--build-arg PIP_REPO=${PIP_REPO} \
 		-t ${IMAGE_NAME}-seldon:${IMAGE_VERSION} \
-		--secret id=aws,src=${HOME}/.aws/credentials \
+		--secret id=aws,src=${AWS_CREDENTIAL_FILE} \
 		.
 
 build-all: build build-lambda build-seldon
