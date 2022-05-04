@@ -30,6 +30,7 @@ from superai.apis.meta_ai.meta_ai_graphql_schema import (
     meta_ai_training_instance_insert_input,
     meta_ai_training_instance_pk_columns_input,
     meta_ai_training_instance_set_input,
+    meta_ai_training_template,
     meta_ai_training_template_insert_input,
     meta_ai_training_template_pk_columns_input,
     meta_ai_training_template_set_input,
@@ -784,7 +785,9 @@ class TrainApiMixin(ABC):
     def resource(self):
         return self._resource
 
-    def create_training_template_entry(self, app_id: uuid, model_id: uuid, properties: dict, description: str = None):
+    def create_training_template_entry(
+        self, app_id: uuid, model_id: uuid, properties: dict, description: str = None
+    ) -> Optional[meta_ai_training_template]:
         """
         Creates a new training template entry.
 
@@ -800,7 +803,10 @@ class TrainApiMixin(ABC):
 
         op.insert_meta_ai_training_template_one(
             object=meta_ai_training_template_insert_input(
-                model_id=model_id, app_id=app_id, properties=json.dumps(properties), description=description
+                model_id=model_id,
+                app_id=app_id,
+                properties=json.dumps(properties),
+                description=description,
             )
         ).__fields__("id", "app_id", "model_id", "properties", "description")
         try:
@@ -811,7 +817,7 @@ class TrainApiMixin(ABC):
                     "Training template already exists. Currently only one template is allowed per app/model."
                 )
         log.info(f"Created training template {data}")
-        return (op + data).insert_meta_ai_training_template_one.id
+        return (op + data).insert_meta_ai_training_template_one
 
     @staticmethod
     def update_training_template(app_id: uuid, model_id: uuid, properties: dict = None, description: str = None):
@@ -849,7 +855,7 @@ class TrainApiMixin(ABC):
         return (op + data).update_meta_ai_training_template_by_pk.id
 
     @staticmethod
-    def get_training_templates(app_id: uuid, model_id: uuid):
+    def get_training_templates(app_id: uuid, model_id: uuid) -> List[meta_ai_training_template]:
         """
         Finds training templates from the app id and model id keys.
 
@@ -899,8 +905,8 @@ class TrainApiMixin(ABC):
         self,
         model_id: uuid,
         app_id: Optional[uuid] = None,
-        properties: dict = None,
-        starting_state: Optional[str] = None,
+        properties: Optional[dict] = None,
+        starting_state: Optional[str] = "STARTING",
     ):
         """
         Insert a new training instance, triggering a new training run
@@ -916,6 +922,7 @@ class TrainApiMixin(ABC):
                 Stopped starting state can be used to delay the start of the training until data is uploaded
         """
         assert starting_state in [None, "STOPPED", "STARTING"], "starting_state must be one of: STOPPED, STARTING"
+        properties = properties or {}
 
         app_id_str = str(app_id) if app_id else None
         sess = MetaAISession(app_id=app_id_str)

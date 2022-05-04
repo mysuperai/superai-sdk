@@ -1058,21 +1058,20 @@ def list_trainings(client, app_id, model_id):
     "--properties",
     "-p",
     help="Custom properties, if not set default ones for the template will be used",
-    required=False,
+    required=True,
 )
 @pass_client
 def start_training(client, app_id, model_id, properties: str):
     """
     Start a new training
     """
+    json_inputs = None
     if properties:
         try:
             json_inputs = json.loads(properties)
         except:
             print("Couldn't read json inputs")
             exit()
-    else:
-        json_inputs = None
 
     id = client.create_training_entry(model_id, app_id, json_inputs)
     if id:
@@ -1099,14 +1098,13 @@ def create_template(client, app_id, model_id, properties: str):
     Create a template for trainings.
     The template is used to instantiate new training instances.
     """
+    json_inputs = None
     if properties:
         try:
             json_inputs = json.loads(properties)
         except:
             print("Couldn't read json inputs")
             exit()
-    else:
-        json_inputs = None
 
     id = client.create_training_template_entry(app_id, model_id, json_inputs)
     if id:
