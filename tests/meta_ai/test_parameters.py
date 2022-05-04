@@ -48,11 +48,7 @@ def test_training_parameters():
     hps = HyperParameterSpec.load_from_list(parameters)
     mps = ModelParameters(conv_layers=10, strides=[1, 1, 1])
     tps = TrainingParameters(
-        model_save_path="path",
-        training_data="some_training_data",
-        test_data="some_test_data",
-        hyperparameters=hps,
-        model_parameter=mps,
+        training_data="some_training_data", test_data="some_test_data", hyperparameters=hps, model_parameter=mps
     )
     assert tps.to_json()
     print(tps.to_json())
@@ -121,7 +117,6 @@ def test_integration():
             "pool_function": "max",
             "strides": [1, 1],
         },
-        "model_save_path": "/tmp",
         "test_data_path": None,
         "validation_data_path": None,
         "production_data_path": None,
@@ -129,7 +124,6 @@ def test_integration():
         "training_data_path": "/tmp",
     }
     tp = TrainingParameters(
-        model_save_path="/tmp",
         training_data="/tmp",
         hyperparameters=HyperParameterSpec(trainable=True, optimizer="adam", log_learning_rate=-3, epochs=10),
         model_parameter=ModelParameters(conv1_size=32, conv2_size=64, hidden1_size=500, dropout=0.8),
