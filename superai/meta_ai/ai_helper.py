@@ -136,6 +136,8 @@ def upload_dir(localDir, awsInitDir, bucketName, prefix="/"):
     -------
     None
     """
+    assert localDir, "localDir must be provided"
+    log.info("Uploading directory: {} to bucket: {}".format(localDir, bucketName))
     s3 = boto3.resource("s3")
     cwd = str(Path.cwd())
     p = Path(os.path.join(Path.cwd(), localDir))
