@@ -41,7 +41,6 @@ ai.training_deploy(
     training_data_dir="./training_data",
     build_all_layers=False,
     training_parameters=TrainingParameters(
-        model_save_path="/tmp",
         hyperparameters=HyperParameterSpec(trainable=True, optimizer="adam", log_learning_rate=-3, epochs=10),
         model_parameter=ModelParameters(conv1_size=32, conv2_size=64, hidden1_size=500, dropout=0.8),
     ),
