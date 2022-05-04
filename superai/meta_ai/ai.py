@@ -51,6 +51,11 @@ from superai.meta_ai.parameters import (
 from superai.meta_ai.schema import EasyPredictions, Schema, SchemaParameters
 from superai.utils import load_api_key, load_auth_token, load_id_token, retry
 
+# Prefix path for the model directory on storage backend
+MODEL_ARTIFACT_PREFIX_S3 = "meta_ai_models"
+# extended path to model weights
+MODEL_WEIGHT_INFIX_S3 = "saved_models"
+
 if TYPE_CHECKING:
     from superai.meta_ai import BaseModel
 
@@ -118,7 +123,6 @@ class AITemplate:
         conda_env: Union[str, Dict] = None,
         artifacts: Optional[Dict] = None,
         client: Client = None,
-        folder_name: str = "meta_ai_models",
         bucket_name: str = None,
         parameters=None,
     ):
@@ -181,7 +185,6 @@ class AITemplate:
 
                       If ``None``, no artifacts are added to the model.
             client:
-            folder_name:
             bucket_name:
             parameters: Optional; Parameters to be passed to the model, could be the model architecture parameters,
                            or training parameters.
@@ -212,7 +215,6 @@ class AITemplate:
                 id_token=load_id_token(),
             )
         )
-        self.folder_name = folder_name
         self.bucket_name = bucket_name or settings["meta_ai_bucket"]
         self.parameters = parameters
         if model_class is None:
@@ -373,7 +375,6 @@ class AI:
         self.name = name
         self.version = version
         self.root_id = root_id
-        self.folder_name = self.ai_template.folder_name
         self.bucket_name = self.ai_template.bucket_name
         self.description = description
         self.weights_path = weights_path
@@ -949,7 +950,7 @@ class AI:
         path_to_tarfile = os.path.join(self._location, "AISavedModel.tar.gz")
         log.info(f"Compressing AI folder at {self._location}")
         self._compress_folder(path_to_tarfile, self._location)
-        object_name = os.path.join(self.folder_name, idx, self.name, str(self.version), "AISavedModel.tar.gz")
+        object_name = os.path.join(MODEL_ARTIFACT_PREFIX_S3, idx, self.name, str(self.version), "AISavedModel.tar.gz")
         with open(path_to_tarfile, "rb") as f:
             s3_client.upload_fileobj(f, self.bucket_name, object_name)
         modelSavePath = os.path.join("s3://", self.bucket_name, object_name)
@@ -965,29 +966,17 @@ class AI:
         return training_data_path
 
     def _upload_weights(self, idx: str, update_weights: bool, weights_path: Optional[str]) -> Optional[str]:
-        s3_client = boto3.client("s3")
         weights: Optional[str] = None
         if self.weights_path is not None and update_weights:
             if self.weights_path.startswith("s3"):
                 weights = self.weights_path
             elif os.path.exists(self.weights_path):
                 if os.path.isdir(self.weights_path):
-                    path_to_weights_tarfile = os.path.join(
-                        self._location, f"{os.path.basename(self.weights_path)}.tar.gz"
-                    )
-                    log.info(f"Compressing weights at {self.weights_path}, placed at {path_to_weights_tarfile}...")
-                    self._compress_folder(path_to_weights_tarfile, self.weights_path)
-                    upload_object_name = os.path.join(
-                        self.folder_name, "saved_models", idx, f"{os.path.basename(self.weights_path)}.tar.gz"
-                    )
+                    upload_object_name = os.path.join(MODEL_ARTIFACT_PREFIX_S3, MODEL_WEIGHT_INFIX_S3, idx)
                 else:
-                    upload_object_name = os.path.join(
-                        self.folder_name, "saved_models", idx, os.path.basename(self.weights_path)
-                    )
-                    path_to_weights_tarfile = self.weights_path
-                with open(path_to_weights_tarfile, "rb") as w:
-                    log.info("Uploading weights...")
-                    s3_client.upload_fileobj(w, self.bucket_name, upload_object_name)
+                    raise ValueError("weights_path must be a directory")
+                log.info("Uploading weights...")
+                upload_dir(self.weights_path, upload_object_name, self.bucket_name, prefix="/")
                 weights = f"s3://{os.path.join(self.bucket_name, upload_object_name)}"
                 log.info(f"Uploaded weights to '{weights}'")
             else:
