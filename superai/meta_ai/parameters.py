@@ -258,11 +258,8 @@ class Config:
 
 
 class TrainingParameters:
-    output_folder_template = "{{ globals.run_outputs_path }}"
-
     def __init__(
         self,
-        model_save_path: Optional[str] = None,
         training_data: Optional[str] = None,
         test_data: Optional[str] = None,
         production_data: Optional[str] = None,
@@ -274,7 +271,6 @@ class TrainingParameters:
         callbacks: Optional[Callable] = None,
         train_logger: Optional[Any] = None,
     ):
-        self.model_save_path = model_save_path
         self.training_data_path = training_data
         self.test_data_path = test_data
         self.production_data_path = production_data
