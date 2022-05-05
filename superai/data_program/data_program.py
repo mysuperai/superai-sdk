@@ -372,7 +372,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                     task_input: Input,
                     task_output: Output,
                     max_attempts: int,
-                    excluded_ids: List[int] = None,
+                    **kwargs,
                 ) -> None:
                     raise NotImplementedError("Can't send a task with no templates defined")
 
@@ -385,7 +385,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                     task_input: Input,
                     task_output: Output,
                     max_attempts: int,
-                    excluded_ids: List[int] = None,
+                    **kwargs,
                 ) -> Output:
                     # checks task input type
                     if not isinstance(task_input, task_template.input):
@@ -395,7 +395,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                     my_task.process(
                         model_to_task_io_payload(task_input),
                         model_to_task_io_payload(task_output),
-                        excluded_ids=excluded_ids,
+                        **kwargs,
                     )
                     raw_result = my_task.output["values"]["formData"]
                     output = task_output.parse_obj(raw_result)
