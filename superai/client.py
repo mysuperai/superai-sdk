@@ -15,8 +15,13 @@ from superai.exceptions import (
     SuperAIEntityDuplicatedError,
     SuperAIError,
 )
+from superai.log import logger
+from superai.utils import update_cognito_credentials
 
 BASE_URL = settings.get("base_url")
+
+# Set up logging
+logger = logger.get_logger(__name__)
 
 
 class Client(
@@ -66,9 +71,27 @@ class Client(
                 message = http_e.response.text
 
             if http_e.response.status_code == 401:
-                raise SuperAIAuthorizationError(
-                    message, http_e.response.status_code, endpoint=f"{self.base_url}/{endpoint}"
-                )
+                # In this case the token is expired but the refresh token
+                # might still be valid. Check and update the secrets.
+                if message == "Token is expired.":
+                    # Set the class variables with the new tokens.
+                    self.auth_token, self.id_token = update_cognito_credentials()
+                    # Retry the request.
+                    return self.request(
+                        endpoint,
+                        method,
+                        query_params,
+                        body_params,
+                        required_api_key,
+                        required_auth_token,
+                        required_id_token,
+                    )
+                else:
+                    # In this case, it is actually an authorization error and
+                    # the token is not valid.
+                    raise SuperAIAuthorizationError(
+                        message, http_e.response.status_code, endpoint=f"{self.base_url}/{endpoint}"
+                    )
             elif http_e.response.status_code == 409:
                 raise SuperAIEntityDuplicatedError(
                     message, http_e.response.status_code, base_url=self.base_url, endpoint=endpoint
