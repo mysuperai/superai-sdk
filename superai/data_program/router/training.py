@@ -43,7 +43,7 @@ class Training(Router):
 
         assert self.default_wf_name is not None, "No default method registered."
 
-        self.prefix = training_dataprogram.name
+        self.prefix = training_dataprogram._name
 
         self.input_schema = self.workflows[0].input_schema
         self.parameter_schema = self.workflows[0].parameter_schema

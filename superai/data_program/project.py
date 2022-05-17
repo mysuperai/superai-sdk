@@ -79,9 +79,9 @@ class Project:
         # TODO: Use sys.excepthook
         try:
             assert "uuid" in self.__project_obj
-            assert self.dataprogram.qualified_name == self.__project_obj["templateName"], (
+            assert self.dataprogram.template_name == self.__project_obj["templateName"], (
                 f"Project is already registered to dataprogram {self.__project_obj['templateName']} "
-                f"but expected {self.dataprogram.qualified_name}"
+                f"but expected {self.dataprogram.template_name}"
             )
 
             if uuid:
@@ -117,8 +117,8 @@ class Project:
             )
 
         body_json = {}
-        body_json["templateName"] = f"{self.dataprogram.name}.router"
-        body_json["appName"] = name if name else f"{self.dataprogram.name}"
+        body_json["templateName"] = f"{self.dataprogram._name}.router"
+        body_json["appName"] = name if name else f"{self.dataprogram._name}"
         if parameters is not None:
             # TODO: Send only schema values until the rest of the infrastructure supports self contained schemas (definition_v1,v2)
             body_json["appParams"] = self._sanitize_params(parameters)

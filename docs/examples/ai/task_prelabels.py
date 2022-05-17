@@ -48,7 +48,7 @@ def my_workflow(inputs, params, predictions, tasks, **kwargs):
     :param inputs:
     :return:
     """
-    print(f"{dp.name}.my_workflow: Arguments: inputs {inputs} params: {params}, **kwargs: {kwargs} ")
+    print(f"{dp._name}.my_workflow: Arguments: inputs {inputs} params: {params}, **kwargs: {kwargs} ")
 
     task1 = tasks.get("is_number")
     task1_inputs = [

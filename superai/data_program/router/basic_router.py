@@ -48,7 +48,7 @@ class BasicRouter(Router):
         assert self.default_wf is not None, "No default method registered."
         assert self.gold_wf is not None, "No gold method registered."
 
-        self.prefix = dataprogram.name
+        self.prefix = dataprogram._name
 
         self.input_schema = self.workflows[0].input_schema
         self.parameter_schema = self.workflows[0].parameter_schema
