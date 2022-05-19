@@ -303,6 +303,12 @@ def list_jobs(
     type=click.DateTime(formats=["%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d"]),
 )
 @click.option(
+    "--send_email/--not_send_email",
+    "-se/-nse",
+    help="Choose if email is sent atnthe end",
+    default=True,
+)
+@click.option(
     "--status_in",
     "-s_in",
     help="Status of jobs",
@@ -317,10 +323,11 @@ def download_jobs(
     created_end_date: datetime,
     completed_start_date: datetime,
     completed_end_date: datetime,
+    send_email: bool = None,
     status_in: List[str] = None,
 ):
     """
-    Trigger processing of job responses that is sent to customer email once is finished.
+    Trigger processing of job responses that is sent to customer email (default) once is finished.
     """
     client = ctx.obj["client"]
     print(f"Triggering job responses processing per application {app_id}")
@@ -328,9 +335,51 @@ def download_jobs(
         status_in = None
     print(
         client.download_jobs(
-            app_id, created_start_date, created_end_date, completed_start_date, completed_end_date, status_in
+            app_id,
+            created_start_date,
+            created_end_date,
+            completed_start_date,
+            completed_end_date,
+            status_in,
+            send_email,
         )
     )
+
+
+@client.command(name="get_jobs_operation")
+@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--operation_id", "-o", help="Operation id", required=True)
+@click.pass_context
+def get_jobs_operation(
+    ctx,
+    app_id: str,
+    operation_id: str,
+):
+    """
+    Fetch jobs operation given application id and operation id
+    """
+    client = ctx.obj["client"]
+    print(f"Fetching jobs operation per application {app_id} operation {operation_id}")
+    print(client.get_jobs_operation(app_id, operation_id))
+
+
+@client.command(name="downloaded_jobs_url")
+@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--operation_id", "-o", help="Operation id", required=True)
+@click.option("--seconds_ttl", "-sttl", help="Seconds ttl for url", default=60, type=click.INT, show_default=True)
+@click.pass_context
+def downloaded_jobs_url(
+    ctx,
+    app_id: str,
+    operation_id: str,
+    seconds_ttl: int,
+):
+    """
+    Generates downloaded jobs url given application id and operation id
+    """
+    client = ctx.obj["client"]
+    print(f"Generating downloaded jobs url per application {app_id} operation {operation_id}")
+    print(client.generates_downloaded_jobs_url(app_id, operation_id, seconds_ttl))
 
 
 @client.command(name="create_ground_truth")

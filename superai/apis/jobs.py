@@ -154,16 +154,18 @@ class JobsApiMixin(ABC):
         completedStartDate: datetime = None,
         completedEndDate: datetime = None,
         statusIn: List[str] = None,
-    ) -> str:
+        sendEmail: bool = None,
+    ) -> dict:
         """
-        Trigger processing of jobs responses that is sent to customer email once is finished.
+        Trigger processing of jobs responses that is sent to customer email (default) once is finished.
         :param app_id: Application id
         :param createdStartDate: Created start date
         :param createdEndDate: Created end date
         :param completedStartDate: Completed start date
         :param completedEndDate: Completed end date
         :param statusIn: Status of jobs
-        :return: 'Task is processing' string
+        :param sendEmail: Email not send if False.
+        :return: Dict with operationId key to track status
         """
         uri = f"apps/{app_id}/job_responses"
         query_params = {}
@@ -177,6 +179,8 @@ class JobsApiMixin(ABC):
             query_params["completedEndDate"] = completedEndDate.strftime("%Y-%m-%dT%H:%M:%SZ")
         if statusIn is not None:
             query_params["statusIn"] = statusIn
+        if sendEmail is not None:
+            query_params["sendEmail"] = sendEmail
         return self.request(uri, method="POST", query_params=query_params, required_api_key=True)
 
     def get_all_jobs(
@@ -220,3 +224,27 @@ class JobsApiMixin(ABC):
             for job in paginated_jobs["jobs"]:
                 yield job
             page = page + 1
+
+    def get_jobs_operation(self, app_id: str, operation_id: int):
+        """
+        Fetch status of job operation given application id and operation id
+        :param app_id: Application id
+        :param operation_id: operation_id
+        :return: Dict with operation information (id, status, and other fields)
+        """
+        uri = f"operations/{app_id}/{operation_id}"
+        return self.request(uri, method="GET", required_api_key=True)
+
+    def generates_downloaded_jobs_url(self, app_id: str, operation_id: int, secondsTtl: int = None):
+        """
+        Generates url to retrieve downloaded zip jobs given application id and operation id
+        :param app_id: Application id
+        :param operation_id: operation_id
+        :param seconds_ttl: Seconds ttl for generated url. Default 60
+        :return: Dict with field downloadUrl
+        """
+        uri = f"operations/{app_id}/{operation_id}/download-url"
+        query_params = {}
+        if secondsTtl is not None:
+            query_params["secondsTtl"] = secondsTtl
+        return self.request(uri, method="POST", query_params=query_params, required_api_key=True)
