@@ -12,12 +12,20 @@ from rich import print
 from rich.prompt import Confirm
 
 from superai import Client
-from superai.meta_ai.schema import EasyPredictions
 from superai.meta_ai.dockerizer import get_docker_client
+from superai.meta_ai.schema import EasyPredictions
 from superai.utils import log
 
 
 class DeployedPredictor(metaclass=ABCMeta):
+    """
+    Class to collect logic to handle managing deployments.
+    Deployments are physical instances of AI models deployed on a cloud provider or locally.
+    They provide endpoints to make predictions.
+
+    TODO: Extract deployment logic from `AI` into here.
+    """
+
     Type = TypeVar("Type", bound="DeployedPredictor")
 
     def __init__(self, *args, **kwargs):
@@ -50,7 +58,6 @@ class LocalPredictor(DeployedPredictor):
                     container.kill()
                 except Exception as e:
                     log.info(f"Ignorable exception: {e}")
-                    pass
 
                 log.info(f"Starting new container with name {container_name}.")
                 self.container: Container = client.containers.run(
@@ -141,18 +148,22 @@ class LocalPredictor(DeployedPredictor):
             return {8080: 80, 8081: 8081}
 
 
-class AWSPredictor(DeployedPredictor):
+class RemotePredictor(DeployedPredictor):
+    """A predictor that runs on a remote machine."""
+
     def __init__(self, client: Client, id: str, **kwargs):
         super().__init__()
         self.client = client
         self.id = id
         target_status = kwargs.get("target_status", "ONLINE")
-        client.set_deployment_status(model_id=self.id, target_status=target_status)
+        client.set_deployment_status(deployment_id=self.id, target_status=target_status)
 
     def predict(self, input, **kwargs):
         if self.client.check_endpoint_is_available(self.id):
             input_data, parameters = input.get("data", {}), input.get("parameters", {})
-            result = self.client.predict_from_endpoint(self.id, input_data, parameters)
+            result = self.client.predict_from_endpoint(
+                deployment_id=self.id, input_data=input_data, parameters=parameters
+            )
             output = EasyPredictions(result).value
             return output
         else:
@@ -160,4 +171,4 @@ class AWSPredictor(DeployedPredictor):
             raise LookupError("Endpoint does not exist, redeploy")
 
     def terminate(self):
-        self.client.set_deployment_status(model_id=self.id, target_status="OFFLINE")
+        self.client.set_deployment_status(deployment_id=self.id, target_status="OFFLINE")

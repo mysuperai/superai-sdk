@@ -10,12 +10,13 @@ import os
 import signal
 import sys
 from logging import FATAL, WARN
-from threading import local, Lock, Thread
+from threading import Lock, Thread, local
 
 import jsonpickle
 import sentry_sdk
 from futures_then import ThenableFuture as Future
 from jsonschema.exceptions import ValidationError
+
 from superai.data_program.Exceptions import *
 from superai.data_program.experimental import forget_memo
 from superai.log import logger
@@ -875,9 +876,8 @@ def _task_pump():
             if "sequence" in response:
                 raise ValueError("SNAPSHOT_DATA come out of bound and don't expect to contain 'sequence'")
 
-            snapshot_data = None
             with _snapshot_lock:
-                snapshot_data = _snapshot_data[id]
+                _snapshot_data[id]
 
             snapshot.set_result(response["data"] if "data" in response else None)
 
@@ -929,7 +929,7 @@ def _task_pump():
                         _child_job[id].cancel()
             if response["type"] == "SUSPEND":
                 job_uuid = response["uuid"]
-                app_id = response["appId"]
+                response["appId"]
                 forget_memo(None, prefix=f"{job_uuid}/")
 
         else:

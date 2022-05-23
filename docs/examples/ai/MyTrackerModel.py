@@ -2,10 +2,11 @@ import json
 import os
 
 import tensorflow as tf
-from superai.meta_ai import BaseModel
-from superai.utils import log
 from tensorflow import keras
 from tensorflow.keras import layers
+
+from superai.meta_ai import BaseModel
+from superai.utils import log
 
 
 ###########################################################################

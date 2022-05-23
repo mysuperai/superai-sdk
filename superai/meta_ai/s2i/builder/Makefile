@@ -20,63 +20,105 @@ endif
 
 IMAGE_NAME=superai-model-s2i-python${IMAGE_PYTHON_VERSION}-${mode}
 
-account=$(eval (aws sts get-caller-identity --query Account | sed -e 's/^"//' -e 's/"$//'))
-region=$(eval aws configure get region)
-ecr_account=${account}.dkr.ecr.${region}.amazonaws.com
-
+account:=$(shell (aws sts get-caller-identity --query Account --output text))
+region=us-east-1
+ecr_account:=${account}.dkr.ecr.${region}.amazonaws.com
 fullname=${ecr_account}/${IMAGE_NAME}:${IMAGE_VERSION}
 
 permissions:
 	chmod +x s2i/bin/*
 
 docker-login:
-	$$(aws ecr get-login --no-include-email --region us-east-1)
+	aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${ecr_account}
+
+ifndef INTERNAL
+  INTERNAL=true
+endif
+
+ifeq ($(INTERNAL), true)
+    IMAGE_NAME=superai-model-s2i-python${IMAGE_PYTHON_VERSION}-${mode}-internal
+else
+    IMAGE_NAME=superai-model-s2i-python${IMAGE_PYTHON_VERSION}-${mode}
+endif
 
 push: docker-login
-	docker tag "superai-model-s2i-python3711-${mode}:1" "185169359328.dkr.ecr.us-east-1.amazonaws.com/superai-model-s2i-python3711-${mode}:1"
-	docker push "185169359328.dkr.ecr.us-east-1.amazonaws.com/superai-model-s2i-python3711-${mode}:1"
+	docker tag "${IMAGE_NAME}:${IMAGE_VERSION}" "${ecr_account}/${IMAGE_NAME}:${IMAGE_VERSION}"
+	aws ecr create-repository --repository-name ${IMAGE_NAME} || true
+	docker push "${ecr_account}/${IMAGE_NAME}:${IMAGE_VERSION}"
 
 
 push-lambda: docker-login
-	docker tag "superai-model-s2i-python3711-${mode}-lambda:1" "185169359328.dkr.ecr.us-east-1.amazonaws.com/superai-model-s2i-python3711-${mode}-lambda:1"
-	docker push "185169359328.dkr.ecr.us-east-1.amazonaws.com/superai-model-s2i-python3711-${mode}-lambda:1"
+	docker tag "${IMAGE_NAME}-lambda:${IMAGE_VERSION}" "${ecr_account}/${IMAGE_NAME}-lambda:${IMAGE_VERSION}"
+	aws ecr create-repository --repository-name ${IMAGE_NAME}-lambda || true
+	docker push "${ecr_account}/${IMAGE_NAME}-lambda:${IMAGE_VERSION}"
 
 push-seldon: docker-login
-	docker tag "superai-model-s2i-python3711-${mode}-seldon:1" "185169359328.dkr.ecr.us-east-1.amazonaws.com/superai-model-s2i-python3711-${mode}-seldon:1"
-	docker push "185169359328.dkr.ecr.us-east-1.amazonaws.com/superai-model-s2i-python3711-${mode}-seldon:1"
+	docker tag "${IMAGE_NAME}-seldon:${IMAGE_VERSION}" "${ecr_account}/${IMAGE_NAME}-seldon:${IMAGE_VERSION}"
+	aws ecr create-repository --repository-name ${IMAGE_NAME}-seldon || true
+	docker push "${ecr_account}/${IMAGE_NAME}-seldon:${IMAGE_VERSION}"
 
 
-.PHONY: all build tag push permissions
+.PHONY: all build tag push permissions build-all push-all
 
 ifndef TARGET_PLATFORM
-TARGET_PLATFORM=linux/amd64
+  TARGET_PLATFORM=linux/amd64
+  #TARGET_PLATFORM=linux/arm64 # used for faster debugging on Mac M1 chips
 endif
 
-build: permissions
+ifndef AWS_CREDENTIAL_FILE
+  AWS_CREDENTIAL_FILE=${HOME}/.aws/credentials
+endif
+
+
+
+ifeq ($(INTERNAL), true)
+    PIP_REPO=pypi-superai-internal
+else
+    PIP_REPO=pypi-superai
+endif
+
+
+superai-wheel:
+	rm -rf .dist/* || true
+	$(MAKE) -C ../../../../ dist
+	mkdir .dist || true
+	cp ../../../../dist/superai-*.whl ./.dist/
+
+build: permissions superai-wheel
 	DOCKER_BUILDKIT=1 docker build -f Dockerfile \
 		--platform=${TARGET_PLATFORM} \
+		--progress=plain \
 		--build-arg PYTHON_VERSION=${PYTHON_VERSION} \
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
+		--build-arg PIP_REPO=${PIP_REPO} \
 		-t ${IMAGE_NAME}:${IMAGE_VERSION} \
-		--secret id=aws,src=${HOME}/.aws/credentials \
+		--secret id=aws,src=${AWS_CREDENTIAL_FILE} \
 		.
 
-build-lambda: permissions
+build-lambda: permissions superai-wheel
 	DOCKER_BUILDKIT=1 docker build -f Dockerfile.lambda \
 		--platform=${TARGET_PLATFORM} \
+		--progress=plain \
 		--build-arg PYTHON_VERSION=${PYTHON_VERSION} \
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
+		--build-arg PIP_REPO=${PIP_REPO} \
 		-t ${IMAGE_NAME}-lambda:${IMAGE_VERSION} \
-		--secret id=aws,src=${HOME}/.aws/credentials \
+		--secret id=aws,src=${AWS_CREDENTIAL_FILE} \
 		.
 
-build-seldon: permissions
+build-seldon: permissions superai-wheel
 	DOCKER_BUILDKIT=1 docker build -f Dockerfile.seldon \
 		--platform=${TARGET_PLATFORM} \
+		--progress=plain \
 		--build-arg PYTHON_VERSION=${PYTHON_VERSION} \
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
+		--build-arg PIP_REPO=${PIP_REPO} \
 		-t ${IMAGE_NAME}-seldon:${IMAGE_VERSION} \
-		--secret id=aws,src=${HOME}/.aws/credentials \
+		--secret id=aws,src=${AWS_CREDENTIAL_FILE} \
 		.
 
-all: build build-lambda build-seldon push push-lambda push-seldon
+build-all: build build-lambda build-seldon
+
+push-all: push push-lambda push-seldon
+
+all: build-all push-all

@@ -5,12 +5,13 @@ import logging
 import os
 import tarfile
 from abc import ABCMeta, abstractmethod
+from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
 
 import boto3
 
-from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters, Config
+from superai.meta_ai.parameters import Config, HyperParameterSpec, ModelParameters
 from superai.meta_ai.schema import Schema, SchemaParameters
 from superai.meta_ai.tracking import SuperTracker
 
@@ -81,7 +82,6 @@ class BaseModel(metaclass=ABCMeta):
             context: A :class:`~BaseModelContext` instance containing artifacts §that the model
                         can use to perform inference.
         """
-        pass
 
     @abstractmethod
     def load_weights(self, weights_path: str):
@@ -91,7 +91,6 @@ class BaseModel(metaclass=ABCMeta):
         Args:
             weights_path: Relative path or remote S3 URI.
         """
-        pass
 
     def load(self):
         """Seldon helper function to call the load_weights method. Seldon runs this method during the provision of
@@ -100,19 +99,57 @@ class BaseModel(metaclass=ABCMeta):
         if os.environ.get("WEIGHTS_PATH"):
             weights_path = os.environ.get("WEIGHTS_PATH")
             if weights_path.startswith("s3://"):
-                s3 = boto3.client("s3")
-                parsed_url = urlparse(weights_path, allow_fragments=False)
-                bucket_name = parsed_url.netloc
-                path_to_object = parsed_url.path if not parsed_url.path.startswith("/") else parsed_url.path[1:]
-                tar_name = os.path.basename(path_to_object)
-                name = os.path.splitext(tar_name)[0]
-                log.info(f"Downloading and unpacking AI object from bucket `{bucket_name}` and path `{path_to_object}`")
-                s3.download_file(bucket_name, path_to_object, os.path.join(self.default_seldon_load_path, tar_name))
-                with tarfile.open(os.path.join(self.default_seldon_load_path, tar_name)) as tar:
-                    tar.extractall(path=os.path.join(self.default_seldon_load_path, name))
-                log.info(f"Loading weights from `{os.path.join(self.default_seldon_load_path, name)}`")
-                return self.load_weights(os.path.join(self.default_seldon_load_path, name))
+                path = self._pull_weights(weights_path, self.default_seldon_load_path)
+                log.info(f"Loading weights from `{path}`")
+                return self.load_weights(path)
+
         return self.load_weights(self.default_seldon_load_path)
+
+    @staticmethod
+    def _pull_weights(weights_uri: str, output_path: str) -> str:
+        """Helper function to pull weights from S3 bucket
+        Supports loading tar.gz files or whole directories
+
+        Args:
+            weights_uri: S3 URI of the weights to be loaded
+            output_path: Path to the output directory
+
+        Returns:
+            Name of the folder where weights where downloded / extracted to
+        """
+        log.info(f"Downloading weights from {weights_uri} to {output_path}")
+        s3 = boto3.client("s3")
+        parsed_url = urlparse(weights_uri, allow_fragments=False)
+        bucket_name = parsed_url.netloc
+        path_to_object = parsed_url.path if not parsed_url.path.startswith("/") else parsed_url.path[1:]
+        object_name = os.path.basename(path_to_object)
+        log.debug("Bucket name: {}, path to object: {}, tar name: {}".format(bucket_name, path_to_object, object_name))
+        OUTPUT_DIR_NAME = "weights"
+        full_path = os.path.join(output_path, OUTPUT_DIR_NAME)
+
+        if "tar.gz" in object_name:
+            log.info(f"Downloading and unpacking AI object from bucket `{bucket_name}` and path `{path_to_object}`")
+            s3.download_file(bucket_name, path_to_object, os.path.join(output_path, object_name))
+            with tarfile.open(os.path.join(output_path, object_name)) as tar:
+                tar.extractall(path=full_path)
+            log.info(f"Successfully downloaded and unpacked weights to path `{full_path}`")
+        else:
+            BaseModel._pull_s3_folder(weights_uri, full_path)
+            log.info(f"Successfully downloaded weights folder to path `{full_path}`")
+        return full_path
+
+    @staticmethod
+    def _pull_s3_folder(s3_uri, local_dir):
+        s3 = boto3.resource("s3")
+        bucket = s3.Bucket(urlparse(s3_uri).hostname)
+        s3_path = urlparse(s3_uri).path.lstrip("/")
+        local_dir = Path(local_dir)
+        for obj in bucket.objects.filter(Prefix=s3_path):
+            target = obj.key if local_dir is None else local_dir / Path(obj.key).relative_to(s3_path)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if obj.key[-1] == "/":
+                continue
+            bucket.download_file(obj.key, str(target))
 
     def predict_raw(self, inputs):
         """Seldon uses this method to return raw predictions back to invoker. Seldon uses the predict method to
@@ -176,7 +213,6 @@ class BaseModel(metaclass=ABCMeta):
         Returns
             Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
-        pass
 
     @abstractmethod
     def train(
@@ -186,6 +222,7 @@ class BaseModel(metaclass=ABCMeta):
         validation_data=None,
         test_data=None,
         production_data=None,
+        weights_path=None,
         encoder_trainable: bool = True,
         decoder_trainable: bool = True,
         hyperparameters: HyperParameterSpec = None,
@@ -206,11 +243,11 @@ class BaseModel(metaclass=ABCMeta):
             model_save_path:
             hyperparameters:
             model_parameters:
+            weights_path:
 
         Returns:
             Model URI.
         """
-        pass
 
     def handle(self, data, context):
         """Call preprocess, inference, and post-process functions.
@@ -256,7 +293,6 @@ class BaseModel(metaclass=ABCMeta):
 
     def metrics(self):
         """Helper function to return metrics used by prometheus"""
-        pass
 
 
 class BaseModelContext(object):

@@ -1,15 +1,18 @@
-import logging
+import ast
 import pathlib
+
+import pytest
+import vcr  # type: ignore
 
 import superai.apis.meta_ai.model
 from superai import Client
-from superai.apis.meta_ai import ModelApiMixin, ProjectAiApiMixin
-import pytest
-import vcr  # type: ignore
-import ast
+from superai.apis.meta_ai import ProjectAiApiMixin
 
 # To record new cassette, use real app_id and run pytest against running endpoint
-from superai.apis.meta_ai.meta_ai_graphql_schema import meta_ai_prediction, meta_ai_instance
+from superai.apis.meta_ai.meta_ai_graphql_schema import (
+    meta_ai_instance,
+    meta_ai_prediction,
+)
 
 APP_ID = "1e266751-4f5e-4bdd-9709-c381c72ded6d"
 
@@ -240,3 +243,19 @@ def test_predictions(model_api, mocker):
     assert p is not None
     assert len(p) == 1
     assert p[0].score == test_score
+
+
+@pytest.mark.skip
+def test_training(model_api, model, existing_app_id):
+    training_template = model_api.create_training_template_entry(existing_app_id, model, {})
+    assert training_template
+    training_instance = model_api.create_training_entry(model, existing_app_id, {})
+    assert training_instance
+
+    templates = model_api.get_training_templates(existing_app_id, model)
+    assert templates[0]["id"] == training_template
+    trainings = model_api.get_trainings(existing_app_id, model)
+    assert trainings[0]["id"] == training_instance
+
+    assert model_api.delete_training(training_instance, existing_app_id)
+    assert model_api.delete_training_template(training_template, existing_app_id)

@@ -1,20 +1,12 @@
-import json
 import os
 import shutil
 import uuid
-from urllib.request import urlopen
 
-import cv2
-import numpy as np
 import superai_schema.universal_schema.data_types as dt
-import superai_schema.universal_schema.task_schema_functions as df
-from tensorflow import keras
-from tensorflow.keras import layers
 
 from superai.data_program import Project, Worker
 from superai.meta_ai import AI
 from superai.meta_ai.ai import AITemplate
-from superai.meta_ai.base import BaseModel
 from superai.meta_ai.parameters import Config
 from superai.meta_ai.schema import Schema
 from superai.utils import log
@@ -40,12 +32,12 @@ template = AITemplate(
     input_schema=Schema(),
     output_schema=Schema(),
     configuration=Config(),
-    model_class="MyKerasModel",
     name="My_template",
     description="Template for my new awesome project",
+    model_class="MyKerasModel",
     requirements=["tensorflow==2.1.0", "opencv-python-headless"],
-    artifacts={"run": "runDir/run_this.sh"},
     code_path=["resources/runDir"],
+    artifacts={"run": "runDir/run_this.sh"},
 )
 ai1 = AI(
     ai_template=template,

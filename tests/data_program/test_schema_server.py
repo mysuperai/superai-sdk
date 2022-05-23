@@ -8,7 +8,8 @@ import pytest
 import requests
 from superai_schema.types import BaseModel, Field, UiWidget
 
-from superai.data_program.dp_server import DPServer, Metric, WorkflowConfig
+from superai.data_program.dp_server import DPServer
+from superai.data_program.types import HandlerOutput, Metric, WorkflowConfig
 
 
 def run_server():
@@ -37,7 +38,13 @@ def run_server():
             index = len(job_input.__root__) % len(params.choices)
             return MyOutput(__root__=params.choices[index])
 
-        return MyInput, MyOutput, process_job, [], [Metric(name="f1_score", metric_fn=metric_func)]
+        return HandlerOutput(
+            input_model=MyInput,
+            output_model=MyOutput,
+            process_fn=process_job,
+            templates=[],
+            metrics=[Metric(name="f1_score", metric_fn=metric_func)],
+        )
 
     DPServer(
         params=Parameters(choices=["1", "2"]),
@@ -148,7 +155,7 @@ def test_metric_calculate(server):
 def test_method_names(server):
     expected = json.loads(
         """
-       [{"method_name": "Test_Server.top_heroes",  "role": "normal"}, {"method_name": "Test_Server.crowd_managers",  "role": "gold"}]
+       [{"method_name": "Test_Server.top_heroes",  "role": "normal"}, {"method_name": "Test_Server.crowd_managers",  "role": "normal"}, {"method_name": "Test_Server.crowd_managers",  "role": "gold"}]
         """
     )
     resp = requests.get("http://127.0.0.1:8001/methods")

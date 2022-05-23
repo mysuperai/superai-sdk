@@ -2,6 +2,7 @@ import pytest
 
 from superai.apis.meta_ai import AiApiMixin
 from superai.apis.meta_ai.session import GraphQlException
+from superai.meta_ai.ai_helper import find_root_model
 
 
 def test_client(ai_client: AiApiMixin):
@@ -28,6 +29,9 @@ def test_create_child_model(ai_client):
     assert child_model
     assert child_model.name == "model_2"
     assert child_model.root_id == parent_id
+
+    found_root_id = find_root_model(child_model.name, ai_client)
+    assert found_root_id == parent_id
 
     with pytest.raises(GraphQlException):
         child_without_root_id = ai_client.add_model(name="model_3", version=2)

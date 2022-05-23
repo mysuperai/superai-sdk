@@ -1,4 +1,7 @@
-superai==0.1.0.beta3
 superai_schema
 superai-dataclient
 seldon-core==1.11.1
+polyaxon[s3]
+aiobotocore==2.2.0 # fixing the versions for the requirements below for
+aioitertools==0.10.0
+botocore==1.24.21

@@ -1,28 +1,32 @@
-import os
-
-import click
 import json
+import os
 import signal
 import sys
+from datetime import datetime
+from typing import List, Optional
 
-from requests import ReadTimeout
-from rich import print
-from rich.console import Console
+import click
 import yaml
 from botocore.exceptions import ClientError
-from datetime import datetime
-from typing import List
 from pycognito import Cognito
+from requests import ReadTimeout
+from rich import print
 
-from superai.apis.meta_ai.model import PredictionError
 from superai import __version__
+from superai.apis.meta_ai.model import PredictionError
 from superai.client import Client
 from superai.config import get_config_dir, list_env_configs, set_env_config, settings
 from superai.exceptions import SuperAIAuthorizationError
 from superai.log import logger
-from superai.utils import load_api_key, remove_aws_credentials, save_api_key, save_aws_credentials, save_cognito_user
+from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters
+from superai.utils import (
+    load_api_key,
+    remove_aws_credentials,
+    save_api_key,
+    save_aws_credentials,
+    save_cognito_user,
+)
 from superai.utils.pip_config import pip_configure
-
 
 BASE_FOLDER = get_config_dir()
 COGNITO_USERPOOL_ID = settings.get("cognito", {}).get("userpool_id")
@@ -62,7 +66,6 @@ def env(ctx):
     """
     super.AI Config operations
     """
-    pass
 
 
 @env.command(name="list")
@@ -99,7 +102,7 @@ def client(ctx):
     api_key = ""
     try:
         api_key = load_api_key()
-    except Exception as e:
+    except Exception:
         pass
     if len(api_key) == 0:
         print("User needs to login or set api key")
@@ -471,7 +474,13 @@ def config(api_key):
 @cli.command()
 @click.option("--username", "-u", help="super.AI Username", required=True)
 @click.option("--password", "-p", prompt=True, hide_input=True)
-@click.option("--show-pip/--no-show-pip", "-pip", default=False, help="Shows how to set pip configuration manually")
+@click.option(
+    "--show-pip/--no-show-pip",
+    "-pip",
+    default=False,
+    help="Shows how to set pip configuration manually",
+    show_default=True,
+)
 def login(username, password, show_pip):
     """
     Use username and password to get super.AI api key.
@@ -531,7 +540,6 @@ def logout():
 @cli.group()
 def ai():
     """View, list and control models and their deployments."""
-    pass
 
 
 @ai.command("list")
@@ -560,7 +568,13 @@ def get_ai(client, id: str):
 @click.argument("id", type=click.UUID)
 @click.option("--name", required=False, help="Model name")
 @click.option("--description", required=False, help="Model description")
-@click.option("--visibility", required=False, type=click.Choice(["PRIVATE", "PUBLIC"]), help="Model visibility")
+@click.option(
+    "--visibility",
+    required=False,
+    type=click.Choice(["PRIVATE", "PUBLIC"]),
+    help="Model visibility",
+    show_choices=True,
+)
 @pass_client
 def update_ai(client, id: str, name: str, description: str, visibility: str):
     """Update model parameters"""
@@ -575,6 +589,155 @@ def update_ai(client, id: str, name: str, description: str, visibility: str):
     print(client.update_model(str(id), **params))
 
 
+@ai.group()
+def method():
+    """Directly call the AI methods to train and predict"""
+
+
+@method.command("train", help="Start training of an AI object")
+@click.option(
+    "--path",
+    "-p",
+    default=".",
+    help="Path to AI object save location. A new AI template and instance will be created from this path. Ensure this "
+    "is the absolute path",
+    required=True,
+    type=click.Path(exists=True, readable=True, dir_okay=True),
+)
+@click.option(
+    "--model-save-path",
+    "-mp",
+    help="Path to location where the weights will be saved.",
+    required=True,
+    show_default=True,
+    type=click.Path(),
+)
+@click.option(
+    "--training-data-path",
+    "-tp",
+    help="Path to location where the training data is stored in the local file system.",
+    required=True,
+    type=click.Path(exists=False, readable=False),
+)
+@click.option(
+    "--test-data-path",
+    "-tsp",
+    help="Path to location where the test data is stored in the local file system.",
+    type=click.Path(exists=False, readable=False),
+)
+@click.option(
+    "--validation-data-path",
+    "-vp",
+    help="Path to location where the validation data is stored in the local file system.",
+    type=click.Path(exists=False, readable=False),
+)
+@click.option(
+    "--production-data-path",
+    "-pp",
+    help="Path to location where the production data is stored in the local file system.",
+    type=click.Path(exists=False, readable=False),
+)
+@click.option(
+    "--weights-path",
+    "-wp",
+    help="Path to location where the existing weights is stored local file system.",
+    type=click.Path(exists=False, readable=False),
+)
+@click.option("--encoder-trainable/--no-encoder-trainable", default=False, show_default=True, type=bool)
+@click.option("--decoder-trainable/--no-decoder-trainable", default=False, show_default=True, type=bool)
+@click.option(
+    "--hyperparameters",
+    "-h",
+    multiple=True,
+    help="Hyperparameters to be passed. Please pass them as `-h train_split=0.2 -h cross_valid=False`",
+)
+@click.option(
+    "--model-parameters",
+    "-m",
+    multiple=True,
+    help="Model parameters to be passed. Please pass them as `-m some_parameter=0.2 -h other_parameter=False -h "
+    "listed=['list','of','strings']`",
+)
+@click.option(
+    "--callbacks",
+    "-cl",
+    help="Callbacks to be passed to training (yet to be implemented)",
+)
+@click.option(
+    "--train-logger",
+    "-tl",
+    multiple=True,
+    help="Train logger (yet to be implemented)",
+)
+def train(
+    path,
+    model_save_path,
+    training_data_path,
+    test_data_path,
+    validation_data_path,
+    production_data_path,
+    weights_path,
+    encoder_trainable,
+    decoder_trainable,
+    hyperparameters,
+    model_parameters,
+    callbacks,
+    train_logger,
+):
+    from superai.meta_ai.ai import AI
+
+    click.echo(
+        f"Starting training from the path {path} with hyperparameters {hyperparameters} "
+        f"and model parameters {model_parameters}"
+    )
+    processed_hyperparameters = HyperParameterSpec.load_from_list(hyperparameters)
+    processed_model_parameters = ModelParameters.load_from_list(model_parameters)
+    ai_object = AI.load_local(path)
+    ai_object.train(
+        model_save_path=model_save_path,
+        training_data=training_data_path,
+        test_data=test_data_path,
+        production_data=production_data_path,
+        validation_data=validation_data_path,
+        weights_path=weights_path,
+        encoder_trainable=encoder_trainable,
+        decoder_trainable=decoder_trainable,
+        hyperparameters=processed_hyperparameters,
+        model_parameters=processed_model_parameters,
+        callbacks=callbacks,
+        train_logger=train_logger,
+    )
+
+
+@method.command("predict", help="Predict from AI")
+@click.option(
+    "--path",
+    "-p",
+    default=".",
+    help="Path to AI object save location. A new AI template and instance will be created from this path",
+    required=True,
+    type=click.Path(exists=True, readable=True),
+)
+@click.option("--json-input", "-i", required=True, type=str, help="Prediction input. Should be a valid JSON string")
+@click.option(
+    "--weights-path",
+    "-wp",
+    required=False,
+    help="Path to weights to be loaded",
+    type=click.Path(exists=True, readable=True),
+)
+def predict(path, json_input, weights_path=None):
+    from superai.meta_ai import AI
+
+    ai_object = AI.load_local(path, weights_path=weights_path)
+    try:
+        dict_input = json.loads(json_input)
+    except Exception:
+        click.echo("Incorrect JSON string, see if the input is a valid JSON string")
+        raise
+    click.echo(f"Result : {ai_object.predict(inputs=dict_input)}")
+
+
 @ai.group(help="Deployed models running in our infrastructure")
 def deployment():
     pass
@@ -582,12 +745,27 @@ def deployment():
 
 @deployment.command("list")
 @pass_client
-def list_deployments(client):
+@click.option(
+    "--model_id",
+    type=str,
+    default=None,
+    help="Filter deployments by model id. If not provided, all deployments will be listed",
+)
+@click.option(
+    "--status",
+    type=str,
+    default=None,
+    help="Filter deployments by status. "
+    "If not provided, all deployments will be listed. "
+    "Must be one of the values "
+    '"FAILED", "MAINTENANCE", "OFFLINE", "ONLINE", "PAUSED", "STARTING", "UNKNOWN"',
+)
+def list_deployments(client, model_id: Optional[str] = None, status: Optional[str] = None):
     """List all deployments"""
-    d = client.list_deployments()
+    d = client.list_deployments(model_id=model_id, status=status)
     for deployment in d:
-        print(f"[b][u]Model: {deployment.name}[/b][/u]")
-        print(f"{deployment.deployment}\n")
+        print(f"[b][u]Model: {deployment.model.name}[/b][/u]")
+        print(f"{deployment}\n")
 
 
 @deployment.command("view")
@@ -605,6 +783,7 @@ def view_deployment(client, id: str):
     type=click.INT,
     default=0,
     help="Allow command to block and wait for deployment to be ready. Returns when deployment is ONLINE.",
+    show_default=True,
 )
 @pass_client
 def start_deployment(client, id: str, wait: int):
@@ -626,6 +805,7 @@ def start_deployment(client, id: str, wait: int):
     type=click.INT,
     default=0,
     help="Allow command to block and wait for deployment to be ready. Returns when deployment is ONLINE.",
+    show_default=True,
 )
 @pass_client
 def stop_deployment(client, id: str, wait: int):
@@ -654,8 +834,10 @@ def stop_deployment(client, id: str, wait: int):
 @click.option(
     "--timeout",
     type=int,
-    help="Time to wait for prediction to complete. Default is 20 seconds. Expect worst case timeouts of 900 seconds (15 minutes) for new deployment startups.",
+    help="Time to wait for prediction to complete. Expect worst case timeouts of 900 seconds (15 minutes) for new "
+    "deployment startups.",
     default=20,
+    show_default=True,
 )
 @pass_client
 def predict(client, id: str, data: str, parameters: str, timeout: int):
@@ -683,7 +865,6 @@ def predict(client, id: str, data: str, parameters: str, timeout: int):
 @ai.group()
 def prediction():
     """View and list predictions"""
-    pass
 
 
 @prediction.command("view")
@@ -697,18 +878,26 @@ def view_prediction(client, id):
 
 @deployment.command(
     "scaling",
-    help="Control scaling of deployed models. Currently only supports configuring the automatic scale-in of models after a period of no prediction activity.",
+    help="Control scaling of deployed models. Currently only supports configuring the automatic scale-in of models "
+    "after a period of no prediction activity.",
 )
 @click.argument("id", type=click.UUID)
 @click.option(
-    "--min_instances", type=click.INT, required=False, default=None, help="Minimum number of instances allowed."
+    "--min_instances",
+    type=click.INT,
+    required=False,
+    default=0,
+    help="Minimum number of instances allowed.",
+    show_default=True,
 )
 @click.option(
     "--scale_in_timeout",
     type=click.INT,
     required=False,
     default=None,
-    help="Allow scale-in after this number of seconds without prediction. Should be higher than the time it takes to startup a model.",
+    help="Allow scale-in after this number of seconds without prediction. Should be higher than the time it takes to "
+    "startup a model.",
+    show_default=True,
 )
 @pass_client
 def scaling(client, id: str, min_instances: int, scale_in_timeout: int):
@@ -729,7 +918,6 @@ def scaling(client, id: str, min_instances: int, scale_in_timeout: int):
 @ai.group()
 def docker():
     """Docker specific commands"""
-    pass
 
 
 @docker.command(name="build", help="Build a docker image for a sagemaker model.")
@@ -741,17 +929,17 @@ def docker():
     help="Path to file which will serve as entrypoint to the sagemaker model. Generally this is a method which calls "
     "the predict method",
 )
-@click.option("--dockerfile", "-d", help="Path to Dockerfile. Default: Dockerfile", default="Dockerfile")
+@click.option("--dockerfile", "-d", help="Path to Dockerfile.", default="Dockerfile", show_default=True)
 @click.option(
-    "--command", "-c", help="Command to run after the entrypoint in the image. Default: serve", default="serve"
+    "--command", "-c", help="Command to run after the entrypoint in the image.", default="serve", show_default=True
 )
-@click.option("--worker-count", "-w", help="Number of workers to run. Default: 1", default=1)
+@click.option("--worker-count", "-w", help="Number of workers to run.", default=1, show_default=True)
 @click.option(
     "--entry-point-method",
     "-em",
-    help="Method to be called inside the entry point. Make sure this method accepts the input data and context. "
-    "Default: handle",
+    help="Method to be called inside the entry point. Make sure this method accepts the input data and context. ",
     default="handle",
+    show_default=True,
 )
 @click.option(
     "--use-shell", "-u", help="Use shell to run the build process, which is more verbose. Used by default", default=True
@@ -775,7 +963,7 @@ def build_docker_image(image_name, entry_point, dockerfile, command, worker_coun
 @click.option(
     "--image-name", "-i", required=True, help="Name of the image to be pushed. You can get this from `docker image ls`"
 )
-@click.option("--region", "-r", help="AWS region.  Default: us-east-1", default="us-east-1")
+@click.option("--region", "-r", help="AWS region", default="us-east-1", show_default=True)
 def push_docker_image(model_id, image_name, region):
     """Push the docker image built by `superai model docker-build` to ECR.
 
@@ -803,6 +991,7 @@ def push_docker_image(model_id, image_name, region):
     "-m",
     required=True,
     help="Path to the folder containing weights file to be used for getting inference",
+    type=click.Path(exists=True, readable=True),
 )
 @click.option(
     "--gpu",
@@ -810,6 +999,7 @@ def push_docker_image(model_id, image_name, region):
     default=False,
     help="Run docker with GPUs enabled. Make sure this is a GPU container with cuda enabled, "
     "and nvidia-container-runtime installed",
+    show_default=True,
 )
 def docker_run_local(image_name, model_path, gpu):
     options = [f"-v {os.path.abspath(model_path)}:/opt/ml/model/", "-p 80:8080", "-p 8081:8081 "]
@@ -838,11 +1028,134 @@ def docker_run_local(image_name, model_path, gpu):
     "--body", "-b", required=True, help="Body of payload to be sent to the invocation. Can be a path to a file as well."
 )
 def docker_invoke_local(mime, body):
-    from superai.meta_ai.dockerizer.sagemaker_endpoint import (
-        invoke_local,
-    )
+    from superai.meta_ai.dockerizer.sagemaker_endpoint import invoke_local
 
     invoke_local(mime, body)
+
+
+@ai.group()
+def training():
+    """View and manage trainings"""
+
+
+@training.command(name="list")
+@click.option("--app_id", "-a", help="Application id", required=False)
+@click.option("--model_id", "-m", help="Model id", required=False)
+@pass_client
+def list_trainings(client, app_id, model_id):
+    """
+    List ongoing trainings
+    """
+    trainings = client.get_trainings(app_id, model_id, "IN_PROGRESS")
+    if trainings:
+        print(trainings)
+
+
+@training.command(name="start")
+@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--model_id", "-m", help="Model id", required=True)
+@click.option(
+    "--properties",
+    "-p",
+    help="Custom properties, if not set default ones for the template will be used",
+    required=True,
+)
+@pass_client
+def start_training(client, app_id, model_id, properties: str):
+    """
+    Start a new training
+    """
+    json_inputs = None
+    if properties:
+        try:
+            json_inputs = json.loads(properties)
+        except:
+            print("Couldn't read json inputs")
+            exit()
+
+    id = client.create_training_entry(model_id, app_id, json_inputs)
+    if id:
+        print(f"Started a new training with ID {id}")
+
+
+@training.group()
+def template():
+    """View and manage training templates"""
+
+
+@template.command(name="create")
+@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--model_id", "-m", help="Model id", required=True)
+@click.option(
+    "--properties",
+    "-p",
+    help="Training parameters passed to the model when starting training.",
+    required=True,
+)
+@pass_client
+def create_template(client, app_id, model_id, properties: str):
+    """
+    Create a template for trainings.
+    The template is used to instantiate new training instances.
+    """
+    json_inputs = None
+    if properties:
+        try:
+            json_inputs = json.loads(properties)
+        except:
+            print("Couldn't read json inputs")
+            exit()
+
+    id = client.create_training_template_entry(app_id, model_id, json_inputs)
+    if id:
+        print(f"Created new training with ID {id}")
+
+
+@template.command(name="update")
+@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--model_id", "-m", help="Model id", required=True)
+@click.option(
+    "--properties",
+    "-p",
+    help="Training parameters passed to the model when starting training.",
+    required=False,
+)
+@click.option(
+    "--description",
+    "-d",
+    help="Description of the template",
+    required=False,
+)
+@pass_client
+def update_template(client, app_id, model_id, properties: str, description: str):
+    """
+    Update an exising template for trainings.
+    The template is used to instantiate new training instances.
+    """
+    if properties:
+        try:
+            json_inputs = json.loads(properties)
+        except:
+            print("Couldn't read json inputs")
+            exit()
+    else:
+        json_inputs = None
+    id = client.update_training_template(app_id, model_id, properties=json_inputs, description=description)
+    if id:
+        print(f"Updated training template with id={id}")
+
+
+@template.command(name="list")
+@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--model_id", "-m", help="Model id", required=True)
+@pass_client
+def list_training_templates(client, app_id, model_id):
+    """
+    List existing training templates.
+    """
+    templates = client.get_training_templates(app_id, model_id)
+    if templates:
+        print(templates)
 
 
 def main():

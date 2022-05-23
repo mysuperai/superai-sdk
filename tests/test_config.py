@@ -18,6 +18,7 @@ from superai.config import (
     list_env_configs,
     remove_secret_settings,
     set_env_config,
+    settings,
 )
 
 base_dir = Path(get_config_dir()).expanduser()
@@ -233,7 +234,7 @@ def test_key_removed(with_tmp_secrets_file):
     assert secrets_after == content
     path = "my_key__sub_key__deleted_key"
     remove_secret_settings(path)
-    value = content.get("my_key").get("sub_key").pop("deleted_key")
+    content.get("my_key").get("sub_key").pop("deleted_key")
     with open(secrets_path, "r") as f:
         secrets_after = dict(yaml.load(f, yaml.SafeLoader) or {})
     assert secrets_after.items() <= content.items()
@@ -251,3 +252,8 @@ def test_remove_key_not_exists(with_tmp_secrets_file):
     with open(secrets_path, "r") as f:
         secrets_after = dict(yaml.load(f, yaml.SafeLoader) or {})
     assert secrets_after.items() <= content.items()
+
+
+def test_bucket():
+    assert settings.meta_ai_bucket == "meta-ai-test"
+    assert settings["meta_ai_bucket"] == "meta-ai-test"

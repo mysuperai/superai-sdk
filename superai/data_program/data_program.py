@@ -3,13 +3,19 @@ import json
 import os
 from typing import Callable, Dict, List, Optional, Type
 
+from pydantic import ValidationError
+from superai_schema.generators import dynamic_generator
+from superai_schema.types import UiWidget
+from superai_schema.universal_schema import task_schema_functions as df
+
 from superai import Client
 from superai.data_program import Task, Workflow
 from superai.data_program.base import DataProgramBase
+from superai.data_program.dp_server import DPServer
 from superai.data_program.Exceptions import UnknownTaskStatus
 from superai.data_program.protocol.task import task as task
 from superai.data_program.router import BasicRouter, Router
-from superai.data_program.dp_server import DPServer
+from superai.data_program.router.training import Training
 from superai.data_program.types import (
     DataProgramDefinition,
     Handler,
@@ -17,16 +23,14 @@ from superai.data_program.types import (
     JobContext,
     Output,
     Parameters,
-    WorkflowConfig,
+    PostProcessContext,
+    TaskResponse,
     TaskTemplate,
-    Metric,
+    WorkflowConfig,
 )
 from superai.data_program.utils import model_to_task_io_payload, parse_dp_definition
 from superai.log import logger
 from superai.utils import load_api_key, load_auth_token, load_id_token
-from superai_schema.generators import dynamic_generator
-from superai_schema.types import BaseModel, UiWidget
-from superai_schema.universal_schema import task_schema_functions as df
 
 log = logger.get_logger(__name__)
 
@@ -42,6 +46,8 @@ class DataProgram(DataProgramBase):
         router: Router = None,
         metadata: dict = None,
         auto_generate_metadata: bool = True,
+        dataprogram: str = None,
+        dataprogram_suffix: str = "router",
         **kwargs,
     ):
         super().__init__(add_basic_workflow=add_basic_workflow)
@@ -71,10 +77,16 @@ class DataProgram(DataProgramBase):
 
         self._default_workflow: str = None
         self._gold_workflow: str = None
-        self.name, self.template_name = name, name
+        self.name = name
         self.__validate_name()
-        self.qualified_name = f"{self.name}.router"
 
+        suffix = "router"
+        self.is_training = False
+        if dataprogram is not None:
+            self.parent_workflow = f"{dataprogram}.{dataprogram_suffix}"
+            self.is_training = True
+            suffix = "training"
+        self.qualified_name = f"{self.name}.{suffix}"
         self.description = description
         self.router = router
         self.task_templates = []
@@ -98,13 +110,15 @@ class DataProgram(DataProgramBase):
         )
 
         self.__template_object = self.__create_template()
+        if self.is_training:
+            self.__update_parent_training_workflow()
         log.info(f"DataProgram created {self.qualified_name}")
 
     @staticmethod
     def run(
         *,
         default_params: Parameters,
-        handler: Handler[Parameters, Input, Output],
+        handler: Handler[Parameters],
         workflows: List[WorkflowConfig],
         metadata: dict = None,
         auto_generate_metadata: bool = True,
@@ -146,6 +160,8 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
             os.environ["CANOTIC_AGENT"] = "1"
             os.environ["IN_AGENT"] = "YES"
 
+            training_dataprogram = os.getenv("TRAINING_DATAPROGRAM")
+            is_training = training_dataprogram is not None and training_dataprogram != name
             default_definition = DataProgram._get_definition_for_params(default_params, handler)
             dp = DataProgram(
                 name=name,
@@ -153,8 +169,10 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                 add_basic_workflow=False,
                 definition=default_definition,
                 auto_generate_metadata=auto_generate_metadata,
+                dataprogram=training_dataprogram if is_training else None,
             )
 
+            dp.check_workflow_deletion(workflows)
             for workflow_config in workflows:
                 dp._add_workflow_by_config(workflow_config, params_cls, handler)
 
@@ -184,6 +202,16 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
 
         return self._default_workflow
 
+    def check_workflow_deletion(self, new_workflows):
+        template = self.client.get_template(template_name=self.name)
+        old_workflows_names: List[str] = template.get("dpWorkflows", []) or []
+
+        new_workflows_names = [self.name + "." + new_workflow.name for new_workflow in new_workflows]
+
+        if any(item not in new_workflows_names for item in old_workflows_names):
+            # Can't delete workflows!
+            raise Exception("DP deployment failed, you're trying to remove workflows, use the CLI for that")
+
     @default_workflow.setter
     def default_workflow(self, workflow_name):
         # TODO: Verify workflow exists
@@ -191,10 +219,10 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         if not workflow_name:
             self._default_workflow = self.__load_default_workflow()
         else:
-            body = {"default_workflow": f"{self.template_name}.{workflow_name}"}
-            template_update = self.client.update_template(template_name=self.template_name, body=body)
-            assert template_update.get("defaultWorkflow")
-            self._default_workflow = template_update.get("defaultWorkflow")
+            body = {"default_workflow": f"{self.name}.{workflow_name}"}
+            updated_template = self.client.update_template(template_name=self.qualified_name, body=body)
+            assert updated_template.get("defaultWorkflow")
+            self._default_workflow = updated_template.get("defaultWorkflow")
 
     def __validate_name(self):
         if not self.name:
@@ -205,7 +233,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
     def __load_default_workflow(self):
         default_workflow = None
         try:
-            default_workflow = self.client.get_template(self.template_name).get("default_workflow")
+            default_workflow = self.client.get_template(self.qualified_name).get("default_workflow")
         except Exception as e:
             log.error(f"Error retrieving default workflow : {e}")
 
@@ -252,6 +280,15 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         assert "uuid" in response
         assert "name" in response and response["name"].split(".")[0] == self.name
         self.template_uuid = response["uuid"]
+        return response
+
+    def __update_parent_training_workflow(self) -> Dict:
+        """Updates the training workflow in the parent workflow"""
+        body_json = {"training_workflow": self.qualified_name}
+
+        response = self.client.update_template(template_name=self.parent_workflow, body=body_json)
+
+        assert "uuid" in response
         return response
 
     def _add_workflow_obj(self, workflow: Workflow, default: bool = None, gold: bool = None) -> Optional[dict]:
@@ -311,32 +348,85 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         self,
         workflow: WorkflowConfig,
         params_cls: Type[Parameters],
-        handler: Handler[Parameters, Input, Output],
+        handler: Handler[Parameters],
     ):
+        if self.is_training and not workflow.is_default:
+            return
+
         def workflow_fn(inp, params):
             params_model = params_cls.parse_obj(params)
-            job_input_model_cls, _, process_job, *_ = handler(params_model)
+            handler_output = handler(params_model)
+            process_job = handler_output.process_fn
+            post_process_job = handler_output.post_process_fn
 
             # Load raw job input into model with validation
+            job_input_model_cls = handler_output.input_model
             job_input_model = job_input_model_cls.parse_obj(inp)
 
-            def send_task(
-                name: str,
-                *,
-                task_template: TaskTemplate,
-                task_input: BaseModel,
-                task_output: Output,
-                max_attempts: int,
-            ) -> Output:
-                my_task = Task(name=name, max_attempts=max_attempts)
-                my_task.process(
-                    model_to_task_io_payload(task_input),
-                    model_to_task_io_payload(task_output),
-                )
-                raw_result = my_task.output["values"]["formData"]
-                return task_output.parse_obj(raw_result)
+            if not (handler_output.templates or len(handler_output.templates) < 1):
 
-            job_output = process_job(job_input_model, JobContext[Output](workflow, send_task))
+                def send_task(
+                    name: str,
+                    *,
+                    task_template: TaskTemplate,
+                    task_input: Input,
+                    task_output: Output,
+                    max_attempts: int,
+                    excluded_ids: List[int] = None,
+                ) -> None:
+                    raise NotImplementedError("Can't send a task with no templates defined")
+
+            else:
+
+                def send_task(
+                    name: str,
+                    *,
+                    task_template: TaskTemplate,
+                    task_input: Input,
+                    task_output: Output,
+                    max_attempts: int,
+                    excluded_ids: List[int] = None,
+                ) -> Output:
+                    # checks task input type
+                    if not isinstance(task_input, task_template.input):
+                        raise ValidationError("The input type is not the one in the task template")
+
+                    my_task = Task(name=name, max_attempts=max_attempts)
+                    my_task.process(
+                        model_to_task_io_payload(task_input),
+                        model_to_task_io_payload(task_output),
+                        excluded_ids=excluded_ids,
+                    )
+                    raw_result = my_task.output["values"]["formData"]
+                    output = task_output.parse_obj(raw_result)
+
+                    # check task output type
+                    if not isinstance(output, task_template.output):
+                        raise ValidationError("The output type is not the one in the task template")
+
+                    return TaskResponse[Output](
+                        task_output=output,
+                        hero_id=my_task.output["hero"]["workerId"],
+                    )
+
+            job_context = JobContext[Output](
+                workflow,
+                send_task,
+                use_job_cache=bool(post_process_job),
+                is_training=self.is_training,
+            )
+            job_output = process_job(job_input_model, job_context)
+
+            if post_process_job is not None:
+                context = PostProcessContext(job_cache=job_context.job_cache)
+                response_data = post_process_job(job_output, context)
+
+                return (
+                    json.loads(job_output.json(exclude_unset=True)),
+                    response_data,
+                    None,
+                )
+
             return json.loads(job_output.json(exclude_unset=True))
 
         self.add_workflow(
@@ -360,7 +450,6 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                 Simple workflow generated by schemas
                 """
                 # TODO: Retry functionality (definition_v1)
-                n_tries = 1
 
                 inputs = args[0]
 
@@ -391,7 +480,8 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                     task_inputs.append(df.text(params.get("instructions", "")))
 
                 # Using the schema types to create a function handler from task_schema_functions
-                for k, v in input_schema.get("properties", {}).items():  # TODO: Handle types recursively
+                # TODO: Handle types recursively
+                for k, v in input_schema.get("properties", {}).items():
                     schema_fun = getattr(
                         df, v.get("$ref").replace("-", "_")
                     )  # FIXME: Will throw an exception if the function is not in df
@@ -449,7 +539,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                     # TODO: Handle task failure cases like in resend_task
                     log.info(f"task succeeded with response: {task_result.response()}")
                     if len(task_result.response()) > 0:
-                        log.info(f"ENRIQUE_TASK_RESULT {task_result.response()}")
+                        log.info(f"TASK_RESULT {task_result.response()}")
                         # return task_result
                     else:
                         log.info("WARNING: completed task, but empty task response.")
@@ -482,31 +572,38 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         self.__add_basic_workflow()
 
         if not self.router:
-            self.router = BasicRouter(client=self.client, dataprogram=self)
+            self.router = (
+                Training(client=self.client, training_dataprogram=self)
+                if self.is_training
+                else BasicRouter(client=self.client, dataprogram=self)
+            )
 
     def start(self):
         self.__init_router()
         self._run_local()
 
     def _register_workflow(self, workflow: Workflow):
-        template = self.client.get_template(template_name=self.name)
+        template = self.client.get_template(template_name=self.qualified_name)
         workflow_list: List[str] = template.get("dpWorkflows", []) or []
         if workflow.qualified_name in workflow_list:
             return
         else:
             workflow_list.append(workflow.qualified_name)
             body = {"workflows": workflow_list}
-            template_udpate = self.client.update_template(template_name=self.name, body=body)
-            assert workflow.qualified_name in template_udpate.get("dpWorkflows")
+            updated_template = self.client.update_template(template_name=self.qualified_name, body=body)
+            assert workflow.qualified_name in updated_template.get("dpWorkflows")
 
     @staticmethod
-    def _get_definition_for_params(
-        params: Parameters, handler: Handler[Parameters, Input, Output]
-    ) -> DataProgramDefinition:
-        input_model, output_model, *_ = handler(params)
+    def _get_definition_for_params(params: Parameters, handler: Handler[Parameters]) -> DataProgramDefinition:
+        param_schema = params.schema()
+        handler_output = handler(params)
+        input_model, output_model = (
+            handler_output.input_model,
+            handler_output.output_model,
+        )
 
         return {
-            "parameter_schema": params.schema(),
+            "parameter_schema": param_schema if param_schema else None,
             "parameter_ui_schema": params.ui_schema() if isinstance(params, UiWidget) else {},
             "input_schema": input_model.schema(),
             "input_ui_schema": input_model.ui_schema() if issubclass(input_model, UiWidget) else {},

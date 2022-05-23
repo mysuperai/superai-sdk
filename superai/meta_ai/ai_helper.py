@@ -1,11 +1,14 @@
+import glob
 import importlib
 import json
 import os
-from typing import Dict, List, Union
+import sys
+from pathlib import Path
+from typing import Dict, List, Optional, Union
 
 import boto3
 import pandas as pd
-from jinja2 import Environment, select_autoescape, PackageLoader
+from jinja2 import Environment, PackageLoader, select_autoescape
 
 from superai import Client
 from superai.log import logger
@@ -48,11 +51,13 @@ def list_models(
 def get_user_model_class(model_name, path: str = "."):
     """Obtain a class definition given the path to the class module"""
     cwd = os.getcwd()
+    path_dir = os.path.abspath(path)
     if path != ".":
-        os.chdir(path)
+        os.chdir(path_dir)
+        sys.path.append(path_dir)
     parts = model_name.rsplit(".", 1)
     if len(parts) == 1:
-        logger.info(f"Importing {model_name}")
+        logger.info(f"Importing {model_name} from {path} (Absolute path: {path_dir})")
         interface_file = importlib.import_module(model_name)
         user_class = getattr(interface_file, model_name)
     else:
@@ -61,6 +66,7 @@ def get_user_model_class(model_name, path: str = "."):
         user_class = getattr(interface_file, parts[1])
     if path != ".":
         os.chdir(cwd)
+        sys.path.remove(path_dir)
     return user_class
 
 
@@ -99,3 +105,51 @@ def create_model_handler(model_name: str, ai_cache: int, lambda_mode: bool) -> s
         args = dict(ai_cache=ai_cache, model_name=model_name)
     scripts_content: str = template.render(args)
     return scripts_content
+
+
+def find_root_model(name, client) -> Optional[str]:
+    models = client.get_model_by_name(name)
+    possible_root_models = [x for x in models if x.version == 1]
+    if possible_root_models:
+        if len(possible_root_models) == 1:
+            log.warning("Found root model based on name. Its recommended to use an explicit root_id.")
+            return possible_root_models[0].id
+        else:
+            log.error(
+                "Found multiple possible root AIs based on name: {possible_root_models}. Please pass an explicit root_id."
+            )
+
+
+def upload_dir(localDir, awsInitDir, bucketName, prefix="/"):
+    """
+    from current working directory, upload a 'localDir' with all its subcontents (files and subdirectories...)
+    to a aws bucket
+    Parameters
+    ----------
+    localDir :   localDirectory to be uploaded, with respect to current working directory
+    awsInitDir : prefix 'directory' in aws
+    bucketName : bucket in aws
+    prefix :     to remove initial '/' from file names
+
+    https://stackoverflow.com/a/64445594/15820564
+    Returns
+    -------
+    None
+    """
+    assert localDir, "localDir must be provided"
+    log.info("Uploading directory: {} to bucket: {}".format(localDir, bucketName))
+    s3 = boto3.resource("s3")
+    cwd = str(Path.cwd())
+    p = Path(os.path.join(Path.cwd(), localDir))
+    mydirs = list(p.glob("**"))
+    for mydir in mydirs:
+        fileNames = glob.glob(os.path.join(mydir, "*"))
+        fileNames = [f for f in fileNames if not Path(f).is_dir()]
+        len(fileNames)
+        for i, fileName in enumerate(fileNames):
+            fileName = str(fileName).replace(os.path.join(cwd, localDir), "")
+            if fileName.startswith(prefix):  # only modify the text if it starts with the prefix
+                fileName = fileName.replace(prefix, "", 1)  # remove one instance of prefix
+            log.info("Uploading file: {}".format(fileName))
+            awsPath = os.path.join(awsInitDir, str(fileName))
+            s3.meta.client.upload_file(os.path.join(localDir, fileName), bucketName, awsPath)

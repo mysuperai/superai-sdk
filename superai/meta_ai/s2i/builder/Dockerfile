@@ -14,6 +14,7 @@ RUN mkdir -p /usr/share/man/man1 && \
       ca-certificates  \
       wget \
       default-jre-headless \
+      libjpeg-dev zlib1g-dev \
       git && \
     apt-get autoremove && \
     apt-get clean && \
@@ -42,13 +43,21 @@ RUN mkdir /home/model-server
 WORKDIR /home/model-server
 
 # Install requirements
-RUN pip install --no-cache-dir awscli~=1.18.195
+RUN pip install --no-cache-dir -U pip awscli~=1.18.195
 COPY requirements.txt /home/model-server/.requirements/base_requirements.txt
 ARG AWS_DEFAULT_REGION=us-east-1
+ARG PIP_REPO
 RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true \
     --mount=type=cache,target=/root/.cache/pip \
-    aws codeartifact login --tool pip --domain superai --repository pypi-superai && \
-    pip install --no-cache-dir -r /home/model-server/.requirements/base_requirements.txt
+    aws codeartifact login --tool pip --domain superai --repository ${PIP_REPO} && \
+    pip install -r /home/model-server/.requirements/base_requirements.txt
+    
+# Install superai version from local path/repository
+COPY .dist/*.whl /home/model-server/.requirements/
+RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true \
+    --mount=type=cache,target=/root/.cache/pip \
+    aws codeartifact login --tool pip --domain superai --repository ${PIP_REPO} && \
+    pip install /home/model-server/.requirements/*.whl
 
 COPY s2i/bin /s2i/bin
 COPY s2i/bin /opt/program

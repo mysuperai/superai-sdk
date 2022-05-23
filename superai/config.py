@@ -5,10 +5,9 @@ from logging import Logger
 from typing import Dict
 
 import yaml
-from dynaconf import Dynaconf, Validator
-from jsonmerge import merge
+from dynaconf import Dynaconf, Validator  # type: ignore
+from jsonmerge import merge  # type: ignore
 
-from superai.exceptions import SuperAIConfigurationError
 from superai.log import logger
 
 local = pathlib.Path(__file__).parent.absolute()
@@ -87,7 +86,10 @@ def set_env_config(name, root_dir: str = __superai_root_dir, log: Logger = None)
 
     log.info(f"Setting config : {name}")
     with open(os.path.expanduser(f"{root_dir}/.env"), "w") as f:
-        f.write(f"ENV_FOR_SUPERAI={name}")
+        try:
+            f.write(f"{__env_switcher}={name}")
+        except Exception:
+            os.environ[__env_switcher] = name
 
 
 def ensure_path_exists(f_path: str, only_dir=False):
@@ -124,7 +126,7 @@ def add_secret_settings(content: dict = None):
     """
     content = content or {}
     secrets_path = os.path.expanduser(__secrets_path)
-    secrets_folder = os.path.dirname(__secrets_path)
+    os.path.dirname(__secrets_path)
     _log.debug(f"Secrets path {os.path.dirname(secrets_path)}")
     ensure_path_exists(secrets_path)
 
@@ -187,11 +189,15 @@ def init_config(
     # This is necessary so that the first time the user initializes the repository
     # dynaconf doesn't fail
     root_dir = os.path.expanduser(root_dir)
-    if not os.path.exists(root_dir):
-        os.mkdir(root_dir)
+    path = pathlib.Path(root_dir)
+    if not path.exists():
+        try:
+            path.mkdir(exist_ok=True, parents=True)
+        except Exception as e:
+            print(f"Exception creating dir {path.absolute()}: {e}")
 
     dot_env_file = os.path.join(root_dir, ".env")
-    if not os.path.exists(dot_env_file):
+    if not os.path.exists(dot_env_file) and not os.getenv(__env_switcher):
         env_in_order = ["prod", "sandbox", "stg", "dev", "testing"]
         envs = list_env_configs()
         for e in env_in_order:
@@ -222,6 +228,7 @@ validators = [
         "MEMO_BUCKET",
         "PROJECT_ROOT",
         "S3_BUCKET",
+        "DUMMY_APP",
         must_exist=True,
     ),
     # validate a value is eq in specific env

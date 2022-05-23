@@ -1,6 +1,6 @@
 [tool.black]
 line-length = 120
-target-version = ['py36', 'py37', 'py38']
+target-version = ['py36', 'py37', 'py38', 'py39']
 include = '\.pyi?$'
 exclude = '''
 
@@ -21,3 +21,6 @@ exclude = '''
   | superai/apis/meta_ai/meta_ai_graphql_schema.py                   # the root of the project
 )
 '''
+
+[tool.isort]
+profile = "black"

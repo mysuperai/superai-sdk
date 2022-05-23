@@ -112,6 +112,7 @@ celerybeat.pid
 # Environments
 # dotenv
 .env
+.cenv
 
 # virtualenv
 .venv
@@ -143,3 +144,7 @@ meta_ai_schema.json
 
 .AISave/
 environment
+
+.test
+
+**/.dist

@@ -2,6 +2,7 @@ import logging
 import os
 import shutil
 import tarfile
+from subprocess import CalledProcessError
 
 import pytest
 
@@ -50,9 +51,9 @@ def test_track_changes(caplog):
         input_schema=Schema(),
         output_schema=Schema(),
         configuration=Config(),
-        model_class="MyKerasModel",
         name="My_template",
         description="Template for my new awesome project",
+        model_class="MyKerasModel",
         requirements=["tensorflow", "opencv-python-headless"],
     )
     ai = AI(
@@ -81,7 +82,10 @@ def test_system_commands():
     sys_func = AI._system
     command = "python --help"
     output = sys_func(command)
-    assert "python [option]" in output
+    assert output == 0
+
+    with pytest.raises(CalledProcessError) as e:
+        sys_func("python random_file_name.py")
 
 
 def test_base_name():

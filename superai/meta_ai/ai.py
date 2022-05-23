@@ -12,34 +12,49 @@ import subprocess
 import tarfile
 import time
 import traceback
-from typing import Dict, List, TYPE_CHECKING, Union, Optional
+from pathlib import Path
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 from urllib.parse import urlparse
 
 import boto3  # type: ignore
-import docker
 import requests
 import yaml
-
 from docker import DockerClient
 from docker.errors import ImageNotFound
+from rich.prompt import Confirm
 
-from superai import Client
-from superai import settings
-from superai.exceptions import ModelNotFoundError
+from superai import Client, settings
+from superai.exceptions import ModelDeploymentError, ModelNotFoundError
 from superai.log import logger
 from superai.meta_ai.ai_helper import (
-    get_user_model_class,
-    list_models,
-    get_ecr_image_name,
     create_model_entrypoint,
     create_model_handler,
+    find_root_model,
+    get_ecr_image_name,
+    get_user_model_class,
+    list_models,
+    upload_dir,
 )
-from superai.meta_ai.deployed_predictors import LocalPredictor, DeployedPredictor, AWSPredictor
+from superai.meta_ai.deployed_predictors import (
+    DeployedPredictor,
+    LocalPredictor,
+    RemotePredictor,
+)
 from superai.meta_ai.dockerizer import get_docker_client, push_image
 from superai.meta_ai.environment_file import EnvironmentFileProcessor
-from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters, Config
-from superai.meta_ai.schema import Schema, SchemaParameters, EasyPredictions
-from superai.utils import retry, load_api_key, load_auth_token, load_id_token
+from superai.meta_ai.parameters import (
+    Config,
+    HyperParameterSpec,
+    ModelParameters,
+    TrainingParameters,
+)
+from superai.meta_ai.schema import EasyPredictions, Schema, SchemaParameters
+from superai.utils import load_api_key, load_auth_token, load_id_token, retry
+
+# Prefix path for the model directory on storage backend
+MODEL_ARTIFACT_PREFIX_S3 = "meta_ai_models"
+# extended path to model weights
+MODEL_WEIGHT_INFIX_S3 = "saved_models"
 
 if TYPE_CHECKING:
     from superai.meta_ai import BaseModel
@@ -67,15 +82,20 @@ class Orchestrator(str, enum.Enum):
     GCP_KS = "GCP_KS"
 
 
+class TrainingOrchestrator(str, enum.Enum):
+    LOCAL_DOCKER_K8S = "LOCAL_DOCKER_K8S"
+    AWS_EKS = "AWS_EKS"
+
+
 class PredictorFactory(object):
     __predictor_classes = {
         "LOCAL_DOCKER": LocalPredictor,
         "LOCAL_DOCKER_LAMBDA": LocalPredictor,
         "LOCAL_DOCKER_K8S": LocalPredictor,
-        "AWS_SAGEMAKER": AWSPredictor,
-        "AWS_SAGEMAKER_ASYNC": AWSPredictor,
-        "AWS_LAMBDA": AWSPredictor,
-        "AWS_EKS": AWSPredictor,
+        "AWS_SAGEMAKER": RemotePredictor,
+        "AWS_SAGEMAKER_ASYNC": RemotePredictor,
+        "AWS_LAMBDA": RemotePredictor,
+        "AWS_EKS": RemotePredictor,
     }
 
     @staticmethod
@@ -103,8 +123,7 @@ class AITemplate:
         conda_env: Union[str, Dict] = None,
         artifacts: Optional[Dict] = None,
         client: Client = None,
-        folder_name: str = "meta_ai_models",
-        bucket_name: str = "canotic-ai",
+        bucket_name: str = None,
         parameters=None,
     ):
         """Create an AI template for subsequently creating instances of AI objects
@@ -145,7 +164,6 @@ class AITemplate:
                             'channels': ['defaults'],
                             'dependencies': [
                                 'python=3.7.2',
-                                'cloudpickle==0.5.8'
                             ]
                         }
             artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs are resolved
@@ -167,7 +185,6 @@ class AITemplate:
 
                       If ``None``, no artifacts are added to the model.
             client:
-            folder_name:
             bucket_name:
             parameters: Optional; Parameters to be passed to the model, could be the model architecture parameters,
                            or training parameters.
@@ -198,8 +215,7 @@ class AITemplate:
                 id_token=load_id_token(),
             )
         )
-        self.folder_name = folder_name
-        self.bucket_name = bucket_name
+        self.bucket_name = bucket_name or settings["meta_ai_bucket"]
         self.parameters = parameters
         if model_class is None:
             raise NotImplementedError(
@@ -227,10 +243,10 @@ class AITemplate:
             input_schema=input_schema,
             output_schema=output_schema,
             configuration=configuration,
-            model_class=model_class,
-            model_class_path=load_path,
             name=name,
             description=description,
+            model_class=model_class,
+            model_class_path=load_path,
             requirements=requirements,
             code_path=code_path,
             conda_env=conda_env,
@@ -310,6 +326,17 @@ class AITemplate:
             }
             json.dump(content, ai_template_writer, indent=1)
 
+    def get_or_create_training_entry(self, app_id: str, model_id: str, properties: dict = {}):
+        existing_template_id = self.client.get_training_templates(app_id, model_id)
+        if len(existing_template_id):
+            log.info(f"Found existing template {existing_template_id}")
+            self.template_id = existing_template_id[0].id
+        else:
+            template_id = self.client.create_training_template_entry(app_id, model_id, properties)
+            log.info(f"Created template : {template_id}")
+            self.template_id = template_id
+        return self.template_id
+
 
 class AI:
     def __init__(
@@ -320,6 +347,7 @@ class AI:
         name,
         configuration: Optional[Config] = None,
         version: int = None,
+        root_id: Optional[str] = None,
         description: Optional[str] = None,
         weights_path: str = None,
         overwrite=False,
@@ -332,10 +360,11 @@ class AI:
             output_params: Schema definition of the AI object output.
             name: Name of the AI. If the name already exists, an exception will be raised.
             version: AI integer version. If no version is specified the AI is set to version 1.
+            root_id: Id of the root AI. Establishes the lineage of AIs.
+                Is necessary when using `version` > 1.
             description: Optional; A free text description. Allows the user to describe the AI's intention.
             weights_path: Path to a file or directory containing model data. This is accessible in the
                           :func:`BaseModel.load_weights(weights_path) <superai.meta_ai.base.BaseModel.load_weights>
-
             **kwargs: Arbitrary keyword arguments
         """
 
@@ -345,7 +374,7 @@ class AI:
         self.ai_template = ai_template
         self.name = name
         self.version = version
-        self.folder_name = self.ai_template.folder_name
+        self.root_id = root_id
         self.bucket_name = self.ai_template.bucket_name
         self.description = description
         self.weights_path = weights_path
@@ -373,6 +402,8 @@ class AI:
         self.container = None
         self._id = None
         self.model_class = None
+        # ID of deployment serving predictions
+        self.served_by: Optional[str] = None
 
     def _init_model_class(self):
         model_class_template = get_user_model_class(model_name=self.model_class_name, path=self.model_class_path)
@@ -392,9 +423,20 @@ class AI:
         return self._id
 
     @property
+    def deployment_id(self) -> str:
+        if self.served_by:
+            return self.served_by
+        else:
+            # Legacy method to retrieve one deployment with matching model_id
+            # Could lead to inconsistencies if multiple deployments are present
+            deployment_list = self.client.list_deployments(self.id)
+            if deployment_list:
+                return deployment_list[0]["id"]
+
+    @property
     def deployed(self) -> Optional[bool]:
-        if self.id:
-            deployment = self.client.get_deployment(self.id)
+        if self.id and self.deployment_id:
+            deployment = self.client.get_deployment(self.served_by)
             if deployment:
                 return True
         return False
@@ -455,14 +497,15 @@ class AI:
 
     @classmethod
     def load(cls, path: str, weights_path: str = None) -> "AI":
-        """Loads an AI from a local or S3 path. If an S3 path is passed, the AI model will be downloaded from S3 directly.
+        """Loads an AI from a local or S3 path. If an S3 path is passed, the AI model will be downloaded from S3
+        directly.
 
         Args:
             path
             weights_path
             if :param path is a valid path, the model will be loaded from the local path
-            if :param path is a valid S3 path, i.e., s3://bucket/prefix/some_model_path, the model will be downloaded from
-            S3. Manage S3 access using your AWS credentials.
+            if :param path is a valid S3 path, i.e., s3://bucket/prefix/some_model_path, the model will be downloaded
+            from S3. Manage S3 access using your AWS credentials.
             if :param path is a valid model path i.e., prefix is model://some_name/version, or model://some_name/stage
             then the database will be referenced to find the relevant model and loaded.
 
@@ -638,7 +681,9 @@ class AI:
             model_save_path: Location in S3 where the AISaveModel has to be placed.
             weights_path: Location of weights.
             visibility: Visibility of model. Default visibility: PRIVATE.
+            root_id: Id of the root model. Establishes the lineage of the model.
             **kwargs: Arbitrary keyword arguments
+
         """
         log.info("Creating database entry...")
         if not self.id:
@@ -864,12 +909,27 @@ class AI:
         Args:
             update_weights: Update weights in s3 or not
             weights_path: Path to weights in s3
+            overwrite: Overwrite existing entry
         """
         if self.id:
             if not overwrite:
                 log.warning("Model already exists in the DB and overwrite is not set.")
                 return self.id
+            else:
+                if settings.current_env == "prod":
+                    confirmed = Confirm.ask(
+                        "Do you [bold]really[/bold] want to push weights for a [red]production[/red] AI? This can negatively impact Data Programs relying on the existing AI."
+                    )
+                    if not confirmed:
+                        log.warning("Aborting push")
+                        raise ModelDeploymentError("Push aborted by User")
         else:
+            if self.version > 1:
+                self.root_id = self.root_id or find_root_model(self.name, self.client)
+                if self.root_id is None:
+                    raise ValueError(
+                        "AIs with version > 1 must have a root_id. This should be the ID of the AI with version=1."
+                    )
             self._id = self._create_database_entry(
                 name=self.name,
                 version=self.version,
@@ -877,6 +937,7 @@ class AI:
                 metadata=self.artifacts,
                 input_schema=self.input_params.to_json,
                 output_schema=self.output_params.to_json,
+                root_id=self.root_id,
             )
 
         modelSavePath = self._upload_model_folder(self.id)
@@ -884,42 +945,38 @@ class AI:
         self.client.update_model(self.id, weights_path=weights, model_save_path=modelSavePath)
         return self.id
 
-    def _upload_model_folder(self, id: str) -> str:
+    def _upload_model_folder(self, idx: str) -> str:
         s3_client = boto3.client("s3")
         path_to_tarfile = os.path.join(self._location, "AISavedModel.tar.gz")
         log.info(f"Compressing AI folder at {self._location}")
         self._compress_folder(path_to_tarfile, self._location)
-        object_name = os.path.join(self.folder_name, id, self.name, str(self.version), "AISavedModel.tar.gz")
+        object_name = os.path.join(MODEL_ARTIFACT_PREFIX_S3, idx, self.name, str(self.version), "AISavedModel.tar.gz")
         with open(path_to_tarfile, "rb") as f:
             s3_client.upload_fileobj(f, self.bucket_name, object_name)
         modelSavePath = os.path.join("s3://", self.bucket_name, object_name)
         log.info(f"Uploaded AI object to '{modelSavePath}'")
         return modelSavePath
 
-    def _upload_weights(self, id: str, update_weights: bool, weights_path: Optional[str]) -> Optional[str]:
-        s3_client = boto3.client("s3")
+    def _upload_training_data(self, local_directory: str, training_id: str) -> str:
+        training_data_path = os.path.join("training/data", training_id)
+        # TODO: replace s3 push with push via signed url or similar
+        local_directory_path = Path(local_directory)
+        upload_dir(local_directory_path, training_data_path, self.bucket_name, prefix="/")
+        log.info(f"Uploaded Training data to {training_data_path}.")
+        return training_data_path
+
+    def _upload_weights(self, idx: str, update_weights: bool, weights_path: Optional[str]) -> Optional[str]:
         weights: Optional[str] = None
         if self.weights_path is not None and update_weights:
             if self.weights_path.startswith("s3"):
                 weights = self.weights_path
             elif os.path.exists(self.weights_path):
                 if os.path.isdir(self.weights_path):
-                    path_to_weights_tarfile = os.path.join(
-                        self._location, f"{os.path.basename(self.weights_path)}.tar.gz"
-                    )
-                    log.info(f"Compressing weights at {self.weights_path}, placed at {path_to_weights_tarfile}...")
-                    self._compress_folder(path_to_weights_tarfile, self.weights_path)
-                    upload_object_name = os.path.join(
-                        self.folder_name, "saved_models", id, f"{os.path.basename(self.weights_path)}.tar.gz"
-                    )
+                    upload_object_name = os.path.join(MODEL_ARTIFACT_PREFIX_S3, MODEL_WEIGHT_INFIX_S3, idx)
                 else:
-                    upload_object_name = os.path.join(
-                        self.folder_name, "saved_models", id, os.path.basename(self.weights_path)
-                    )
-                    path_to_weights_tarfile = self.weights_path
-                with open(path_to_weights_tarfile, "rb") as w:
-                    log.info("Uploading weights...")
-                    s3_client.upload_fileobj(w, self.bucket_name, upload_object_name)
+                    raise ValueError("weights_path must be a directory")
+                log.info("Uploading weights...")
+                upload_dir(self.weights_path, upload_object_name, self.bucket_name, prefix="/")
                 weights = f"s3://{os.path.join(self.bucket_name, upload_object_name)}"
                 log.info(f"Uploaded weights to '{weights}'")
             else:
@@ -968,6 +1025,14 @@ class AI:
                   {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
             download_base: Always download the base image to get the latest version from ECR
         """
+        if redeploy and settings.current_env == "prod":
+            confirmed = Confirm.ask(
+                "Do you [bold]really[/bold] want to redeploy a [red]production[/red] AI? This can negatively impact Data Programs relying on the existing AI."
+            )
+            if not confirmed:
+                log.warning("Aborting deployment")
+                raise ModelDeploymentError("Deployment aborted by User")
+
         is_lambda_orchestrator = orchestrator in [Orchestrator.LOCAL_DOCKER_LAMBDA, Orchestrator.AWS_LAMBDA]
         # Updating environs before image builds
         for key, value in kwargs.get("envs", {}).items():
@@ -1031,9 +1096,12 @@ class AI:
                 raise LookupError(
                     "Cannot establish id, please make sure you push the AI model to create a database entry"
                 )
-            existing_deployment = self.client.get_deployment(self.id)
+
+            self.served_by = self.served_by or self.client.get_model(self.id)["served_by"]
+            existing_deployment = self.client.get_deployment(self.served_by) if self.served_by else None
             log.info(f"Existing deployments : {existing_deployment}")
             if existing_deployment is None or "status" not in existing_deployment:
+
                 # check if weights are present in the database
                 models = self.client.get_model_by_name_version(self.name, self.version, verbose=True)
                 model = models[0]
@@ -1041,7 +1109,11 @@ class AI:
                 assert (
                     model["weights_path"] is not None
                 ), "Weights Path cannot be None in the database for the deployment to finish"
-                self.client.deploy(self.id, ecr_image_name, deployment_type=orchestrator.value, properties=properties)
+
+                self.served_by = self.client.deploy(
+                    self.id, ecr_image_name, deployment_type=orchestrator.value, properties=properties
+                )
+                self.client.update_model(self.id, served_by=self.served_by)
             else:
                 if redeploy:
                     self.undeploy()
@@ -1049,12 +1121,12 @@ class AI:
                     raise Exception(
                         "Deployment with this version already exists. Try undeploy first or set `redeploy=True`."
                     )
-                self.client.set_image(model_id=self.id, ecr_image_name=ecr_image_name)
+                self.client.set_image(deployment_id=self.deployment_id, ecr_image_name=ecr_image_name)
                 if properties:
-                    self.client.set_deployment_properties(model_id=self.id, properties=properties)
-                self.client.set_deployment_status(model_id=self.id, target_status="ONLINE")
+                    self.client.set_deployment_properties(deployment_id=self.deployment_id, properties=properties)
+                self.client.set_deployment_status(deployment_id=self.deployment_id, target_status="ONLINE")
 
-            kwargs["id"] = self.id
+            kwargs["id"] = self.deployment_id
         # get predictor
         predictor_obj: DeployedPredictor.Type = PredictorFactory.get_predictor_obj(orchestrator=orchestrator, **kwargs)
 
@@ -1063,7 +1135,7 @@ class AI:
     def undeploy(self) -> Optional[bool]:
         if self.id:
             if self.deployed:
-                passed = self.client.undeploy(self.id)
+                passed = self.client.undeploy(self.deployment_id)
                 if passed:
                     log.info("Endpoint deletion request succeeded.")
                 # TODO: Add wait for deployment status to be OFFLINE
@@ -1106,6 +1178,7 @@ class AI:
         lambda_mode: bool = False,
         enable_cuda: bool = False,
         k8s_mode: bool = False,
+        version: int = 1,
     ) -> str:
         """Get Base Image given the configuration. By default the sagemaker CPU image name will be returned.
 
@@ -1118,19 +1191,29 @@ class AI:
         Return:
             String image name
         """
-        if enable_eia:
-            base_image = "superai-model-s2i-python3711-eia:1"
-        elif lambda_mode:
-            base_image = f"superai-model-s2i-python3711-cpu-lambda:1"
-        elif k8s_mode and enable_cuda:
-            base_image = f"superai-model-s2i-python3711-gpu-seldon:1"
-        elif k8s_mode:
-            base_image = f"superai-model-s2i-python3711-cpu-seldon:1"
-        elif enable_cuda:
-            base_image = f"superai-model-s2i-python3711-gpu:1"
+        if enable_eia and (lambda_mode or enable_cuda or k8s_mode):
+            raise ValueError("Cannot use EIA with other options")
+        if enable_cuda and lambda_mode:
+            raise ValueError("Cannot use CUDA with Lambda")
+
+        base_image = "superai-model-s2i-python3711"
+
+        if enable_cuda:
+            base_image += "-gpu"
+        elif enable_eia:
+            base_image += "-eia"
         else:
-            base_image = f"superai-model-s2i-python3711-cpu:1"
-        return base_image
+            base_image += "-cpu"
+
+        if settings.current_env == "dev":
+            base_image += "-internal"
+
+        if lambda_mode:
+            base_image += "-lambda"
+        elif k8s_mode:
+            base_image += "-seldon"
+
+        return f"{base_image}:{version}"
 
     def _track_changes(self):
         # check the hash, if it doesn't exist, create one
@@ -1220,30 +1303,37 @@ class AI:
                 from_scratch = True
         if from_scratch:
             self.environs.delete("BUILD_PIP")
-            self.environs.add_or_update("SUPERAI_CONFIG_ROOT", "/tmp/.superai")
-            if lambda_mode:
-                self.environs.add_or_update("LAMBDA_MODE=true")
-            elif k8s_mode:
-                self.environs.add_or_update("SERVICE_TYPE=MODEL")
-                self.environs.add_or_update("PERSISTENCE=0")
-                self.environs.add_or_update("API_TYPE=REST")
-                self.environs.add_or_update("SELDON_MODE=true")
-            command = (
-                f"s2i build -E {self.environs.location} "
-                f"-v {os.path.join(os.path.expanduser('~'), '.aws')}:/root/.aws "
-                f"-v {os.path.join(os.path.expanduser('~'), '.superai')}:/root/.superai "
-                f"-v {os.path.join(os.path.expanduser('~'), '.canotic')}:/root/.canotic "
-                f"--incremental=True . "
-                f"{base_image} {image_name}-pip-layer:{version_tag}"
+            self._create_prediction_image_s2i(
+                base_image_tag=base_image,
+                image_tag=f"{image_name}-pip-layer:{version_tag}",
+                client=client,
+                lambda_mode=lambda_mode,
+                k8s_mode=k8s_mode,
             )
-            self._system(command)
-            image = client.images.get(f"{image_name}-pip-layer:{version_tag}")
-            tag_time = image.attrs["Metadata"]["LastTagTime"]
-            diff = datetime.datetime.utcnow() - datetime.datetime.fromisoformat(tag_time[:26])
-            if diff.total_seconds() > 2.0:
-                raise Exception(f"Image failed to create, this image is too old {diff.total_seconds()}s")
-
         # fallback if the above environment adding is not run
+        self.environs.add_or_update("BUILD_PIP=false")
+        self._create_prediction_image_s2i(
+            base_image_tag=f"{image_name}-pip-layer:{version_tag}",
+            image_tag=f"{image_name}:{version_tag}",
+            client=client,
+            lambda_mode=lambda_mode,
+            k8s_mode=k8s_mode,
+        )
+        log.info(f"Built main container `{image_name}:{version_tag}`")
+        log.info(f"Time taken to build: {time.time() - start:.2f}s")
+        os.chdir(cwd)
+
+    def _create_prediction_image_s2i(self, base_image_tag, image_tag, client, lambda_mode=False, k8s_mode=False):
+        """
+        Extracted method which creates the prediction image
+
+        Args:
+            base_image_tag: Identifier of the base image name for building image
+            image_tag: Identifier of the image name to be built
+            client: Docker client
+            lambda_mode: Lambda mode
+            k8s_mode: Kubernetes mode
+        """
         self.environs.add_or_update("SUPERAI_CONFIG_ROOT", "/tmp/.superai")
         if lambda_mode:
             self.environs.add_or_update("LAMBDA_MODE=true")
@@ -1252,24 +1342,15 @@ class AI:
             self.environs.add_or_update("PERSISTENCE=0")
             self.environs.add_or_update("API_TYPE=REST")
             self.environs.add_or_update("SELDON_MODE=true")
-        self.environs.add_or_update("BUILD_PIP=false")
         command = (
             f"s2i build -E {self.environs.location} "
             f"-v {os.path.join(os.path.expanduser('~'), '.aws')}:/root/.aws "
             f"-v {os.path.join(os.path.expanduser('~'), '.superai')}:/root/.superai "
             f"-v {os.path.join(os.path.expanduser('~'), '.canotic')}:/root/.canotic "
             f"--incremental=True . "
-            f"{image_name}-pip-layer:{version_tag} {image_name}:{version_tag}"
+            f"{base_image_tag} {image_tag}"
         )
-        self._system(command)
-        image = client.images.get(f"{image_name}:{version_tag}")
-        tag_time = image.attrs["Metadata"]["LastTagTime"]
-        diff = datetime.datetime.utcnow() - datetime.datetime.fromisoformat(tag_time[:26])
-        if diff.total_seconds() > 2.0:
-            raise Exception(f"Image failed to create, this image is too old ({diff.total_seconds()}s)")
-        log.info(f"Built main container `{image_name}:{version_tag}`")
-        log.info(f"Time taken to build: {time.time() - start:.2f}s")
-        os.chdir(cwd)
+        return self._system(command)
 
     @staticmethod
     def _download_base_image(base_image: str, client: DockerClient) -> None:
@@ -1293,8 +1374,10 @@ class AI:
     def _system(command):
         log.info(f"Running '{command}'")
         process = subprocess.Popen(shlex.split(command), stdout=subprocess.PIPE)
-        (out, err) = process.communicate()
-        return out.decode("utf-8")
+        (out, _) = process.communicate()
+        if process.returncode != 0:
+            raise subprocess.CalledProcessError(process.returncode, command, output=out)
+        return process.returncode
 
     def push_model(self, image_name: Optional[str] = None, version: Optional[str] = None) -> str:
         """Push model in ECR, involves tagging and pushing.
@@ -1322,6 +1405,7 @@ class AI:
         training_data,
         test_data=None,
         production_data=None,
+        weights_path=None,
         encoder_trainable: bool = True,
         decoder_trainable: bool = True,
         hyperparameters: Optional[HyperParameterSpec] = None,
@@ -1329,22 +1413,22 @@ class AI:
         callbacks=None,
         validation_data=None,
         train_logger=None,
-        orchestrator: Orchestrator = Orchestrator.LOCAL_DOCKER,
     ):
         """Please fill hyperparameters and model parameters accordingly.
 
         Args:
-            validation_data:
-            callbacks:
-            test_data:
-            production_data:
-            encoder_trainable:
-            decoder_trainable:
-            hyperparameters:
-            model_parameters:
-            model_save_path:
-            training_data:
-            orchestrator:
+            model_save_path: Save location of model
+            training_data: Path to training data
+            validation_data: Path to validation data
+            test_data: Path to test data
+            production_data: Path to production data
+            callbacks: List of callbacks to be used
+            weights_path: Path to existing weights to be trained on
+            encoder_trainable: Whether encoder is trainable or not
+            decoder_trainable: Whether decoder is trainable or not
+            hyperparameters: Hyperparameters for training
+            model_parameters: Model parameters for training
+            train_logger: Logger for training
         """
         if self.model_class is None:
             self._init_model_class()
@@ -1355,12 +1439,13 @@ class AI:
                 os.path.join(self._location, "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")),
             )
         log.info(f"If tensorboard callback is present, logging in {self.model_class.logger_dir}")
-        return self.model_class.train(
+        train_instance = self.model_class.train(
             model_save_path=model_save_path,
             training_data=training_data,
             validation_data=validation_data,
             test_data=test_data,
             production_data=production_data,
+            weights_path=weights_path,
             encoder_trainable=encoder_trainable,
             decoder_trainable=decoder_trainable,
             hyperparameters=hyperparameters,
@@ -1382,7 +1467,7 @@ class AI:
             gpuBaseUtilization: GPU Base utilization
 
         Return:
-             Dictionary of the CRD. This is saved in the save folder as well.
+             Dictionary of the CRD. This is saved in the save location as well.
         """
         if properties is None:
             properties = {}
@@ -1405,3 +1490,87 @@ class AI:
         with open(os.path.join(self._location, f"{self.name}_config.json"), "w") as wfp:
             json.dump(kubernetes_config, wfp, indent=2)
         return kubernetes_config
+
+    def training_deploy(
+        self,
+        orchestrator: "TrainingOrchestrator" = TrainingOrchestrator.LOCAL_DOCKER_K8S,
+        training_data_dir: Optional[Union[str, Path]] = None,
+        skip_build: bool = False,
+        properties: Optional[dict] = None,
+        enable_cuda: bool = False,
+        training_parameters: Optional[TrainingParameters] = None,
+        **kwargs,
+    ):
+        """Here we need to create a docker container with superai-sdk installed. Then we will create a run script
+
+        Args:
+            orchestrator: Which training orchestrator to be used to deploy.
+            skip_build: Skip building
+            enable_cuda: Create CUDA-Compatible image
+            properties: An optional dictionary with properties for instance creation.
+            training_data_dir: Path to training data
+            training_parameters: A TrainingParameters object used for all training parameters to be passed to
+                                BaseModel train method
+
+            # Hidden kwargs
+            worker_count: Number of workers to use for serving with Sagemaker.
+            ai_cache: Cache of ai objects for a lambda, 5 by default considering the short life of a lambda function
+            build_all_layers: Perform a fresh build of all layers
+            envs: Pass custom environment variables to the deployment. Should be a dictionary like
+                  {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
+            download_base: Always download the base image to get the latest version from ECR
+        """
+        for key, value in kwargs.get("envs", {}).items():
+            self.environs.add_or_update(key, value)
+        if orchestrator in [TrainingOrchestrator.AWS_EKS, TrainingOrchestrator.LOCAL_DOCKER_K8S]:
+            if properties is None:
+                properties = {}
+            k8s_config = self._prepare_k8s_dependencies(enable_cuda=enable_cuda, properties=properties, **kwargs)
+            properties["kubernetes_config"] = k8s_config
+            if not skip_build:
+                self.build_image_s2i(
+                    self.name,
+                    str(self.version),
+                    enable_cuda=enable_cuda,
+                    enable_eia=False,
+                    lambda_mode=False,
+                    k8s_mode=True,
+                    from_scratch=kwargs.get("build_all_layers", False),
+                    always_download=kwargs.get("download_base", False),
+                )
+        else:
+            # TODO: Add support for local training
+            raise ValueError(f"Invalid Orchestrator, should be one of {[e for e in TrainingOrchestrator]}")
+        # build kwargs
+        kwargs = {}
+        if orchestrator in [TrainingOrchestrator.LOCAL_DOCKER_K8S]:
+            kwargs["image_name"] = f"{self.name}:{self.version}"
+            kwargs["weights_path"] = self.weights_path
+            kwargs["k8s_mode"] = orchestrator == TrainingOrchestrator.LOCAL_DOCKER_K8S
+        else:
+            if not skip_build:
+                image_name = self.push_model(self.name, str(self.version))
+            else:
+                image_name = get_ecr_image_name(self.name, self.version)
+            self.client.update_model(self.id, image=image_name, trainable=True)
+            if self.id is None:
+                raise LookupError(
+                    "Cannot establish id, please make sure you push the AI model to create a database entry"
+                )
+            if training_parameters:
+                loaded_parameters = json.loads(training_parameters.to_json())
+            else:
+                # TODO: load default parameters from AI
+                loaded_parameters = {}
+            # check if we have a training data directory
+            instance_id = self.client.create_training_entry(
+                model_id=self.id, properties=loaded_parameters, starting_state="STOPPED"
+            )
+            if training_data_dir is not None:
+                self._upload_training_data(training_data_dir, training_id=instance_id)
+            else:
+                # TODO: Add alternative logic to inject app data
+                log.warning("No training data directory provided, skipping upload")
+
+            self.client.update_training_instance(instance_id, state="STARTING")
+            log.info(f"Create training instance : {instance_id}")

@@ -6,9 +6,15 @@ import uuid
 from docs.examples.ai.utilities import MockedReturns
 from superai.data_program import Project, Worker
 from superai.meta_ai import AI
-from superai.meta_ai.ai import Orchestrator, LocalPredictor, AWSPredictor, list_models, AITemplate
-from superai.meta_ai.parameters import HyperParameterSpec, String, Config
-from superai.meta_ai.schema import Image, SingleChoice, Schema
+from superai.meta_ai.ai import (
+    AITemplate,
+    LocalPredictor,
+    Orchestrator,
+    RemotePredictor,
+    list_models,
+)
+from superai.meta_ai.parameters import Config, HyperParameterSpec, String
+from superai.meta_ai.schema import Image, Schema, SingleChoice
 from superai.utils import log
 
 ###########################################################################
@@ -38,9 +44,9 @@ my_ai_template = AITemplate(
     input_schema=ai_definition["input_schema"],
     output_schema=ai_definition["output_schema"],
     configuration=Config(padding=String(default="valid")),
-    model_class="MyKerasModel",
     name="my_awesome_template",
     description="Template for the MNIST model experiment with AI tool",
+    model_class="MyKerasModel",
     requirements=["tensorflow", "opencv-python-headless"],
 )
 
@@ -50,6 +56,7 @@ my_ai = AI(
     output_params=my_ai_template.input_schema.parameters(
         choices=["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
     ),
+    name=model_name,
     configuration=my_ai_template.configuration(
         conv_layers=None,
         num_conv_layers=None,
@@ -60,10 +67,9 @@ my_ai = AI(
         dilation_rate=(1, 1),
         conv_use_bias=True,
     ),
-    name=model_name,
     version=1,
-    weights_path=os.path.join(os.path.dirname(__file__), "resources/my_model"),
     description="My super fancy AI model instance",
+    weights_path=os.path.join(os.path.dirname(__file__), "resources/my_model"),
 )
 log.info(my_ai)
 log.info(os.system("tree .AISave"))
@@ -79,12 +85,12 @@ template = AITemplate(
     input_schema=Schema(),
     output_schema=Schema(),
     configuration=Config(),
-    model_class="MyKerasModel",
     name="My_template",
     description="Template for my new awesome project",
+    model_class="MyKerasModel",
     requirements=["tensorflow==2.1.0", "opencv-python-headless"],
-    artifacts={"run": "resources/runDir/run_this.sh"},
     code_path=["resources/runDir"],
+    artifacts={"run": "resources/runDir/run_this.sh"},
 )
 ai = AI(
     ai_template=template,
@@ -96,7 +102,7 @@ ai = AI(
 )
 
 ai.push(update_weights=True, overwrite=True)
-predictor: AWSPredictor = ai.deploy(
+predictor: RemotePredictor = ai.deploy(
     orchestrator=Orchestrator.AWS_EKS,
     enable_cuda=True,
     redeploy=True,
@@ -117,12 +123,12 @@ template_2 = AITemplate(
     input_schema=Schema(),
     output_schema=Schema(),
     configuration=Config(),
-    model_class="MyKerasModel",
     name="My_template",
     description="Template for my new awesome project",
+    model_class="MyKerasModel",
+    code_path=["resources/runDir"],
     conda_env="resources/conda.yaml",
     artifacts={"run": "resources/runDir/run_this.sh"},
-    code_path=["resources/runDir"],
 )
 ai_2 = AI(
     ai_template=template_2,
@@ -155,9 +161,9 @@ new_template = AITemplate(
     input_schema=ai_definition["input_schema"],
     output_schema=ai_definition["output_schema"],
     configuration=Config(padding=String(default="valid")),
-    model_class="MyEncodeDecodeModel",
     name="my_new_awesome_template",
     description="Template for the MNIST model experiment with AI tool, containing encoder decoder",
+    model_class="MyEncodeDecodeModel",
     requirements=["tensorflow", "opencv-python-headless"],
 )
 
@@ -259,7 +265,7 @@ log.info(f"Local predictions: {predictor.predict(input=inputs)}")
 predictor.container.stop()
 
 with m.push as p, m.sage_check(True) as sc, m.sage_pred as sp:
-    predictor: AWSPredictor = my_ai.deploy(orchestrator=Orchestrator.AWS_SAGEMAKER)
+    predictor: RemotePredictor = my_ai.deploy(orchestrator=Orchestrator.AWS_SAGEMAKER)
     log.info(f"AWS Predictions: {predictor.predict(input=inputs)}")
 
 # might not be required for lambdas
@@ -267,7 +273,7 @@ with m.sage_check(False) as sch, m.undep as ud:
     my_ai.undeploy()
     try:
         log.info(f"AWS Predictions: { predictor.predict(input=inputs)}")
-    except LookupError as e:
+    except LookupError:
         pass
 
 ###########################################################################
@@ -282,8 +288,8 @@ loaded_ai = AI(
     ),
     name=model_name,
     version=3,
-    weights_path=os.path.join(os.path.dirname(__file__), "resources/my_model"),
     description="My super fancy AI model instance",
+    weights_path=os.path.join(os.path.dirname(__file__), "resources/my_model"),
 )
 predictions = loaded_ai.predict(inputs)
 log.info(f"Result : {predictions}")

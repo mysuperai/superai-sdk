@@ -1,7 +1,10 @@
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.preprocessing import MultiLabelBinarizer
 
-from superai.data_program.combiner.schema_getters import get_exclusive_choice_tag, get_multiple_choice_tags
+from superai.data_program.combiner.schema_getters import (
+    get_exclusive_choice_tag,
+    get_multiple_choice_tags,
+)
 
 
 def agreement_basic(value, value_list):

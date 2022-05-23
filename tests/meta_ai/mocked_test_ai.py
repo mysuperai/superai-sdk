@@ -8,15 +8,22 @@ import shutil
 import time
 
 import pytest
-import superai
 import vcr
-from superai import DeploymentApiMixin, ModelApiMixin, ProjectAiApiMixin
-from superai.meta_ai import BaseModel
-from superai.meta_ai.ai import AI, Orchestrator, DeployedPredictor, LocalPredictor, AWSPredictor, AITemplate
+
+import superai
+from superai.apis.meta_ai import DeploymentApiMixin, ModelApiMixin, ProjectAiApiMixin
+from superai.meta_ai.ai import (
+    AI,
+    AITemplate,
+    DeployedPredictor,
+    LocalPredictor,
+    Orchestrator,
+)
+from superai.meta_ai.deployed_predictors import RemotePredictor
 from superai.meta_ai.parameters import Config
 from superai.meta_ai.schema import Schema
 from superai.utils import log
-from tests.apis.test_meta_ai import APP_ID, scrub_string, before_record_cb
+from tests.apis.test_meta_ai import APP_ID, before_record_cb, scrub_string
 
 weights_path = os.path.join(os.path.dirname(__file__), "../../docs/examples/ai/resources/my_model")
 
@@ -59,9 +66,9 @@ def ai(cleanup):
         input_schema=Schema(),
         output_schema=Schema(),
         configuration=Config(),
-        model_class="MyKerasModel",
         name="My_template",
         description="Template for my new awesome project",
+        model_class="MyKerasModel",
         requirements=["tensorflow==2.1.0", "opencv-python-headless"],
     )
     ai = AI(
@@ -80,15 +87,14 @@ def ai(cleanup):
 def test_create_model(model_api, caplog):
     # TODO: Fix logging
     caplog.set_level(logging.INFO)
-    model_name = "my_mnist_model"
 
     template = AITemplate(
         input_schema=Schema(),
         output_schema=Schema(),
         configuration=Config(),
-        model_class="MyKerasModel",
         name="My_template",
         description="Template for my new awesome project",
+        model_class="MyKerasModel",
         requirements=["tensorflow==2.1.0", "opencv-python-headless"],
     )
     my_ai = AI(
@@ -162,7 +168,7 @@ def test_mock_deploy_sagemaker(ai, monkeypatch):
 
     predictor = ai.deploy(orchestrator=Orchestrator.AWS_SAGEMAKER)
     # standard type checks
-    assert type(predictor) == AWSPredictor
+    assert type(predictor) == RemotePredictor
     assert issubclass(type(predictor), DeployedPredictor)
     assert predictor.endpoint_name == ai.name
 
@@ -191,7 +197,7 @@ def test_mock_predict_from_local_deployment(ai, monkeypatch):
 @pytest.mark.skip("TODO: Patching for ID is missing")
 def test_mock_predict_from_sagemaker(ai, monkeypatch):
     monkeypatch.setattr(AI, "push_model", lambda *a, **k: None)
-    monkeypatch.setattr(AWSPredictor, "predict", ai.predict)
+    monkeypatch.setattr(RemotePredictor, "predict", ai.predict)
     predictor = ai.deploy(orchestrator=Orchestrator.AWS_SAGEMAKER)
     assert predictor
     prediction = predictor.predict(
@@ -209,9 +215,9 @@ def test_predict_from_sagemaker(cleanup, caplog, monkeypatch):
         input_schema=Schema(),
         output_schema=Schema(),
         configuration=Config(),
-        model_class="MyKerasModel",
         name="Genre_Template",
         description="Template for genre models",
+        model_class="MyKerasModel",
         requirements=["torch>=1.6"],
     )
 
@@ -241,9 +247,9 @@ def test_train_and_predict(cleanup):
         input_schema=Schema(),
         output_schema=Schema(),
         configuration=Config(),
-        model_class="MyKerasModel",
         name="My_template",
         description="Template for my new awesome project",
+        model_class="MyKerasModel",
         requirements=["tensorflow", "opencv-python-headless"],
     )
     ai = AI(
@@ -283,12 +289,12 @@ def test_build_image():
         input_schema=Schema(),
         output_schema=Schema(),
         configuration=Config(),
-        model_class="MyKerasModel",
         name="My_template",
         description="Template for my new awesome project",
+        model_class="MyKerasModel",
         requirements=["tensorflow", "opencv-python-headless"],
-        artifacts={"run": "runDir/run_this.sh"},
         code_path=["resources/runDir"],
+        artifacts={"run": "runDir/run_this.sh"},
     )
     ai = AI(
         ai_template=template,
@@ -310,7 +316,7 @@ def test_create_endpoint(ai, monkeypatch):
     monkeypatch.setattr(DeploymentApiMixin, "check_endpoint_is_available", lambda *a, **k: True)
 
     predictor = ai.deploy(orchestrator=Orchestrator.AWS_SAGEMAKER)
-    assert type(predictor) == AWSPredictor
+    assert type(predictor) == RemotePredictor
     assert hasattr(predictor, "predict")
 
     monkeypatch.setattr(DeploymentApiMixin, "predict_from_endpoint", lambda *a, **k: 20)

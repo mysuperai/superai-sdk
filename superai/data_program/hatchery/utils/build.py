@@ -12,9 +12,9 @@ from typing import List
 from colorama import Fore, Style
 from yaml import safe_load
 
-from superai.utils import load_api_key
 from superai.config import settings
-from superai.log import logger, logdecorator
+from superai.log import logdecorator, logger
+from superai.utils import load_api_key
 
 log = logger.get_logger()
 
@@ -87,7 +87,7 @@ def get_binaries(base_path=settings.s3_bucket, manifest=settings.build_manifest,
         try:
             if manifestPath.samefile(build_path(manifestPath.name)):
                 should_copy = False
-        except FileNotFoundError as e:
+        except FileNotFoundError:
             pass
 
         if should_copy:

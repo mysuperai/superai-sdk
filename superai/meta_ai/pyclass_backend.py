@@ -1,8 +1,5 @@
 import logging
-import os
 
-import subprocess
-import posixpath
 from .base import BaseBackend
 
 _logger = logging.getLogger(__name__)
@@ -19,7 +16,6 @@ class PyClassBackend(BaseBackend):
 
     def serve(self, model_uri, port, host):
         """Serve pyfunc model locally."""
-        pass
 
     def can_score_model(self):
         pass

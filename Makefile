@@ -54,7 +54,7 @@ lint: ## check style with flake8
 	flake8 superai tests
 
 test: ## run tests quickly with the default Python
-	py.test
+	pytest --vcr-record=none --junitxml=.test/junit.xml --cov=superai --cov-report=xml:.test/coverage.xml
 
 test-all: ## run tests on every Python version with tox
 	tox

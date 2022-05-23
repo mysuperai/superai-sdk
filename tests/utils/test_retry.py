@@ -1,5 +1,6 @@
-from superai.utils import retry
 import pytest
+
+from superai.utils import retry
 
 
 def test_retry_logging(caplog):

@@ -1,12 +1,12 @@
 """
 ModelHandler defines an example model handler for load and inference requests for MXNet CPU models
 """
-from collections import namedtuple
 import glob
 import json
 import logging
 import os
 import re
+from collections import namedtuple
 
 import mxnet as mx
 import numpy as np
@@ -81,7 +81,7 @@ class ModelHandler(BaseModel):
         properties = context.system_properties
         # Contains the url parameter passed to the load request
         model_dir = properties.get("model_dir")
-        gpu_id = properties.get("gpu_id")
+        properties.get("gpu_id")
 
         checkpoint_prefix = self.get_model_files_prefix(model_dir)
 
@@ -154,7 +154,6 @@ class ModelHandler(BaseModel):
 
     def train(self, input_data_path, model_save_path, hyperparams_path=None):
         """Not required for this implementation"""
-        pass
 
     @classmethod
     def load_weights(cls, weights_path):

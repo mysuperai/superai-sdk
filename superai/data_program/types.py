@@ -1,8 +1,7 @@
-from typing import Callable, Optional, Type, TypeVar, Tuple, Generic, List, Dict
-from typing_extensions import Protocol, TypedDict
+from typing import Callable, Dict, Generic, List, Optional, Type, TypeVar
 
 from superai_schema.types import BaseModel
-
+from typing_extensions import Protocol, TypedDict
 
 Input = TypeVar("Input", bound=BaseModel)
 Output = TypeVar("Output", bound=BaseModel)
@@ -48,7 +47,14 @@ class SendTask(Protocol[Output]):
     """
 
     def __call__(
-        self, name: str, *, task_template: TaskTemplate, task_input: BaseModel, task_output: Output, max_attempts: int
+        self,
+        name: str,
+        *,
+        task_template: TaskTemplate,
+        task_input: BaseModel,
+        task_output: Output,
+        max_attempts: int,
+        excluded_ids: List[int],
     ) -> Output:
         pass
 
@@ -58,31 +64,70 @@ class WorkflowConfig:
     is_default: bool
     is_gold: bool
     description: Optional[str]
+    measure: bool
 
-    def __init__(self, name: str, *, is_default: bool = False, is_gold: bool = False, description: str = None):
+    def __init__(
+        self,
+        name: str,
+        *,
+        is_default: bool = False,
+        is_gold: bool = False,
+        description: str = None,
+        measure: bool = True,
+    ):
         self.name = name
         self.is_gold = is_gold
         self.is_default = is_default
         self.description = description
+        self.measure = measure
 
 
 class JobContext(Generic[Output]):
     workflow: WorkflowConfig
     send_task: SendTask[Output]
+    job_cache: Optional[dict]
+    is_training: bool
 
-    def __init__(self, workflow: WorkflowConfig, send_task: SendTask[Output]):
+    def __init__(
+        self,
+        workflow: WorkflowConfig,
+        send_task: SendTask[Output],
+        use_job_cache: bool = False,
+        is_training: bool = False,
+    ):
         self.workflow = workflow
         self.send_task = send_task
+        self.job_cache = {} if use_job_cache else None
+        self.is_training = is_training
 
 
-class Handler(Protocol[Parameters, Input, Output]):
+class PostProcessContext:
+    job_uuid: Optional[str]
+    job_cache: Optional[dict]
+
+    def __init__(self, job_uuid: Optional[str] = None, job_cache: Optional[dict] = None):
+        self.job_uuid = job_uuid
+        self.job_cache = job_cache
+
+
+class HandlerOutput(BaseModel):
+    input_model: Type[Input]
+    output_model: Type[Output]
+    process_fn: Callable[[Input, JobContext], Output]
+    post_process_fn: Optional[Callable[[Output, PostProcessContext], str]]
+    templates: List[TaskTemplate]
+    metrics: List[Metric]
+
+    class Config:
+        arbitrary_types_allowed = True
+
+
+class Handler(Protocol[Parameters]):
     """
     Signature of the data program's "main logic"
     """
 
-    def __call__(
-        self, params: Parameters
-    ) -> Tuple[Type[Input], Type[Output], Callable[[Input, JobContext], Output], List[TaskTemplate], List[Metric]]:
+    def __call__(self, params: Parameters) -> HandlerOutput:
         pass
 
 
@@ -114,6 +159,24 @@ class MetricRequestModel(BaseModel):
     preds: List[dict]
 
 
+class PostProcessRequestModel(BaseModel):
+    job_uuid: str
+    response: dict
+
+
 class MethodResponse(BaseModel):
     method_name: str
     role: str
+
+
+class TaskResponse(Generic[Output]):
+    task_output: Output
+    hero_id: Optional[int]
+
+    def __init__(
+        self,
+        task_output: Output,
+        hero_id: Optional[int],
+    ):
+        self.task_output = task_output
+        self.hero_id = hero_id

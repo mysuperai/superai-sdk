@@ -10,7 +10,11 @@ from superai.apis.jobs import JobsApiMixin
 from superai.apis.meta_ai import AiApiMixin
 from superai.apis.project import ProjectApiMixin
 from superai.config import settings
-from superai.exceptions import SuperAIAuthorizationError, SuperAIEntityDuplicatedError, SuperAIError
+from superai.exceptions import (
+    SuperAIAuthorizationError,
+    SuperAIEntityDuplicatedError,
+    SuperAIError,
+)
 
 BASE_URL = settings.get("base_url")
 

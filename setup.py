@@ -1,14 +1,28 @@
 # coding: utf-8
 
 
+import sys
+
 from setuptools import find_packages, setup  # type: ignore
 
-with open("README.md", "r") as fh:
-    long_description = fh.read()
+try:
+    with open("README.md", "r") as fh:
+        long_description = fh.read()
+except FileNotFoundError:
+    # Remove dependency on external files in case we only want to install requirements
+    print("README.md not found")
+    long_description = ""
 
 NAME = "superai"
 
-VERSION = "0.1.0.beta4"
+# VERSION is defined in superai/version.py
+try:
+    sys.path[0:0] = [NAME]
+    from version import __version__  # type: ignore
+except ImportError:
+    # Fallback in case we only want to install requirements
+    __version__ = "0.0.0"
+
 # To install the library, run the following
 #
 # python setup.py install
@@ -21,7 +35,6 @@ REQUIRES = [
     "boto3>=1.15",
     "click>=7.0",
     "colorama>=0.3.0",
-    "cloudpickle==1.6.0",
     "dynaconf>=3.1.2",
     "docker>=4.0.0",
     "fastapi>=0.70.0",
@@ -37,13 +50,13 @@ REQUIRES = [
     "requests>=2.22",
     "sentry-sdk>=0.19.4",
     "scikit-learn>=0.23.2",
-    "sgqlc>=14.1",
+    "sgqlc>=16",
     "sentry-sdk>=0.19.4",
     "six",
     "uvicorn>=0.15.0",
     "pycognito>=2021.3.1",
-    "psutil~=5.6.7",
     "pandas>=1.2.5",
+    "polyaxon>=1.14.3",
     "sagemaker>=1.64.1",
 ]
 
@@ -71,13 +84,14 @@ TEST_REQUIRES = [
     "pytest-env>=0.6.2",
     "pytest-vcr>=1.0.2",
     "vcrpy>=4.1.1",
-    "pytest-mock~=3.3.1",
+    "pytest-mock~=3.7.0",
     "seldon-core>=1.11.2",
+    "dictdiffer>=0.9.0",
 ]
 
 setup(
     name=NAME,
-    version=VERSION,
+    version=__version__,
     description="super.AI API",
     author="super.AI",
     author_email="support@super.ai",

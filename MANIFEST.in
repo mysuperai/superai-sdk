@@ -11,6 +11,10 @@ recursive-include superai settings.yaml .secrets.yaml
 recursive-exclude * __pycache__
 recursive-exclude * *.py[co]
 recursive-exclude * examples
+recursive-exclude * .git
+
+prune .ci
+prune .github
 prune designs
 prune examples
 

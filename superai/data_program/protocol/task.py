@@ -14,17 +14,17 @@ from random import randint
 
 import requests
 import sentry_sdk
+
+# from canotic.ai import sagemaker_runtime as sm # TODO: Remove dependency
+from colorama import Fore, Style
+from genson import SchemaBuilder
+from superai_dataclient.data_helper import DataHelper
 from superai_schema.universal_schema.data_types import (
     get_current_version_id,
     list_to_schema,
     validate,
 )
 from superai_schema.universal_schema.task_schema_functions import text
-
-# from canotic.ai import sagemaker_runtime as sm # TODO: Remove dependency
-from colorama import Fore, Style
-from genson import SchemaBuilder
-from superai_dataclient.data_helper import DataHelper
 
 from superai.config import settings
 from superai.data_program.experimental import memo
@@ -40,8 +40,8 @@ sentry_helper.init()
 CACHE_FOLDER = "tmp"
 
 if settings.backend == "qumes":
+    # isort: off
     from canotic.qumes_transport import (
-        future,
         schedule_task,
         schedule_workflow,
         resolve_job,
@@ -65,12 +65,11 @@ if settings.backend == "qumes":
         get_context_metadata,
         get_context_job_type,
         get_context_simple_id,
-    )
+    )  # noqa # nosort
 else:
     from .transport import (
         attach_bill,
         decline_result,
-        future,
         get_context_app_id,
         get_context_id,
         get_context_is_child,
@@ -92,7 +91,9 @@ else:
         send_report,
         send_reward,
         subscribe_workflow,
-    )
+    )  # noqa # nosort
+
+    # isort: off
 
 
 def task(
