@@ -1,4 +1,5 @@
 import os
+import shutil
 from abc import ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from typing import TypeVar
@@ -45,6 +46,7 @@ class LocalPredictor(DeployedPredictor):
         super(LocalPredictor, self).__init__(*args, **kwargs)
         client = get_docker_client()
         self.lambda_mode = kwargs.get("lambda_mode", False)
+        self.enable_cuda = kwargs.get("enable_cuda", False)
         self.k8s_mode = kwargs.get("k8s_mode", False)
         container_name = kwargs["image_name"].replace(":", "_")
         if not existing:
@@ -72,6 +74,7 @@ class LocalPredictor(DeployedPredictor):
                         }
                     },
                     ports=self._get_port_assignment(),
+                    device_requests=self._get_device_requests(),
                 )
                 log.info("Started container in serving mode.")
             except APIError as e:
@@ -146,6 +149,13 @@ class LocalPredictor(DeployedPredictor):
             return {9000: 9000}
         else:
             return {8080: 80, 8081: 8081}
+
+    def _get_device_requests(self):
+        device_requests = None
+        if self.enable_cuda and shutil.which("nvidia-container-runtime") is not None:
+            device_requests = [docker.types.DeviceRequest(count=-1, capabilities=[["gpu"]])]
+
+        return device_requests
 
 
 class RemotePredictor(DeployedPredictor):

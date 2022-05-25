@@ -1085,6 +1085,7 @@ class AI:
             kwargs["image_name"] = f"{self.name}:{self.version}"
             kwargs["weights_path"] = self.weights_path
             kwargs["lambda_mode"] = is_lambda_orchestrator
+            kwargs["enable_cuda"] = enable_cuda
             kwargs["k8s_mode"] = orchestrator == Orchestrator.LOCAL_DOCKER_K8S
         else:
             if not skip_build:
