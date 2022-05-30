@@ -58,6 +58,7 @@ REQUIRES = [
     "pandas>=1.2.5",
     "polyaxon>=1.14.3",
     "sagemaker>=1.64.1",
+    "protobuf>=3.20.1, <4.*",  # 4.21.0 broke the sagemaker imports, see https://github.com/protocolbuffers/protobuf/issues/10051
 ]
 
 BUILD_REQUIRES = [
