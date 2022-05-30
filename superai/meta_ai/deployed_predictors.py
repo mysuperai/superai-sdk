@@ -49,6 +49,7 @@ class LocalPredictor(DeployedPredictor):
         self.enable_cuda = kwargs.get("enable_cuda", False)
         self.k8s_mode = kwargs.get("k8s_mode", False)
         container_name = kwargs["image_name"].replace(":", "_")
+        weights_volume = "/shared" if self.k8s_mode else "/opt/ml/model/"
         if not existing:
             try:
                 try:
@@ -58,8 +59,9 @@ class LocalPredictor(DeployedPredictor):
                         "Stopping before restarting with new image."
                     )
                     container.kill()
+                    container.wait()
                 except Exception as e:
-                    log.info(f"Ignorable exception: {e}")
+                    log.debug(f"Ignorable exception: {e}")
 
                 log.info(f"Starting new container with name {container_name}.")
                 self.container: Container = client.containers.run(
@@ -69,7 +71,7 @@ class LocalPredictor(DeployedPredictor):
                     remove=remove,
                     volumes={
                         os.path.abspath(kwargs["weights_path"]): {
-                            "bind": "/opt/ml/model/",
+                            "bind": weights_volume,
                             "mode": "rw",
                         }
                     },

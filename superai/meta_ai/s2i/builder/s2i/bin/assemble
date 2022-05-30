@@ -61,6 +61,10 @@ if [[ -z "$BUILD_PIP" ]]; then
   if [[ -f /home/model-server/setup.sh ]]; then
     echo "---> Executing setup.sh"
     codeartifact_login
+    if [[ "$CONDA_ENV_NAME" ]]; then
+      . /opt/conda/etc/profile.d/conda.sh
+      conda activate $CONDA_ENV_NAME
+    fi
     bash setup.sh
   fi
 else

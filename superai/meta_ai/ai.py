@@ -994,6 +994,7 @@ class AI:
         properties: Optional[dict] = None,
         enable_cuda: bool = False,
         enable_eia: bool = False,
+        cuda_devel: bool = False,
         redeploy: bool = False,
         **kwargs,
     ) -> "DeployedPredictor.Type":
@@ -1008,6 +1009,7 @@ class AI:
             skip_build: Skip building
             enable_cuda: Create CUDA-Compatible image
             enable_eia: Create Elastic Inference compatible image
+            cuda_devel: Create development CUDA image
             properties: Optional dictionary with properties for instance creation.
                 Possible values (with defaults) are:
                     "sagemaker_instance_type": "ml.m5.xlarge"
@@ -1055,6 +1057,7 @@ class AI:
                     str(self.version),
                     enable_cuda=enable_cuda,
                     enable_eia=enable_eia,
+                    cuda_devel=cuda_devel,
                     lambda_mode=is_lambda_orchestrator,
                     from_scratch=kwargs.get("build_all_layers", False),
                     always_download=kwargs.get("download_base", False),
@@ -1070,6 +1073,7 @@ class AI:
                     str(self.version),
                     enable_cuda=enable_cuda,
                     enable_eia=enable_eia,
+                    cuda_devel=cuda_devel,
                     lambda_mode=is_lambda_orchestrator,
                     k8s_mode=True,
                     from_scratch=kwargs.get("build_all_layers", False),
@@ -1178,6 +1182,7 @@ class AI:
         enable_eia: bool = False,
         lambda_mode: bool = False,
         enable_cuda: bool = False,
+        cuda_devel: bool = False,
         k8s_mode: bool = False,
         version: int = 1,
     ) -> str:
@@ -1186,7 +1191,8 @@ class AI:
         Args:
             enable_eia: Return Elastic Inference base image name
             lambda_mode: Return Lambda base image name
-            enable_cuda: Return GPU image names
+            enable_cuda: Return runtime GPU image name
+            cuda_devel: Return development GPU image name
             k8s_mode: Return Kubernetes base image names
 
         Return:
@@ -1199,7 +1205,9 @@ class AI:
 
         base_image = "superai-model-s2i-python3711"
 
-        if enable_cuda:
+        if cuda_devel:
+            base_image += "-gpu-devel"
+        elif enable_cuda:
             base_image += "-gpu"
         elif enable_eia:
             base_image += "-eia"
@@ -1253,6 +1261,7 @@ class AI:
         version_tag: str = "latest",
         enable_cuda: bool = False,
         enable_eia: bool = False,
+        cuda_devel: bool = False,
         lambda_mode: bool = False,
         k8s_mode: bool = False,
         from_scratch: bool = False,
@@ -1277,7 +1286,7 @@ class AI:
         changes_in_build = self._track_changes()
 
         client = get_docker_client()
-        base_image = self._get_base_name(enable_eia, lambda_mode, enable_cuda, k8s_mode)
+        base_image = self._get_base_name(enable_eia, lambda_mode, enable_cuda, cuda_devel, k8s_mode)
         if always_download:
             log.info(f"Downloading newest base image {base_image}...")
             self._download_base_image(base_image, client)
@@ -1534,6 +1543,7 @@ class AI:
                     str(self.version),
                     enable_cuda=enable_cuda,
                     enable_eia=False,
+                    cuda_devel=False,
                     lambda_mode=False,
                     k8s_mode=True,
                     from_scratch=kwargs.get("build_all_layers", False),

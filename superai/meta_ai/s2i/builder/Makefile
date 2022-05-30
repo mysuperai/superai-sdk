@@ -12,10 +12,16 @@ endif
 
 ifeq ($(mode), cpu)
 	BASE_IMAGE=python:${PYTHON_VERSION}-slim-buster
+else ifeq ($(mode), gpu)
+	BASE_IMAGE=nvidia/cuda:10.2-cudnn8-runtime-ubuntu18.04
+else ifeq ($(mode), gpu-devel)
+	BASE_IMAGE=nvidia/cuda:10.2-cudnn7-devel-ubuntu18.04
 else ifeq ($(mode), eia)
 	BASE_IMAGE=763104351884.dkr.ecr.us-east-1.amazonaws.com/tensorflow-inference-eia:2.3.0-cpu-py37-ubuntu18.04
-else
-	BASE_IMAGE=nvidia/cuda:10.2-cudnn8-runtime-ubuntu18.04
+endif
+
+ifndef BASE_IMAGE
+$(error mode ${mode} is unknown)
 endif
 
 IMAGE_NAME=superai-model-s2i-python${IMAGE_PYTHON_VERSION}-${mode}
