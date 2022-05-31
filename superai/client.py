@@ -9,6 +9,7 @@ from superai.apis.ground_truth import GroundTruthApiMixin
 from superai.apis.jobs import JobsApiMixin
 from superai.apis.meta_ai import AiApiMixin
 from superai.apis.project import ProjectApiMixin
+from superai.apis.tasks import TasksApiMixin
 from superai.config import settings
 from superai.exceptions import (
     SuperAIAuthorizationError,
@@ -25,7 +26,14 @@ logger = logger.get_logger(__name__)
 
 
 class Client(
-    JobsApiMixin, AuthApiMixin, GroundTruthApiMixin, DataApiMixin, DataProgramApiMixin, ProjectApiMixin, AiApiMixin
+    JobsApiMixin,
+    AuthApiMixin,
+    GroundTruthApiMixin,
+    DataApiMixin,
+    DataProgramApiMixin,
+    ProjectApiMixin,
+    AiApiMixin,
+    TasksApiMixin,
 ):
     def __init__(self, api_key: str = None, auth_token: str = None, id_token: str = None, base_url: str = None):
         super(Client, self).__init__()

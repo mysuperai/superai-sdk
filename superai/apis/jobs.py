@@ -1,6 +1,16 @@
+import json
+import time
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Generator, List
+from io import BytesIO
+from typing import Generator, List, Optional
+from zipfile import ZipFile
+
+import requests
+
+from superai.log import logger
+
+log = logger.get_logger(__name__)
 
 
 class JobsApiMixin(ABC):
@@ -248,3 +258,46 @@ class JobsApiMixin(ABC):
         if secondsTtl is not None:
             query_params["secondsTtl"] = secondsTtl
         return self.request(uri, method="POST", query_params=query_params, required_api_key=True)
+
+    def download_jobs_full_flow(
+        self,
+        app_id: str,
+        createdStartDate: datetime = None,
+        createdEndDate: datetime = None,
+        completedStartDate: datetime = None,
+        completedEndDate: datetime = None,
+        statusIn: List[str] = None,
+        timeout: int = 120,
+        poll_interval: int = 3,
+    ) -> Optional[List[dict]]:
+        """
+        Trigger download of jobs and polls every poll_interval seconds until it
+        returns the list of jobs or None in case of timeout
+        :param app_id: Application id
+        :param createdStartDate: Filter by created start date of jobs
+        :param createdEndDate: Filter by created end date of jobs
+        :param completedStartDate: Filter by completed start date of jobs
+        :param completedEndDate: Filter by completed end date of jobs
+        :param statusIn: Filter by status of jobs
+        :param timeout: Timeout in seconds
+        :param poll_interval: Poll interval in seconds
+        :return: List of dict of job
+        """
+        operation_id = self.download_jobs(
+            app_id, createdStartDate, createdEndDate, completedStartDate, completedEndDate, statusIn, False
+        )["operationId"]
+        operation_completed = False
+        start_poll_date = datetime.now()
+        while not operation_completed or (datetime.now() - start_poll_date).seconds >= timeout:
+            operation = self.get_jobs_operation(app_id, operation_id)
+            log.info(f"Poll result: Operation {operation['id']} in status: {operation['status']}")
+            if operation["status"] == "COMPLETED":
+                operation_completed = True
+            else:
+                time.sleep(poll_interval)
+        if not operation_completed:
+            return None
+        download_jobs_url = self.generates_downloaded_jobs_url(app_id, operation_id)["downloadUrl"]
+        resp = requests.get(download_jobs_url)
+        zipfile = ZipFile(BytesIO(resp.content))
+        return json.load(zipfile.open(zipfile.namelist()[0]))

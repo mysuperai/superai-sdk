@@ -385,6 +385,104 @@ def downloaded_jobs_url(
     print(client.generates_downloaded_jobs_url(app_id, operation_id, seconds_ttl))
 
 
+@client.command(name="download_tasks")
+@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option(
+    "--created_start_date",
+    "-c0",
+    help="Created start date",
+    type=click.DateTime(formats=["%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d"]),
+)
+@click.option(
+    "--created_end_date",
+    "-c1",
+    help="Created end date",
+    type=click.DateTime(formats=["%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d"]),
+)
+@click.option(
+    "--completed_start_date",
+    "-e0",
+    help="Completed start date",
+    type=click.DateTime(formats=["%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d"]),
+)
+@click.option(
+    "--completed_end_date",
+    "-e1",
+    help="Completed end date",
+    type=click.DateTime(formats=["%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d"]),
+)
+@click.option(
+    "--status_in",
+    "-s_in",
+    help="Status of tasks",
+    multiple=True,
+    type=click.Choice(["SCHEDULED", "IN_PROGRESS", "FAILED", "CANCELED", "PENDING", "EXPIRED", "COMPLETED"]),
+)
+@click.pass_context
+def download_tasks(
+    ctx,
+    app_id: str,
+    created_start_date: datetime,
+    created_end_date: datetime,
+    completed_start_date: datetime,
+    completed_end_date: datetime,
+    status_in: List[str] = None,
+):
+    """
+    Trigger download of tasks data that can be retrieved using task operation id.
+    """
+    client = ctx.obj["client"]
+    print(f"Triggering task download processing per application {app_id}")
+    if len(status_in) == 0:
+        status_in = None
+    print(
+        client.download_tasks(
+            app_id,
+            created_start_date,
+            created_end_date,
+            completed_start_date,
+            completed_end_date,
+            status_in,
+        )
+    )
+
+
+@client.command(name="get_tasks_operation")
+@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--operation_id", "-o", help="Operation id", required=True)
+@click.pass_context
+def get_tasks_operation(
+    ctx,
+    app_id: str,
+    operation_id: str,
+):
+    """
+    Fetch tasks operation given application id and operation id
+    """
+    client = ctx.obj["client"]
+    print(f"Fetching tasks operation per application {app_id} operation {operation_id}")
+    print(client.get_tasks_operation(app_id, operation_id))
+
+
+@client.command(name="downloaded_tasks_url")
+@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--operation_id", "-o", help="Operation id", required=True)
+@click.option("--seconds_ttl", "-sttl", help="Seconds ttl for url", default=60, type=click.INT, show_default=True)
+@click.pass_context
+def downloaded_tasks_url(
+    ctx,
+    app_id: str,
+    operation_id: str,
+    seconds_ttl: int,
+):
+    """
+    Generates downloaded tasks url given application id and operation id
+    """
+    client = ctx.obj["client"]
+    print(f"Generating downloaded tasks url per application {app_id} operation {operation_id}")
+    print(client.generates_downloaded_tasks_url(app_id, operation_id, seconds_ttl))
+
+
 @client.command(name="create_ground_truth")
 @click.option("--app_id", "-a", help="Application id", required=True)
 @click.option("--input_json", "-i", help="Input json of ground truth", required=True)
