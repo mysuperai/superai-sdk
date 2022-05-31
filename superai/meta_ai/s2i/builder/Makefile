@@ -13,7 +13,7 @@ endif
 ifeq ($(mode), cpu)
 	BASE_IMAGE=python:${PYTHON_VERSION}-slim-buster
 else ifeq ($(mode), gpu)
-	BASE_IMAGE=nvidia/cuda:10.2-cudnn8-runtime-ubuntu18.04
+	BASE_IMAGE=nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04
 else ifeq ($(mode), gpu-devel)
 	BASE_IMAGE=nvidia/cuda:10.2-cudnn7-devel-ubuntu18.04
 else ifeq ($(mode), eia)
