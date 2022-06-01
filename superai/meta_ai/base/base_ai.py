@@ -46,7 +46,7 @@ class BaseModel(metaclass=ABCMeta):
 
         # Seldon default weights loading path in the container. You can override this by passing MNT_PATH in the
         # environment file or CRD
-        self.default_seldon_load_path = os.environ.get("MNT_PATH", "/shared")
+        self.default_seldon_load_path = os.environ.get("MNT_PATH", "/mnt/models")
 
     def __init_subclass__(cls, **kwargs):
         cls.predict = cls._process_json_func(cls.predict)

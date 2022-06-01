@@ -49,7 +49,7 @@ class LocalPredictor(DeployedPredictor):
         self.enable_cuda = kwargs.get("enable_cuda", False)
         self.k8s_mode = kwargs.get("k8s_mode", False)
         container_name = kwargs["image_name"].replace(":", "_")
-        weights_volume = "/shared" if self.k8s_mode else "/opt/ml/model/"
+        weights_volume = "/mnt/models" if self.k8s_mode else "/opt/ml/model/"
         if not existing:
             try:
                 try:
