@@ -6,20 +6,21 @@ The adaptation of the model is done from https://www.kaggle.com/code/vincee/inte
 """
 import logging
 import os
-import zipfile
+from typing import Tuple
 
 import cv2
 import numpy as np
 import tensorflow as tf
-from polyaxon import tracking
-from polyaxon.fs.fs import get_fs_from_name
-from polyaxon.tracking.contrib.keras import PolyaxonKerasCallback
 from sklearn.utils import shuffle
 from tqdm import tqdm
 
-from superai import settings
 from superai.meta_ai import BaseModel
-from superai.meta_ai.base.base_ai import default_random_seed
+from superai.meta_ai.base.base_ai import add_default_tracking, default_random_seed
+from superai.meta_ai.base.training_helpers import (
+    AvailableCallbacks,
+    DefaultCallbackFactory,
+    get_tensorboard_tracking_path,
+)
 from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters
 
 logger = logging.getLogger(__file__)
@@ -37,24 +38,16 @@ class IntelImageClassification(BaseModel):
         self.IMAGE_SIZE = (150, 150)
 
     @staticmethod
-    def unzip_folder(path_to_zipped_file):
+    def get_training_path(path_to_zipped_file: str) -> Tuple[str, str]:
         """
-        Unzip an artifact
+        Creates training and testing paths
         :param path_to_zipped_file:
-        :return: paths to test and train folder
+        :return:
         """
-        print(f"Downloading and Unzipping {path_to_zipped_file} from s3fs")
-        print(settings.polyaxon_s3_conn, settings.meta_ai_bucket)
-        s3_fs = get_fs_from_name(connection_name=settings.polyaxon_s3_conn)
-        s3_path = os.path.join(settings.meta_ai_bucket, path_to_zipped_file)
-        print(s3_fs.ls(s3_path))
-        with s3_fs.open(s3_path) as zipped_dir:
-            with zipfile.ZipFile(zipped_dir, "r") as zip_ref:
-                zip_ref.extractall(directory_to_extract_to)
-                return (
-                    os.path.join(directory_to_extract_to, "seg_train/seg_train"),
-                    os.path.join(directory_to_extract_to, "seg_test/seg_test"),
-                )
+        return (
+            os.path.join(path_to_zipped_file, "seg_train/seg_train"),
+            os.path.join(path_to_zipped_file, "seg_test/seg_test"),
+        )
 
     def load_data(self, train_path, test_path):
         """
@@ -108,6 +101,7 @@ class IntelImageClassification(BaseModel):
     def predict(self, inputs, context=None):
         pass
 
+    @add_default_tracking
     def train(
         self,
         model_save_path,
@@ -115,13 +109,14 @@ class IntelImageClassification(BaseModel):
         validation_data=None,
         test_data=None,
         production_data=None,
+        weights_path=None,
         encoder_trainable: bool = True,
         decoder_trainable: bool = True,
         hyperparameters: HyperParameterSpec = None,
         model_parameters: ModelParameters = None,
         callbacks=None,
         random_seed=default_random_seed,
-    ):
+    ) -> dict:
         """
         Training algorithm implementation
 
@@ -130,6 +125,7 @@ class IntelImageClassification(BaseModel):
         :param validation_data: Points to the local directory where validation data is stored
         :param test_data: Points to the local directory where test data is stored
         :param production_data: Points to the local directory where production data is stored
+        :param weights_path: Points to where transfer learning weights are stored
         :param encoder_trainable:
         :param decoder_trainable:
         :param hyperparameters:
@@ -140,11 +136,10 @@ class IntelImageClassification(BaseModel):
         """
         if callbacks is None or isinstance(callbacks, str):
             callbacks = []
-        tracking.init()
 
         # Load data
         logger.info(f"Loading data from {training_data}")
-        training_data_path, test_data_path = self.unzip_folder(training_data)
+        training_data_path, test_data_path = self.get_training_path(training_data)
         (train_images, train_labels), (test_images, test_labels) = self.load_data(training_data_path, test_data_path)
         train_images, train_labels = shuffle(train_images, train_labels, random_state=random_seed)
         logger.info("Dataset prepared")
@@ -171,9 +166,8 @@ class IntelImageClassification(BaseModel):
 
         # setup callbacks
         logger.info("Preparing callbacks...")
-        tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=tracking.get_tensorboard_path())
-        plx_callback = PolyaxonKerasCallback(run=tracking.TRACKING_RUN)
-        callbacks.extend([tensorboard_callback, plx_callback])
+        tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=get_tensorboard_tracking_path())
+        callbacks.extend([tensorboard_callback, DefaultCallbackFactory.get_default_callback(AvailableCallbacks.Keras)])
 
         # start training
         logger.info("Starting training...")
@@ -188,8 +182,9 @@ class IntelImageClassification(BaseModel):
         accuracy = model.evaluate(test_images, test_labels)[1]
 
         # track and save
-        tracking.log_metrics(eval_accuracy=accuracy)
         if not os.path.exists(model_save_path):
             os.makedirs(model_save_path)
         model.save(model_save_path)
         logger.info(f"Training complete, saved model in {model_save_path}")
+
+        return dict(eval_accuracy=accuracy)

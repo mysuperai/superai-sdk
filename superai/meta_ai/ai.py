@@ -585,8 +585,7 @@ class AI:
         s3 = boto3.client("s3")
 
         download_folder = os.path.join("/tmp", f"ai_contents_{int(time.time())}")
-        if not os.path.exists(download_folder):
-            os.makedirs(download_folder)
+        os.makedirs(download_folder, exist_ok=True)
         log.info(f"Storing temporary files in {download_folder}")
 
         parsed_url = urlparse(path, allow_fragments=False)
@@ -630,8 +629,7 @@ class AI:
             if weights_path.startswith("s3"):
                 s3 = boto3.client("s3")
                 download_folder = kwargs.get("download_folder", os.path.join("/tmp", f"ai_contents_{int(time.time())}"))
-                if not os.path.exists(download_folder):
-                    os.makedirs(download_folder)
+                os.makedirs(download_folder, exist_ok=True)
                 parsed_url = urlparse(weights_path, allow_fragments=False)
                 bucket_name = parsed_url.netloc
                 path_to_object = parsed_url.path if not parsed_url.path.startswith("/") else parsed_url.path[1:]
@@ -841,8 +839,7 @@ class AI:
             overwrite:
         """
         save_path = os.path.join(path, self.name)
-        if not os.path.exists(save_path):
-            os.makedirs(save_path)
+        os.makedirs(save_path, exist_ok=True)
 
         if self.version is None:
             version = "0"
@@ -1236,9 +1233,7 @@ class AI:
                 files.append("setup.sh")
         changes_in_build = False
         cache_folder = os.path.join(settings.path_for(), "cache", self.name, str(self.version))
-        if not os.path.exists(cache_folder):
-            log.info(f"Creating cache folder {cache_folder}")
-            os.makedirs(cache_folder)
+        os.makedirs(cache_folder, exist_ok=True)
         hash_file = os.path.join(cache_folder, ".hash.json")
         if not os.path.exists(hash_file):
             with open(hash_file, "w") as f_hash:

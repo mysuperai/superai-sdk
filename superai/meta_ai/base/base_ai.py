@@ -10,6 +10,7 @@ from typing import Optional
 from urllib.parse import urlparse
 
 import boto3
+from polyaxon import tracking
 
 from superai.meta_ai.parameters import Config, HyperParameterSpec, ModelParameters
 from superai.meta_ai.schema import Schema, SchemaParameters
@@ -229,7 +230,7 @@ class BaseModel(metaclass=ABCMeta):
         model_parameters: ModelParameters = None,
         callbacks=None,
         random_seed=default_random_seed,
-    ):
+    ) -> dict:
         """
         Args:
             random_seed:
@@ -246,7 +247,8 @@ class BaseModel(metaclass=ABCMeta):
             weights_path:
 
         Returns:
-            Model URI.
+            Dictionary of metrics to be tracked. Eg: `{"eval_accuracy": accuracy}` where `accuracy` is obtained from
+            the keras train function. These metrics will be tracked by polyaxon training run
         """
 
     def handle(self, data, context):
@@ -315,3 +317,20 @@ class BaseModelContext(object):
         """A dictionary containing ``<name, artifact_path>`` entries, where ``artifact_path`` is an absolute
         filesystem path to the artifact."""
         return self._artifacts
+
+
+def add_default_tracking(training_method):
+    """
+    Decorator to add tracking to the training method which performs basic metrics tracking that are returned by the
+    training function. Note that the metrics signature should match the arguments of the `tracking.log_metrics` method
+
+    Args:
+        training_method: `train` method of the Base class.
+    """
+
+    def inner(*args, **kwargs):
+        tracking.init()
+        metrics_dict = training_method(*args, **kwargs)
+        tracking.log_metrics(**metrics_dict)
+
+    return inner
