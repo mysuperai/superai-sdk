@@ -224,6 +224,7 @@ class AITemplate:
         self.model_class = model_class
         self.model_class_path = model_class_path
         self.environs: Optional[EnvironmentFileProcessor] = None
+        self.template_id = None
 
     @classmethod
     def load_local(cls, load_path: str) -> "AITemplate":
@@ -1525,28 +1526,13 @@ class AI:
                   {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
             download_base: Always download the base image to get the latest version from ECR
         """
-        for key, value in kwargs.get("envs", {}).items():
-            self.environs.add_or_update(key, value)
-        if orchestrator in [TrainingOrchestrator.AWS_EKS, TrainingOrchestrator.LOCAL_DOCKER_K8S]:
-            if properties is None:
-                properties = {}
-            k8s_config = self._prepare_k8s_dependencies(enable_cuda=enable_cuda, properties=properties, **kwargs)
-            properties["kubernetes_config"] = k8s_config
-            if not skip_build:
-                self.build_image_s2i(
-                    self.name,
-                    str(self.version),
-                    enable_cuda=enable_cuda,
-                    enable_eia=False,
-                    cuda_devel=False,
-                    lambda_mode=False,
-                    k8s_mode=True,
-                    from_scratch=kwargs.get("build_all_layers", False),
-                    always_download=kwargs.get("download_base", False),
-                )
-        else:
-            # TODO: Add support for local training
-            raise ValueError(f"Invalid Orchestrator, should be one of {[e for e in TrainingOrchestrator]}")
+        self._build_trainer_image(
+            enable_cuda=enable_cuda,
+            orchestrator=orchestrator,
+            properties=properties,
+            skip_build=skip_build,
+            kwargs=kwargs,
+        )
         # build kwargs
         kwargs = {}
         if orchestrator in [TrainingOrchestrator.LOCAL_DOCKER_K8S]:
@@ -1580,3 +1566,87 @@ class AI:
 
             self.client.update_training_instance(instance_id, state="STARTING")
             log.info(f"Create training instance : {instance_id}")
+
+    def _build_trainer_image(self, enable_cuda, orchestrator, properties, skip_build, **kwargs):
+        for key, value in kwargs.get("envs", {}).items():
+            self.environs.add_or_update(key, value)
+        if orchestrator in [TrainingOrchestrator.AWS_EKS, TrainingOrchestrator.LOCAL_DOCKER_K8S]:
+            if properties is None:
+                properties = {}
+            k8s_config = self._prepare_k8s_dependencies(enable_cuda=enable_cuda, properties=properties, **kwargs)
+            if not skip_build:
+                self.build_image_s2i(
+                    self.name,
+                    str(self.version),
+                    enable_cuda=enable_cuda,
+                    enable_eia=False,
+                    cuda_devel=False,
+                    lambda_mode=False,
+                    k8s_mode=True,
+                    from_scratch=kwargs.get("build_all_layers", False),
+                    always_download=kwargs.get("download_base", False),
+                )
+        else:
+            # TODO: Add support for local training
+            raise ValueError(f"Invalid Orchestrator, should be one of {[e for e in TrainingOrchestrator]}")
+
+    def start_training_from_app(
+        self,
+        app_id: str,
+        task_name: str,
+        current_properties: dict = {},
+        metadata: dict = {},
+        skip_build=False,
+        **kwargs,
+    ):
+        """
+        Given the App ID, task name, start a training from the AI object
+
+        Args:
+            app_id: app ID
+            task_name: Name of the task for the dataset
+            current_properties: Properties of training
+            metadata: Metadata
+            skip_build: Whether to skip building the AI image
+
+        # Hidden kwargs
+            enable_cuda: Whether CUDA base image is to be used
+            worker_count: Number of workers to use for serving with Sagemaker.
+            ai_cache: Cache of ai objects for a lambda, 5 by default considering the short life of a lambda function
+            build_all_layers: Perform a fresh build of all layers
+            envs: Pass custom environment variables to the deployment. Should be a dictionary like
+                  {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
+            download_base: Always download the base image to get the latest version from ECR
+        """
+        orchestrator = TrainingOrchestrator.AWS_EKS
+        self._build_trainer_image(
+            enable_cuda=kwargs.get("enable_cuda", False),
+            orchestrator=orchestrator,
+            properties=current_properties,
+            skip_build=skip_build,
+            kwargs=kwargs,
+        )
+        if not skip_build:
+            image_name = self.push_model(self.name, str(self.version))
+        else:
+            image_name = get_ecr_image_name(self.name, self.version)
+        self.client.update_model(self.id, image=image_name, trainable=True)
+        if self.id is None:
+            raise LookupError("Cannot establish id, please make sure you push the AI model to create a database entry")
+        if self.ai_template.template_id is None:
+            log.info("Training template unknown, getting or creating")
+            self.ai_template.get_or_create_training_entry(app_id, self.id, properties=current_properties)
+        log.info(
+            f"Starting training for app ID {app_id}, task name {task_name}, model ID {self.id} template Id "
+            f"{self.ai_template.template_id} with properties {current_properties} and metadata {metadata}"
+        )
+        instance_id = self.client.start_training_from_app_model_template(
+            app_id=app_id,
+            model_id=self.id,
+            task_name=task_name,
+            training_template_id=self.ai_template.template_id,
+            current_properties=current_properties,
+            metadata=metadata,
+        )
+        self.client.update_training_instance(instance_id, state="STARTING")
+        log.info(f"Create training instance : {instance_id}")

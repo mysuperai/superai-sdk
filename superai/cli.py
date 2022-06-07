@@ -1225,6 +1225,36 @@ def start_training(client, app_id, model_id, properties: str):
         print(f"Started a new training with ID {id}")
 
 
+@training.command(name="trigger-template")
+@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--model_id", "-m", help="Model id", required=True)
+@click.option("--training_template_id", "-tt", help="Training Template id", required=True)
+@click.option("--task-name", "-tn", help="Task name to prepare dataset", required=True, type=str)
+@click.option("--properties", "-p", help="Custom properties", required=False, type=dict)
+@click.option("--metadata", "-md", help="Metadata", required=False, type=dict)
+@pass_client
+def trigger_template_training(client, app_id, model_id, training_template_id, task_name, properties, metadata):
+    try:
+        if properties:
+            properties = json.loads(properties)
+        if metadata:
+            metadata = json.loads(metadata)
+    except:
+        print("Could process JSON properties or metadata")
+        exit()
+
+    id = client.start_training_from_app_model_template(
+        app_id=app_id,
+        model_id=model_id,
+        task_name=task_name,
+        training_template_id=training_template_id,
+        current_properties=properties,
+        metadata=metadata,
+    )
+    if id:
+        print(f"Started new training with ID {id}")
+
+
 @training.group()
 def template():
     """View and manage training templates"""

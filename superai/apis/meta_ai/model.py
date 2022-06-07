@@ -785,8 +785,9 @@ class TrainApiMixin(ABC):
     def resource(self):
         return self._resource
 
+    @staticmethod
     def create_training_template_entry(
-        self, app_id: uuid, model_id: uuid, properties: dict, description: str = None
+        app_id: uuid, model_id: uuid, properties: dict, description: Optional[str] = None
     ) -> Optional[meta_ai_training_template]:
         """
         Creates a new training template entry.
@@ -797,6 +798,7 @@ class TrainApiMixin(ABC):
             app_id: ref app id for the template
             model_id: ref model if for the template
             properties: the default properties that will get inherited during trainings
+            description: Description of template
         """
         sess = MetaAISession(app_id=str(app_id))
         op = Operation(mutation_root)
@@ -1040,3 +1042,45 @@ class TrainApiMixin(ABC):
         ).__fields__("id", "model_id", "current_properties", "state")
         data = sess.perform_op(op)
         return (op + data).update_meta_ai_training_instance_by_pk.id
+
+    @staticmethod
+    def start_training_from_app_model_template(
+        app_id: uuid,
+        model_id: uuid,
+        task_name: str,
+        training_template_id: uuid,
+        current_properties: Optional[dict] = None,
+        metadata: Optional[dict] = None,
+    ) -> uuid:
+        """
+        Starts a training given the app_id, model_id, task_name, training_template_id. This automatically creates a
+        dataset from the app, and starts training from the training_template_id.
+
+        Args:
+            app_id: App ID
+            model_id: Model ID of the model
+            task_name: Task name of the tasks to be trained on
+            training_template_id: ID of the training template
+            current_properties: properties to be passed to the training
+            metadata: metadata passed to training
+        Returns:
+             Instance ID of the training created
+        """
+        sess = MetaAISession(app_id=str(app_id))
+
+        opq = Operation(query_root)
+        request = {
+            "app_id": app_id,
+            "model_id": model_id,
+            "task_name": task_name,
+            "training_template_id": training_template_id,
+        }
+        if current_properties:
+            request["current_properties"] = json.dumps(current_properties)
+        if metadata:
+            request["metadata"] = json.dumps(metadata)
+        opq.start_training(request=request).__fields__("training_instance_id")
+        data = sess.perform_op(opq)
+        res = (opq + data).start_training
+        training_instance_id = res.training_instance_id
+        return training_instance_id
