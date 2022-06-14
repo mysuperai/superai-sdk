@@ -27,6 +27,7 @@ from superai.apis.meta_ai.meta_ai_graphql_schema import (
     meta_ai_model_set_input,
     meta_ai_prediction,
     meta_ai_prediction_state_enum,
+    meta_ai_training_instance,
     meta_ai_training_instance_insert_input,
     meta_ai_training_instance_pk_columns_input,
     meta_ai_training_instance_set_input,
@@ -962,7 +963,12 @@ class TrainApiMixin(ABC):
         return (op + data).insert_meta_ai_training_instance_one.id
 
     @staticmethod
-    def get_trainings(app_id: uuid = None, model_id: uuid = None, state: str = ""):
+    def get_trainings(
+        app_id: uuid = None,
+        model_id: uuid = None,
+        state: str = "",
+        limit=10,
+    ) -> List[meta_ai_training_instance]:
         """
         Finds training instances from the app id and model id keys.
 
@@ -972,6 +978,8 @@ class TrainApiMixin(ABC):
             app_id: ref app id for the template
             model_id: ref model if for the template
             state: by default this quries for IN_PROGRESS run, but can be one the state in training state enum
+            limit: the maximum number of results to return
+
         """
         app_id_str = str(app_id) if app_id else None
         sess = MetaAISession(app_id=app_id_str)
@@ -982,34 +990,20 @@ class TrainApiMixin(ABC):
             filter["state"] = {"_eq": state}
         if model_id:
             filter["model_id"] = {"_eq": model_id}
-
         if app_id:
-            template_filter = {}
-            template_filter["app_id"] = {"_eq": app_id}
-            op.meta_ai_training_template(where=template_filter).training_instances(where=filter).__fields__(
-                "id", "current_properties", "state", "created_at", "artifacts", "model_id"
-            )
-        else:
-            op.meta_ai_training_instance(where=filter).__fields__(
-                "id", "current_properties", "state", "created_at", "artifacts", "model_id"
-            )
+            filter["training_template"] = {}
+            filter["training_template"]["app_id"] = {"_eq": app_id}
+        instance_query = dict(where=filter, limit=limit)
+        log.warning("Without providing an app_id, only trainings without associated apps will be shown.")
+        op.meta_ai_training_instance(**instance_query).__fields__(
+            "state", "id", "created_at", "artifacts", "model_id", "training_template_id", "updated_at"
+        )
         instance_data = sess.perform_op(op)
-
-        try:
-            q_out = (op + instance_data).meta_ai_training_instance
-            if not q_out and len(q_out) != 1:
-                raise AttributeError
-
-        except AttributeError:
-            log.info(f"No training instances found for app_id:{app_id}, model_id:{model_id}.")
-            return
-
-        instances = q_out[0]["training_instances"]
+        instances = (op + instance_data).meta_ai_training_instance
 
         logger.info(
-            f"Found a total of {len(instances)} {state} training instances for app_id:{app_id}, model_id:{model_id}."
+            f"Showing a total of {len(instances)}, training instances for app_id:{app_id}, model_id:{model_id}."
         )
-
         return instances
 
     @staticmethod

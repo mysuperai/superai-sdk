@@ -1188,12 +1188,24 @@ def training():
 @training.command(name="list")
 @click.option("--app_id", "-a", help="Application id", required=False)
 @click.option("--model_id", "-m", help="Model id", required=False)
+@click.option(
+    "--state",
+    "-s",
+    help="Filter by state",
+    required=False,
+    default=None,
+    show_default=True,
+    type=click.Choice(["FINISHED", "IN_PROGRESS", "FAILED", "PAUSED", "UNKNOWN"]),
+)
+@click.option(
+    "--limit", "-l", help="Limit the number of returned rows", required=False, default=10, show_default=True, type=int
+)
 @pass_client
-def list_trainings(client, app_id, model_id):
+def list_trainings(client, app_id, model_id, state, limit):
     """
-    List ongoing trainings
+    List trainings. Allows filtering by state and application id.
     """
-    trainings = client.get_trainings(app_id, model_id, "IN_PROGRESS")
+    trainings = client.get_trainings(app_id, model_id, state=state, limit=limit)
     if trainings:
         print(trainings)
 
