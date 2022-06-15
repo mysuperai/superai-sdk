@@ -210,6 +210,9 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
 
         if any(item not in new_workflows_names for item in old_workflows_names):
             # Can't delete workflows!
+            logger.error(
+                f"old workflows found -> {old_workflows_names}, new workflows found -> {new_workflows_names} workflows you want to delete {set(old_workflows_names) - set(new_workflows_names)}"
+            )
             raise Exception("DP deployment failed, you're trying to remove workflows, use the CLI for that")
 
     @default_workflow.setter

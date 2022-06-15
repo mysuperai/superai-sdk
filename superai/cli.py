@@ -108,7 +108,9 @@ def client(ctx):
         print("User needs to login or set api key")
         exit()
     ctx.obj = {}
-    ctx.obj["client"] = Client(api_key=api_key)
+    ctx.obj["client"] = Client(
+        api_key=api_key, auth_token=settings.get("user", {}).get("cognito", {}).get("access_token")
+    )
 
 
 # Create decorator to pass client object when needed
@@ -615,6 +617,23 @@ def create_ground_truth_from_job(ctx, app_id: str, job_id: str):
     client = ctx.obj["client"]
     print(f"Converting job {job_id} to ground truth data")
     print(client.create_ground_truth_from_job(app_id, job_id))
+
+
+@client.command(name="workflow_delete")
+@click.option(
+    "dp_qualified_name", "-d", help="The name of the rounter, for example image_disambiguation.router", required=True
+)
+@click.option("workflow_name", "-w", help="The name of the workflow", required=True)
+@click.pass_context
+def delete_workflow(ctx, dp_qualified_name, workflow_name):
+    """
+    Delete an existing workflow
+    """
+    client = ctx.obj["client"]
+    new_workflows = client.delete_workflow(dp_qualified_name, workflow_name)
+    logger.info(
+        f"Workflow {workflow_name} deleted with success from {dp_qualified_name}, new workflow list -> {new_workflows}"
+    )
 
 
 @cli.command()
