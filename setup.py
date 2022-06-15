@@ -35,8 +35,8 @@ REQUIRES = [
     "boto3>=1.15",
     "click>=7.0",
     "colorama>=0.3.0",
-    "dynaconf>=3.1.2",
     "docker>=5.0.0",
+    "dynaconf>=3.1.2",
     "fastapi>=0.70.0",
     "futures-then>=0.1.1",
     "genson>=1.2.2",
@@ -44,21 +44,20 @@ REQUIRES = [
     "joblib>=0.17.0",
     "jsonmerge>=1.7.0",
     "jsonpickle>=1.4.1",
+    "pandas>=1.2.5",
     "pip>=19.1",
-    "rich>=10.1",
+    "polyaxon>=1.14.3",
+    "protobuf>=3.20.1, <4.*",  # 4.21.0 broke the sagemaker imports, see https://github.com/protocolbuffers/protobuf/issues/10051
+    "pycognito>=2021.3.1",
     "pyyaml>=3.13",
     "requests>=2.22",
-    "sentry-sdk>=0.19.4",
+    "rich>=10.1",
+    "sagemaker>=1.64.1",
     "scikit-learn>=0.23.2",
-    "sgqlc>=16",
     "sentry-sdk>=0.19.4",
+    "sgqlc>=16",
     "six",
     "uvicorn>=0.15.0",
-    "pycognito>=2021.3.1",
-    "pandas>=1.2.5",
-    "polyaxon>=1.14.3",
-    "sagemaker>=1.64.1",
-    "protobuf>=3.20.1, <4.*",  # 4.21.0 broke the sagemaker imports, see https://github.com/protocolbuffers/protobuf/issues/10051
 ]
 
 BUILD_REQUIRES = [
@@ -73,21 +72,21 @@ BUILD_REQUIRES = [
 DP_REQUIRES = [
     "awscli>=1.18.163",
     "superai-dataclient~=0.1.0",
-    "superai-schema~=0.1.15",
+    "superai-schema~=0.2.0",
 ]
 
 TEST_REQUIRES = [
-    "deepdiff>=4.0.7",
-    "tox>=2.9.1",
     "coverage>=5.3",
-    "pytest>=6.1.2",
+    "deepdiff>=4.0.7",
+    "dictdiffer>=0.9.0",
     "pytest-cov>=2.10.1",
     "pytest-env>=0.6.2",
-    "pytest-vcr>=1.0.2",
-    "vcrpy>=4.1.1",
     "pytest-mock~=3.7.0",
+    "pytest-vcr>=1.0.2",
+    "pytest>=6.1.2",
     "seldon-core>=1.11.2",
-    "dictdiffer>=0.9.0",
+    "tox>=2.9.1",
+    "vcrpy>=4.1.1",
 ]
 
 setup(
