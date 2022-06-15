@@ -318,6 +318,12 @@ def list_jobs(
     multiple=True,
     type=click.Choice(["SCHEDULED", "IN_PROGRESS", "FAILED", "SUSPENDED", "CANCELED", "EXPIRED", "COMPLETED"]),
 )
+@click.option(
+    "--with_history/--not_with_history",
+    "-wh/-nwh",
+    help="Choose if add job history to downloaded data",
+    default=False,
+)
 @click.pass_context
 def download_jobs(
     ctx,
@@ -328,6 +334,7 @@ def download_jobs(
     completed_end_date: datetime,
     send_email: bool = None,
     status_in: List[str] = None,
+    with_history: bool = None,
 ):
     """
     Trigger processing of job responses that is sent to customer email (default) once is finished.
@@ -343,8 +350,9 @@ def download_jobs(
             created_end_date,
             completed_start_date,
             completed_end_date,
-            send_email,
             status_in,
+            send_email,
+            with_history,
         )
     )
 

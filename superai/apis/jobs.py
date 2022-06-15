@@ -165,6 +165,7 @@ class JobsApiMixin(ABC):
         completedEndDate: datetime = None,
         statusIn: List[str] = None,
         sendEmail: bool = None,
+        withHistory: bool = None,
     ) -> dict:
         """
         Trigger processing of jobs responses that are sent to customer email (default) once is finished.
@@ -175,6 +176,7 @@ class JobsApiMixin(ABC):
         :param completedEndDate: Filter by completed end date of jobs
         :param statusIn: Filter by status of jobs
         :param sendEmail: Email not send if False.
+        :param withHistory: Adds job history to downloaded data.
         :return: Dict with operationId key to track status
         """
         uri = f"apps/{app_id}/job_responses"
@@ -191,6 +193,8 @@ class JobsApiMixin(ABC):
             query_params["statusIn"] = statusIn
         if sendEmail is not None:
             query_params["sendEmail"] = sendEmail
+        if withHistory is not None:
+            query_params["withHistory"] = withHistory
         return self.request(uri, method="POST", query_params=query_params, required_api_key=True)
 
     def get_all_jobs(
