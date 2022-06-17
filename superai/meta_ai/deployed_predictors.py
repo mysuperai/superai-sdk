@@ -2,7 +2,7 @@ import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
-from typing import TypeVar
+from typing import Optional, TypeVar
 
 import docker  # type: ignore
 import requests
@@ -39,6 +39,16 @@ class DeployedPredictor(metaclass=ABCMeta):
     @abstractmethod
     def terminate(self):
         pass
+
+    def to_dict(self) -> dict:
+        pass
+
+    @classmethod
+    def from_dict(cls, dictionary: dict, client: Optional[Client] = None) -> "DeployedPredictor":
+        if list(dictionary.keys())[0] == "LocalPredictor":
+            return LocalPredictor.from_dict(dictionary["LocalPredictor"])
+        else:
+            return RemotePredictor.from_dict(dictionary["RemotePredictor"], client)
 
 
 class LocalPredictor(DeployedPredictor):
@@ -89,6 +99,7 @@ class LocalPredictor(DeployedPredictor):
         else:
             self.container: Container = client.containers.get(container_name)
             log.info("Initialized LocalPredictor with already running container.")
+        self.kwargs = kwargs
 
     def predict(self, input, mime="application/json"):
         if self.lambda_mode:
@@ -159,6 +170,13 @@ class LocalPredictor(DeployedPredictor):
 
         return device_requests
 
+    def to_dict(self) -> dict:
+        return self.kwargs
+
+    @classmethod
+    def from_dict(cls, dictionary, client: Optional[Client] = None) -> "LocalPredictor":
+        return cls(existing=False, remove=True, **dictionary)
+
 
 class RemotePredictor(DeployedPredictor):
     """A predictor that runs on a remote machine."""
@@ -167,8 +185,8 @@ class RemotePredictor(DeployedPredictor):
         super().__init__()
         self.client = client
         self.id = id
-        target_status = kwargs.get("target_status", "ONLINE")
-        client.set_deployment_status(deployment_id=self.id, target_status=target_status)
+        self.target_status = kwargs.get("target_status", "ONLINE")
+        client.set_deployment_status(deployment_id=self.id, target_status=self.target_status)
 
     def predict(self, input, **kwargs):
         if self.client.check_endpoint_is_available(self.id):
@@ -184,3 +202,11 @@ class RemotePredictor(DeployedPredictor):
 
     def terminate(self):
         self.client.set_deployment_status(deployment_id=self.id, target_status="OFFLINE")
+
+    def to_dict(self) -> dict:
+        return dict(id=self.id, target_status=self.target_status)
+
+    @classmethod
+    def from_dict(cls, dictionary, client: Optional[Client] = None) -> "RemotePredictor":
+        client = client or Client()
+        return cls(client=client, id=dictionary["id"], target_status=dictionary["target_status"])

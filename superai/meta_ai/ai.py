@@ -35,6 +35,7 @@ from superai.meta_ai.ai_helper import (
     list_models,
     upload_dir,
 )
+from superai.meta_ai.config_parser import InstanceConfig, TemplateConfig
 from superai.meta_ai.deployed_predictors import (
     DeployedPredictor,
     LocalPredictor,
@@ -337,6 +338,45 @@ class AITemplate:
             log.info(f"Created template : {template_id}")
             self.template_id = template_id
         return self.template_id
+
+    @classmethod
+    def from_settings(cls, template: TemplateConfig) -> AITemplate:
+        if template.input_schema is None:
+            input_schema = Schema()
+        elif isinstance(template.input_schema, str):
+            input_schema = Schema.from_json(json.loads(template.input_schema))
+        else:
+            input_schema = Schema.from_json(template.input_schema)
+
+        if template.output_schema is None:
+            output_schema = Schema()
+        elif isinstance(template.output_schema, str):
+            output_schema = Schema.from_json(json.loads(template.output_schema))
+        else:
+            output_schema = Schema.from_json(template.output_schema)
+
+        if template.configuration is None:
+            configuration = Config()
+        elif isinstance(template.configuration, str):
+            configuration = Config.from_json(json.loads(template.configuration))
+        else:
+            configuration = Config.from_json(template.configuration)
+
+        return AITemplate(
+            input_schema=input_schema,
+            output_schema=output_schema,
+            configuration=configuration,
+            name=template.name,
+            description=template.description,
+            model_class=template.model_class,
+            model_class_path=template.model_class_path,
+            requirements=template.requirements,
+            code_path=template.code_path,
+            conda_env=template.conda_env,
+            artifacts=template.artifacts,
+            bucket_name=template.bucket_name,
+            parameters=template.parameters,
+        )
 
 
 class AI:
@@ -987,7 +1027,7 @@ class AI:
 
     def deploy(
         self,
-        orchestrator: "Orchestrator" = Orchestrator.LOCAL_DOCKER,
+        orchestrator: Union[str, "Orchestrator"] = Orchestrator.LOCAL_DOCKER,
         skip_build: bool = False,
         properties: Optional[dict] = None,
         enable_cuda: bool = False,
@@ -1027,12 +1067,14 @@ class AI:
         """
         if redeploy and settings.current_env == "prod":
             confirmed = Confirm.ask(
-                "Do you [bold]really[/bold] want to redeploy a [red]production[/red] AI? This can negatively impact Data Programs relying on the existing AI."
+                "Do you [bold]really[/bold] want to redeploy a [red]production[/red] AI? "
+                "This can negatively impact Data Programs relying on the existing AI."
             )
             if not confirmed:
                 log.warning("Aborting deployment")
                 raise ModelDeploymentError("Deployment aborted by User")
-
+        if isinstance(orchestrator, str):
+            orchestrator = Orchestrator[orchestrator]
         is_lambda_orchestrator = orchestrator in [Orchestrator.LOCAL_DOCKER_LAMBDA, Orchestrator.AWS_LAMBDA]
         # Updating environs before image builds
         for key, value in kwargs.get("envs", {}).items():
@@ -1499,9 +1541,44 @@ class AI:
             json.dump(kubernetes_config, wfp, indent=2)
         return kubernetes_config
 
+    @classmethod
+    def from_settings(cls, ai_template: AITemplate, instance: InstanceConfig) -> AI:
+        if instance.input_params is None:
+            input_params = SchemaParameters()
+        elif isinstance(instance.input_params, str):
+            input_params = SchemaParameters.from_json(json.loads(instance.input_params))
+        else:
+            input_params = SchemaParameters.from_json(instance.input_params)
+
+        if instance.output_params is None:
+            output_params = SchemaParameters()
+        elif isinstance(instance.output_params, str):
+            output_params = SchemaParameters.from_json(json.loads(instance.output_params))
+        else:
+            output_params = SchemaParameters.from_json(instance.output_params)
+
+        if instance.configuration is None:
+            configuration = None
+        elif isinstance(instance.configuration, str):
+            configuration = Config.from_json(json.loads(instance.configuration))
+        else:
+            configuration = Config.from_json(instance.configuration)
+
+        return AI(
+            ai_template=ai_template,
+            input_params=input_params,
+            output_params=output_params,
+            configuration=configuration,
+            name=instance.name,
+            version=instance.version,
+            description=instance.description,
+            weights_path=instance.weights_path,
+            overwrite=instance.overwrite,
+        )
+
     def training_deploy(
         self,
-        orchestrator: "TrainingOrchestrator" = TrainingOrchestrator.LOCAL_DOCKER_K8S,
+        orchestrator: Union[str, "TrainingOrchestrator"] = TrainingOrchestrator.LOCAL_DOCKER_K8S,
         training_data_dir: Optional[Union[str, Path]] = None,
         skip_build: bool = False,
         properties: Optional[dict] = None,
@@ -1521,13 +1598,13 @@ class AI:
                                 BaseModel train method
 
             # Hidden kwargs
-            worker_count: Number of workers to use for serving with Sagemaker.
-            ai_cache: Cache of ai objects for a lambda, 5 by default considering the short life of a lambda function
             build_all_layers: Perform a fresh build of all layers
             envs: Pass custom environment variables to the deployment. Should be a dictionary like
                   {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
             download_base: Always download the base image to get the latest version from ECR
         """
+        if isinstance(orchestrator, str):
+            orchestrator = TrainingOrchestrator[orchestrator]
         self._build_trainer_image(
             enable_cuda=enable_cuda,
             orchestrator=orchestrator,
@@ -1552,6 +1629,9 @@ class AI:
                     "Cannot establish id, please make sure you push the AI model to create a database entry"
                 )
             if training_parameters:
+                if isinstance(training_parameters, dict):
+                    obj = TrainingParameters().from_dict(training_parameters)
+                    training_parameters = obj
                 loaded_parameters = json.loads(training_parameters.to_json())
             else:
                 # TODO: load default parameters from AI
@@ -1613,8 +1693,6 @@ class AI:
 
         # Hidden kwargs
             enable_cuda: Whether CUDA base image is to be used
-            worker_count: Number of workers to use for serving with Sagemaker.
-            ai_cache: Cache of ai objects for a lambda, 5 by default considering the short life of a lambda function
             build_all_layers: Perform a fresh build of all layers
             envs: Pass custom environment variables to the deployment. Should be a dictionary like
                   {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}

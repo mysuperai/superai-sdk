@@ -305,6 +305,10 @@ class TrainingParameters:
     def to_json(self):
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=2)
 
+    def from_dict(self, dictionary: dict):
+        for k, v in dictionary.items():
+            setattr(self, k, v)
+
 
 if __name__ == "__main__":
     a = Config(default="Something", choice="Something_else")

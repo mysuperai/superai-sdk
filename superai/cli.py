@@ -1,9 +1,10 @@
 import json
 import os
+import pathlib
 import signal
 import sys
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import click
 import yaml
@@ -18,6 +19,7 @@ from superai.client import Client
 from superai.config import get_config_dir, list_env_configs, set_env_config, settings
 from superai.exceptions import SuperAIAuthorizationError
 from superai.log import logger
+from superai.meta_ai.deployed_predictors import DeployedPredictor
 from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters
 from superai.utils import (
     load_api_key,
@@ -1294,6 +1296,51 @@ def trigger_template_training(client, app_id, model_id, training_template_id, ta
         print(f"Started new training with ID {id}")
 
 
+@training.command("deploy", help="Deploy a AI from its config file")
+@click.option(
+    "--config-file",
+    "-c",
+    help="Config YAML file containing AI properties and training deployment definition",
+    type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+)
+@click.pass_context
+def training_deploy(ctx, config_file):
+    from superai.meta_ai.ai import AI, AITemplate
+    from superai.meta_ai.config_parser import AIConfig
+
+    config_data = AIConfig(_env_file=str(config_file))
+
+    ai_template_object = AITemplate.from_settings(config_data.template)
+    ai_object = AI.from_settings(ai_template_object, config_data.instance)
+
+    if config_data.training_deploy is not None:
+        ai_object.training_deploy(
+            orchestrator=config_data.training_deploy.orchestrator,
+            training_data_dir=config_data.training_deploy.training_data_dir,
+            skip_build=config_data.training_deploy.skip_build,
+            properties=config_data.training_deploy.properties,
+            training_parameters=config_data.training_deploy.training_parameters,
+            enable_cuda=config_data.training_deploy.enable_cuda,
+            build_all_layers=config_data.training_deploy.build_all_layers,
+            envs=config_data.training_deploy.envs,
+            download_base=config_data.training_deploy.download_base,
+        )
+    elif config_data.training_deploy_from_app is not None:
+        ai_object.start_training_from_app(
+            app_id=config_data.training_deploy_from_app.app_id,
+            task_name=config_data.training_deploy_from_app.task_name,
+            current_properties=config_data.training_deploy_from_app.current_properties,
+            metadata=config_data.training_deploy_from_app.metadata,
+            skip_build=config_data.training_deploy_from_app.skip_build,
+            enable_cuda=config_data.training_deploy_from_app.enable_cuda,
+            build_all_layers=config_data.training_deploy_from_app.build_all_layers,
+            envs=config_data.training_deploy_from_app.envs,
+            download_base=config_data.training_deploy_from_app.download_base,
+        )
+    else:
+        raise ValueError("configuration should contain 'training_deploy' or 'training_deploy_from_app' section")
+
+
 @training.group()
 def template():
     """View and manage training templates"""
@@ -1361,6 +1408,25 @@ def update_template(client, app_id, model_id, properties: str, description: str)
         print(f"Updated training template with id={id}")
 
 
+def obtain_object_template_config(config_file: pathlib.Path) -> Tuple:
+    """
+    From the config file, obtain the AITemplate, AI instance and the config
+    Args:
+        config_file: Path to config file
+    Returns:
+        Tuple of AI instance, AITemplate and AIConfig
+    """
+    from superai.meta_ai.ai import AI, AITemplate
+    from superai.meta_ai.config_parser import AIConfig
+
+    config_data = AIConfig(_env_file=str(config_file))
+
+    ai_template_object = AITemplate.from_settings(config_data.template)
+    ai_object = AI.from_settings(ai_template_object, config_data.instance)
+
+    return ai_object, ai_template_object, config_data
+
+
 @template.command(name="list")
 @click.option("--app_id", "-a", help="Application id", required=True)
 @click.option("--model_id", "-m", help="Model id", required=True)
@@ -1372,6 +1438,125 @@ def list_training_templates(client, app_id, model_id):
     templates = client.get_training_templates(app_id, model_id)
     if templates:
         print(templates)
+
+
+@ai.command("deploy", help="Deploy a AI from its config file")
+@click.option(
+    "--config-file",
+    "-c",
+    help="Config YAML file containing AI properties and deployment definition",
+    type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+)
+def deploy_ai(config_file):
+    ai_object, ai_template_object, config_data = obtain_object_template_config(config_file=config_file)
+
+    if isinstance(config_data.deploy.properties, str):
+        properties = json.loads(config_data.deploy.properties)
+    else:
+        properties = config_data.deploy.properties
+    ai_object.push(
+        update_weights=config_data.deploy.update_weights,
+        overwrite=config_data.deploy.overwrite,
+        weights_path=config_data.instance.weights_path,
+    )
+    predictor: DeployedPredictor = ai_object.deploy(
+        orchestrator=config_data.deploy.orchestrator,
+        skip_build=config_data.deploy.skip_build,
+        properties=properties,
+        enable_cuda=config_data.deploy.enable_cuda,
+        enable_eia=config_data.deploy.enable_eia,
+        cuda_devel=config_data.deploy.cuda_devel,
+        redeploy=config_data.deploy.redeploy,
+        build_all_layers=config_data.deploy.build_all_layers,
+        download_base=config_data.deploy.download_base,
+        envs=config_data.deploy.envs,
+        worker_count=config_data.deploy.worker_count,
+        ai_cache=config_data.deploy.ai_cache,
+    )
+    predictor_dictionary = {predictor.__class__.__name__: predictor.to_dict()}
+    with open(
+        os.path.join(settings.path_for(), "cache", ai_object.name, str(ai_object.version), ".predictor_config.json"),
+        "w",
+    ) as predictor_config:
+        logger.info("Storing predictor config")
+        json.dump(predictor_dictionary, predictor_config)
+
+
+@ai.command("predictor-test", help="Test the predictor created from the deploy command")
+@click.option(
+    "--config-file",
+    "-c",
+    help="Points to the config file",
+    type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+)
+@click.option("--predict-input", "-i", help="Prediction input", type=str, required=False)
+@click.option("--predict-input-file", "-if", help="Prediction input file", type=click.Path(), required=False)
+@click.option(
+    "--expected-output",
+    "-o",
+    help="Expected output (should only be used if your model is consistent)",
+    type=str,
+    required=False,
+)
+@click.option(
+    "--expected-output-file",
+    "-of",
+    help="Expected output file (should only be used if your model is consistent",
+    type=click.Path(),
+)
+@pass_client
+def predictor_test(
+    client, config_file, predict_input=None, predict_input_file=None, expected_output=None, expected_output_file=None
+):
+    ai_object, ai_template_object, config_data = obtain_object_template_config(config_file=config_file)
+    config_path = os.path.join(
+        settings.path_for(), "cache", ai_object.name, str(ai_object.version), ".predictor_config.json"
+    )
+    if os.path.exists(config_path):
+        with open(config_path, "r") as predictor_config:
+            predictor_dictionary = json.load(predictor_config)
+        predictor: DeployedPredictor = DeployedPredictor.from_dict(predictor_dictionary, client)
+        if predict_input is not None:
+            predict_input = json.loads(predict_input)
+        elif predict_input_file is not None:
+            with open(predict_input_file, "r") as predict_file_stream:
+                predict_input = json.load(predict_file_stream)
+        else:
+            raise ValueError("One of --predict-input or --predict-input-file should be passed")
+        predicted_output = predictor.predict(predict_input)
+        click.echo(predicted_output)
+        if expected_output is not None:
+            assert predicted_output == expected_output, "Expected output should be same as predicted output"
+        if expected_output_file is not None:
+            with open(expected_output_file, "r") as output_file_stream:
+                expected_output = json.load(output_file_stream)
+                assert predicted_output == expected_output, "Expected output should be same as predicted output"
+    else:
+        raise Exception(f"Predictor config does not exist at {config_path}")
+
+
+@ai.command("predictor-teardown", help="Teardown the predictor in context")
+@click.option(
+    "--config-file",
+    "-c",
+    help="Points to the config file",
+    type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+)
+@pass_client
+def predictor_teardown(client, config_file):
+    ai_object, ai_template_object, config_data = obtain_object_template_config(config_file=config_file)
+    config_path = os.path.join(
+        settings.path_for(), "cache", ai_object.name, str(ai_object.version), ".predictor_config.json"
+    )
+    if os.path.exists(config_path):
+        with open(config_path, "r") as predictor_config:
+            predictor_dictionary = json.load(predictor_config)
+        predictor: DeployedPredictor = DeployedPredictor.from_dict(predictor_dictionary, client)
+        predictor.terminate()
+        logger.info(f"Removing predictor config at {config_path}")
+        os.remove(config_path)
+    else:
+        raise Exception(f"Predictor config did not exist at {config_path}")
 
 
 def main():
