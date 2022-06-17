@@ -328,13 +328,15 @@ class AITemplate:
             }
             json.dump(content, ai_template_writer, indent=1)
 
-    def get_or_create_training_entry(self, app_id: str, model_id: str, properties: dict = {}):
-        existing_template_id = self.client.get_training_templates(app_id, model_id)
+    def get_or_create_training_entry(self, model_id: str, app_id: str = None, properties: dict = {}):
+        existing_template_id = self.client.get_training_templates(model_id=model_id, app_id=app_id)
         if len(existing_template_id):
             log.info(f"Found existing template {existing_template_id}")
             self.template_id = existing_template_id[0].id
         else:
-            template_id = self.client.create_training_template_entry(app_id, model_id, properties)
+            template_id = self.client.create_training_template_entry(
+                model_id=model_id, properties=properties, app_id=app_id
+            )
             log.info(f"Created template : {template_id}")
             self.template_id = template_id
         return self.template_id
@@ -1638,7 +1640,10 @@ class AI:
                 loaded_parameters = {}
             # check if we have a training data directory
             instance_id = self.client.create_training_entry(
-                model_id=self.id, properties=loaded_parameters, starting_state="STOPPED"
+                model_id=self.id,
+                properties=loaded_parameters,
+                starting_state="STOPPED",
+                template_id=self.ai_template.template_id,
             )
             if training_data_dir is not None:
                 self._upload_training_data(training_data_dir, training_id=instance_id)
@@ -1715,7 +1720,9 @@ class AI:
             raise LookupError("Cannot establish id, please make sure you push the AI model to create a database entry")
         if self.ai_template.template_id is None:
             log.info("Training template unknown, getting or creating")
-            self.ai_template.get_or_create_training_entry(app_id, self.id, properties=current_properties)
+            self.ai_template.get_or_create_training_entry(
+                model_id=self.id, app_id=app_id, properties=current_properties
+            )
         log.info(
             f"Starting training for app ID {app_id}, task name {task_name}, model ID {self.id} template Id "
             f"{self.ai_template.template_id} with properties {current_properties} and metadata {metadata}"

@@ -1347,8 +1347,8 @@ def template():
 
 
 @template.command(name="create")
-@click.option("--app_id", "-a", help="Application id", required=True)
-@click.option("--model_id", "-m", help="Model id", required=True)
+@click.option("--app_id", "-a", help="Application id", required=False, default=None)
+@click.option("--model_id", "-m", help="Root Model id or Model id", required=True)
 @click.option(
     "--properties",
     "-p",
@@ -1369,13 +1369,13 @@ def create_template(client, app_id, model_id, properties: str):
             print("Couldn't read json inputs")
             exit()
 
-    id = client.create_training_template_entry(app_id, model_id, json_inputs)
+    id = client.create_training_template_entry(model_id=model_id, properties=json_inputs, app_id=app_id)
     if id:
         print(f"Created new training with ID {id}")
 
 
 @template.command(name="update")
-@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--app_id", "-a", help="Application id", required=False, default=None)
 @click.option("--model_id", "-m", help="Model id", required=True)
 @click.option(
     "--properties",
@@ -1403,7 +1403,9 @@ def update_template(client, app_id, model_id, properties: str, description: str)
             exit()
     else:
         json_inputs = None
-    id = client.update_training_template(app_id, model_id, properties=json_inputs, description=description)
+    id = client.update_training_template(
+        model_id=model_id, app_id=app_id, properties=json_inputs, description=description
+    )
     if id:
         print(f"Updated training template with id={id}")
 
@@ -1428,16 +1430,29 @@ def obtain_object_template_config(config_file: pathlib.Path) -> Tuple:
 
 
 @template.command(name="list")
-@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--app_id", "-a", help="Application id", required=False, default=None)
 @click.option("--model_id", "-m", help="Model id", required=True)
 @pass_client
 def list_training_templates(client, app_id, model_id):
     """
     List existing training templates.
     """
-    templates = client.get_training_templates(app_id, model_id)
+    templates = client.get_training_templates(model_id, app_id)
     if templates:
         print(templates)
+
+
+@template.command(name="view")
+@click.option("--app_id", "-a", help="Application id", required=False, default=None)
+@click.option("--template_id", "-t", help="Template id", required=True)
+@pass_client
+def view_training_template(client, app_id, template_id):
+    """
+    List existing training templates.
+    """
+    template = client.get_training_template(template_id, app_id)
+    if template:
+        print(template)
 
 
 @ai.command("deploy", help="Deploy a AI from its config file")

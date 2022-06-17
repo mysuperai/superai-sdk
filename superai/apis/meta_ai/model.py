@@ -788,7 +788,7 @@ class TrainApiMixin(ABC):
 
     @staticmethod
     def create_training_template_entry(
-        app_id: uuid, model_id: uuid, properties: dict, description: Optional[str] = None
+        model_id: Union[uuid, str], properties: dict, app_id: uuid = None, description: Optional[str] = None
     ) -> Optional[meta_ai_training_template]:
         """
         Creates a new training template entry.
@@ -796,17 +796,20 @@ class TrainApiMixin(ABC):
         Returns: the id of the created entry
 
         Args:
-            app_id: ref app id for the template
             model_id: ref model if for the template
             properties: the default properties that will get inherited during trainings
+            app_id: ref app id for the template
             description: Description of template
         """
-        sess = MetaAISession(app_id=str(app_id))
-        op = Operation(mutation_root)
+        app_id_str = str(app_id) if app_id else None
+        sess = MetaAISession(app_id=app_id_str)
+        model_api = ModelApiMixin()
+        root_model_id = model_api.get_root_model(model_id=str(model_id))["id"]
 
+        op = Operation(mutation_root)
         op.insert_meta_ai_training_template_one(
             object=meta_ai_training_template_insert_input(
-                model_id=model_id,
+                model_id=root_model_id,
                 app_id=app_id,
                 properties=json.dumps(properties),
                 description=description,
@@ -814,16 +817,16 @@ class TrainApiMixin(ABC):
         ).__fields__("id", "app_id", "model_id", "properties", "description")
         try:
             data = sess.perform_op(op)
+            log.info(f"Created training template {data}")
+            return (op + data).insert_meta_ai_training_template_one
         except GraphQlException as e:
             if "duplicate" in str(e):
                 raise Exception(
                     "Training template already exists. Currently only one template is allowed per app/model."
                 )
-        log.info(f"Created training template {data}")
-        return (op + data).insert_meta_ai_training_template_one
 
     @staticmethod
-    def update_training_template(app_id: uuid, model_id: uuid, properties: dict = None, description: str = None):
+    def update_training_template(model_id: uuid, app_id: uuid = None, properties: dict = None, description: str = None):
         """
         Update existing training template entry.
 
@@ -835,10 +838,11 @@ class TrainApiMixin(ABC):
             properties: the default properties that will get inherited during trainings
             description: optional description for the template
         """
-        sess = MetaAISession(app_id=str(app_id))
+        app_id_str = str(app_id) if app_id else None
+        sess = MetaAISession(app_id=app_id_str)
         op = Operation(mutation_root)
 
-        templates = TrainApiMixin.get_training_templates(app_id, model_id)
+        templates = TrainApiMixin.get_training_templates(model_id, app_id)
         if len(templates) < 1:
             raise Exception("Cannot update template. Template does not exist.")
         template_id = templates[0].id
@@ -858,7 +862,7 @@ class TrainApiMixin(ABC):
         return (op + data).update_meta_ai_training_template_by_pk.id
 
     @staticmethod
-    def get_training_templates(app_id: uuid, model_id: uuid) -> List[meta_ai_training_template]:
+    def get_training_templates(model_id: Union[uuid, str], app_id: uuid = None) -> List[meta_ai_training_template]:
         """
         Finds training templates from the app id and model id keys.
 
@@ -868,21 +872,59 @@ class TrainApiMixin(ABC):
             app_id: ref app id for the template
             model_id: ref model if for the template
         """
-        sess = MetaAISession(app_id=str(app_id))
+        app_id_str = str(app_id) if app_id else None
+        sess = MetaAISession(app_id=app_id_str)
         op = Operation(query_root)
 
-        op.meta_ai_training_template(where={"app_id": {"_eq": app_id}, "model_id": {"_eq": model_id}}).__fields__(
-            "id", "properties", "created_at", "description"
+        root_model_id = ModelApiMixin().get_root_model(model_id=str(model_id))["id"]
+        log.info(
+            f"Getting training templates indexed by root_model_id={root_model_id} inferred from model_id={model_id}"
         )
-        instance_data = sess.perform_op(op)
+        filter = {"model_id": {"_eq": root_model_id}}
+        if app_id_str:
+            filter["app_id"] = {"_eq": app_id_str}
+        else:
+            filter["app_id"] = {"_is_null": True}
 
+        op.meta_ai_training_template(where=filter).__fields__("id", "name", "properties", "created_at", "description")
+        instance_data = sess.perform_op(op)
         try:
             q_out = (op + instance_data).meta_ai_training_template
-            if q_out and len(q_out) != 1:
-                raise AttributeError
-
         except AttributeError:
-            log.info(f"No training templates found for app_id:{app_id}, model_id:{model_id}.")
+            log.info(f"No training templates found for app_id={app_id}, model_id={model_id}.")
+            return []
+
+        return q_out
+
+    @staticmethod
+    def get_training_template(template_id: uuid, app_id: Optional[uuid]) -> Optional[meta_ai_training_template]:
+        """
+        Query single training template by id if it exists.
+
+        Returns: the training template
+
+        Args:
+            template_id: id of the template
+            app_id: app id for the template
+        """
+        app_id_str = str(app_id) if app_id else None
+        sess = MetaAISession(app_id=app_id_str)
+        op = Operation(query_root)
+
+        op.meta_ai_training_template_by_pk(id=str(template_id)).__fields__(
+            "id",
+            "properties",
+            "created_at",
+            "description",
+            "app_id",
+            "model_id",
+            "name",
+        )
+        instance_data = sess.perform_op(op)
+        try:
+            q_out = (op + instance_data).meta_ai_training_template_by_pk
+        except AttributeError:
+            log.exception(f"No training template found for id={template_id}")
             return
 
         return q_out
@@ -898,7 +940,8 @@ class TrainApiMixin(ABC):
             id: the id of the template you want to remove
             app_id: ref app id for the template
         """
-        sess = MetaAISession(app_id=str(app_id))
+        app_id_str = str(app_id) if app_id else None
+        sess = MetaAISession(app_id=app_id_str)
         op = Operation(mutation_root)
         op.delete_meta_ai_training_template_by_pk(id=id).__fields__("id")
         data = sess.perform_op(op)
@@ -906,10 +949,11 @@ class TrainApiMixin(ABC):
 
     def create_training_entry(
         self,
-        model_id: uuid,
+        model_id: Union[uuid, str],
         app_id: Optional[uuid] = None,
         properties: Optional[dict] = None,
         starting_state: Optional[str] = "STARTING",
+        template_id: Optional[uuid] = None,
     ):
         """
         Insert a new training instance, triggering a new training run
@@ -923,6 +967,7 @@ class TrainApiMixin(ABC):
             specified as a dict of properties custom for this run
             starting_state: the starting state of the training, can be one of: STOPPED, STARTING
                 Stopped starting state can be used to delay the start of the training until data is uploaded
+            template_id: the id of the template to use for this training
         """
         assert starting_state in [None, "STOPPED", "STARTING"], "starting_state must be one of: STOPPED, STARTING"
         properties = properties or {}
@@ -931,14 +976,18 @@ class TrainApiMixin(ABC):
         sess = MetaAISession(app_id=app_id_str)
 
         template = None
-        if app_id:
-            templates = self.get_training_templates(app_id, model_id)
+        if template_id:
+            log.info(f"Using template_id={template_id}")
+            template = self.get_training_template(str(template_id), app_id=app_id)
+        elif app_id:
+            # Pick one of the templates for this app
+            templates = self.get_training_templates(model_id, app_id)
             if len(templates) < 1:
                 log.warning("No existing template found. Creating new one automatically.")
-                template = self.create_training_template_entry(app_id, model_id, properties)
+                template = self.create_training_template_entry(model_id, properties, app_id)
             else:
                 template = templates[0]
-                log.info(f"Creating new training run based on exising template: {template}")
+            log.info(f"Creating new training run based on exising template: {template}")
 
         if not properties and template:
             log.info("No properties specified. Using default properties from template.")
@@ -950,12 +999,12 @@ class TrainApiMixin(ABC):
 
         op.insert_meta_ai_training_instance_one(
             object=meta_ai_training_instance_insert_input(
-                training_template_id=template["id"] if template else None,
+                training_template_id=template_id or template.get("id") if template else None,
                 current_properties=json.dumps(properties),
                 model_id=model_id,
                 state=starting_state,
             )
-        ).__fields__("id")
+        ).__fields__("id", "training_template_id", "current_properties", "model_id", "state")
 
         data = sess.perform_op(op)
 

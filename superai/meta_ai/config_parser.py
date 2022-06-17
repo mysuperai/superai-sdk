@@ -117,7 +117,7 @@ class DeployConfig(BaseModel):
         return v
 
 
-def yml_config_setting(settings: BaseSettings) -> dict[str, Any]:
+def yml_config_setting(settings: BaseSettings) -> Dict[str, Any]:
     filename = settings.__config__.env_file
     with open(filename) as f:
         return yaml.safe_load(f)
