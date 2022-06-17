@@ -1286,6 +1286,8 @@ class AI:
         if always_download:
             log.info(f"Downloading newest base image {base_image}...")
             self._download_base_image(base_image, client)
+            # should rebuild image always from scratch
+            from_scratch = True
         try:
             _ = client.images.get(base_image)
             log.info(f"Base image '{base_image}' found locally.")
