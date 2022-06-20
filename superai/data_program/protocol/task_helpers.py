@@ -15,7 +15,13 @@ from superai.data_program.Exceptions import (
     UnexpectedDataType,
     UnknownTaskStatus,
 )
-from superai.data_program.protocol.task import get_task_type, get_task_value, task
+from superai.data_program.protocol.task import (
+    get_task_type,
+    get_task_value,
+    task,
+    task_future,
+    task_result,
+)
 from superai.log import logger
 
 log = logger.get_logger(__name__)
@@ -37,7 +43,7 @@ def resend_task(
     task_price=None,
 ):
     for n_tries in range(n_resend):
-        result = task(
+        future = task(
             input=task_inputs,
             output=task_outputs,
             name=task_name,
@@ -48,7 +54,12 @@ def resend_task(
             excluded_ids=excluded_ids,
             show_reject=show_reject,
             amount=amount,
-        ).result()
+        )
+        if not isinstance(future, task_future):
+            log.warning(f"Task_future object={future} is of type={type(future)}, expected='task_future'")
+        result = future.result()
+        if not isinstance(result, task_result):
+            log.warning(f"Task_result object={result} is of type={type(result)}, expected='task_result'")
         if result.status() == "COMPLETED":
             log.info("task succeeded")
             getter = getattr(result.response(), "get", None)
