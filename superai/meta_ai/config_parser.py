@@ -130,9 +130,11 @@ class TrainingDeployConfig(BaseModel):
     properties: Optional[Dict[str, Any]] = None
     enable_cuda: bool = False
     training_parameters: Optional[Dict[str, Any]] = None
-    envs: Optional[Dict[str, Any]] = None
+    envs: Dict[str, Any] = {}
     build_all_layers: bool = False
     download_base: bool = False
+    update_weights: bool = False
+    overwrite: bool = False
 
     @validator("orchestrator")
     def check_orchestrator(cls, v: str) -> str:
@@ -160,8 +162,10 @@ class TrainingDeploymentFromApp(BaseModel):
     skip_build: bool = False
     enable_cuda: bool = False
     build_all_layers: bool = False
-    envs: Optional[Dict[str, Any]] = None
+    envs: Dict[str, Any] = {}
     download_base: bool = False
+    update_weights: bool = False
+    overwrite: bool = False
 
 
 class AIConfig(BaseSettings):

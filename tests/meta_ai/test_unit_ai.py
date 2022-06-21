@@ -79,13 +79,14 @@ def test_track_changes(caplog):
 
 
 def test_system_commands():
-    sys_func = AI._system
+    from superai.utils import system
+
     command = "python --help"
-    output = sys_func(command)
+    output = system(command)
     assert output == 0
 
     with pytest.raises(CalledProcessError) as e:
-        sys_func("python random_file_name.py")
+        system("python random_file_name.py")
 
 
 def test_base_name():

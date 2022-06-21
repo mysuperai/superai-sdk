@@ -1,6 +1,7 @@
 import json
 import os
 import pathlib
+import shutil
 import signal
 import sys
 from datetime import datetime
@@ -1303,17 +1304,22 @@ def trigger_template_training(client, app_id, model_id, training_template_id, ta
     help="Config YAML file containing AI properties and training deployment definition",
     type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
 )
-@click.pass_context
-def training_deploy(ctx, config_file):
-    from superai.meta_ai.ai import AI, AITemplate
-    from superai.meta_ai.config_parser import AIConfig
-
-    config_data = AIConfig(_env_file=str(config_file))
-
-    ai_template_object = AITemplate.from_settings(config_data.template)
-    ai_object = AI.from_settings(ai_template_object, config_data.instance)
+@click.option("--push/--no-push", "-p/-np", help="Push the model before training", default=True)
+@click.option(
+    "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
+)
+def training_deploy(config_file, push=True, clean=True):
+    if clean:
+        if os.path.exists(".AISave"):
+            shutil.rmtree(".AISave")
+    ai_object, ai_template_object, config_data = obtain_object_template_config(config_file)
 
     if config_data.training_deploy is not None:
+        if push:
+            ai_object.push(
+                update_weights=config_data.training_deploy.update_weights,
+                overwrite=config_data.training_deploy.overwrite,
+            )
         ai_object.training_deploy(
             orchestrator=config_data.training_deploy.orchestrator,
             training_data_dir=config_data.training_deploy.training_data_dir,
@@ -1326,6 +1332,11 @@ def training_deploy(ctx, config_file):
             download_base=config_data.training_deploy.download_base,
         )
     elif config_data.training_deploy_from_app is not None:
+        if push:
+            ai_object.push(
+                update_weights=config_data.training_deploy_from_app.update_weights,
+                overwrite=config_data.training_deploy_from_app.overwrite,
+            )
         ai_object.start_training_from_app(
             app_id=config_data.training_deploy_from_app.app_id,
             task_name=config_data.training_deploy_from_app.task_name,
@@ -1462,7 +1473,13 @@ def view_training_template(client, app_id, template_id):
     help="Config YAML file containing AI properties and deployment definition",
     type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
 )
-def deploy_ai(config_file):
+@click.option(
+    "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
+)
+def deploy_ai(config_file, clean=True):
+    if clean:
+        if os.path.exists(".AISave"):
+            shutil.rmtree(".AISave")
     ai_object, ai_template_object, config_data = obtain_object_template_config(config_file=config_file)
 
     if isinstance(config_data.deploy.properties, str):

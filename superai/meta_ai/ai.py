@@ -6,9 +6,7 @@ import hashlib
 import json
 import os
 import re
-import shlex
 import shutil
-import subprocess
 import tarfile
 import time
 import traceback
@@ -50,7 +48,7 @@ from superai.meta_ai.parameters import (
     TrainingParameters,
 )
 from superai.meta_ai.schema import EasyPredictions, Schema, SchemaParameters
-from superai.utils import load_api_key, load_auth_token, load_id_token, retry
+from superai.utils import load_api_key, load_auth_token, load_id_token, retry, system
 
 # Prefix path for the model directory on storage backend
 MODEL_ARTIFACT_PREFIX_S3 = "meta_ai_models"
@@ -1402,10 +1400,9 @@ class AI:
             f"--incremental=True . "
             f"{base_image_tag} {image_tag}"
         )
-        return self._system(command)
+        return system(command)
 
-    @staticmethod
-    def _download_base_image(base_image: str, client: DockerClient) -> None:
+    def _download_base_image(self, base_image: str, client: DockerClient) -> None:
         """
         Download the base image from ECR
         Args:
@@ -1418,18 +1415,9 @@ class AI:
         ecr_image_name = f"{registry_name}/{base_image}"
         log.info(f"Base image not found. Downloading from ECR '{ecr_image_name}'")
         aws_ecr_login(region, registry_name)
-        os.system(f"docker pull {ecr_image_name}")
+        system(f"docker pull {ecr_image_name}")
         log.info(f"Re-tagging image to '{base_image}'")
         client.images.get(f"{ecr_image_name}").tag(base_image)
-
-    @staticmethod
-    def _system(command):
-        log.info(f"Running '{command}'")
-        process = subprocess.Popen(shlex.split(command), stdout=subprocess.PIPE)
-        (out, _) = process.communicate()
-        if process.returncode != 0:
-            raise subprocess.CalledProcessError(process.returncode, command, output=out)
-        return process.returncode
 
     def push_model(self, image_name: Optional[str] = None, version: Optional[str] = None) -> str:
         """Push model in ECR, involves tagging and pushing.
@@ -1584,7 +1572,6 @@ class AI:
         training_data_dir: Optional[Union[str, Path]] = None,
         skip_build: bool = False,
         properties: Optional[dict] = None,
-        enable_cuda: bool = False,
         training_parameters: Optional[TrainingParameters] = None,
         **kwargs,
     ):
@@ -1593,13 +1580,13 @@ class AI:
         Args:
             orchestrator: Which training orchestrator to be used to deploy.
             skip_build: Skip building
-            enable_cuda: Create CUDA-Compatible image
             properties: An optional dictionary with properties for instance creation.
             training_data_dir: Path to training data
             training_parameters: A TrainingParameters object used for all training parameters to be passed to
                                 BaseModel train method
 
             # Hidden kwargs
+            enable_cuda: Create CUDA-Compatible image
             build_all_layers: Perform a fresh build of all layers
             envs: Pass custom environment variables to the deployment. Should be a dictionary like
                   {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
@@ -1608,7 +1595,6 @@ class AI:
         if isinstance(orchestrator, str):
             orchestrator = TrainingOrchestrator[orchestrator]
         self._build_trainer_image(
-            enable_cuda=enable_cuda,
             orchestrator=orchestrator,
             properties=properties,
             skip_build=skip_build,
@@ -1705,7 +1691,6 @@ class AI:
         """
         orchestrator = TrainingOrchestrator.AWS_EKS
         self._build_trainer_image(
-            enable_cuda=kwargs.get("enable_cuda", False),
             orchestrator=orchestrator,
             properties=current_properties,
             skip_build=skip_build,
