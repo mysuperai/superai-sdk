@@ -34,7 +34,7 @@ class TemplateConfig(BaseModel):
                 requirements_file_path = Path(v)
                 assert requirements_file_path.exists(), "Should exist"
                 assert requirements_file_path.is_file(), "Should point to a valid requirements file"
-                assert os.path.splitext(v) == ".txt", "Should be a text file"
+                assert ".txt" in os.path.splitext(v), "Should be a text file"
         return v
 
     @validator("conda_env")
@@ -44,7 +44,7 @@ class TemplateConfig(BaseModel):
                 conda_env_path = Path(v)
                 assert conda_env_path.exists(), "Should exist"
                 assert conda_env_path.is_file(), "Should point to a valid conda env file"
-                assert os.path.splitext(v) == ".yml" or os.path.splitext(v) == ".yaml", "Should be a YAML file"
+                assert ".yml" in os.path.splitext(v) or ".yaml" in os.path.splitext(v), "Should be a YAML file"
         return v
 
     @validator("model_class_path")

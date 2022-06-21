@@ -1612,7 +1612,7 @@ class AI:
             orchestrator=orchestrator,
             properties=properties,
             skip_build=skip_build,
-            kwargs=kwargs,
+            **kwargs,
         )
         # build kwargs
         kwargs = {}
@@ -1709,7 +1709,7 @@ class AI:
             orchestrator=orchestrator,
             properties=current_properties,
             skip_build=skip_build,
-            kwargs=kwargs,
+            **kwargs,
         )
         if not skip_build:
             image_name = self.push_model(self.name, str(self.version))

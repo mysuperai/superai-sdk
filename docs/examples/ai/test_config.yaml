@@ -16,7 +16,7 @@ deploy:
   skip_build: false
   properties: {}
   enable_cuda: false
-  redeploy: false
+  redeploy: true
   build_all_layers: false
   download_base: true
   update_weights: true

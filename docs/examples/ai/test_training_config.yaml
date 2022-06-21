@@ -15,7 +15,6 @@ training_deploy:
   skip_build: false
   properties: {}
   enable_cuda: false
-  redeploy: false
   build_all_layers: false
   download_base: true
   update_weights: true
