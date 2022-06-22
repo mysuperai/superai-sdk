@@ -75,8 +75,6 @@ ifndef AWS_CREDENTIAL_FILE
   AWS_CREDENTIAL_FILE=${HOME}/.aws/credentials
 endif
 
-
-
 ifeq ($(INTERNAL), true)
     PIP_REPO=pypi-superai-internal
 else
@@ -97,6 +95,7 @@ build: permissions superai-wheel
 		--build-arg PYTHON_VERSION=${PYTHON_VERSION} \
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
 		--build-arg PIP_REPO=${PIP_REPO} \
+		--build-arg SUPERAI_WHL=$(shell ls -t -U ./.dist/ | grep -m 1 'superai') \
 		-t ${IMAGE_NAME}:${IMAGE_VERSION} \
 		--secret id=aws,src=${AWS_CREDENTIAL_FILE} \
 		.
@@ -108,6 +107,7 @@ build-lambda: permissions superai-wheel
 		--build-arg PYTHON_VERSION=${PYTHON_VERSION} \
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
 		--build-arg PIP_REPO=${PIP_REPO} \
+		--build-arg SUPERAI_WHL=$(shell ls -t -U ./.dist/ | grep -m 1 'superai') \
 		-t ${IMAGE_NAME}-lambda:${IMAGE_VERSION} \
 		--secret id=aws,src=${AWS_CREDENTIAL_FILE} \
 		.
@@ -119,6 +119,7 @@ build-seldon: permissions superai-wheel
 		--build-arg PYTHON_VERSION=${PYTHON_VERSION} \
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
 		--build-arg PIP_REPO=${PIP_REPO} \
+		--build-arg SUPERAI_WHL=$(shell ls -t -U ./.dist/ | grep -m 1 'superai') \
 		-t ${IMAGE_NAME}-seldon:${IMAGE_VERSION} \
 		--secret id=aws,src=${AWS_CREDENTIAL_FILE} \
 		.

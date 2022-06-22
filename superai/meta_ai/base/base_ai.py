@@ -10,7 +10,6 @@ from typing import Optional
 from urllib.parse import urlparse
 
 import boto3
-from polyaxon import tracking
 
 from superai.meta_ai.parameters import Config, HyperParameterSpec, ModelParameters
 from superai.meta_ai.schema import Schema, SchemaParameters
@@ -327,6 +326,7 @@ def add_default_tracking(training_method):
     Args:
         training_method: `train` method of the Base class.
     """
+    from polyaxon import tracking
 
     def inner(*args, **kwargs):
         tracking.init()

@@ -55,10 +55,11 @@ RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true,uid=1
     
 # Install superai version from local path/repository
 COPY .dist/*.whl /home/model-server/.requirements/
+ARG SUPERAI_WHL
 RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true \
     --mount=type=cache,target=/root/.cache/pip \
     aws codeartifact login --tool pip --domain superai --repository ${PIP_REPO} && \
-    pip install --no-cache-dir /home/model-server/.requirements/*.whl
+    pip install --no-cache-dir '/home/model-server/.requirements/${SUPERAI_WHL}[ai]'
 
 LABEL io.openshift.s2i.scripts-url="image:///s2i/bin"
 

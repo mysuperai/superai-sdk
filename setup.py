@@ -107,6 +107,7 @@ setup(
         "dp": DP_REQUIRES,
         "ai": BUILD_REQUIRES + AI_REQUIRES + DP_REQUIRES,
         "test": TEST_REQUIRES + DP_REQUIRES + AI_REQUIRES,
+        "complete": DP_REQUIRES + AI_REQUIRES + BUILD_REQUIRES + TEST_REQUIRES,
     },
     packages=find_packages(),
     include_package_data=True,

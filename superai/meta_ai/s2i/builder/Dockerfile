@@ -56,10 +56,11 @@ RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true \
     
 # Install superai version from local path/repository
 COPY .dist/*.whl /home/model-server/.requirements/
+ARG SUPERAI_WHL
 RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true \
     --mount=type=cache,target=/root/.cache/pip \
     aws codeartifact login --tool pip --domain superai --repository ${PIP_REPO} && \
-    pip install --no-cache-dir /home/model-server/.requirements/*.whl
+    pip install --no-cache-dir '/home/model-server/.requirements/${SUPERAI_WHL}[ai]'
 
 COPY s2i/bin /s2i/bin
 COPY s2i/bin /opt/program
