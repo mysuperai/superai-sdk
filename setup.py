@@ -35,7 +35,6 @@ REQUIRES = [
     "boto3>=1.15",
     "click>=7.0",
     "colorama>=0.3.0",
-    "docker>=5.0.0",
     "dynaconf>=3.1.2",
     "fastapi>=0.70.0",
     "futures-then>=0.1.1",
@@ -46,18 +45,23 @@ REQUIRES = [
     "jsonpickle>=1.4.1",
     "pandas>=1.2.5",
     "pip>=19.1",
-    "polyaxon>=1.14.3",
-    "protobuf>=3.20.1, <4.*",  # 4.21.0 broke the sagemaker imports, see https://github.com/protocolbuffers/protobuf/issues/10051
     "pycognito>=2021.3.1",
     "pyyaml>=3.13",
     "requests>=2.22",
     "rich>=10.1",
-    "sagemaker>=1.64.1",
     "scikit-learn>=0.23.2",
     "sentry-sdk>=0.19.4",
     "sgqlc>=16",
     "six",
     "uvicorn>=0.15.0",
+]
+
+AI_REQUIRES = [
+    "docker>=5.0.0",
+    "polyaxon>=1.14.3",
+    "sagemaker>=1.64.1",
+    "protobuf>=3.20.1, <4.*",
+    # 4.21.0 broke the sagemaker imports, see https://github.com/protocolbuffers/protobuf/issues/10051
 ]
 
 BUILD_REQUIRES = [
@@ -101,7 +105,8 @@ setup(
     extras_require={
         "build": DP_REQUIRES + BUILD_REQUIRES,
         "dp": DP_REQUIRES,
-        "test": TEST_REQUIRES + DP_REQUIRES,
+        "ai": BUILD_REQUIRES + AI_REQUIRES + DP_REQUIRES,
+        "test": TEST_REQUIRES + DP_REQUIRES + AI_REQUIRES,
     },
     packages=find_packages(),
     include_package_data=True,
