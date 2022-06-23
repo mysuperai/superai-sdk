@@ -25,6 +25,7 @@ default:
   s3_bucket: "superai-dataprogrammer-us-west-1"
   suffix: "<<<default>>>"
   dummy_app: "82f49a16-11b0-4840-b97f-bce2572b7613"
+  cache_size_in_bytes: 1073741824
 
 local:
   name: "local"
@@ -36,6 +37,7 @@ local:
   dependency_version: "dev"
   base_url: "http://127.0.0.1:5000/v1"
   suffix: "-dev"
+  cache_size_in_bytes: 100000
 
 dev:
   name: "dev"
@@ -56,6 +58,7 @@ testing:
   meta_ai_base: "localhost:8080/v1/graphql"
   user:
     api_key: "FAKE_API_KEY"
+  cache_size_in_bytes: 100000
 
 sandbox:
   name: "sandbox"

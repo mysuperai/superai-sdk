@@ -229,6 +229,7 @@ validators = [
         "PROJECT_ROOT",
         "S3_BUCKET",
         "DUMMY_APP",
+        "CACHE_SIZE_IN_BYTES",
         must_exist=True,
     ),
     # validate a value is eq in specific env

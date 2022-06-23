@@ -148,3 +148,5 @@ environment
 .test
 
 **/.dist
+*.db
+memo/

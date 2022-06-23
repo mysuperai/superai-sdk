@@ -35,6 +35,7 @@ REQUIRES = [
     "boto3>=1.15",
     "click>=7.0",
     "colorama>=0.3.0",
+    "diskcache>=5.4.0",
     "dynaconf>=3.1.2",
     "fastapi>=0.70.0",
     "futures-then>=0.1.1",
