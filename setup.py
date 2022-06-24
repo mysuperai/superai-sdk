@@ -84,7 +84,7 @@ TEST_REQUIRES = [
     "pytest-env>=0.6.2",
     "pytest-vcr>=1.0.2",
     "vcrpy>=4.1.1",
-    "pytest-mock~=3.7.0",
+    "pytest-mock~=3.8.1",
     "seldon-core>=1.11.2",
     "dictdiffer>=0.9.0",
 ]
