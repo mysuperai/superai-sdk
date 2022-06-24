@@ -11,7 +11,7 @@ import tarfile
 import time
 import traceback
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 from urllib.parse import urlparse
 
 import boto3  # type: ignore
@@ -1065,6 +1065,14 @@ class AI:
                   {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
             download_base: Always download the base image to get the latest version from ECR
         """
+        allowed_kwargs = [
+            "worker_count",
+            "ai_cache",
+            "build_all_layers",
+            "envs",
+            "download_base",
+        ]
+        self.kwargs_warning(allowed_kwargs, **kwargs)
         if redeploy and settings.current_env == "prod":
             confirmed = Confirm.ask(
                 "Do you [bold]really[/bold] want to redeploy a [red]production[/red] AI? "
@@ -1587,11 +1595,20 @@ class AI:
 
             # Hidden kwargs
             enable_cuda: Create CUDA-Compatible image
+            cuda_devel: Create development CUDA image
             build_all_layers: Perform a fresh build of all layers
             envs: Pass custom environment variables to the deployment. Should be a dictionary like
                   {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
             download_base: Always download the base image to get the latest version from ECR
         """
+        allowed_kwargs = [
+            "enable_cuda",
+            "cuda_devel",
+            "build_all_layers",
+            "envs",
+            "download_base",
+        ]
+        self.kwargs_warning(allowed_kwargs, **kwargs)
         if isinstance(orchestrator, str):
             orchestrator = TrainingOrchestrator[orchestrator]
         self._build_trainer_image(
@@ -1640,7 +1657,16 @@ class AI:
             self.client.update_training_instance(instance_id, state="STARTING")
             log.info(f"Create training instance : {instance_id}")
 
-    def _build_trainer_image(self, enable_cuda, orchestrator, properties, skip_build, **kwargs):
+    def _build_trainer_image(
+        self,
+        orchestrator: TrainingOrchestrator,
+        properties: Dict[str, Any],
+        enable_cuda: bool = False,
+        skip_build: bool = False,
+        **kwargs,
+    ):
+        allowed_kwargs = ["cuda_devel", "build_all_layers", "download_base"]
+        self.kwargs_warning(allowed_kwargs, **kwargs)
         for key, value in kwargs.get("envs", {}).items():
             self.environs.add_or_update(key, value)
         if orchestrator in [TrainingOrchestrator.AWS_EKS, TrainingOrchestrator.LOCAL_DOCKER_K8S]:
@@ -1653,7 +1679,7 @@ class AI:
                     str(self.version),
                     enable_cuda=enable_cuda,
                     enable_eia=False,
-                    cuda_devel=False,
+                    cuda_devel=kwargs.get("cuda_devel", False),
                     lambda_mode=False,
                     k8s_mode=True,
                     from_scratch=kwargs.get("build_all_layers", False),
@@ -1684,11 +1710,20 @@ class AI:
 
         # Hidden kwargs
             enable_cuda: Whether CUDA base image is to be used
+            cuda_devel: Create development CUDA image
             build_all_layers: Perform a fresh build of all layers
             envs: Pass custom environment variables to the deployment. Should be a dictionary like
                   {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
             download_base: Always download the base image to get the latest version from ECR
         """
+        allowed_kwargs = [
+            "enable_cuda",
+            "cuda_devel",
+            "build_all_layers",
+            "envs",
+            "download_base",
+        ]
+        self.kwargs_warning(allowed_kwargs, **kwargs)
         orchestrator = TrainingOrchestrator.AWS_EKS
         self._build_trainer_image(
             orchestrator=orchestrator,
@@ -1722,3 +1757,11 @@ class AI:
         )
         self.client.update_training_instance(instance_id, state="STARTING")
         log.info(f"Create training instance : {instance_id}")
+
+    @staticmethod
+    def kwargs_warning(allowed_kwargs: List[str], **kwargs: Dict[str, Any]) -> None:
+        if any([k not in allowed_kwargs for k in kwargs.keys()]):
+            log.warning(
+                f"Keyword arguments {[k not in allowed_kwargs for k in kwargs.keys()]} "
+                f"unknown, make sure you are passing the right keyword arguments"
+            )
