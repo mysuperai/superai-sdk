@@ -147,7 +147,7 @@ class DataApiMixin(ABC):
             required_api_key=True,
         )
         try:
-            resp = requests.put(dataset.pop("uploadUrl"), data=file.read())
+            resp = requests.put(dataset.pop("uploadUrl"), data=file.read(), headers={"Content-Type": mimeType})
             if resp.status_code == 200 or resp.status_code == 201:
                 return dataset
             else:
