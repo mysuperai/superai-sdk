@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 import boto3
 
 from superai.meta_ai.parameters import Config, HyperParameterSpec, ModelParameters
-from superai.meta_ai.schema import Schema, SchemaParameters
+from superai.meta_ai.schema import Schema, SchemaParameters, TrainerOutput
 from superai.meta_ai.tracking import SuperTracker
 
 default_random_seed = 65778
@@ -229,7 +229,7 @@ class BaseModel(metaclass=ABCMeta):
         model_parameters: ModelParameters = None,
         callbacks=None,
         random_seed=default_random_seed,
-    ) -> dict:
+    ) -> TrainerOutput:
         """
         Args:
             random_seed:
@@ -330,7 +330,16 @@ def add_default_tracking(training_method):
 
     def inner(*args, **kwargs):
         tracking.init()
-        metrics_dict = training_method(*args, **kwargs)
-        tracking.log_metrics(**metrics_dict)
+        metrics: TrainerOutput = training_method(*args, **kwargs)
+        if metrics.metric is not None:
+            tracking.log_metrics(**metrics.metric)
+        elif metrics.metrics is not None:
+            for m in metrics.metrics:
+                tracking.log_metric(name=m.name, value=m.value, step=m.step, timestamp=m.timestamp)
+        elif metrics.collection is not None:
+            for m in metrics.collection:
+                tracking.log_metrics(step=m.step, timestamp=m.timestamp, **dict(m.metrics))
+        else:
+            raise ValueError("One of the metrics should be available")
 
     return inner

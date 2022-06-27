@@ -11,6 +11,7 @@ from superai.meta_ai.base.training_helpers import (
     get_tensorboard_tracking_path,
 )
 from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters
+from superai.meta_ai.schema import TrainerOutput
 
 OPTIMIZERS = {
     "adam": tf.keras.optimizers.Adam,
@@ -77,7 +78,7 @@ class MnistModel(BaseModel):
         model_parameters: ModelParameters = None,
         callbacks=None,
         random_seed=default_random_seed,
-    ) -> dict:
+    ) -> TrainerOutput:
         print("Training data: ", training_data)
         training_dir = Path(training_data)
         print("Training dir: ", training_dir)
@@ -109,4 +110,4 @@ class MnistModel(BaseModel):
             callbacks=callbacks,  # Polyaxon
         )
         accuracy = self.model.evaluate(x_test, y_test)[1]
-        return dict(eval_accuracy=accuracy)
+        return TrainerOutput(metric=dict(eval_accuracy=accuracy))

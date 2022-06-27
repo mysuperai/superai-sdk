@@ -47,7 +47,12 @@ from superai.meta_ai.parameters import (
     ModelParameters,
     TrainingParameters,
 )
-from superai.meta_ai.schema import EasyPredictions, Schema, SchemaParameters
+from superai.meta_ai.schema import (
+    EasyPredictions,
+    Schema,
+    SchemaParameters,
+    TrainerOutput,
+)
 from superai.utils import load_api_key, load_auth_token, load_id_token, retry, system
 
 # Prefix path for the model directory on storage backend
@@ -1461,7 +1466,7 @@ class AI:
         callbacks=None,
         validation_data=None,
         train_logger=None,
-    ):
+    ) -> TrainerOutput:
         """Please fill hyperparameters and model parameters accordingly.
 
         Args:
@@ -1487,7 +1492,7 @@ class AI:
                 os.path.join(self._location, "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")),
             )
         log.info(f"If tensorboard callback is present, logging in {self.model_class.logger_dir}")
-        train_instance = self.model_class.train(
+        train_instance_output = self.model_class.train(
             model_save_path=model_save_path,
             training_data=training_data,
             validation_data=validation_data,
@@ -1500,6 +1505,7 @@ class AI:
             model_parameters=model_parameters,
             callbacks=callbacks,
         )
+        return train_instance_output
 
     def _prepare_k8s_dependencies(self, enable_cuda=False, properties=None, **kwargs) -> dict:
         """

@@ -22,6 +22,7 @@ from superai.meta_ai.base.training_helpers import (
     get_tensorboard_tracking_path,
 )
 from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters
+from superai.meta_ai.schema import TrainerOutput
 
 logger = logging.getLogger(__file__)
 logger.setLevel(logging.INFO)
@@ -116,7 +117,7 @@ class IntelImageClassification(BaseModel):
         model_parameters: ModelParameters = None,
         callbacks=None,
         random_seed=default_random_seed,
-    ) -> dict:
+    ) -> TrainerOutput:
         """
         Training algorithm implementation
 
@@ -187,4 +188,4 @@ class IntelImageClassification(BaseModel):
         model.save(model_save_path)
         logger.info(f"Training complete, saved model in {model_save_path}")
 
-        return dict(eval_accuracy=accuracy)
+        return TrainerOutput(metric=dict(eval_accuracy=accuracy))
