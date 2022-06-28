@@ -1,7 +1,10 @@
-superai_schema
-superai-dataclient
-seldon-core==1.11.1
-polyaxon[s3]
-aiobotocore==2.2.0 # fixing the versions for the requirements below for
+aiobotocore==2.2.0  # fixing the versions for the requirements below
 aioitertools==0.10.0
 botocore==1.24.21
+Flask==1.1.2
+itsdangerous==2.0.1
+polyaxon
+seldon-core==1.11.1
+superai-dataclient
+superai_schema
+werkzeug==2.0.3

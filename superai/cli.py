@@ -1,9 +1,11 @@
 import json
 import os
+import pathlib
+import shutil
 import signal
 import sys
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import click
 import yaml
@@ -18,6 +20,7 @@ from superai.client import Client
 from superai.config import get_config_dir, list_env_configs, set_env_config, settings
 from superai.exceptions import SuperAIAuthorizationError
 from superai.log import logger
+from superai.meta_ai.deployed_predictors import DeployedPredictor
 from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters
 from superai.utils import (
     load_api_key,
@@ -108,7 +111,9 @@ def client(ctx):
         print("User needs to login or set api key")
         exit()
     ctx.obj = {}
-    ctx.obj["client"] = Client(api_key=api_key)
+    ctx.obj["client"] = Client(
+        api_key=api_key, auth_token=settings.get("user", {}).get("cognito", {}).get("access_token")
+    )
 
 
 # Create decorator to pass client object when needed
@@ -306,11 +311,23 @@ def list_jobs(
     type=click.DateTime(formats=["%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d"]),
 )
 @click.option(
+    "--send_email/--not_send_email",
+    "-se/-nse",
+    help="Choose if email is sent at the end",
+    default=True,
+)
+@click.option(
     "--status_in",
     "-s_in",
     help="Status of jobs",
     multiple=True,
     type=click.Choice(["SCHEDULED", "IN_PROGRESS", "FAILED", "SUSPENDED", "CANCELED", "EXPIRED", "COMPLETED"]),
+)
+@click.option(
+    "--with_history/--not_with_history",
+    "-wh/-nwh",
+    help="Choose if add job history to downloaded data",
+    default=False,
 )
 @click.pass_context
 def download_jobs(
@@ -320,10 +337,12 @@ def download_jobs(
     created_end_date: datetime,
     completed_start_date: datetime,
     completed_end_date: datetime,
+    send_email: bool = None,
     status_in: List[str] = None,
+    with_history: bool = None,
 ):
     """
-    Trigger processing of job responses that is sent to customer email once is finished.
+    Trigger processing of job responses that is sent to customer email (default) once is finished.
     """
     client = ctx.obj["client"]
     print(f"Triggering job responses processing per application {app_id}")
@@ -331,9 +350,150 @@ def download_jobs(
         status_in = None
     print(
         client.download_jobs(
-            app_id, created_start_date, created_end_date, completed_start_date, completed_end_date, status_in
+            app_id,
+            created_start_date,
+            created_end_date,
+            completed_start_date,
+            completed_end_date,
+            status_in,
+            send_email,
+            with_history,
         )
     )
+
+
+@client.command(name="get_jobs_operation")
+@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--operation_id", "-o", help="Operation id", required=True)
+@click.pass_context
+def get_jobs_operation(
+    ctx,
+    app_id: str,
+    operation_id: str,
+):
+    """
+    Fetch jobs operation given application id and operation id
+    """
+    client = ctx.obj["client"]
+    print(f"Fetching jobs operation per application {app_id} operation {operation_id}")
+    print(client.get_jobs_operation(app_id, operation_id))
+
+
+@client.command(name="downloaded_jobs_url")
+@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--operation_id", "-o", help="Operation id", required=True)
+@click.option("--seconds_ttl", "-sttl", help="Seconds ttl for url", default=60, type=click.INT, show_default=True)
+@click.pass_context
+def downloaded_jobs_url(
+    ctx,
+    app_id: str,
+    operation_id: str,
+    seconds_ttl: int,
+):
+    """
+    Generates downloaded jobs url given application id and operation id
+    """
+    client = ctx.obj["client"]
+    print(f"Generating downloaded jobs url per application {app_id} operation {operation_id}")
+    print(client.generates_downloaded_jobs_url(app_id, operation_id, seconds_ttl))
+
+
+@client.command(name="download_tasks")
+@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option(
+    "--created_start_date",
+    "-c0",
+    help="Created start date",
+    type=click.DateTime(formats=["%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d"]),
+)
+@click.option(
+    "--created_end_date",
+    "-c1",
+    help="Created end date",
+    type=click.DateTime(formats=["%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d"]),
+)
+@click.option(
+    "--completed_start_date",
+    "-e0",
+    help="Completed start date",
+    type=click.DateTime(formats=["%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d"]),
+)
+@click.option(
+    "--completed_end_date",
+    "-e1",
+    help="Completed end date",
+    type=click.DateTime(formats=["%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d"]),
+)
+@click.option(
+    "--status_in",
+    "-s_in",
+    help="Status of tasks",
+    multiple=True,
+    type=click.Choice(["SCHEDULED", "IN_PROGRESS", "FAILED", "CANCELED", "PENDING", "EXPIRED", "COMPLETED"]),
+)
+@click.pass_context
+def download_tasks(
+    ctx,
+    app_id: str,
+    created_start_date: datetime,
+    created_end_date: datetime,
+    completed_start_date: datetime,
+    completed_end_date: datetime,
+    status_in: List[str] = None,
+):
+    """
+    Trigger download of tasks data that can be retrieved using task operation id.
+    """
+    client = ctx.obj["client"]
+    print(f"Triggering task download processing per application {app_id}")
+    if len(status_in) == 0:
+        status_in = None
+    print(
+        client.download_tasks(
+            app_id,
+            created_start_date,
+            created_end_date,
+            completed_start_date,
+            completed_end_date,
+            status_in,
+        )
+    )
+
+
+@client.command(name="get_tasks_operation")
+@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--operation_id", "-o", help="Operation id", required=True)
+@click.pass_context
+def get_tasks_operation(
+    ctx,
+    app_id: str,
+    operation_id: str,
+):
+    """
+    Fetch tasks operation given application id and operation id
+    """
+    client = ctx.obj["client"]
+    print(f"Fetching tasks operation per application {app_id} operation {operation_id}")
+    print(client.get_tasks_operation(app_id, operation_id))
+
+
+@client.command(name="downloaded_tasks_url")
+@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--operation_id", "-o", help="Operation id", required=True)
+@click.option("--seconds_ttl", "-sttl", help="Seconds ttl for url", default=60, type=click.INT, show_default=True)
+@click.pass_context
+def downloaded_tasks_url(
+    ctx,
+    app_id: str,
+    operation_id: str,
+    seconds_ttl: int,
+):
+    """
+    Generates downloaded tasks url given application id and operation id
+    """
+    client = ctx.obj["client"]
+    print(f"Generating downloaded tasks url per application {app_id} operation {operation_id}")
+    print(client.generates_downloaded_tasks_url(app_id, operation_id, seconds_ttl))
 
 
 @client.command(name="create_ground_truth")
@@ -460,6 +620,23 @@ def create_ground_truth_from_job(ctx, app_id: str, job_id: str):
     client = ctx.obj["client"]
     print(f"Converting job {job_id} to ground truth data")
     print(client.create_ground_truth_from_job(app_id, job_id))
+
+
+@client.command(name="workflow_delete")
+@click.option(
+    "dp_qualified_name", "-d", help="The name of the rounter, for example image_disambiguation.router", required=True
+)
+@click.option("workflow_name", "-w", help="The name of the workflow", required=True)
+@click.pass_context
+def delete_workflow(ctx, dp_qualified_name, workflow_name):
+    """
+    Delete an existing workflow
+    """
+    client = ctx.obj["client"]
+    new_workflows = client.delete_workflow(dp_qualified_name, workflow_name)
+    logger.info(
+        f"Workflow {workflow_name} deleted with success from {dp_qualified_name}, new workflow list -> {new_workflows}"
+    )
 
 
 @cli.command()
@@ -1041,12 +1218,24 @@ def training():
 @training.command(name="list")
 @click.option("--app_id", "-a", help="Application id", required=False)
 @click.option("--model_id", "-m", help="Model id", required=False)
+@click.option(
+    "--state",
+    "-s",
+    help="Filter by state",
+    required=False,
+    default=None,
+    show_default=True,
+    type=click.Choice(["FINISHED", "IN_PROGRESS", "FAILED", "PAUSED", "UNKNOWN"]),
+)
+@click.option(
+    "--limit", "-l", help="Limit the number of returned rows", required=False, default=10, show_default=True, type=int
+)
 @pass_client
-def list_trainings(client, app_id, model_id):
+def list_trainings(client, app_id, model_id, state, limit):
     """
-    List ongoing trainings
+    List trainings. Allows filtering by state and application id.
     """
-    trainings = client.get_trainings(app_id, model_id, "IN_PROGRESS")
+    trainings = client.get_trainings(app_id, model_id, state=state, limit=limit)
     if trainings:
         print(trainings)
 
@@ -1078,14 +1267,99 @@ def start_training(client, app_id, model_id, properties: str):
         print(f"Started a new training with ID {id}")
 
 
+@training.command(name="trigger-template")
+@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--model_id", "-m", help="Model id", required=True)
+@click.option("--training_template_id", "-tt", help="Training Template id", required=True)
+@click.option("--task-name", "-tn", help="Task name to prepare dataset", required=True, type=str)
+@click.option("--properties", "-p", help="Custom properties", required=False, type=dict)
+@click.option("--metadata", "-md", help="Metadata", required=False, type=dict)
+@pass_client
+def trigger_template_training(client, app_id, model_id, training_template_id, task_name, properties, metadata):
+    try:
+        if properties:
+            properties = json.loads(properties)
+        if metadata:
+            metadata = json.loads(metadata)
+    except:
+        print("Could process JSON properties or metadata")
+        exit()
+
+    id = client.start_training_from_app_model_template(
+        app_id=app_id,
+        model_id=model_id,
+        task_name=task_name,
+        training_template_id=training_template_id,
+        current_properties=properties,
+        metadata=metadata,
+    )
+    if id:
+        print(f"Started new training with ID {id}")
+
+
+@training.command("deploy", help="Deploy a AI from its config file")
+@click.option(
+    "--config-file",
+    "-c",
+    help="Config YAML file containing AI properties and training deployment definition",
+    type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+)
+@click.option("--push/--no-push", "-p/-np", help="Push the model before training", default=True)
+@click.option(
+    "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
+)
+def training_deploy(config_file, push=True, clean=True):
+    if clean:
+        if os.path.exists(".AISave"):
+            shutil.rmtree(".AISave")
+    ai_object, ai_template_object, config_data = obtain_object_template_config(config_file)
+
+    if config_data.training_deploy is not None:
+        if push:
+            ai_object.push(
+                update_weights=config_data.training_deploy.update_weights,
+                overwrite=config_data.training_deploy.overwrite,
+            )
+        ai_object.training_deploy(
+            orchestrator=config_data.training_deploy.orchestrator,
+            training_data_dir=config_data.training_deploy.training_data_dir,
+            skip_build=config_data.training_deploy.skip_build,
+            properties=config_data.training_deploy.properties,
+            training_parameters=config_data.training_deploy.training_parameters,
+            enable_cuda=config_data.training_deploy.enable_cuda,
+            build_all_layers=config_data.training_deploy.build_all_layers,
+            envs=config_data.training_deploy.envs,
+            download_base=config_data.training_deploy.download_base,
+        )
+    elif config_data.training_deploy_from_app is not None:
+        if push:
+            ai_object.push(
+                update_weights=config_data.training_deploy_from_app.update_weights,
+                overwrite=config_data.training_deploy_from_app.overwrite,
+            )
+        ai_object.start_training_from_app(
+            app_id=config_data.training_deploy_from_app.app_id,
+            task_name=config_data.training_deploy_from_app.task_name,
+            current_properties=config_data.training_deploy_from_app.current_properties,
+            metadata=config_data.training_deploy_from_app.metadata,
+            skip_build=config_data.training_deploy_from_app.skip_build,
+            enable_cuda=config_data.training_deploy_from_app.enable_cuda,
+            build_all_layers=config_data.training_deploy_from_app.build_all_layers,
+            envs=config_data.training_deploy_from_app.envs,
+            download_base=config_data.training_deploy_from_app.download_base,
+        )
+    else:
+        raise ValueError("configuration should contain 'training_deploy' or 'training_deploy_from_app' section")
+
+
 @training.group()
 def template():
     """View and manage training templates"""
 
 
 @template.command(name="create")
-@click.option("--app_id", "-a", help="Application id", required=True)
-@click.option("--model_id", "-m", help="Model id", required=True)
+@click.option("--app_id", "-a", help="Application id", required=False, default=None)
+@click.option("--model_id", "-m", help="Root Model id or Model id", required=True)
 @click.option(
     "--properties",
     "-p",
@@ -1106,13 +1380,13 @@ def create_template(client, app_id, model_id, properties: str):
             print("Couldn't read json inputs")
             exit()
 
-    id = client.create_training_template_entry(app_id, model_id, json_inputs)
+    id = client.create_training_template_entry(model_id=model_id, properties=json_inputs, app_id=app_id)
     if id:
         print(f"Created new training with ID {id}")
 
 
 @template.command(name="update")
-@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--app_id", "-a", help="Application id", required=False, default=None)
 @click.option("--model_id", "-m", help="Model id", required=True)
 @click.option(
     "--properties",
@@ -1140,22 +1414,181 @@ def update_template(client, app_id, model_id, properties: str, description: str)
             exit()
     else:
         json_inputs = None
-    id = client.update_training_template(app_id, model_id, properties=json_inputs, description=description)
+    id = client.update_training_template(
+        model_id=model_id, app_id=app_id, properties=json_inputs, description=description
+    )
     if id:
         print(f"Updated training template with id={id}")
 
 
+def obtain_object_template_config(config_file: pathlib.Path) -> Tuple:
+    """
+    From the config file, obtain the AITemplate, AI instance and the config
+    Args:
+        config_file: Path to config file
+    Returns:
+        Tuple of AI instance, AITemplate and AIConfig
+    """
+    from superai.meta_ai.ai import AI, AITemplate
+    from superai.meta_ai.config_parser import AIConfig
+
+    config_data = AIConfig(_env_file=str(config_file))
+
+    ai_template_object = AITemplate.from_settings(config_data.template)
+    ai_object = AI.from_settings(ai_template_object, config_data.instance)
+
+    return ai_object, ai_template_object, config_data
+
+
 @template.command(name="list")
-@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--app_id", "-a", help="Application id", required=False, default=None)
 @click.option("--model_id", "-m", help="Model id", required=True)
 @pass_client
 def list_training_templates(client, app_id, model_id):
     """
     List existing training templates.
     """
-    templates = client.get_training_templates(app_id, model_id)
+    templates = client.get_training_templates(model_id, app_id)
     if templates:
         print(templates)
+
+
+@template.command(name="view")
+@click.option("--app_id", "-a", help="Application id", required=False, default=None)
+@click.option("--template_id", "-t", help="Template id", required=True)
+@pass_client
+def view_training_template(client, app_id, template_id):
+    """
+    List existing training templates.
+    """
+    template = client.get_training_template(template_id, app_id)
+    if template:
+        print(template)
+
+
+@ai.command("deploy", help="Deploy a AI from its config file")
+@click.option(
+    "--config-file",
+    "-c",
+    help="Config YAML file containing AI properties and deployment definition",
+    type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+)
+@click.option(
+    "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
+)
+def deploy_ai(config_file, clean=True):
+    if clean:
+        if os.path.exists(".AISave"):
+            shutil.rmtree(".AISave")
+    ai_object, ai_template_object, config_data = obtain_object_template_config(config_file=config_file)
+
+    if isinstance(config_data.deploy.properties, str):
+        properties = json.loads(config_data.deploy.properties)
+    else:
+        properties = config_data.deploy.properties
+    ai_object.push(
+        update_weights=config_data.deploy.update_weights,
+        overwrite=config_data.deploy.overwrite,
+        weights_path=config_data.instance.weights_path,
+    )
+    predictor: DeployedPredictor = ai_object.deploy(
+        orchestrator=config_data.deploy.orchestrator,
+        skip_build=config_data.deploy.skip_build,
+        properties=properties,
+        enable_cuda=config_data.deploy.enable_cuda,
+        enable_eia=config_data.deploy.enable_eia,
+        cuda_devel=config_data.deploy.cuda_devel,
+        redeploy=config_data.deploy.redeploy,
+        build_all_layers=config_data.deploy.build_all_layers,
+        download_base=config_data.deploy.download_base,
+        envs=config_data.deploy.envs,
+        worker_count=config_data.deploy.worker_count,
+        ai_cache=config_data.deploy.ai_cache,
+    )
+    predictor_dictionary = {predictor.__class__.__name__: predictor.to_dict()}
+    with open(
+        os.path.join(settings.path_for(), "cache", ai_object.name, str(ai_object.version), ".predictor_config.json"),
+        "w",
+    ) as predictor_config:
+        logger.info("Storing predictor config")
+        json.dump(predictor_dictionary, predictor_config)
+
+
+@ai.command("predictor-test", help="Test the predictor created from the deploy command")
+@click.option(
+    "--config-file",
+    "-c",
+    help="Points to the config file",
+    type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+)
+@click.option("--predict-input", "-i", help="Prediction input", type=str, required=False)
+@click.option("--predict-input-file", "-if", help="Prediction input file", type=click.Path(), required=False)
+@click.option(
+    "--expected-output",
+    "-o",
+    help="Expected output (should only be used if your model is consistent)",
+    type=str,
+    required=False,
+)
+@click.option(
+    "--expected-output-file",
+    "-of",
+    help="Expected output file (should only be used if your model is consistent",
+    type=click.Path(),
+)
+@pass_client
+def predictor_test(
+    client, config_file, predict_input=None, predict_input_file=None, expected_output=None, expected_output_file=None
+):
+    ai_object, ai_template_object, config_data = obtain_object_template_config(config_file=config_file)
+    config_path = os.path.join(
+        settings.path_for(), "cache", ai_object.name, str(ai_object.version), ".predictor_config.json"
+    )
+    if os.path.exists(config_path):
+        with open(config_path, "r") as predictor_config:
+            predictor_dictionary = json.load(predictor_config)
+        predictor: DeployedPredictor = DeployedPredictor.from_dict(predictor_dictionary, client)
+        if predict_input is not None:
+            predict_input = json.loads(predict_input)
+        elif predict_input_file is not None:
+            with open(predict_input_file, "r") as predict_file_stream:
+                predict_input = json.load(predict_file_stream)
+        else:
+            raise ValueError("One of --predict-input or --predict-input-file should be passed")
+        predicted_output = predictor.predict(predict_input)
+        click.echo(predicted_output)
+        if expected_output is not None:
+            assert predicted_output == expected_output, "Expected output should be same as predicted output"
+        if expected_output_file is not None:
+            with open(expected_output_file, "r") as output_file_stream:
+                expected_output = json.load(output_file_stream)
+                assert predicted_output == expected_output, "Expected output should be same as predicted output"
+    else:
+        raise Exception(f"Predictor config does not exist at {config_path}")
+
+
+@ai.command("predictor-teardown", help="Teardown the predictor in context")
+@click.option(
+    "--config-file",
+    "-c",
+    help="Points to the config file",
+    type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+)
+@pass_client
+def predictor_teardown(client, config_file):
+    ai_object, ai_template_object, config_data = obtain_object_template_config(config_file=config_file)
+    config_path = os.path.join(
+        settings.path_for(), "cache", ai_object.name, str(ai_object.version), ".predictor_config.json"
+    )
+    if os.path.exists(config_path):
+        with open(config_path, "r") as predictor_config:
+            predictor_dictionary = json.load(predictor_config)
+        predictor: DeployedPredictor = DeployedPredictor.from_dict(predictor_dictionary, client)
+        predictor.terminate()
+        logger.info(f"Removing predictor config at {config_path}")
+        os.remove(config_path)
+    else:
+        raise Exception(f"Predictor config did not exist at {config_path}")
 
 
 def main():

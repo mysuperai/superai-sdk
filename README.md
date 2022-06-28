@@ -126,7 +126,9 @@ The super.AI Data Program Builder is a Python SDK that lets you create your own 
   7. Verify that the pip was configured correctly by running `pip config get global.index-url`
      If the response is empty then run `superai login --show-pip -u <user_email>` and copy/paste the 
      `pip config set...` command as indicated
-  8. Install superai in dataprogramming mode `pip install --upgrade "superai[dp]>=0.1.0.alpha1"`
+  8. Install superai in dataprogramming mode `pip install --upgrade "superai[dp]>=0.1.0.beta2"`
+  9. For AI components install `pip install --upgrade superai[ai]>=0.1.0.beta2`
+  10. Install everything by `pip install --upgrade superai[complete]>=0.1.0.beta2`
 
 ## Usage
 

@@ -1,6 +1,7 @@
 import json
 
 import dictdiffer
+import pytest
 
 from superai.meta_ai.parameters import (
     HyperParameterSpec,
@@ -36,6 +37,15 @@ def test_hyperparam_loading_unknown_params():
     parameters = ["some_fancy_param=something else"]
     hps = HyperParameterSpec.load_from_list(parameters)
     assert hps.some_fancy_param == "something else"
+
+    defaulter = hps.get("some_random_key", "this value")
+    assert defaulter == "this value"
+    exister = hps.get("some_fancy_param", "something different altogether")
+    assert exister == hps.some_fancy_param == "something else"
+
+    with pytest.raises(KeyError) as e:
+        hps.get("random_key")
+    assert "HyperParameterSpec" in str(e.value)
 
 
 def test_training_parameters():

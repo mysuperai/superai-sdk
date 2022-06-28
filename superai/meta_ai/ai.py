@@ -6,14 +6,12 @@ import hashlib
 import json
 import os
 import re
-import shlex
 import shutil
-import subprocess
 import tarfile
 import time
 import traceback
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 from urllib.parse import urlparse
 
 import boto3  # type: ignore
@@ -35,12 +33,13 @@ from superai.meta_ai.ai_helper import (
     list_models,
     upload_dir,
 )
+from superai.meta_ai.config_parser import InstanceConfig, TemplateConfig
 from superai.meta_ai.deployed_predictors import (
     DeployedPredictor,
     LocalPredictor,
     RemotePredictor,
 )
-from superai.meta_ai.dockerizer import get_docker_client, push_image
+from superai.meta_ai.dockerizer import aws_ecr_login, get_docker_client, push_image
 from superai.meta_ai.environment_file import EnvironmentFileProcessor
 from superai.meta_ai.parameters import (
     Config,
@@ -48,8 +47,13 @@ from superai.meta_ai.parameters import (
     ModelParameters,
     TrainingParameters,
 )
-from superai.meta_ai.schema import EasyPredictions, Schema, SchemaParameters
-from superai.utils import load_api_key, load_auth_token, load_id_token, retry
+from superai.meta_ai.schema import (
+    EasyPredictions,
+    Schema,
+    SchemaParameters,
+    TrainerOutput,
+)
+from superai.utils import load_api_key, load_auth_token, load_id_token, retry, system
 
 # Prefix path for the model directory on storage backend
 MODEL_ARTIFACT_PREFIX_S3 = "meta_ai_models"
@@ -224,6 +228,7 @@ class AITemplate:
         self.model_class = model_class
         self.model_class_path = model_class_path
         self.environs: Optional[EnvironmentFileProcessor] = None
+        self.template_id = None
 
     @classmethod
     def load_local(cls, load_path: str) -> "AITemplate":
@@ -326,16 +331,57 @@ class AITemplate:
             }
             json.dump(content, ai_template_writer, indent=1)
 
-    def get_or_create_training_entry(self, app_id: str, model_id: str, properties: dict = {}):
-        existing_template_id = self.client.get_training_templates(app_id, model_id)
+    def get_or_create_training_entry(self, model_id: str, app_id: str = None, properties: dict = {}):
+        existing_template_id = self.client.get_training_templates(model_id=model_id, app_id=app_id)
         if len(existing_template_id):
             log.info(f"Found existing template {existing_template_id}")
             self.template_id = existing_template_id[0].id
         else:
-            template_id = self.client.create_training_template_entry(app_id, model_id, properties)
+            template_id = self.client.create_training_template_entry(
+                model_id=model_id, properties=properties, app_id=app_id
+            )
             log.info(f"Created template : {template_id}")
             self.template_id = template_id
         return self.template_id
+
+    @classmethod
+    def from_settings(cls, template: TemplateConfig) -> AITemplate:
+        if template.input_schema is None:
+            input_schema = Schema()
+        elif isinstance(template.input_schema, str):
+            input_schema = Schema.from_json(json.loads(template.input_schema))
+        else:
+            input_schema = Schema.from_json(template.input_schema)
+
+        if template.output_schema is None:
+            output_schema = Schema()
+        elif isinstance(template.output_schema, str):
+            output_schema = Schema.from_json(json.loads(template.output_schema))
+        else:
+            output_schema = Schema.from_json(template.output_schema)
+
+        if template.configuration is None:
+            configuration = Config()
+        elif isinstance(template.configuration, str):
+            configuration = Config.from_json(json.loads(template.configuration))
+        else:
+            configuration = Config.from_json(template.configuration)
+
+        return AITemplate(
+            input_schema=input_schema,
+            output_schema=output_schema,
+            configuration=configuration,
+            name=template.name,
+            description=template.description,
+            model_class=template.model_class,
+            model_class_path=template.model_class_path,
+            requirements=template.requirements,
+            code_path=template.code_path,
+            conda_env=template.conda_env,
+            artifacts=template.artifacts,
+            bucket_name=template.bucket_name,
+            parameters=template.parameters,
+        )
 
 
 class AI:
@@ -585,8 +631,7 @@ class AI:
         s3 = boto3.client("s3")
 
         download_folder = os.path.join("/tmp", f"ai_contents_{int(time.time())}")
-        if not os.path.exists(download_folder):
-            os.makedirs(download_folder)
+        os.makedirs(download_folder, exist_ok=True)
         log.info(f"Storing temporary files in {download_folder}")
 
         parsed_url = urlparse(path, allow_fragments=False)
@@ -630,8 +675,7 @@ class AI:
             if weights_path.startswith("s3"):
                 s3 = boto3.client("s3")
                 download_folder = kwargs.get("download_folder", os.path.join("/tmp", f"ai_contents_{int(time.time())}"))
-                if not os.path.exists(download_folder):
-                    os.makedirs(download_folder)
+                os.makedirs(download_folder, exist_ok=True)
                 parsed_url = urlparse(weights_path, allow_fragments=False)
                 bucket_name = parsed_url.netloc
                 path_to_object = parsed_url.path if not parsed_url.path.startswith("/") else parsed_url.path[1:]
@@ -841,8 +885,7 @@ class AI:
             overwrite:
         """
         save_path = os.path.join(path, self.name)
-        if not os.path.exists(save_path):
-            os.makedirs(save_path)
+        os.makedirs(save_path, exist_ok=True)
 
         if self.version is None:
             version = "0"
@@ -989,11 +1032,12 @@ class AI:
 
     def deploy(
         self,
-        orchestrator: "Orchestrator" = Orchestrator.LOCAL_DOCKER,
+        orchestrator: Union[str, "Orchestrator"] = Orchestrator.LOCAL_DOCKER,
         skip_build: bool = False,
         properties: Optional[dict] = None,
         enable_cuda: bool = False,
         enable_eia: bool = False,
+        cuda_devel: bool = False,
         redeploy: bool = False,
         **kwargs,
     ) -> "DeployedPredictor.Type":
@@ -1008,6 +1052,7 @@ class AI:
             skip_build: Skip building
             enable_cuda: Create CUDA-Compatible image
             enable_eia: Create Elastic Inference compatible image
+            cuda_devel: Create development CUDA image
             properties: Optional dictionary with properties for instance creation.
                 Possible values (with defaults) are:
                     "sagemaker_instance_type": "ml.m5.xlarge"
@@ -1025,14 +1070,24 @@ class AI:
                   {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
             download_base: Always download the base image to get the latest version from ECR
         """
+        allowed_kwargs = [
+            "worker_count",
+            "ai_cache",
+            "build_all_layers",
+            "envs",
+            "download_base",
+        ]
+        self.kwargs_warning(allowed_kwargs, **kwargs)
         if redeploy and settings.current_env == "prod":
             confirmed = Confirm.ask(
-                "Do you [bold]really[/bold] want to redeploy a [red]production[/red] AI? This can negatively impact Data Programs relying on the existing AI."
+                "Do you [bold]really[/bold] want to redeploy a [red]production[/red] AI? "
+                "This can negatively impact Data Programs relying on the existing AI."
             )
             if not confirmed:
                 log.warning("Aborting deployment")
                 raise ModelDeploymentError("Deployment aborted by User")
-
+        if isinstance(orchestrator, str):
+            orchestrator = Orchestrator[orchestrator]
         is_lambda_orchestrator = orchestrator in [Orchestrator.LOCAL_DOCKER_LAMBDA, Orchestrator.AWS_LAMBDA]
         # Updating environs before image builds
         for key, value in kwargs.get("envs", {}).items():
@@ -1055,6 +1110,7 @@ class AI:
                     str(self.version),
                     enable_cuda=enable_cuda,
                     enable_eia=enable_eia,
+                    cuda_devel=cuda_devel,
                     lambda_mode=is_lambda_orchestrator,
                     from_scratch=kwargs.get("build_all_layers", False),
                     always_download=kwargs.get("download_base", False),
@@ -1070,6 +1126,7 @@ class AI:
                     str(self.version),
                     enable_cuda=enable_cuda,
                     enable_eia=enable_eia,
+                    cuda_devel=cuda_devel,
                     lambda_mode=is_lambda_orchestrator,
                     k8s_mode=True,
                     from_scratch=kwargs.get("build_all_layers", False),
@@ -1085,6 +1142,7 @@ class AI:
             kwargs["image_name"] = f"{self.name}:{self.version}"
             kwargs["weights_path"] = self.weights_path
             kwargs["lambda_mode"] = is_lambda_orchestrator
+            kwargs["enable_cuda"] = enable_cuda
             kwargs["k8s_mode"] = orchestrator == Orchestrator.LOCAL_DOCKER_K8S
         else:
             if not skip_build:
@@ -1177,6 +1235,7 @@ class AI:
         enable_eia: bool = False,
         lambda_mode: bool = False,
         enable_cuda: bool = False,
+        cuda_devel: bool = False,
         k8s_mode: bool = False,
         version: int = 1,
     ) -> str:
@@ -1185,7 +1244,8 @@ class AI:
         Args:
             enable_eia: Return Elastic Inference base image name
             lambda_mode: Return Lambda base image name
-            enable_cuda: Return GPU image names
+            enable_cuda: Return runtime GPU image name
+            cuda_devel: Return development GPU image name
             k8s_mode: Return Kubernetes base image names
 
         Return:
@@ -1198,7 +1258,9 @@ class AI:
 
         base_image = "superai-model-s2i-python3711"
 
-        if enable_cuda:
+        if cuda_devel:
+            base_image += "-gpu-devel"
+        elif enable_cuda:
             base_image += "-gpu"
         elif enable_eia:
             base_image += "-eia"
@@ -1227,9 +1289,7 @@ class AI:
                 files.append("setup.sh")
         changes_in_build = False
         cache_folder = os.path.join(settings.path_for(), "cache", self.name, str(self.version))
-        if not os.path.exists(cache_folder):
-            log.info(f"Creating cache folder {cache_folder}")
-            os.makedirs(cache_folder)
+        os.makedirs(cache_folder, exist_ok=True)
         hash_file = os.path.join(cache_folder, ".hash.json")
         if not os.path.exists(hash_file):
             with open(hash_file, "w") as f_hash:
@@ -1252,6 +1312,7 @@ class AI:
         version_tag: str = "latest",
         enable_cuda: bool = False,
         enable_eia: bool = False,
+        cuda_devel: bool = False,
         lambda_mode: bool = False,
         k8s_mode: bool = False,
         from_scratch: bool = False,
@@ -1276,10 +1337,12 @@ class AI:
         changes_in_build = self._track_changes()
 
         client = get_docker_client()
-        base_image = self._get_base_name(enable_eia, lambda_mode, enable_cuda, k8s_mode)
+        base_image = self._get_base_name(enable_eia, lambda_mode, enable_cuda, cuda_devel, k8s_mode)
         if always_download:
             log.info(f"Downloading newest base image {base_image}...")
             self._download_base_image(base_image, client)
+            # should rebuild image always from scratch
+            from_scratch = True
         try:
             _ = client.images.get(base_image)
             log.info(f"Base image '{base_image}' found locally.")
@@ -1350,10 +1413,9 @@ class AI:
             f"--incremental=True . "
             f"{base_image_tag} {image_tag}"
         )
-        return self._system(command)
+        return system(command)
 
-    @staticmethod
-    def _download_base_image(base_image: str, client: DockerClient) -> None:
+    def _download_base_image(self, base_image: str, client: DockerClient) -> None:
         """
         Download the base image from ECR
         Args:
@@ -1362,22 +1424,13 @@ class AI:
         """
         region = boto3.Session().region_name
         account_id = boto3.client("sts").get_caller_identity()["Account"]
-        ecr_image_name = f"{account_id}.dkr.ecr.{region}.amazonaws.com/{base_image}"
+        registry_name = f"{account_id}.dkr.ecr.{region}.amazonaws.com"
+        ecr_image_name = f"{registry_name}/{base_image}"
         log.info(f"Base image not found. Downloading from ECR '{ecr_image_name}'")
-        log.info("Logging in to ECR...")
-        os.system(f"$(aws ecr get-login --region {region} --no-include-email)")
-        os.system(f"docker pull {ecr_image_name}")
+        aws_ecr_login(region, registry_name)
+        system(f"docker pull {ecr_image_name}")
         log.info(f"Re-tagging image to '{base_image}'")
         client.images.get(f"{ecr_image_name}").tag(base_image)
-
-    @staticmethod
-    def _system(command):
-        log.info(f"Running '{command}'")
-        process = subprocess.Popen(shlex.split(command), stdout=subprocess.PIPE)
-        (out, _) = process.communicate()
-        if process.returncode != 0:
-            raise subprocess.CalledProcessError(process.returncode, command, output=out)
-        return process.returncode
 
     def push_model(self, image_name: Optional[str] = None, version: Optional[str] = None) -> str:
         """Push model in ECR, involves tagging and pushing.
@@ -1413,7 +1466,7 @@ class AI:
         callbacks=None,
         validation_data=None,
         train_logger=None,
-    ):
+    ) -> TrainerOutput:
         """Please fill hyperparameters and model parameters accordingly.
 
         Args:
@@ -1439,7 +1492,7 @@ class AI:
                 os.path.join(self._location, "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")),
             )
         log.info(f"If tensorboard callback is present, logging in {self.model_class.logger_dir}")
-        train_instance = self.model_class.train(
+        train_instance_output = self.model_class.train(
             model_save_path=model_save_path,
             training_data=training_data,
             validation_data=validation_data,
@@ -1452,6 +1505,7 @@ class AI:
             model_parameters=model_parameters,
             callbacks=callbacks,
         )
+        return train_instance_output
 
     def _prepare_k8s_dependencies(self, enable_cuda=False, properties=None, **kwargs) -> dict:
         """
@@ -1491,13 +1545,47 @@ class AI:
             json.dump(kubernetes_config, wfp, indent=2)
         return kubernetes_config
 
+    @classmethod
+    def from_settings(cls, ai_template: AITemplate, instance: InstanceConfig) -> AI:
+        if instance.input_params is None:
+            input_params = SchemaParameters()
+        elif isinstance(instance.input_params, str):
+            input_params = SchemaParameters.from_json(json.loads(instance.input_params))
+        else:
+            input_params = SchemaParameters.from_json(instance.input_params)
+
+        if instance.output_params is None:
+            output_params = SchemaParameters()
+        elif isinstance(instance.output_params, str):
+            output_params = SchemaParameters.from_json(json.loads(instance.output_params))
+        else:
+            output_params = SchemaParameters.from_json(instance.output_params)
+
+        if instance.configuration is None:
+            configuration = None
+        elif isinstance(instance.configuration, str):
+            configuration = Config.from_json(json.loads(instance.configuration))
+        else:
+            configuration = Config.from_json(instance.configuration)
+
+        return AI(
+            ai_template=ai_template,
+            input_params=input_params,
+            output_params=output_params,
+            configuration=configuration,
+            name=instance.name,
+            version=instance.version,
+            description=instance.description,
+            weights_path=instance.weights_path,
+            overwrite=instance.overwrite,
+        )
+
     def training_deploy(
         self,
-        orchestrator: "TrainingOrchestrator" = TrainingOrchestrator.LOCAL_DOCKER_K8S,
+        orchestrator: Union[str, "TrainingOrchestrator"] = TrainingOrchestrator.LOCAL_DOCKER_K8S,
         training_data_dir: Optional[Union[str, Path]] = None,
         skip_build: bool = False,
         properties: Optional[dict] = None,
-        enable_cuda: bool = False,
         training_parameters: Optional[TrainingParameters] = None,
         **kwargs,
     ):
@@ -1506,41 +1594,35 @@ class AI:
         Args:
             orchestrator: Which training orchestrator to be used to deploy.
             skip_build: Skip building
-            enable_cuda: Create CUDA-Compatible image
             properties: An optional dictionary with properties for instance creation.
             training_data_dir: Path to training data
             training_parameters: A TrainingParameters object used for all training parameters to be passed to
                                 BaseModel train method
 
             # Hidden kwargs
-            worker_count: Number of workers to use for serving with Sagemaker.
-            ai_cache: Cache of ai objects for a lambda, 5 by default considering the short life of a lambda function
+            enable_cuda: Create CUDA-Compatible image
+            cuda_devel: Create development CUDA image
             build_all_layers: Perform a fresh build of all layers
             envs: Pass custom environment variables to the deployment. Should be a dictionary like
                   {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
             download_base: Always download the base image to get the latest version from ECR
         """
-        for key, value in kwargs.get("envs", {}).items():
-            self.environs.add_or_update(key, value)
-        if orchestrator in [TrainingOrchestrator.AWS_EKS, TrainingOrchestrator.LOCAL_DOCKER_K8S]:
-            if properties is None:
-                properties = {}
-            k8s_config = self._prepare_k8s_dependencies(enable_cuda=enable_cuda, properties=properties, **kwargs)
-            properties["kubernetes_config"] = k8s_config
-            if not skip_build:
-                self.build_image_s2i(
-                    self.name,
-                    str(self.version),
-                    enable_cuda=enable_cuda,
-                    enable_eia=False,
-                    lambda_mode=False,
-                    k8s_mode=True,
-                    from_scratch=kwargs.get("build_all_layers", False),
-                    always_download=kwargs.get("download_base", False),
-                )
-        else:
-            # TODO: Add support for local training
-            raise ValueError(f"Invalid Orchestrator, should be one of {[e for e in TrainingOrchestrator]}")
+        allowed_kwargs = [
+            "enable_cuda",
+            "cuda_devel",
+            "build_all_layers",
+            "envs",
+            "download_base",
+        ]
+        self.kwargs_warning(allowed_kwargs, **kwargs)
+        if isinstance(orchestrator, str):
+            orchestrator = TrainingOrchestrator[orchestrator]
+        self._build_trainer_image(
+            orchestrator=orchestrator,
+            properties=properties,
+            skip_build=skip_build,
+            **kwargs,
+        )
         # build kwargs
         kwargs = {}
         if orchestrator in [TrainingOrchestrator.LOCAL_DOCKER_K8S]:
@@ -1558,13 +1640,19 @@ class AI:
                     "Cannot establish id, please make sure you push the AI model to create a database entry"
                 )
             if training_parameters:
+                if isinstance(training_parameters, dict):
+                    obj = TrainingParameters().from_dict(training_parameters)
+                    training_parameters = obj
                 loaded_parameters = json.loads(training_parameters.to_json())
             else:
                 # TODO: load default parameters from AI
                 loaded_parameters = {}
             # check if we have a training data directory
             instance_id = self.client.create_training_entry(
-                model_id=self.id, properties=loaded_parameters, starting_state="STOPPED"
+                model_id=self.id,
+                properties=loaded_parameters,
+                starting_state="STOPPED",
+                template_id=self.ai_template.template_id,
             )
             if training_data_dir is not None:
                 self._upload_training_data(training_data_dir, training_id=instance_id)
@@ -1574,3 +1662,112 @@ class AI:
 
             self.client.update_training_instance(instance_id, state="STARTING")
             log.info(f"Create training instance : {instance_id}")
+
+    def _build_trainer_image(
+        self,
+        orchestrator: TrainingOrchestrator,
+        properties: Dict[str, Any],
+        enable_cuda: bool = False,
+        skip_build: bool = False,
+        **kwargs,
+    ):
+        allowed_kwargs = ["cuda_devel", "build_all_layers", "download_base"]
+        self.kwargs_warning(allowed_kwargs, **kwargs)
+        for key, value in kwargs.get("envs", {}).items():
+            self.environs.add_or_update(key, value)
+        if orchestrator in [TrainingOrchestrator.AWS_EKS, TrainingOrchestrator.LOCAL_DOCKER_K8S]:
+            if properties is None:
+                properties = {}
+            k8s_config = self._prepare_k8s_dependencies(enable_cuda=enable_cuda, properties=properties, **kwargs)
+            if not skip_build:
+                self.build_image_s2i(
+                    self.name,
+                    str(self.version),
+                    enable_cuda=enable_cuda,
+                    enable_eia=False,
+                    cuda_devel=kwargs.get("cuda_devel", False),
+                    lambda_mode=False,
+                    k8s_mode=True,
+                    from_scratch=kwargs.get("build_all_layers", False),
+                    always_download=kwargs.get("download_base", False),
+                )
+        else:
+            # TODO: Add support for local training
+            raise ValueError(f"Invalid Orchestrator, should be one of {[e for e in TrainingOrchestrator]}")
+
+    def start_training_from_app(
+        self,
+        app_id: str,
+        task_name: str,
+        current_properties: dict = {},
+        metadata: dict = {},
+        skip_build=False,
+        **kwargs,
+    ):
+        """
+        Given the App ID, task name, start a training from the AI object
+
+        Args:
+            app_id: app ID
+            task_name: Name of the task for the dataset
+            current_properties: Properties of training
+            metadata: Metadata
+            skip_build: Whether to skip building the AI image
+
+        # Hidden kwargs
+            enable_cuda: Whether CUDA base image is to be used
+            cuda_devel: Create development CUDA image
+            build_all_layers: Perform a fresh build of all layers
+            envs: Pass custom environment variables to the deployment. Should be a dictionary like
+                  {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
+            download_base: Always download the base image to get the latest version from ECR
+        """
+        allowed_kwargs = [
+            "enable_cuda",
+            "cuda_devel",
+            "build_all_layers",
+            "envs",
+            "download_base",
+        ]
+        self.kwargs_warning(allowed_kwargs, **kwargs)
+        orchestrator = TrainingOrchestrator.AWS_EKS
+        self._build_trainer_image(
+            orchestrator=orchestrator,
+            properties=current_properties,
+            skip_build=skip_build,
+            **kwargs,
+        )
+        if not skip_build:
+            image_name = self.push_model(self.name, str(self.version))
+        else:
+            image_name = get_ecr_image_name(self.name, self.version)
+        self.client.update_model(self.id, image=image_name, trainable=True)
+        if self.id is None:
+            raise LookupError("Cannot establish id, please make sure you push the AI model to create a database entry")
+        if self.ai_template.template_id is None:
+            log.info("Training template unknown, getting or creating")
+            self.ai_template.get_or_create_training_entry(
+                model_id=self.id, app_id=app_id, properties=current_properties
+            )
+        log.info(
+            f"Starting training for app ID {app_id}, task name {task_name}, model ID {self.id} template Id "
+            f"{self.ai_template.template_id} with properties {current_properties} and metadata {metadata}"
+        )
+        instance_id = self.client.start_training_from_app_model_template(
+            app_id=app_id,
+            model_id=self.id,
+            task_name=task_name,
+            training_template_id=self.ai_template.template_id,
+            current_properties=current_properties,
+            metadata=metadata,
+        )
+        self.client.update_training_instance(instance_id, state="STARTING")
+        log.info(f"Create training instance : {instance_id}")
+
+    @staticmethod
+    def kwargs_warning(allowed_kwargs: List[str], **kwargs: Dict[str, Any]) -> None:
+        if any([k not in allowed_kwargs for k in kwargs.keys()]):
+            log.warning(
+                f"Keyword arguments {[k not in allowed_kwargs for k in kwargs.keys()]} "
+                f"unknown, make sure you are passing the right keyword arguments"
+            )

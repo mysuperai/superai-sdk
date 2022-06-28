@@ -311,3 +311,21 @@ class WorkflowApiMixin(ABC):
         :return: Workflow
         """
         return self.put_workflow(workflow_name, body)
+
+    def delete_workflow(self, dp_qualified_name, workflow_name):
+        """
+        Workflow deletion
+
+        :param str workflow_name: The workflow identifier (required)
+        :return: The new list of workflows
+        """
+        template = self.get_workflow(dp_qualified_name)
+        workflow_list = template.get("dpWorkflows", []) or []
+        if workflow_name not in workflow_list:
+            raise ValueError("The workflow you want to delete is not present in the workflows of the DP you provided")
+
+        workflow_list.remove(workflow_name)
+        body = {"workflows": workflow_list}
+        updated_template = self.update_workflow(workflow_name=dp_qualified_name, body=body)
+        assert workflow_name not in updated_template.get("dpWorkflows")
+        return workflow_list

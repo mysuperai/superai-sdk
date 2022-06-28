@@ -2,7 +2,7 @@ name: testenv
 dependencies:
   - python=3.7
   - pip
-  - tensorflow==2.1.0
+  - tensorflow-gpu==2.1.0
   - tensorflow-estimator=2.1.0
   - pip:
     - opencv-python-headless

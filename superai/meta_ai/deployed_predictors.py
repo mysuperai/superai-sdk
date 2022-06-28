@@ -1,7 +1,8 @@
 import os
+import shutil
 from abc import ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
-from typing import TypeVar
+from typing import Optional, TypeVar
 
 import docker  # type: ignore
 import requests
@@ -39,14 +40,26 @@ class DeployedPredictor(metaclass=ABCMeta):
     def terminate(self):
         pass
 
+    def to_dict(self) -> dict:
+        pass
+
+    @classmethod
+    def from_dict(cls, dictionary: dict, client: Optional[Client] = None) -> "DeployedPredictor":
+        if list(dictionary.keys())[0] == "LocalPredictor":
+            return LocalPredictor.from_dict(dictionary["LocalPredictor"])
+        else:
+            return RemotePredictor.from_dict(dictionary["RemotePredictor"], client)
+
 
 class LocalPredictor(DeployedPredictor):
     def __init__(self, *args, existing=False, remove=True, **kwargs):
         super(LocalPredictor, self).__init__(*args, **kwargs)
         client = get_docker_client()
         self.lambda_mode = kwargs.get("lambda_mode", False)
+        self.enable_cuda = kwargs.get("enable_cuda", False)
         self.k8s_mode = kwargs.get("k8s_mode", False)
         container_name = kwargs["image_name"].replace(":", "_")
+        weights_volume = "/mnt/models" if self.k8s_mode else "/opt/ml/model/"
         if not existing:
             try:
                 try:
@@ -56,8 +69,9 @@ class LocalPredictor(DeployedPredictor):
                         "Stopping before restarting with new image."
                     )
                     container.kill()
+                    container.wait()
                 except Exception as e:
-                    log.info(f"Ignorable exception: {e}")
+                    log.debug(f"Ignorable exception: {e}")
 
                 log.info(f"Starting new container with name {container_name}.")
                 self.container: Container = client.containers.run(
@@ -67,11 +81,12 @@ class LocalPredictor(DeployedPredictor):
                     remove=remove,
                     volumes={
                         os.path.abspath(kwargs["weights_path"]): {
-                            "bind": "/opt/ml/model/",
+                            "bind": weights_volume,
                             "mode": "rw",
                         }
                     },
                     ports=self._get_port_assignment(),
+                    device_requests=self._get_device_requests(),
                 )
                 log.info("Started container in serving mode.")
             except APIError as e:
@@ -84,6 +99,7 @@ class LocalPredictor(DeployedPredictor):
         else:
             self.container: Container = client.containers.get(container_name)
             log.info("Initialized LocalPredictor with already running container.")
+        self.kwargs = kwargs
 
     def predict(self, input, mime="application/json"):
         if self.lambda_mode:
@@ -147,6 +163,20 @@ class LocalPredictor(DeployedPredictor):
         else:
             return {8080: 80, 8081: 8081}
 
+    def _get_device_requests(self):
+        device_requests = None
+        if self.enable_cuda and shutil.which("nvidia-container-runtime") is not None:
+            device_requests = [docker.types.DeviceRequest(count=-1, capabilities=[["gpu"]])]
+
+        return device_requests
+
+    def to_dict(self) -> dict:
+        return self.kwargs
+
+    @classmethod
+    def from_dict(cls, dictionary, client: Optional[Client] = None) -> "LocalPredictor":
+        return cls(existing=False, remove=True, **dictionary)
+
 
 class RemotePredictor(DeployedPredictor):
     """A predictor that runs on a remote machine."""
@@ -155,8 +185,8 @@ class RemotePredictor(DeployedPredictor):
         super().__init__()
         self.client = client
         self.id = id
-        target_status = kwargs.get("target_status", "ONLINE")
-        client.set_deployment_status(deployment_id=self.id, target_status=target_status)
+        self.target_status = kwargs.get("target_status", "ONLINE")
+        client.set_deployment_status(deployment_id=self.id, target_status=self.target_status)
 
     def predict(self, input, **kwargs):
         if self.client.check_endpoint_is_available(self.id):
@@ -172,3 +202,11 @@ class RemotePredictor(DeployedPredictor):
 
     def terminate(self):
         self.client.set_deployment_status(deployment_id=self.id, target_status="OFFLINE")
+
+    def to_dict(self) -> dict:
+        return dict(id=self.id, target_status=self.target_status)
+
+    @classmethod
+    def from_dict(cls, dictionary, client: Optional[Client] = None) -> "RemotePredictor":
+        client = client or Client()
+        return cls(client=client, id=dictionary["id"], target_status=dictionary["target_status"])

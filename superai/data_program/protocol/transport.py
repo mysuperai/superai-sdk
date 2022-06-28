@@ -318,7 +318,7 @@ def schedule_task(
     amount=None,
     schema_version=None,
     is_ai=None,
-):
+) -> task_future:
     """Schedule task for execution by inserting it into the future table"""
     seq = _context.sequence
     _context.sequence += 1

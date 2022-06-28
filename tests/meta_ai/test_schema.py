@@ -1,7 +1,9 @@
+import datetime
+
 import pytest
 
 from superai.apis.meta_ai.meta_ai_graphql_schema import RawPrediction
-from superai.meta_ai.schema import EasyPredictions
+from superai.meta_ai.schema import EasyPredictions, LogMetric, ManyMetric, TrainerOutput
 
 
 def test_general_prediction():
@@ -44,3 +46,44 @@ def test_wrong_schema():
     with pytest.raises(AttributeError) as execinfoval:
         preds = EasyPredictions({"prediction": "something", "score": "other"})
     assert str(execinfoval.value) == "Keys `score` needs to be present and between 0 and 1"
+
+
+def test_trainer_output_exceptions():
+    with pytest.raises(ValueError) as e:
+        a = TrainerOutput()
+        assert str(e.value) == "One of `metric`, `metrics`or `collection`should be present"
+    with pytest.raises(ValueError) as e:
+        a = TrainerOutput(
+            metric=dict(key="value"),
+            metrics=[LogMetric(step=1, timestamp=datetime.datetime.now(), name="metric", value="something")],
+        )
+        assert str(e.value) == "Only one of `metric`, `metrics`or `collection`should be present, more than one provided"
+    with pytest.raises(ValueError) as e:
+        a = TrainerOutput(metrics=[])
+        assert str(e.value) == "`metrics` should not be an empty list"
+    with pytest.raises(ValueError) as e:
+        a = TrainerOutput(collection=[])
+        assert str(e.value) == "`collection` should not be an empty list"
+
+
+def test_trainer_output():
+    a = TrainerOutput(metric=dict(key="value"))
+    assert a
+    assert a.metric == dict(key="value")
+    a = TrainerOutput(
+        metrics=[LogMetric(step=1, timestamp=datetime.datetime.now(), name="metric", value="something")],
+    )
+    assert a
+    a = TrainerOutput(collection=[ManyMetric(step=1, timestamp=datetime.datetime.now(), metrics=[("key", "value")])])
+    assert a
+
+
+def test_manymetrics():
+    with pytest.raises(ValueError) as e:
+        m = ManyMetric()
+    with pytest.raises(ValueError) as e:
+        m = ManyMetric(step=1, timestamp=datetime.datetime.now(), metrics=[])
+        assert str(e.value) == "`metrics` should not be an empty list"
+    m = ManyMetric(step=1, timestamp=datetime.datetime.now(), metrics=[("key", "value"), ("key2", "value")])
+    assert m
+    assert dict(m.metrics)

@@ -65,6 +65,8 @@ if settings.backend == "qumes":
         get_context_metadata,
         get_context_job_type,
         get_context_simple_id,
+        task_future,
+        task_result,
     )  # noqa # nosort
 else:
     from .transport import (
@@ -91,6 +93,8 @@ else:
         send_report,
         send_reward,
         subscribe_workflow,
+        task_future,
+        task_result,
     )  # noqa # nosort
 
     # isort: off
@@ -120,7 +124,7 @@ def task(
     time_to_expire_secs=None,
     show_reject=False,
     amount=None,
-):
+) -> task_future:
     """Routing task for annotations to one or more supervision sources
     :param input: a list of input semantic items
     :param output: a list of output semantic items

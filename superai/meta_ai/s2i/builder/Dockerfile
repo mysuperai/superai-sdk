@@ -6,6 +6,8 @@ LABEL io.openshift.s2i.scripts-url="image:///s2i/bin"
 LABEL com.amazonaws.sagemaker.capabilities.multi-models=true
 LABEL com.amazonaws.sagemaker.capabilities.accept-bind-to-port=true
 
+# prevents public key not available error for Nvidia images (https://github.com/NVIDIA/nvidia-docker/issues/1632)
+RUN rm -rf /etc/apt/sources.list.d/cuda.list && rm -rf /etc/apt/sources.list.d/nvidia-ml.list
 RUN mkdir -p /usr/share/man/man1 && \
     apt-get update --yes && \
     DEBIAN_FRONTEND=noninteractive \
@@ -50,14 +52,15 @@ ARG PIP_REPO
 RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true \
     --mount=type=cache,target=/root/.cache/pip \
     aws codeartifact login --tool pip --domain superai --repository ${PIP_REPO} && \
-    pip install -r /home/model-server/.requirements/base_requirements.txt
+    pip install --no-cache-dir -r /home/model-server/.requirements/base_requirements.txt
     
 # Install superai version from local path/repository
 COPY .dist/*.whl /home/model-server/.requirements/
+ARG SUPERAI_WHL
 RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true \
     --mount=type=cache,target=/root/.cache/pip \
     aws codeartifact login --tool pip --domain superai --repository ${PIP_REPO} && \
-    pip install /home/model-server/.requirements/*.whl
+    pip install --no-cache-dir '/home/model-server/.requirements/${SUPERAI_WHL}[ai]'
 
 COPY s2i/bin /s2i/bin
 COPY s2i/bin /opt/program

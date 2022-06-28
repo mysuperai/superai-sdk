@@ -55,12 +55,16 @@ if [[ -z "$BUILD_PIP" ]]; then
     echo "---> Installing base orchestrator requirements in environment"
     pip install --no-cache-dir -r /home/model-server/.requirements/base_requirements.txt
     echo "---> Installing superai-sdk inside custom env"
-    pip install /home/model-server/.requirements/superai*.whl
+    pip install --no-cache-dir /home/model-server/.requirements/superai*.whl
 
   fi
   if [[ -f /home/model-server/setup.sh ]]; then
     echo "---> Executing setup.sh"
     codeartifact_login
+    if [[ "$CONDA_ENV_NAME" ]]; then
+      . /opt/conda/etc/profile.d/conda.sh
+      conda activate $CONDA_ENV_NAME
+    fi
     bash setup.sh
   fi
 else

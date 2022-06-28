@@ -1,6 +1,8 @@
 import os
 import shutil
+import subprocess
 import time
+from typing import Optional
 
 import boto3  # type: ignore
 import docker  # type: ignore
@@ -237,7 +239,8 @@ def push_image(
         # AWS allows 256 characters for the name
         logger.warn("Image name is too long. Truncating to 255 characters...")
         full_suffix = full_suffix[: 255 - len(str(version))]
-    full_name = f"{account}.dkr.ecr.{region}.amazonaws.com/{full_suffix}:{version}"
+    registry_name = f"{account}.dkr.ecr.{region}.amazonaws.com"
+    full_name = f"{registry_name}/{full_suffix}:{version}"
     logger.info(f"Pushing image to ECR: {full_name}")
 
     docker_client = docker.from_env()
@@ -249,8 +252,7 @@ def push_image(
         ecr_client.create_repository(repositoryName=full_suffix)
         log.info(f"Created repository for `{full_suffix}`.")
 
-    log.info("Logging in to ECR...")
-    os.system(f"$(aws ecr get-login --region {region} --no-include-email)")
+    aws_ecr_login(region, registry_name)
 
     log.info(f"Tagging to `{full_name}`")
     docker_client.images.get(f"{image_name}:{version}").tag(full_name)
@@ -296,6 +298,38 @@ def push_image(
 
     log.info(f" Image pushed successfully to {full_name} ")
     return full_name
+
+
+def aws_ecr_login(region: str, registry_name: str) -> Optional[int]:
+    log.info("Logging in to ECR...")
+
+    # aws --version | awk '{print $1}' | awk -F/ '{ print $2}'
+    aws_version = subprocess.check_output(["aws", "--version"]).decode("utf-8").strip().split(" ")[0].split("/")[1]
+    aws_major = aws_version.split(".")[0]
+
+    def aws_cli_v1_login():
+        p = subprocess.Popen(
+            ["aws", "ecr", "get-login", "--region", region, "--no-include-email"], stdout=subprocess.PIPE
+        )
+        code = p.wait()
+        return code
+
+    def aws_cli_v2_login():
+        p = subprocess.Popen(
+            f"aws ecr get-login-password --region {region} | docker login --username AWS --password-stdin {registry_name}",
+            shell=True,
+            stdout=subprocess.PIPE,
+        )
+        code = p.wait()
+        return code
+
+    if int(aws_major) < 2:
+        code = aws_cli_v1_login()
+    else:
+        code = aws_cli_v2_login()
+    if code != 0:
+        log.warning("Failed to login to ECR")
+    return code
 
 
 def get_docker_client() -> DockerClient:

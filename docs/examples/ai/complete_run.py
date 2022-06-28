@@ -1,3 +1,4 @@
+#%%
 import os
 import shutil
 import time
@@ -20,7 +21,7 @@ from superai.utils import log
 ###########################################################################
 # Cleanup
 ###########################################################################
-
+#%%
 if os.path.exists(".AISave"):
     shutil.rmtree(".AISave")
 
@@ -28,7 +29,7 @@ if os.path.exists(".AISave"):
 ###########################################################################
 # Create AI
 ###########################################################################
-
+#%%
 model_name = "my_mnist_model"
 ai_definition = {
     "input_schema": Schema(my_image=Image()),
@@ -73,14 +74,14 @@ my_ai = AI(
 )
 log.info(my_ai)
 log.info(os.system("tree .AISave"))
-
+#%%
 # for mocking
 m = MockedReturns(my_ai)
 
 ###########################################################################
 # Build Image
 ###########################################################################
-
+#%%
 template = AITemplate(
     input_schema=Schema(),
     output_schema=Schema(),
@@ -100,16 +101,16 @@ ai = AI(
     version=2,
     weights_path=os.path.join(os.path.dirname(__file__), "resources/my_model"),
 )
-
+#%%
 ai.push(update_weights=True, overwrite=True)
+#%%
 predictor: RemotePredictor = ai.deploy(
     orchestrator=Orchestrator.AWS_EKS,
     enable_cuda=True,
     redeploy=True,
     properties={"kubernetes_config": {"cooldownPeriod": 300}},
 )
-
-time.sleep(5)
+#%%
 log.info(
     "Local predictions: {}".format(
         predictor.predict(
@@ -117,8 +118,9 @@ log.info(
         ),
     )
 )
+#%%
 predictor.terminate()
-
+#%%
 template_2 = AITemplate(
     input_schema=Schema(),
     output_schema=Schema(),
@@ -138,9 +140,10 @@ ai_2 = AI(
     version=5,
     weights_path=os.path.join(os.path.dirname(__file__), "resources/my_model"),
 )
-
+#%%
 predictor: LocalPredictor = ai_2.deploy(orchestrator=Orchestrator.LOCAL_DOCKER, enable_cuda=True, build_all_layers=True)
 
+#%%
 time.sleep(5)
 log.info(
     "Local predictions: {}".format(
@@ -149,13 +152,17 @@ log.info(
         ),
     )
 )
+
+#%%
 predictor.terminate()
 
+#%%
 ai.push_model("my_mnist_model", "2")
 
 ###########################################################################
 # Specify hyperparameters and model parameters
 ###########################################################################
+#%%
 
 new_template = AITemplate(
     input_schema=ai_definition["input_schema"],
@@ -190,6 +197,7 @@ ai_with_hypes.train(
 )
 
 model_1 = ai_with_hypes.model_class.to_tf()
+#%%
 
 # setting decoder_trainable as False
 new_hyped_model = AI(
@@ -216,6 +224,7 @@ new_hyped_model.train(
     decoder_trainable=True,
 )
 
+#%%
 
 ###########################################################################
 # Push and save model in s3
@@ -224,6 +233,7 @@ new_hyped_model.train(
 # Push and create entry in database
 my_ai.push(update_weights=True)
 
+#%%
 
 ###########################################################################
 # Load and Create AI
@@ -279,6 +289,8 @@ with m.sage_check(False) as sch, m.undep as ud:
 ###########################################################################
 # Train
 ###########################################################################
+#%%
+
 my_ai.train(model_save_path=".AISave/new_model", training_data=None)
 loaded_ai = AI(
     ai_template=my_ai_template,
@@ -299,7 +311,6 @@ with m.train as t:
     my_ai.train(
         model_save_path="s3://some_model_path",
         training_data="s3://some_training_data",
-        orchestrator=Orchestrator.AWS_SAGEMAKER,
     )
 
 

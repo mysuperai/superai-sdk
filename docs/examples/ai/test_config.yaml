@@ -1,0 +1,23 @@
+template:
+  name: "MyKerasModel_template"
+  description: "Keras MNIST Model testing template"
+  model_class: "MyKerasModel"
+  requirements:
+    - tensorflow
+    - opencv-python-headless==4.5.5.64
+    - protobuf<4.*,>=3.20.1
+instance:
+  name: "my_mnist_model"
+  version: 1
+  description: "Instance for the Keras MNIST model"
+  weights_path: resources/my_model
+deploy:
+  orchestrator: "AWS_EKS"
+  skip_build: false
+  properties: {}
+  enable_cuda: false
+  redeploy: true
+  build_all_layers: false
+  download_base: true
+  update_weights: true
+  overwrite: true

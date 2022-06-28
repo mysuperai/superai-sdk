@@ -79,13 +79,14 @@ def test_track_changes(caplog):
 
 
 def test_system_commands():
-    sys_func = AI._system
+    from superai.utils import system
+
     command = "python --help"
-    output = sys_func(command)
+    output = system(command)
     assert output == 0
 
     with pytest.raises(CalledProcessError) as e:
-        sys_func("python random_file_name.py")
+        system("python random_file_name.py")
 
 
 def test_base_name():
@@ -94,3 +95,19 @@ def test_base_name():
     assert AI._get_base_name(lambda_mode=True) == f"superai-model-s2i-python3711-cpu-lambda:1"
     assert AI._get_base_name(k8s_mode=True) == f"superai-model-s2i-python3711-cpu-seldon:1"
     assert AI._get_base_name(k8s_mode=True, enable_cuda=True) == f"superai-model-s2i-python3711-gpu-seldon:1"
+
+
+def test_kwargs_warning(monkeypatch):
+    from superai.meta_ai.ai import log
+
+    def warn_method(*_, **__):
+        assert False, "Should not be called"
+
+    def dummy_method(some_argument: bool = False, other_argument: bool = True, **kwargs):
+        assert "some_argument" not in list(kwargs.keys())
+        assert "other_argument" not in list(kwargs.keys())
+        assert "random_arg" in list(kwargs.keys())
+        AI.kwargs_warning(allowed_kwargs=["random_arg"], **kwargs)
+
+    monkeypatch.setattr(log, "warn", warn_method)
+    dummy_method(random_arg="bla")

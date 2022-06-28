@@ -1,6 +1,16 @@
+import json
+import time
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Generator, List
+from io import BytesIO
+from typing import Generator, List, Optional
+from zipfile import ZipFile
+
+import requests
+
+from superai.log import logger
+
+log = logger.get_logger(__name__)
 
 
 class JobsApiMixin(ABC):
@@ -154,16 +164,20 @@ class JobsApiMixin(ABC):
         completedStartDate: datetime = None,
         completedEndDate: datetime = None,
         statusIn: List[str] = None,
-    ) -> str:
+        sendEmail: bool = None,
+        withHistory: bool = None,
+    ) -> dict:
         """
-        Trigger processing of jobs responses that is sent to customer email once is finished.
+        Trigger processing of jobs responses that are sent to customer email (default) once is finished.
         :param app_id: Application id
-        :param createdStartDate: Created start date
-        :param createdEndDate: Created end date
-        :param completedStartDate: Completed start date
-        :param completedEndDate: Completed end date
-        :param statusIn: Status of jobs
-        :return: 'Task is processing' string
+        :param createdStartDate: Filter by created start date of jobs
+        :param createdEndDate: Filter by created end date of jobs
+        :param completedStartDate: Filter by completed start date of jobs
+        :param completedEndDate: Filter by completed end date of jobs
+        :param statusIn: Filter by status of jobs
+        :param sendEmail: Email not send if False.
+        :param withHistory: Adds job history to downloaded data.
+        :return: Dict with operationId key to track status
         """
         uri = f"apps/{app_id}/job_responses"
         query_params = {}
@@ -177,6 +191,10 @@ class JobsApiMixin(ABC):
             query_params["completedEndDate"] = completedEndDate.strftime("%Y-%m-%dT%H:%M:%SZ")
         if statusIn is not None:
             query_params["statusIn"] = statusIn
+        if sendEmail is not None:
+            query_params["sendEmail"] = sendEmail
+        if withHistory is not None:
+            query_params["withHistory"] = withHistory
         return self.request(uri, method="POST", query_params=query_params, required_api_key=True)
 
     def get_all_jobs(
@@ -220,3 +238,70 @@ class JobsApiMixin(ABC):
             for job in paginated_jobs["jobs"]:
                 yield job
             page = page + 1
+
+    def get_jobs_operation(self, app_id: str, operation_id: int):
+        """
+        Fetch status of job operation given application id and operation id
+        :param app_id: Application id
+        :param operation_id: operation_id
+        :return: Dict with operation information (id, status, and other fields)
+        """
+        uri = f"operations/{app_id}/{operation_id}"
+        return self.request(uri, method="GET", required_api_key=True)
+
+    def generates_downloaded_jobs_url(self, app_id: str, operation_id: int, secondsTtl: int = None):
+        """
+        Generates url to retrieve downloaded zip jobs given application id and operation id
+        :param app_id: Application id
+        :param operation_id: operation_id
+        :param seconds_ttl: Seconds ttl for generated url. Default 60
+        :return: Dict with field downloadUrl
+        """
+        uri = f"operations/{app_id}/{operation_id}/download-url"
+        query_params = {}
+        if secondsTtl is not None:
+            query_params["secondsTtl"] = secondsTtl
+        return self.request(uri, method="POST", query_params=query_params, required_api_key=True)
+
+    def download_jobs_full_flow(
+        self,
+        app_id: str,
+        createdStartDate: datetime = None,
+        createdEndDate: datetime = None,
+        completedStartDate: datetime = None,
+        completedEndDate: datetime = None,
+        statusIn: List[str] = None,
+        timeout: int = 120,
+        poll_interval: int = 3,
+    ) -> Optional[List[dict]]:
+        """
+        Trigger download of jobs and polls every poll_interval seconds until it
+        returns the list of jobs or None in case of timeout
+        :param app_id: Application id
+        :param createdStartDate: Filter by created start date of jobs
+        :param createdEndDate: Filter by created end date of jobs
+        :param completedStartDate: Filter by completed start date of jobs
+        :param completedEndDate: Filter by completed end date of jobs
+        :param statusIn: Filter by status of jobs
+        :param timeout: Timeout in seconds
+        :param poll_interval: Poll interval in seconds
+        :return: List of dict of job
+        """
+        operation_id = self.download_jobs(
+            app_id, createdStartDate, createdEndDate, completedStartDate, completedEndDate, statusIn, False
+        )["operationId"]
+        operation_completed = False
+        start_poll_date = datetime.now()
+        while not operation_completed or (datetime.now() - start_poll_date).seconds >= timeout:
+            operation = self.get_jobs_operation(app_id, operation_id)
+            log.info(f"Poll result: Operation {operation['id']} in status: {operation['status']}")
+            if operation["status"] == "COMPLETED":
+                operation_completed = True
+            else:
+                time.sleep(poll_interval)
+        if not operation_completed:
+            return None
+        download_jobs_url = self.generates_downloaded_jobs_url(app_id, operation_id)["downloadUrl"]
+        resp = requests.get(download_jobs_url)
+        zipfile = ZipFile(BytesIO(resp.content))
+        return json.load(zipfile.open(zipfile.namelist()[0]))

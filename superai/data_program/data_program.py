@@ -77,7 +77,7 @@ class DataProgram(DataProgramBase):
 
         self._default_workflow: str = None
         self._gold_workflow: str = None
-        self.name = name
+        self._name = name
         self.__validate_name()
 
         suffix = "router"
@@ -86,7 +86,7 @@ class DataProgram(DataProgramBase):
             self.parent_workflow = f"{dataprogram}.{dataprogram_suffix}"
             self.is_training = True
             suffix = "training"
-        self.qualified_name = f"{self.name}.{suffix}"
+        self.template_name = f"{self._name}.{suffix}"
         self.description = description
         self.router = router
         self.task_templates = []
@@ -112,7 +112,7 @@ class DataProgram(DataProgramBase):
         self.__template_object = self.__create_template()
         if self.is_training:
             self.__update_parent_training_workflow()
-        log.info(f"DataProgram created {self.qualified_name}")
+        log.info(f"DataProgram created {self.template_name}")
 
     @staticmethod
     def run(
@@ -193,7 +193,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
 
     @gold_workflow.setter
     def gold_workflow(self, workflow_name: str):
-        self._gold_workflow = f"{self.name}.{workflow_name}"
+        self._gold_workflow = f"{self._name}.{workflow_name}"
 
     @property
     def default_workflow(self) -> str:
@@ -202,14 +202,17 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
 
         return self._default_workflow
 
-    def check_workflow_deletion(self, new_workflows):
-        template = self.client.get_template(template_name=self.name)
+    def check_workflow_deletion(self, new_workflows: List[WorkflowConfig]):
+        template = self.client.get_template(template_name=self.template_name)
         old_workflows_names: List[str] = template.get("dpWorkflows", []) or []
 
-        new_workflows_names = [self.name + "." + new_workflow.name for new_workflow in new_workflows]
+        new_workflows_names = [self._name + "." + new_workflow.name for new_workflow in new_workflows]
 
         if any(item not in new_workflows_names for item in old_workflows_names):
             # Can't delete workflows!
+            logger.error(
+                f"old workflows found -> {old_workflows_names}, new workflows found -> {new_workflows_names} workflows you want to delete {set(old_workflows_names) - set(new_workflows_names)}"
+            )
             raise Exception("DP deployment failed, you're trying to remove workflows, use the CLI for that")
 
     @default_workflow.setter
@@ -219,21 +222,21 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         if not workflow_name:
             self._default_workflow = self.__load_default_workflow()
         else:
-            body = {"default_workflow": f"{self.name}.{workflow_name}"}
-            updated_template = self.client.update_template(template_name=self.qualified_name, body=body)
+            body = {"default_workflow": f"{self._name}.{workflow_name}"}
+            updated_template = self.client.update_template(template_name=self.template_name, body=body)
             assert updated_template.get("defaultWorkflow")
             self._default_workflow = updated_template.get("defaultWorkflow")
 
     def __validate_name(self):
-        if not self.name:
+        if not self._name:
             raise ValueError("DataProgramTemplate.name can not be None")
-        if len(self.name.split(".")) > 1:
+        if len(self._name.split(".")) > 1:
             raise ValueError('DataProgramTemplate.name can not contain "." characters')
 
     def __load_default_workflow(self):
         default_workflow = None
         try:
-            default_workflow = self.client.get_template(self.qualified_name).get("default_workflow")
+            default_workflow = self.client.get_template(self.template_name).get("default_workflow")
         except Exception as e:
             log.error(f"Error retrieving default workflow : {e}")
 
@@ -257,7 +260,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
             "output_schema": self.output_schema,
             "output_ui_schema": self.output_ui_schema,
         }
-        name = self.qualified_name
+        name = self.template_name
         if self.parameter_schema is not None:
             body_json["parameter_schema"] = {"params": self.parameter_schema}
         if self.parameter_ui_schema is not None:
@@ -278,13 +281,13 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
 
         # TODO: Create models/template which takes a template object and validates the respone from nacelle
         assert "uuid" in response
-        assert "name" in response and response["name"].split(".")[0] == self.name
+        assert "name" in response and response["name"].split(".")[0] == self._name
         self.template_uuid = response["uuid"]
         return response
 
     def __update_parent_training_workflow(self) -> Dict:
         """Updates the training workflow in the parent workflow"""
-        body_json = {"training_workflow": self.qualified_name}
+        body_json = {"training_workflow": self.template_name}
 
         response = self.client.update_template(template_name=self.parent_workflow, body=body_json)
 
@@ -335,7 +338,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
             gold = True
 
         workflow = Workflow(
-            prefix=self.name,
+            prefix=self._name,
             workflow_fn=workflow,
             name=name,
             description=description,
@@ -372,7 +375,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                     task_input: Input,
                     task_output: Output,
                     max_attempts: int,
-                    excluded_ids: List[int] = None,
+                    **kwargs,
                 ) -> None:
                     raise NotImplementedError("Can't send a task with no templates defined")
 
@@ -385,7 +388,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                     task_input: Input,
                     task_output: Output,
                     max_attempts: int,
-                    excluded_ids: List[int] = None,
+                    **kwargs,
                 ) -> Output:
                     # checks task input type
                     if not isinstance(task_input, task_template.input):
@@ -395,7 +398,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                     my_task.process(
                         model_to_task_io_payload(task_input),
                         model_to_task_io_payload(task_output),
-                        excluded_ids=excluded_ids,
+                        **kwargs,
                     )
                     raw_result = my_task.output["values"]["formData"]
                     output = task_output.parse_obj(raw_result)
@@ -442,10 +445,10 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         if not exists and self.add_basic_workflow:
 
             def _basic(*args, **kwargs):
-                log.debug(f"{self.name}._basic:Arguments: *args: {args}, **kwargs: {kwargs} ")
-                log.debug(f"{self.name}._basic:inputSchema: {self.__template_object.get('inputSchema')}")
-                log.debug(f"{self.name}._basic:outputSchema: {self.__template_object.get('outputSchema')}")
-                log.debug(f"{self.name}._basic:appParamsSchema: {self.__template_object.get('appParamsSchema')}")
+                log.debug(f"{self._name}._basic:Arguments: *args: {args}, **kwargs: {kwargs} ")
+                log.debug(f"{self._name}._basic:inputSchema: {self.__template_object.get('inputSchema')}")
+                log.debug(f"{self._name}._basic:outputSchema: {self.__template_object.get('outputSchema')}")
+                log.debug(f"{self._name}._basic:appParamsSchema: {self.__template_object.get('appParamsSchema')}")
                 """
                 Simple workflow generated by schemas
                 """
@@ -486,7 +489,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                         df, v.get("$ref").replace("-", "_")
                     )  # FIXME: Will throw an exception if the function is not in df
                     task_inputs.append(schema_fun(inputs.get(k)))
-                log.info(f"{self.name}._basic:TaskInputs {task_inputs}")
+                log.info(f"{self._name}._basic:TaskInputs {task_inputs}")
                 if None in task_inputs:
                     raise Exception(f"Task inputs could not get generated. Schema={input_schema}," f"Inputs={inputs}")
 
@@ -507,17 +510,17 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                     #  2. <SOLVED> Get rid of "choices" and find if it is required input
                     schema_fun = getattr(df, v.get("$ref").replace("-", "_"))
                     args = inspect.getfullargspec(schema_fun).args
-                    log.info(f"{self.name}._basic:schema_fun args {args}")
+                    log.info(f"{self._name}._basic:schema_fun args {args}")
                     kkwargs = {}
                     for arg in args:
                         if arg in params:
                             kkwargs[arg] = params[arg]
 
-                    log.info(f"{self.name}._basic:TaskSchemaFun kkwargs {kkwargs}")
+                    log.info(f"{self._name}._basic:TaskSchemaFun kkwargs {kkwargs}")
                     task_outputs.append(schema_fun(**kkwargs))
                     job_output_keys.append(k)
 
-                log.info(f"{self.name}._basic:TaskOutputs {task_outputs}")
+                log.info(f"{self._name}._basic:TaskOutputs {task_outputs}")
                 if None in task_outputs:
                     raise Exception(
                         f"Task outputs could not get generated. Schema={output_schema}, " f"Params={params}"
@@ -525,7 +528,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                 task_result = task(
                     input=task_inputs,
                     output=task_outputs,
-                    name=f"{self.name}_basic",
+                    name=f"{self._name}_basic",
                     price="EASY",
                     qualifications=None,
                     groups=None,
@@ -556,11 +559,11 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                     key: task_result.response().get("values", [])[i].get("schema_instance")
                     for i, key in enumerate(job_output_keys)
                 }
-                log.info(f"{self.name}._basic:JobOutput {output}")
+                log.info(f"{self._name}._basic:JobOutput {output}")
                 return output
 
             workflow = Workflow(
-                prefix=self.name,
+                prefix=self._name,
                 name="_basic",
                 workflow_fn=_basic,
                 description="basic workflow",
@@ -583,14 +586,14 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         self._run_local()
 
     def _register_workflow(self, workflow: Workflow):
-        template = self.client.get_template(template_name=self.qualified_name)
+        template = self.client.get_template(template_name=self.template_name)
         workflow_list: List[str] = template.get("dpWorkflows", []) or []
         if workflow.qualified_name in workflow_list:
             return
         else:
             workflow_list.append(workflow.qualified_name)
             body = {"workflows": workflow_list}
-            updated_template = self.client.update_template(template_name=self.qualified_name, body=body)
+            updated_template = self.client.update_template(template_name=self.template_name, body=body)
             assert workflow.qualified_name in updated_template.get("dpWorkflows")
 
     @staticmethod

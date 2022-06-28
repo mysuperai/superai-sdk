@@ -85,9 +85,6 @@ class HyperParameterSpec:
         epochs: Union[int, Integer] = Integer(default=10),
         regularization_lambda: Union[ParamsSpec, float] = 0.0,
         learning_rate: Union[ParamsSpec, float] = 0.001,
-        # decay:bool=False,
-        # decay_rate: Union[ParamsSpec, float]=0.96,
-        # decay_steps=10000,
         decay: Optional[ParamsSpec] = None,  # ParamsSpec("decay", ParamsSpec.ParamType.DOUBLE,1, 0.01)
         staircase: Union[bool, Boolean] = Boolean(default=False),
         batch_size: Union[int, ParamsSpec] = 128,
@@ -149,6 +146,14 @@ class HyperParameterSpec:
     def load_from_list(cls, parameters: List[str]):
         processed_params = parameter_processor(parameters)
         return HyperParameterSpec(**processed_params)  # type: ignore
+
+    def get(self, key, default=None):
+        if hasattr(self, key):
+            return getattr(self, key)
+        else:
+            if default is None:
+                raise KeyError(f"Key {key} not found in {self.__class__.__name__} object")
+            return default
 
 
 def parameter_processor(parameters=None):
@@ -228,6 +233,14 @@ class ModelParameters:
         processed_params = parameter_processor(parameters)
         return ModelParameters(**processed_params)  # type: ignore
 
+    def get(self, key, default=None):
+        if hasattr(self, key):
+            return getattr(self, key)
+        else:
+            if default is None:
+                raise KeyError(f"Key {key} not found in {self.__class__.__name__} object")
+            return default
+
 
 class Config:
     """Mocked config class to be shared between AI and DP objects."""
@@ -291,6 +304,10 @@ class TrainingParameters:
 
     def to_json(self):
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=2)
+
+    def from_dict(self, dictionary: dict):
+        for k, v in dictionary.items():
+            setattr(self, k, v)
 
 
 if __name__ == "__main__":

@@ -1,13 +1,17 @@
 from pathlib import Path
 
 import tensorflow as tf
-from polyaxon import tracking
-from polyaxon.tracking.contrib.keras import PolyaxonKerasCallback
 from tensorflow import keras
 
 from superai.meta_ai import BaseModel
-from superai.meta_ai.base.base_ai import default_random_seed
+from superai.meta_ai.base.base_ai import add_default_tracking, default_random_seed
+from superai.meta_ai.base.training_helpers import (
+    AvailableCallbacks,
+    DefaultCallbackFactory,
+    get_tensorboard_tracking_path,
+)
 from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters
+from superai.meta_ai.schema import TrainerOutput
 
 OPTIMIZERS = {
     "adam": tf.keras.optimizers.Adam,
@@ -59,6 +63,7 @@ class MnistModel(BaseModel):
 
         return x_train, y_train, x_test, y_test
 
+    @add_default_tracking
     def train(
         self,
         model_save_path,
@@ -66,13 +71,14 @@ class MnistModel(BaseModel):
         validation_data=None,
         test_data=None,
         production_data=None,
+        weights_path=None,
         encoder_trainable: bool = True,
         decoder_trainable: bool = True,
         hyperparameters: HyperParameterSpec = None,
         model_parameters: ModelParameters = None,
         callbacks=None,
         random_seed=default_random_seed,
-    ):
+    ) -> TrainerOutput:
         print("Training data: ", training_data)
         training_dir = Path(training_data)
         print("Training dir: ", training_dir)
@@ -81,10 +87,9 @@ class MnistModel(BaseModel):
         print("Training dir content: ", list(training_dir.iterdir()))
 
         if callbacks is None or isinstance(callbacks, str):
-            callbacks = []
+            callbacks = [DefaultCallbackFactory.get_default_callback(AvailableCallbacks.Keras)]
         print("Hyperparams: ", hyperparameters.__dict__)
         print("Model params: ", model_parameters.__dict__)
-        tracking.init()
         (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
         x_train, y_train, x_test, y_test = self.transform_data(x_train, y_train, x_test, y_test)
         optimizer = OPTIMIZERS[hyperparameters.optimizer](lr=10**hyperparameters.log_learning_rate)
@@ -95,9 +100,8 @@ class MnistModel(BaseModel):
             metrics=["accuracy"],
         )
 
-        tensorboard_callback = keras.callbacks.TensorBoard(log_dir=tracking.get_tensorboard_path())
-        plx_callback = PolyaxonKerasCallback(run=tracking.TRACKING_RUN)
-        callbacks.extend([tensorboard_callback, plx_callback])
+        tensorboard_callback = keras.callbacks.TensorBoard(log_dir=get_tensorboard_tracking_path())
+        callbacks.append(tensorboard_callback)
         self.model.fit(
             x_train,
             y_train,
@@ -106,5 +110,4 @@ class MnistModel(BaseModel):
             callbacks=callbacks,  # Polyaxon
         )
         accuracy = self.model.evaluate(x_test, y_test)[1]
-
-        tracking.log_metrics(eval_accuracy=accuracy)
+        return TrainerOutput(metric=dict(eval_accuracy=accuracy))

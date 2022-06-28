@@ -38,8 +38,6 @@ class DataProgramApiMixin(WorkflowApiMixin):
         :return: DataProgram
         """
 
-        template_name = f"{template_name}.router" if not "." in template_name else template_name
-
         return self.get_workflow(template_name, **kwargs)
 
     @logdecorator.log_on_start(
@@ -92,7 +90,6 @@ class DataProgramApiMixin(WorkflowApiMixin):
         :param str x_fields: An optional fields mask
         :return: DataProgram
         """
-        template_name = f"{template_name}.router" if not "." in template_name else template_name
         return self.update_workflow(workflow_name=template_name, body=body, **kwargs)
 
     @logdecorator.log_on_start(

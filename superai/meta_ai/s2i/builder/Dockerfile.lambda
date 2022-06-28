@@ -4,6 +4,8 @@ ARG PYTHON_VERSION
 
 FROM $BASE_IMAGE
 
+# prevents public key not available error for Nvidia images (https://github.com/NVIDIA/nvidia-docker/issues/1632)
+RUN rm -rf /etc/apt/sources.list.d/cuda.list && rm -rf /etc/apt/sources.list.d/nvidia-ml.list
 RUN apt-get update && \
     apt-get -y install --no-install-recommends \
       build-essential  \
@@ -50,13 +52,14 @@ ARG PIP_REPO
 RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true,uid=1000,gid=1000 \
     --mount=type=cache,target=/root/.cache/pip \
     aws codeartifact login --tool pip --domain superai --repository ${PIP_REPO} && \
-    pip install -r /home/model-server/.requirements/base_requirements.txt
+    pip install --no-cache-dir -r /home/model-server/.requirements/base_requirements.txt
 # Install superai version from local path/repository
 COPY .dist/*.whl /home/model-server/.requirements/
+ARG SUPERAI_WHL
 RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true \
     --mount=type=cache,target=/root/.cache/pip \
     aws codeartifact login --tool pip --domain superai --repository ${PIP_REPO} && \
-    pip install /home/model-server/.requirements/*.whl
+    pip install --no-cache-dir '/home/model-server/.requirements/${SUPERAI_WHL}[ai]'
 
 LABEL io.openshift.s2i.scripts-url="image:///s2i/bin"
 

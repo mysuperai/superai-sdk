@@ -3,16 +3,49 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import asyncio
 import os
 import shutil
+from tempfile import NamedTemporaryFile
 from time import time
 
 import boto3
 import botocore
 import joblib
+from diskcache import Cache
 
 from superai.config import settings
 from superai.log import logger
 
 log = logger.get_logger(__name__)
+
+
+cache = Cache(
+    directory=f"memo/{settings.name}", size_limit=settings.cache_size_in_bytes, eviction_policy="least-recently-used"
+)
+
+
+# TODO removing push function
+def _push_to_s3(filename, path, client, s3_bucket):
+    # client.upload_file
+    client.meta.client.upload_file(
+        path, s3_bucket, filename, Config=boto3.s3.transfer.TransferConfig(use_threads=False)
+    )
+
+
+def _pull_from_s3(path, filename, client, s3_bucket):
+    dest_folder = os.path.dirname(filename)
+    if not os.path.isdir(dest_folder):
+        os.makedirs(dest_folder)
+    bucket = client.Bucket(s3_bucket)
+    bucket.download_file(filename, path, Config=boto3.s3.transfer.TransferConfig(use_threads=False))
+
+
+def _refresh_push_to_s3(method, filepath, client, s3_bucket):
+    result = method()
+    cache[filepath] = result
+    with NamedTemporaryFile(mode="w") as tmpfile:
+        joblib.dump(result, tmpfile.name)
+        _push_to_s3(filepath, tmpfile.name, client, s3_bucket)
+    return result
+
 
 # TODO: This is an experimental implementation of memoization for api calls. This is mainly used to support recovery
 def memo(method, filename, folder=None, refresh=False):
@@ -29,41 +62,24 @@ def memo(method, filename, folder=None, refresh=False):
         if not os.path.isdir(os.path.dirname(filepath)):
             os.makedirs(os.path.dirname(filepath))
 
-        # TODO removing push function
-        def push_to_s3(filename, client):
-            # client.upload_file
-            client.meta.client.upload_file(
-                filename, s3_bucket, filename, Config=boto3.s3.transfer.TransferConfig(use_threads=False)
-            )
-
-        def pull_from_s3(filename, client):
-            dest_folder = os.path.dirname(filename)
-            if not os.path.isdir(dest_folder):
-                os.makedirs(dest_folder)
-            bucket = client.Bucket(s3_bucket)
-            bucket.download_file(filename, filename, Config=boto3.s3.transfer.TransferConfig(use_threads=False))
-
-        def refresh_push_to_s3(method, filepath, client):
-            result = method()
-            joblib.dump(result, filepath)
-            push_to_s3(filepath, client)
-            return result
-
         # logic
         if refresh:  # if forced refresh, then redo the method
             log.info("Refresh True {0}".format(method.__name__))
-            return refresh_push_to_s3(method, filepath, client)
+            return _refresh_push_to_s3(method, filepath, client, s3_bucket)
 
-        if os.path.isfile(filepath):  # if have local cache, great, then continue
-            return joblib.load(filepath)
+        if filepath in cache:  # if have local cache, great, then continue
+            return cache.get(filepath)
         else:  # if local cache does not exist,
             try:  # try checking s3 for cache first, if exist, then return the value
-                pull_from_s3(filepath, client)
-                return joblib.load(filepath)
+                with NamedTemporaryFile(mode="w") as tempfile:
+                    _pull_from_s3(tempfile.name, filename, client, s3_bucket)
+                    loaded_res = joblib.load(tempfile.name)
+                    cache[filepath] = loaded_res
+                    return loaded_res
             except botocore.exceptions.ClientError as e:
                 if e.response["Error"]["Code"] == "404":  # no local/s3 cache, produce the task, cache in local and s3
                     log.debug("The S3 and local cache does not exist.")
-                    return refresh_push_to_s3(method, filepath, client)
+                    return _refresh_push_to_s3(method, filepath, client, s3_bucket)
                 else:
                     raise  # other s3 errors
     finally:

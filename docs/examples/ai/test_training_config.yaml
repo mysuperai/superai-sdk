@@ -1,0 +1,21 @@
+template:
+  name: "MnistModel_template"
+  description: "Keras MNIST training Model testing template"
+  model_class: "MnistModel"
+  requirements:
+    - tensorflow
+    - opencv-python-headless==4.5.5.64
+    - protobuf<4.*,>=3.20.1
+instance:
+  name: "mnist_training"
+  version: 1
+  description: "Instance for the MNIST training model"
+training_deploy:
+  orchestrator: "AWS_EKS"
+  skip_build: false
+  properties: {}
+  enable_cuda: false
+  build_all_layers: false
+  download_base: true
+  update_weights: true
+  overwrite: true

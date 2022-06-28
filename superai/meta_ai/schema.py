@@ -1,7 +1,9 @@
-from typing import Dict, List, Optional, Union
+import datetime
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import jsonpickle  # type: ignore
 from apm import *  # type: ignore
+from pydantic import BaseModel, root_validator, validator
 
 from superai.apis.meta_ai.meta_ai_graphql_schema import RawPrediction
 from superai.log import logger
@@ -99,3 +101,62 @@ class EasyPredictions:
             log.info(f"Received input : {args}")
             raise AttributeError("Keys `score` needs to be present and between 0 and 1")
         return True
+
+
+class LogMetric(BaseModel):
+    step: int
+    timestamp: datetime.datetime
+    name: str
+    value: Any
+
+    class Config:
+        validate_assignment = True
+        validate_all = True
+
+
+class ManyMetric(BaseModel):
+    step: int
+    timestamp: datetime.datetime
+    metrics: List[Tuple[str, Any]]
+
+    @validator("metrics")
+    def check_metrics(cls, v: List[Tuple[str, Any]]) -> List[Tuple[str, Any]]:
+        assert len(v), "Should not be an empty list"
+        assert dict(v), "Should be convertible to a dictionary"
+        keys = [x[0] for x in v]
+        assert sorted(list(set(keys))) == sorted(
+            keys
+        ), "None of the metrics should be duplicated, i.e. check if a metric exists twice."
+        return v
+
+    class Config:
+        validate_assignment = True
+        validate_all = True
+
+
+class TrainerOutput(BaseModel):
+    metric: Optional[Dict[str, Any]] = None
+    metrics: Optional[List[LogMetric]] = None
+    collection: Optional[List[ManyMetric]] = None
+
+    @root_validator()
+    def validate(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        conditions = [
+            values.get("metric") is None,
+            values.get("metrics") is None,
+            values.get("collection") is None,
+        ]
+        if conditions.count(True) == 3:
+            raise ValueError("One of `metric`, `metrics`or `collection` should be present")
+        if conditions.count(False) > 1:
+            raise ValueError("Only one of `metric`, `metrics`or `collection`should be present, more than one provided")
+        if values.get("metrics") is not None and not values.get("metrics", []):
+            raise ValueError("`metrics` should not be an empty list")
+        if values.get("collection") is not None and not values.get("collection", []):
+            raise ValueError("`collection` should not be an empty list")
+
+        return values
+
+    class Config:
+        validate_assignment = True
+        validate_all = True

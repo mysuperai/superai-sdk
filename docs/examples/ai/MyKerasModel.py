@@ -5,6 +5,7 @@ from urllib.request import urlopen
 import cv2
 import numpy as np
 import superai_schema.universal_schema.task_schema_functions as df
+import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 
@@ -17,6 +18,10 @@ class MyKerasModel(BaseModel):
 
     def __init__(self, *args, **kwargs):
         super(MyKerasModel, self).__init__(*args, **kwargs)
+        # limit GPU memory growth to prevent early OOM errors
+        self.gpus = tf.config.experimental.list_physical_devices("GPU")
+        for gpu in self.gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
 
     def load_weights(self, weights_path):
         log.info("Loading weights")
@@ -41,7 +46,8 @@ class MyKerasModel(BaseModel):
                     "mnist_class": df.exclusive_choice(
                         choices=list(map(str, range(10))),
                         selection=int(output),
-                    )
+                    ),
+                    "gpu_available": bool(self.gpus),
                 },
                 "score": float(pred[0][int(output)]),
             }

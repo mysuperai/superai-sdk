@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 import boto3
 
 from superai.meta_ai.parameters import Config, HyperParameterSpec, ModelParameters
-from superai.meta_ai.schema import Schema, SchemaParameters
+from superai.meta_ai.schema import Schema, SchemaParameters, TrainerOutput
 from superai.meta_ai.tracking import SuperTracker
 
 default_random_seed = 65778
@@ -46,7 +46,7 @@ class BaseModel(metaclass=ABCMeta):
 
         # Seldon default weights loading path in the container. You can override this by passing MNT_PATH in the
         # environment file or CRD
-        self.default_seldon_load_path = os.environ.get("MNT_PATH", "/shared")
+        self.default_seldon_load_path = os.environ.get("MNT_PATH", "/mnt/models")
 
     def __init_subclass__(cls, **kwargs):
         cls.predict = cls._process_json_func(cls.predict)
@@ -229,7 +229,7 @@ class BaseModel(metaclass=ABCMeta):
         model_parameters: ModelParameters = None,
         callbacks=None,
         random_seed=default_random_seed,
-    ):
+    ) -> TrainerOutput:
         """
         Args:
             random_seed:
@@ -246,7 +246,8 @@ class BaseModel(metaclass=ABCMeta):
             weights_path:
 
         Returns:
-            Model URI.
+            Dictionary of metrics to be tracked. Eg: `{"eval_accuracy": accuracy}` where `accuracy` is obtained from
+            the keras train function. These metrics will be tracked by polyaxon training run
         """
 
     def handle(self, data, context):
@@ -315,3 +316,30 @@ class BaseModelContext(object):
         """A dictionary containing ``<name, artifact_path>`` entries, where ``artifact_path`` is an absolute
         filesystem path to the artifact."""
         return self._artifacts
+
+
+def add_default_tracking(training_method):
+    """
+    Decorator to add tracking to the training method which performs basic metrics tracking that are returned by the
+    training function. Note that the metrics signature should match the arguments of the `tracking.log_metrics` method
+
+    Args:
+        training_method: `train` method of the Base class.
+    """
+    from polyaxon import tracking
+
+    def inner(*args, **kwargs):
+        tracking.init()
+        metrics: TrainerOutput = training_method(*args, **kwargs)
+        if metrics.metric is not None:
+            tracking.log_metrics(**metrics.metric)
+        elif metrics.metrics is not None:
+            for m in metrics.metrics:
+                tracking.log_metric(name=m.name, value=m.value, step=m.step, timestamp=m.timestamp)
+        elif metrics.collection is not None:
+            for m in metrics.collection:
+                tracking.log_metrics(step=m.step, timestamp=m.timestamp, **dict(m.metrics))
+        else:
+            raise ValueError("One of the metrics should be available")
+
+    return inner

@@ -12,14 +12,14 @@ ENV AWS_DEFAULT_REGION="us-east-1"
 ARG INTERNAL=true
 
 pre-commit:
-    RUN pip install pre-commit==2.17.0
+    RUN pip install --no-cache-dir pre-commit==2.17.0 black
     COPY . ./app
     WORKDIR /app
     RUN --mount=type=cache,target=/root/.cache/pre-commit pre-commit run --all-files
 
 semgrep:
     ARG SEMGREP_VERSION=0.86.5
-    RUN pip install semgrep==$SEMGREP_VERSION
+    RUN pip install --no-cache-dir semgrep==$SEMGREP_VERSION
     # Download rules separately for caching purposes in .ci/semgrep_rules
     RUN mkdir /rules
     COPY . ./app
@@ -60,7 +60,7 @@ runtime-pip:
         && rm -rf /var/lib/apt/lists/*
 
     # Install the runtime interface client
-    RUN pip install --upgrade pip~=22.0.4 && pip install awscli==1.18.140
+    RUN pip install --upgrade --no-cache-dir pip~=22.0.4 && pip install --no-cache-dir awscli==1.18.140
     
     ENV AWS_DEFAULT_REGION=us-east-1
     ARG PIP_TMP_DIR=/tmp/pip_dir
