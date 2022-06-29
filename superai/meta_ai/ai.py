@@ -1647,6 +1647,7 @@ class AI:
             else:
                 # TODO: load default parameters from AI
                 loaded_parameters = {}
+            loaded_parameters["enable_cuda"] = kwargs.get("enable_cuda", False)
             # check if we have a training data directory
             instance_id = self.client.create_training_entry(
                 model_id=self.id,
@@ -1699,8 +1700,8 @@ class AI:
         self,
         app_id: str,
         task_name: str,
-        current_properties: dict = {},
-        metadata: dict = {},
+        current_properties: Optional[dict] = None,
+        metadata: Optional[dict] = None,
         skip_build=False,
         **kwargs,
     ):
@@ -1722,6 +1723,10 @@ class AI:
                   {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
             download_base: Always download the base image to get the latest version from ECR
         """
+        if metadata is None:
+            metadata = {}
+        if current_properties is None:
+            current_properties = {}
         allowed_kwargs = [
             "enable_cuda",
             "cuda_devel",
@@ -1729,6 +1734,7 @@ class AI:
             "envs",
             "download_base",
         ]
+        current_properties["enable_cuda"] = kwargs.get("enable_cuda", False)
         self.kwargs_warning(allowed_kwargs, **kwargs)
         orchestrator = TrainingOrchestrator.AWS_EKS
         self._build_trainer_image(
@@ -1768,6 +1774,6 @@ class AI:
     def kwargs_warning(allowed_kwargs: List[str], **kwargs: Dict[str, Any]) -> None:
         if any([k not in allowed_kwargs for k in kwargs.keys()]):
             log.warning(
-                f"Keyword arguments {[k not in allowed_kwargs for k in kwargs.keys()]} "
+                f"Keyword arguments {[k for k in kwargs.keys() if k not in allowed_kwargs]} "
                 f"unknown, make sure you are passing the right keyword arguments"
             )
