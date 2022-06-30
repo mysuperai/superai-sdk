@@ -114,6 +114,9 @@ class DataProgram(DataProgramBase):
             self.__update_parent_training_workflow()
         log.info(f"DataProgram created {self.template_name}")
 
+    def __str__(self):
+        return f"DataProgram({self._name}, {self.description}, {self.template_name}, {self.metadata})"
+
     @staticmethod
     def run(
         *,
@@ -583,7 +586,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
 
     def start(self):
         self.__init_router()
-        self._run_local()
+        self._run_local(name=self._name)
 
     def _register_workflow(self, workflow: Workflow):
         template = self.client.get_template(template_name=self.template_name)

@@ -10,7 +10,6 @@ from superai.config import settings
 from superai.log import logger
 from superai.utils import load_api_key, load_auth_token, load_id_token
 
-from ..meta_ai import AI
 from .base import DataProgramBase
 from .data_program import DataProgram
 from .task import Worker
@@ -227,11 +226,11 @@ class Project:
         prefix = f"{current_env}." if current_env != "prod" else ""
         return f"https://{prefix}super.ai/dashboard/projects/{self.project_uuid}"
 
-    def add_ai(self, ai: "AI", active_learning: bool = False):
+    def add_ai(self, ai, active_learning: bool = False):
         """
         Add an AI to the project. This adds the capabilities to use AI as a worker, or use for active_learning
 
-        :param ai: an object of "AI" class
+        :param ai: an object of "superai.meta_ai.AI" class
         :param active_learning: If active_learning is to be used.
         :return:
         """
