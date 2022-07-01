@@ -3,8 +3,8 @@ aioitertools==0.10.0
 botocore==1.24.21
 Flask==1.1.2
 itsdangerous==2.0.1
-polyaxon
-seldon-core==1.11.1
+polyaxon==1.18.2
+seldon-core==1.14.0
 superai-dataclient
 superai_schema
 werkzeug==2.0.3

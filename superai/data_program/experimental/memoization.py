@@ -148,6 +148,8 @@ def forget_memo(filename, folder=None, prefix: str = None):
 
     if filename:
         filepath = os.path.join(folder, filename)
+        if filepath in cache:  # if have local cache, great, then continue
+            cache.pop(filepath)
         if os.path.isfile(filepath):
             log.info(f"Removing local memo for {folder}/{filename}")
             os.remove(filepath)
