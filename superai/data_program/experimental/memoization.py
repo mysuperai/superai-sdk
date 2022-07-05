@@ -3,7 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import asyncio
 import os
 import shutil
-from tempfile import NamedTemporaryFile
+import tempfile
 from time import time
 
 import boto3
@@ -16,10 +16,8 @@ from superai.log import logger
 
 log = logger.get_logger(__name__)
 
-
-cache = Cache(
-    directory=f"memo/{settings.name}", size_limit=settings.cache_size_in_bytes, eviction_policy="least-recently-used"
-)
+_cache_dir = os.path.join(tempfile.gettempdir(), "memo", settings.name)
+cache = Cache(directory=_cache_dir, size_limit=settings.cache_size_in_bytes, eviction_policy="least-recently-used")
 
 
 # TODO removing push function
@@ -41,7 +39,7 @@ def _pull_from_s3(path, filename, client, s3_bucket):
 def _refresh_push_to_s3(method, filepath, client, s3_bucket):
     result = method()
     cache[filepath] = result
-    with NamedTemporaryFile(mode="w") as tmpfile:
+    with tempfile.NamedTemporaryFile(mode="w") as tmpfile:
         joblib.dump(result, tmpfile.name)
         _push_to_s3(filepath, tmpfile.name, client, s3_bucket)
     return result
@@ -71,9 +69,9 @@ def memo(method, filename, folder=None, refresh=False):
             return cache.get(filepath)
         else:  # if local cache does not exist,
             try:  # try checking s3 for cache first, if exist, then return the value
-                with NamedTemporaryFile(mode="w") as tempfile:
-                    _pull_from_s3(tempfile.name, filename, client, s3_bucket)
-                    loaded_res = joblib.load(tempfile.name)
+                with tempfile.NamedTemporaryFile(mode="w") as tmpfile:
+                    _pull_from_s3(tmpfile.name, filename, client, s3_bucket)
+                    loaded_res = joblib.load(tmpfile.name)
                     cache[filepath] = loaded_res
                     return loaded_res
             except botocore.exceptions.ClientError as e:
