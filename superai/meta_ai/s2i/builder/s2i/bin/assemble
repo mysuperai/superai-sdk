@@ -1,7 +1,7 @@
 #!/bin/bash -e
 set -x
 
-PIP_CACHE=/home/model-server/.pip-cache
+PIP_CACHE=/home/model-server/.cache/pip
 RESTORED_ARTIFACTS=/tmp/artifacts
 
 if [[ -z "$MODEL_NAME" ]]; then
@@ -11,7 +11,9 @@ fi
 
 if [ "$(ls $RESTORED_ARTIFACTS 2>/dev/null)" ]; then
   echo "--> Restoring build artifacts ..."
-  mv $RESTORED_ARTIFACTS/.pip-cache $PIP_CACHE
+  shopt -s dotglob
+  rsync $RESTORED_ARTIFACTS/ $PIP_CACHE/
+  rm -rf $RESTORED_ARTIFACTS
 fi
 
 function codeartifact_login() {
@@ -36,7 +38,7 @@ if [[ -z "$BUILD_PIP" ]]; then
       mkdir $PIP_CACHE
     fi
     codeartifact_login
-    pip install --no-cache-dir -r requirements.txt
+    pip install -r --no-cache-dir requirements.txt
   elif [[ -f environment.yml ]]; then
     echo "---> Creating environment with Conda..."
     if [[ -z "$CONDA_ENV_NAME" ]]; then
@@ -53,9 +55,10 @@ if [[ -z "$BUILD_PIP" ]]; then
     /opt/conda/bin/conda clean -ya
     export PATH=/opt/conda/envs/$CONDA_ENV_NAME/bin/:$PATH
     echo "---> Installing base orchestrator requirements in environment"
-    pip install --no-cache-dir -r /home/model-server/.requirements/base_requirements.txt
+    pip install -r /home/model-server/.requirements/base_requirements.txt
     echo "---> Installing superai-sdk inside custom env"
-    pip install --no-cache-dir /home/model-server/.requirements/superai*.whl
+    SUPERAI_WHL=$(ls -t -U /home/model-server/.requirements/ | grep -m 1 'superai')
+    pip install "/home/model-server/.requirements/${SUPERAI_WHL}[ai]"
 
   fi
   if [[ -f /home/model-server/setup.sh ]]; then

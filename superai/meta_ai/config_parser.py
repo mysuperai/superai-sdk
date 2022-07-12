@@ -1,3 +1,4 @@
+import logging
 import os.path
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -5,6 +6,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import yaml
 from pydantic import BaseModel, BaseSettings, Field, root_validator, validator
 from pydantic.env_settings import SettingsSourceCallable
+
+logger = logging.getLogger(__name__)
 
 
 class TemplateConfig(BaseModel):
@@ -106,6 +109,8 @@ class DeployConfig(BaseModel):
     envs: Dict[str, Any] = {}
     worker_count: int = 1
     ai_cache: int = 5
+
+    push: bool = False
     update_weights: bool = False
     overwrite: bool = False
 
@@ -115,6 +120,13 @@ class DeployConfig(BaseModel):
 
         assert v in Orchestrator.__members__.values(), f"Should be in {Orchestrator.__members__.values()}"
         return v
+
+    @root_validator()
+    def check_push(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        if not values.get("push", False):
+            if values.get("update_weights", False) or values.get("overwrite", False):
+                logger.warning("`update_weights` and `overwrite` will be ignored as `push` is set to False")
+        return values
 
 
 def yml_config_setting(settings: BaseSettings) -> Dict[str, Any]:
@@ -133,6 +145,8 @@ class TrainingDeployConfig(BaseModel):
     envs: Dict[str, Any] = {}
     build_all_layers: bool = False
     download_base: bool = False
+
+    push: bool = False
     update_weights: bool = False
     overwrite: bool = False
 
@@ -153,6 +167,13 @@ class TrainingDeployConfig(BaseModel):
             assert tp.is_dir(), "Should be a directory"
         return v
 
+    @root_validator()
+    def check_push(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        if not values.get("push", False):
+            if values.get("update_weights", False) or values.get("overwrite", False):
+                logger.warning("`update_weights` and `overwrite` will be ignored as `push` is set to False")
+        return values
+
 
 class TrainingDeploymentFromApp(BaseModel):
     app_id: str
@@ -164,8 +185,17 @@ class TrainingDeploymentFromApp(BaseModel):
     build_all_layers: bool = False
     envs: Dict[str, Any] = {}
     download_base: bool = False
+
+    push: bool = False
     update_weights: bool = False
     overwrite: bool = False
+
+    @root_validator()
+    def check_push(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        if not values.get("push", False):
+            if values.get("update_weights", False) or values.get("overwrite", False):
+                logger.warning("`update_weights` and `overwrite` will be ignored as `push` is set to False")
+        return values
 
 
 class AIConfig(BaseSettings):

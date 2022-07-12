@@ -1,12 +1,22 @@
-#!/bin/sh -e
-
+#!/bin/bash
 # For more information see the documentation:
 #	https://github.com/openshift/source-to-image/blob/master/docs/builder_image.md
 #
 #tar cf - <list of files and folder>
+pushd_ () {
+    command pushd . > /dev/null
+}
 
-#PIP_CACHE=/home/model-server/.pip-cache
-#
-#if [ -d $PIP_CACHE ]; then
-#  tar cf - $PIP_CACHE
-#fi
+popd_ () {
+    command popd > /dev/null
+}
+
+pushd_
+
+PIP_CACHE=/home/model-server/.cache/pip
+
+if [ -d $PIP_CACHE ]; then
+  tar cf - $PIP_CACHE
+fi
+popd_
+

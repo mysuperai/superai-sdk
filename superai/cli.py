@@ -1476,21 +1476,23 @@ def view_training_template(client, app_id, template_id):
 @click.option(
     "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
 )
-def deploy_ai(config_file, clean=True):
+@click.option("--push/--no-push", "-p/-np", help="Push to create a model entry", default=False)
+def deploy_ai(config_file, clean=True, push=False):
     if clean:
         if os.path.exists(".AISave"):
             shutil.rmtree(".AISave")
     ai_object, ai_template_object, config_data = obtain_object_template_config(config_file=config_file)
-
+    print(f"Configuration : {config_data}")
     if isinstance(config_data.deploy.properties, str):
         properties = json.loads(config_data.deploy.properties)
     else:
         properties = config_data.deploy.properties
-    ai_object.push(
-        update_weights=config_data.deploy.update_weights,
-        overwrite=config_data.deploy.overwrite,
-        weights_path=config_data.instance.weights_path,
-    )
+    if push or config_data.deploy.push:
+        ai_object.push(
+            update_weights=config_data.deploy.update_weights,
+            overwrite=config_data.deploy.overwrite,
+            weights_path=config_data.instance.weights_path,
+        )
     predictor: DeployedPredictor = ai_object.deploy(
         orchestrator=config_data.deploy.orchestrator,
         skip_build=config_data.deploy.skip_build,
