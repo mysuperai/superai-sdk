@@ -58,15 +58,15 @@ class Client(
         headers = {}
         if required_api_key:
             if not self.api_key:
-                logger.error("API key is required, but not present")
+                logger.warning("API key is required, but not present")
             headers["API-KEY"] = self.api_key
         if required_auth_token:
             if not self.auth_token:
-                logger.error("AUTH token is required, but not present")
+                logger.warning("AUTH token is required, but not present")
             headers["AUTH-TOKEN"] = self.auth_token
         if required_id_token:
             if not self.id_token:
-                logger.error("ID token is required, but not present")
+                logger.warning("ID token is required, but not present")
             headers["ID-TOKEN"] = self.id_token
 
         resp = requests.request(
