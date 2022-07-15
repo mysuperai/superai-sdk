@@ -35,10 +35,10 @@ if [[ -z "$BUILD_PIP" ]]; then
     if [ -d "$PIP_CACHE" ]; then
       echo "Directory exists ${PIP_CACHE}"
     else
-      mkdir $PIP_CACHE
+      mkdir -p $PIP_CACHE
     fi
     codeartifact_login
-    pip install -r --no-cache-dir requirements.txt
+    pip install --no-cache-dir -r requirements.txt
   elif [[ -f environment.yml ]]; then
     echo "---> Creating environment with Conda..."
     if [[ -z "$CONDA_ENV_NAME" ]]; then
