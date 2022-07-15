@@ -22,7 +22,6 @@ class MetaAISession(RequestsEndpoint):
 
     def __init__(self, app_id: str = None, timeout: int = 60):
         base_url = f"{settings.get('meta_ai_request_protocol')}://{settings.get('meta_ai_base')}"
-        # base_url = "http://localhost:52619/v1/graphql"
         api_key = load_api_key()
         headers = {"x-api-key": api_key, "x-app-id": app_id, "Accept-Encoding": "gzip"}
         super().__init__(base_url, headers, timeout=timeout)

@@ -1167,10 +1167,8 @@ class AI:
                 assert (
                     model["weights_path"] is not None
                 ), "Weights Path cannot be None in the database for the deployment to finish"
-
-                self.served_by = self.client.deploy(
-                    self.id, ecr_image_name, deployment_type=orchestrator.value, properties=properties
-                )
+                self.client.update_model(self.id, image=ecr_image_name)
+                self.served_by = self.client.deploy(self.id, deployment_type=orchestrator.value, properties=properties)
                 self.client.update_model(self.id, served_by=self.served_by)
             else:
                 if redeploy:
@@ -1179,7 +1177,7 @@ class AI:
                     raise Exception(
                         "Deployment with this version already exists. Try undeploy first or set `redeploy=True`."
                     )
-                self.client.set_image(deployment_id=self.deployment_id, ecr_image_name=ecr_image_name)
+                self.client.update_model(model_id=self.id, image=ecr_image_name)
                 if properties:
                     self.client.set_deployment_properties(deployment_id=self.deployment_id, properties=properties)
                 self.client.set_deployment_status(deployment_id=self.deployment_id, target_status="ONLINE")

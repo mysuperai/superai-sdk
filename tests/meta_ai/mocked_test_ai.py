@@ -8,10 +8,9 @@ import shutil
 import time
 
 import pytest
-import vcr
 
 import superai
-from superai.apis.meta_ai import DeploymentApiMixin, ModelApiMixin, ProjectAiApiMixin
+from superai.apis.meta_ai import DeploymentApiMixin
 from superai.meta_ai.ai import (
     AI,
     AITemplate,
@@ -23,35 +22,8 @@ from superai.meta_ai.deployed_predictors import RemotePredictor
 from superai.meta_ai.parameters import Config
 from superai.meta_ai.schema import Schema
 from superai.utils import log
-from tests.apis.test_meta_ai import APP_ID, before_record_cb, scrub_string
 
 weights_path = os.path.join(os.path.dirname(__file__), "../../docs/examples/ai/resources/my_model")
-
-
-my_vcr = vcr.VCR(
-    serializer="yaml",
-    cassette_library_dir="fixtures/cassettes",
-    record_mode="once",
-    match_on=["body", "headers", "method"],
-    filter_headers=["x-api-key", "x-app-id", "Content-Length", "User-Agent"],
-    before_record_response=scrub_string(APP_ID, "FAKE_APP_ID"),
-    before_record_request=before_record_cb,
-    decode_compressed_response=True,
-)
-
-
-@pytest.fixture()
-def model_api():
-    with my_vcr.use_cassette("model_api.yaml"):
-        yield ModelApiMixin()
-
-
-@pytest.fixture()
-def ai_api():
-    with my_vcr.use_cassette(
-        "ai_api.yaml",
-    ):
-        yield ProjectAiApiMixin()
 
 
 @pytest.fixture()
@@ -84,7 +56,7 @@ def ai(cleanup):
     del ai
 
 
-def test_create_model(model_api, caplog):
+def test_create_model(ai_client, caplog):
     # TODO: Fix logging
     caplog.set_level(logging.INFO)
 

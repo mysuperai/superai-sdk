@@ -246,8 +246,8 @@ class ModelApiMixin(ABC):
             trainable:
                 If True, the model can be trained and a `train` method exists.
             image:
-                Path to the docker image containing the model execution environment, currently only used for training execution.
-                The image property of the  `deployment` object is the one used for prediction. Tthat will be deprecated in the future.
+                Path to the docker image containing the model execution environment.
+                Will be used for prediction serving and training.
 
         Returns:
 
@@ -266,34 +266,73 @@ class ModelApiMixin(ABC):
                 weights_path=weights_path,
                 root_id=root_id,
                 stage=stage,
+                trainable=trainable,
+                image=image,
+                default_training_parameters=json.dumps(default_training_parameters)
+                if default_training_parameters is not None
+                else default_training_parameters,
             )
-        ).__fields__("name", "version", "id", "stage", "description", "visibility", "root_id")
+        ).__fields__("name", "version", "id", "stage", "description", "visibility", "root_id", "image")
         data = self.sess.perform_op(op)
         log.info(f"Created new model: {data}")
         return (op + data).insert_meta_ai_model_one.id
 
     def update_model(self, model_id: str, **kwargs) -> str:
         """
-        Update a model.
+        Update a model based with specified keyword arguments.
+        E.g. update_model(model_id, description="new_description")
 
         Args:
             model_id:
-            **kwargs:
-                Check `add_model` for the list of available parameters.
-                e.g. `name="new_name"`
+            default_training_parameters: dict
+            description: str
+            image: str
+            input_schema: dict
+            metadata: dict
+            output_schema: dict
+            served_by: str
+            stage: str
+            trainable: bool
+            visibility: str
 
         Returns:
+            str: Id of the updated model.
 
         """
         op = Operation(mutation_root)
         op.update_meta_ai_model_by_pk(
             _set=meta_ai_model_set_input(**kwargs),
             pk_columns=meta_ai_model_pk_columns_input(id=model_id),
-        ).__fields__("name", "version", "id", "description")
+        ).__fields__("id", *kwargs.keys())
         data = self.sess.perform_op(op)
         return (op + data).update_meta_ai_model_by_pk.id
 
     def update_model_by_name_version(self, name: str, version: int, **kwargs) -> str:
+        """
+        Update a model (identified by name and version) with specified keyword arguments
+        E.g. update_model_by_name_version(name="model123", version=1, description="new_description")
+
+        Args:
+            model_id:
+            default_training_parameters: dict
+            description: str
+            image: str
+            input_schema: dict
+            metadata: dict
+            output_schema: dict
+            served_by: str
+            stage: str
+            trainable: bool
+            visibility: str
+
+        Returns:
+            str: Id of the updated model.
+
+        """
+        if name is None or version is None:
+            raise ValueError("name and version must be specified")
+        if kwargs is None:
+            raise ValueError("At least one kwarg must be specified")
         opq = Operation(query_root)
         opq.meta_ai_model(
             where={"name": {"_eq": name}, "version": {"_eq": version}},
@@ -303,13 +342,7 @@ class ModelApiMixin(ABC):
         if len(res) == 0:
             raise Exception(f"Could not find any matching entries with {name}:{version}")
         idx = res[0].id
-        op = Operation(mutation_root)
-        op.update_meta_ai_model_by_pk(
-            _set=meta_ai_model_set_input(**kwargs),
-            pk_columns=meta_ai_model_pk_columns_input(id=idx),
-        ).__fields__("name", "version", "id", "description")
-        data = self.sess.perform_op(op)
-        return (op + data).update_meta_ai_model_by_pk.id
+        return self.update_model(idx, **kwargs)
 
     def get_latest_version_of_model_by_name(self, name: str) -> int:
         opq = Operation(query_root)
@@ -356,7 +389,6 @@ class DeploymentApiMixin(ABC):
     def deploy(
         self,
         model_id: str,
-        ecr_image_name: str,
         deployment_type: meta_ai_deployment_type_enum = "AWS_SAGEMAKER",
         purpose: str = "SERVING",
         properties: dict = None,
@@ -368,7 +400,6 @@ class DeploymentApiMixin(ABC):
             deployment_type: type of backend deployment
             purpose:
             model_id:
-            ecr_image_name: Can be queried from the meta_ai_table to populate.
             properties: dict
                 Possible values (with defaults) are:
                     "sagemaker_instance_type": "ml.m5.xlarge"
@@ -387,7 +418,6 @@ class DeploymentApiMixin(ABC):
                     model_id=model_id,
                     type=meta_ai_deployment_type_enum(deployment_type),
                     purpose=meta_ai_deployment_purpose_enum(purpose),
-                    image=ecr_image_name,
                     target_status="ONLINE",
                     properties=json.dumps(properties),
                 )
@@ -469,21 +499,6 @@ class DeploymentApiMixin(ABC):
 
         console.log(f"[red][b]{field}[/b] did not reach [b]{target_status}[/b] after [b]{timeout}[/b] seconds")
         return False
-
-    def set_image(self, deployment_id: str, ecr_image_name: str) -> object:
-        """Change image of an existing deployment.
-
-        Args:
-            deployment_id: UUID of the deployment
-            ecr_image_name: URI of the ECR image
-        """
-        op = Operation(mutation_root)
-        op.update_meta_ai_deployment_by_pk(
-            _set=meta_ai_deployment_set_input(image=ecr_image_name),
-            pk_columns=meta_ai_deployment_pk_columns_input(id=deployment_id),
-        ).__fields__("id", "model_id", "image")
-        data = self.sess.perform_op(op)
-        return (op + data).update_meta_ai_deployment_by_pk
 
     def set_min_instances(self, deployment_id: str, min_instances: int) -> object:
         """Change minimum instances of an existing deployment.

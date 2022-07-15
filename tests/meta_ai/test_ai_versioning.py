@@ -11,23 +11,23 @@ def test_client(ai_client: AiApiMixin):
 
 
 def test_create_child_model(ai_client):
-    parent_id = ai_client.add_model(name="model_2", version=1)
+    parent_id = ai_client.add_model(name="model_abc_lineage", version=1)
     assert parent_id
 
     model = ai_client.get_model(parent_id)
     assert model
-    assert model.name == "model_2"
+    assert model.name == "model_abc_lineage"
     assert model.root_id == parent_id
 
     siblings = ai_client.list_model_versions(parent_id)
     assert len(siblings) == 1
 
-    child_id = ai_client.add_model(name="model_2", version=2, root_id=parent_id)
+    child_id = ai_client.add_model(name="model_abc_lineage", version=2, root_id=parent_id)
     assert child_id
 
     child_model = ai_client.get_model(child_id)
     assert child_model
-    assert child_model.name == "model_2"
+    assert child_model.name == "model_abc_lineage"
     assert child_model.root_id == parent_id
 
     found_root_id = find_root_model(child_model.name, ai_client)
