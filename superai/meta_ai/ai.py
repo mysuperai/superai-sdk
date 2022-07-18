@@ -123,8 +123,8 @@ class AITemplate:
         model_class: str,
         model_class_path: str = ".",
         requirements: Optional[Union[str, List[str]]] = None,
-        code_path: Union[str, List[str]] = None,
-        conda_env: Union[str, Dict] = None,
+        code_path: Optional[Union[str, List[str]]] = None,
+        conda_env: Optional[Union[str, Dict]] = None,
         artifacts: Optional[Dict] = None,
         client: Client = None,
         bucket_name: str = None,
@@ -280,16 +280,27 @@ class AITemplate:
                 raise ValueError("Make sure conda_env is a valid path to a .yml file or a dictionary.")
         log.info("Copying all code_path content")
         if self.code_path is not None:
-            assert (
-                type(self.code_path) == list and type(self.code_path) != str
-            ), "Types don't match for code_path, please pass a list of strings."
+            if isinstance(self.code_path, str):
+                assert Path(self.code_path).is_dir(), "code_path should point to a directory when passing a string."
+                self.code_path = [self.code_path]
+            elif isinstance(self.code_path, list):
+                assert all(
+                    isinstance(path, str) for path in self.code_path
+                ), "Types don't match for code_path, please pass a list of strings."
+            else:
+                raise ValueError("Make sure code_path is a valid path to a directory or a list of files/directories.")
         if self.model_class_path != ".":
             self.code_path = (
                 [self.model_class_path] + self.code_path if self.code_path is not None else [self.model_class_path]
             )
         if self.code_path is not None:
             for path in self.code_path:
-                shutil.copytree(path, os.path.join(version_save_path, os.path.basename(path)))
+                if Path(path).is_dir():
+                    shutil.copytree(path, os.path.join(version_save_path, os.path.basename(path)))
+                elif Path(path).is_file():
+                    shutil.copyfile(path, os.path.join(version_save_path, os.path.basename(path)))
+                else:
+                    raise ValueError(f"{path} does not represent a valid path to a local directory or file.")
         if self.requirements is not None:
             if type(self.requirements) == str and os.path.exists(os.path.abspath(self.requirements)):
                 shutil.copy(os.path.abspath(self.requirements), os.path.join(version_save_path, "requirements.txt"))
