@@ -91,7 +91,7 @@ def create_model_entrypoint(worker_count: int) -> str:
     return entry_point_file_content
 
 
-def create_model_handler(model_name: str, ai_cache: int, lambda_mode: bool) -> str:
+def create_model_handler(model_name: str, lambda_mode: bool, ai_cache: int = None) -> str:
     """Creates a model handler python script called by sagemaker to wrap the AI class."""
     assert model_name, "Model name must be provided"
     jinja_env = Environment(

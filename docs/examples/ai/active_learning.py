@@ -6,7 +6,7 @@ import superai_schema.universal_schema.data_types as dt
 
 from superai.data_program import Project, Worker
 from superai.meta_ai import AI
-from superai.meta_ai.ai import AITemplate
+from superai.meta_ai.ai_template import AITemplate
 from superai.meta_ai.parameters import Config
 from superai.meta_ai.schema import Schema
 from superai.utils import log

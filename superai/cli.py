@@ -1429,7 +1429,8 @@ def obtain_object_template_config(config_file: pathlib.Path) -> Tuple:
     Returns:
         Tuple of AI instance, AITemplate and AIConfig
     """
-    from superai.meta_ai.ai import AI, AITemplate
+    from superai.meta_ai.ai import AI
+    from superai.meta_ai.ai_template import AITemplate
     from superai.meta_ai.config_parser import AIConfig
 
     config_data = AIConfig(_env_file=str(config_file))

@@ -116,7 +116,7 @@ class DeployConfig(BaseModel):
 
     @validator("orchestrator")
     def check_orchestrator(cls, v: str) -> str:
-        from superai.meta_ai.ai import Orchestrator
+        from superai.meta_ai.image_builder import Orchestrator
 
         assert v in Orchestrator.__members__.values(), f"Should be in {Orchestrator.__members__.values()}"
         return v
@@ -152,7 +152,7 @@ class TrainingDeployConfig(BaseModel):
 
     @validator("orchestrator")
     def check_orchestrator(cls, v: str) -> str:
-        from superai.meta_ai.ai import TrainingOrchestrator
+        from superai.meta_ai.image_builder import TrainingOrchestrator
 
         assert (
             v in TrainingOrchestrator.__members__.values()

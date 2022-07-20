@@ -7,13 +7,10 @@ import uuid
 from docs.examples.ai.utilities import MockedReturns
 from superai.data_program import Project, Worker
 from superai.meta_ai import AI
-from superai.meta_ai.ai import (
-    AITemplate,
-    LocalPredictor,
-    Orchestrator,
-    RemotePredictor,
-    list_models,
-)
+from superai.meta_ai.ai import list_models
+from superai.meta_ai.ai_template import AITemplate
+from superai.meta_ai.deployed_predictors import LocalPredictor
+from superai.meta_ai.image_builder import Orchestrator
 from superai.meta_ai.parameters import Config, HyperParameterSpec, String
 from superai.meta_ai.schema import Image, Schema, SingleChoice
 from superai.utils import log

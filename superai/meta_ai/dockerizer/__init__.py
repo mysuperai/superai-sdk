@@ -346,7 +346,7 @@ def get_docker_client() -> DockerClient:
     """
     Returns a Docker client, raising a ModelDeploymentError if the Docker server is not accessible.
     """
-    client = docker.from_env()
+    client = docker.from_env(timeout=10)
     try:
         client.ping()
     except (requests.ConnectionError, APIError) as e:

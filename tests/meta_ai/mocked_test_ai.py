@@ -11,14 +11,10 @@ import pytest
 
 import superai
 from superai.apis.meta_ai import DeploymentApiMixin
-from superai.meta_ai.ai import (
-    AI,
-    AITemplate,
-    DeployedPredictor,
-    LocalPredictor,
-    Orchestrator,
-)
+from superai.meta_ai.ai import AI, DeployedPredictor, LocalPredictor
+from superai.meta_ai.ai_template import AITemplate
 from superai.meta_ai.deployed_predictors import RemotePredictor
+from superai.meta_ai.image_builder import Orchestrator
 from superai.meta_ai.parameters import Config
 from superai.meta_ai.schema import Schema
 from superai.utils import log
