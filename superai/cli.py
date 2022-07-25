@@ -895,7 +895,14 @@ def train(
     required=True,
     type=click.Path(exists=True, readable=True),
 )
-@click.option("--json-input", "-i", required=True, type=str, help="Prediction input. Should be a valid JSON string")
+@click.option(
+    "--data-path",
+    "-dp",
+    help="Path to file location where the input data is stored in the local file system.",
+    type=click.Path(exists=True, readable=True, dir_okay=False),
+    required=False,
+)
+@click.option("--json-input", "-i", required=False, type=str, help="Prediction input. Should be a valid JSON string")
 @click.option(
     "--weights-path",
     "-wp",
@@ -903,16 +910,13 @@ def train(
     help="Path to weights to be loaded",
     type=click.Path(exists=True, readable=True),
 )
-def predict(path, json_input, weights_path=None):
-    from superai.meta_ai import AI
+def predict(path, json_input=None, data_path: str = None, weights_path=None):
 
-    ai_object = AI.load_local(path, weights_path=weights_path)
-    try:
-        dict_input = json.loads(json_input)
-    except Exception:
-        click.echo("Incorrect JSON string, see if the input is a valid JSON string")
-        raise
-    click.echo(f"Result : {ai_object.predict(inputs=dict_input)}")
+    from superai.meta_ai.ai_helper import load_and_predict
+
+    result = load_and_predict(path, weights_path, data_path, json_input)
+
+    click.echo(f"Result : {result}")
 
 
 @ai.group(help="Deployed models running in our infrastructure")

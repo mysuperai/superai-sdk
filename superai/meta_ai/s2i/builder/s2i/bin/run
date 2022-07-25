@@ -24,6 +24,13 @@ if [[ -z "$MODEL_NAME" ]]; then
 
 else
   cd /home/model-server
+  if [[ -z "$MODEL_CLASS_PATH" ]]; then
+    echo "--> No model class path specified. Using root directory as model class path."
+  else
+     # If MODEL_CLASS_PATH is set, then we assume that the model is in a subfolder
+     # We prepend the path to the model name
+     export MODEL_NAME=$MODEL_CLASS_PATH.$MODEL_NAME.$MODEL_NAME
+  fi
 
   if [[ -x before-run ]]; then
     echo "Executing before-run script"

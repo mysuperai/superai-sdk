@@ -160,3 +160,26 @@ class TrainerOutput(BaseModel):
     class Config:
         validate_assignment = True
         validate_all = True
+
+
+class TaskInputElement(BaseModel):
+    type: str
+    schema_instance: object
+
+    def __getitem__(self, item):
+        """allows access via "[field]" to make backwards compatible with old code"""
+        return getattr(self, item)
+
+
+class TaskInput(BaseModel):
+    __root__: List[TaskInputElement]
+
+    def __iter__(self):
+        return iter(self.__root__)
+
+
+class TaskBatchInput(BaseModel):
+    __root__: List[TaskInput]
+
+    def __iter__(self):
+        return iter(self.__root__)

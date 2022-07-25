@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 
 import boto3  # type: ignore
 import requests
+from pydantic import ValidationError
 from rich.prompt import Confirm
 
 from superai import settings
@@ -45,7 +46,13 @@ from superai.meta_ai.parameters import (
     ModelParameters,
     TrainingParameters,
 )
-from superai.meta_ai.schema import EasyPredictions, SchemaParameters, TrainerOutput
+from superai.meta_ai.schema import (
+    EasyPredictions,
+    SchemaParameters,
+    TaskBatchInput,
+    TaskInput,
+    TrainerOutput,
+)
 from superai.utils import retry
 
 # Prefix path for the model directory on storage backend
@@ -130,12 +137,14 @@ class AI:
 
         self.container = None
         self._id = None
-        self.model_class = None
+        self.model_class: Optional[BaseModel] = None
         # ID of deployment serving predictions
         self.served_by: Optional[str] = None
 
     def _init_model_class(self):
-        model_class_template = get_user_model_class(model_name=self.model_class_name, path=self.model_class_path)
+        model_class_template = get_user_model_class(
+            model_name=self.model_class_name, save_location=self._location, path=self.model_class_path
+        )
         self.model_class: BaseModel = model_class_template(
             input_schema=self.ai_template.input_schema,
             output_schema=self.ai_template.output_schema,
@@ -544,7 +553,7 @@ class AI:
         log.info("AI.update complete!")
         self.push()
 
-    def predict(self, inputs):
+    def predict(self, inputs: Union[TaskInput, List[dict]]) -> dict:
         """Predicts from model_class and ensures that predict method adheres to schema in ai_definition.
 
         Args:
@@ -556,8 +565,44 @@ class AI:
             if self.weights_path is not None:
                 self.model_class.load_weights(self.weights_path)
             self.is_weights_loaded = True
+
+        if not isinstance(inputs, TaskInput):
+            try:
+                TaskInput.parse_obj(inputs)
+            except ValidationError as e:
+                log.warning(
+                    f"AI input could not be parsed as TaskInput. This could be enforced in future versions! {e}"
+                )
+
         output = self.model_class.predict(inputs)
+
         result = EasyPredictions(output).value
+        return result
+
+    def predict_batch(self, inputs: Union[List[List[dict]], TaskBatchInput]) -> List[dict]:
+        """Predicts a batch of inputs from model_class and ensures that predict method adheres to schema in ai_definition.
+
+        Args:
+            inputs
+        """
+        if self.model_class is None:
+            self._init_model_class()
+        if not self.is_weights_loaded:
+            if self.weights_path is not None:
+                self.model_class.load_weights(self.weights_path)
+            self.is_weights_loaded = True
+
+        if not isinstance(inputs, TaskBatchInput):
+            try:
+                TaskBatchInput.parse_obj(inputs)
+            except ValidationError as e:
+                log.warning(
+                    f"AI input could not be parsed as TaskBatchInput. This could be enforced in future versions! {e}"
+                )
+
+        output = self.model_class.predict_batch(inputs)
+
+        result = [EasyPredictions(o).value for o in output]
         return result
 
     def save(self, path: str = ".AISave", overwrite: bool = False):

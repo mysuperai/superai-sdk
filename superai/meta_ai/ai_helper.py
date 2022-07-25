@@ -12,6 +12,7 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 
 from superai import Client
 from superai.log import logger
+from superai.meta_ai.schema import TaskBatchInput
 from superai.utils import load_api_key, load_auth_token, load_id_token
 
 log = logger.get_logger(__name__)
@@ -48,13 +49,18 @@ def list_models(
         return table
 
 
-def get_user_model_class(model_name, path: str = "."):
-    """Obtain a class definition given the path to the class module"""
-    cwd = os.getcwd()
-    path_dir = os.path.abspath(path)
-    if path != ".":
-        os.chdir(path_dir)
-        sys.path.append(path_dir)
+def get_user_model_class(model_name, save_location, path: Union[str, Path] = "."):
+    """Obtain a class definition given the path to the class module
+
+    Args:
+        save_location: Location of the stored model (e.g. .AISave/...)
+        path: Path to the class module relative to `save_location`
+        model_name: Name of the model
+    """
+    location = Path(save_location)
+    path_dir = location / path
+    ai_module_path_str = str(path_dir.absolute())
+    sys.path.append(ai_module_path_str)
     parts = model_name.rsplit(".", 1)
     if len(parts) == 1:
         logger.info(f"Importing {model_name} from {path} (Absolute path: {path_dir})")
@@ -64,9 +70,7 @@ def get_user_model_class(model_name, path: str = "."):
         logger.info(f"Importing submodule {parts}")
         interface_file = importlib.import_module(parts[0])
         user_class = getattr(interface_file, parts[1])
-    if path != ".":
-        os.chdir(cwd)
-        sys.path.remove(path_dir)
+    sys.path.remove(ai_module_path_str)
     return user_class
 
 
@@ -116,7 +120,7 @@ def find_root_model(name, client) -> Optional[str]:
             return possible_root_models[0].id
         else:
             log.error(
-                "Found multiple possible root AIs based on name: {possible_root_models}. Please pass an explicit root_id."
+                f"Found multiple possible root AIs based on name: {possible_root_models}. Please pass an explicit root_id."
             )
 
 
@@ -153,3 +157,63 @@ def upload_dir(localDir, awsInitDir, bucketName, prefix="/"):
             log.info("Uploading file: {}".format(fileName))
             awsPath = os.path.join(awsInitDir, str(fileName))
             s3.meta.client.upload_file(os.path.join(localDir, fileName), bucketName, awsPath)
+
+
+def load_and_predict(
+    model_path: Union[Path, str],
+    weights_path: Optional[Union[Path, str]] = None,
+    data_path: Optional[Union[Path, str]] = None,
+    json_input: Optional[str] = None,
+):
+    """
+    Loads a model and makes a prediction on the data.
+    Supports json string input or json file input.
+
+    Parameters
+    ----------
+    model_path : str, Path
+        Path to the model directory.
+    weights_path : str, Path, optional
+        Path to the weights file.
+    data_path : str, Path, optional
+        Path to the data file.
+    json_input : str, optional
+        JSON string input.
+
+    """
+    if json_input is None and data_path is None:
+        raise ValueError("No input data provided. Please provide either a JSON input or a data path")
+    if data_path and json_input:
+        raise ValueError("Please provide either a JSON input or a data path")
+
+    from superai.meta_ai import AI
+
+    model_path = str(Path(model_path).absolute())
+    log.info("Loading model files from: {}".format(model_path))
+    if weights_path:
+        weights_path = str(Path(weights_path).absolute())
+        log.info("Loading model weights from: {}".format(weights_path))
+    if data_path:
+        data_path = str(Path(data_path).absolute())
+        log.info("Loading data from: {}".format(data_path))
+
+    ai_object = AI.load_local(model_path, weights_path=weights_path)
+    if data_path:
+        with open(data_path, "r") as f:
+            json_input = f.read()
+    decoded_input = json.loads(json_input)
+    is_batch = None
+    try:
+        _ = decoded_input[0][0]
+        is_batch = True
+    except KeyError:
+        # If it's not a List[List[...]], it's a single input
+        pass
+
+    if is_batch:
+        batch_input = TaskBatchInput.parse_obj(decoded_input)
+        result = ai_object.predict_batch(batch_input)
+    else:
+        result = ai_object.predict(decoded_input)
+
+    return result

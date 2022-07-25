@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 from pathlib import Path
+from shutil import copy, copytree, ignore_patterns
 from typing import Dict, List, Optional, Union
 
 import yaml
@@ -15,6 +15,12 @@ from superai.meta_ai.environment_file import EnvironmentFileProcessor
 from superai.meta_ai.parameters import Config
 from superai.meta_ai.schema import Schema
 from superai.utils import load_api_key, load_auth_token, load_id_token
+
+ENV_VAR_FILENAME = "environment"
+CONDA_ENV_FILE_NAME = "environment.yml"
+REQUIREMENTS_FILE_NAME = "requirements.txt"
+ARTIFACT_SETUP_SCRIPT_NAME = "setup.sh"
+TEMPLATE_SAVE_FILE_NAME = "AITemplateSaveFile.json"
 
 log = logger.get_logger(__name__)
 
@@ -28,9 +34,9 @@ class AITemplate:
         name: str,
         description: str,
         model_class: str,
-        model_class_path: str = ".",
+        model_class_path: Union[str, Path] = ".",
         requirements: Optional[Union[str, List[str]]] = None,
-        code_path: Optional[Union[str, List[str]]] = None,
+        code_path: Optional[Union[str, List[str], Path, List[Path]]] = None,
         conda_env: Optional[Union[str, Dict]] = None,
         artifacts: Optional[Dict] = None,
         client: Client = None,
@@ -114,7 +120,10 @@ class AITemplate:
         self.requirements = requirements
         self.name = name
         self.description = description
+
+        code_path = code_path or []
         self.code_path = code_path
+
         self.conda_env = conda_env
         self.artifacts = artifacts
         self.client = (
@@ -133,9 +142,28 @@ class AITemplate:
                 "Ludwig like implicit model creation is not implemented yet, please provide a model_class"
             )
         self.model_class = model_class
-        self.model_class_path = model_class_path
+        self.model_class_path = Path(model_class_path)
         self.environs: Optional[EnvironmentFileProcessor] = None
         self.template_id = None
+
+    @property
+    def model_class_path(self) -> Path:
+        return self._model_class_path
+
+    @model_class_path.setter
+    def model_class_path(self, value):
+        self._model_class_path = Path(value)
+
+    @property
+    def code_path(self) -> List[Path]:
+        return self._code_path
+
+    @code_path.setter
+    def code_path(self, value):
+        if isinstance(value, str):
+            value = [value]
+        # Always store code_path as a list of Path objects
+        self._code_path = [Path(p) for p in value]
 
     @classmethod
     def load_local(cls, load_path: str) -> "AITemplate":
@@ -146,6 +174,7 @@ class AITemplate:
         code_path = details.get("code_path")
         artifacts = details.get("artifacts")
         model_class = details["model_class"]
+        model_class_path = details["model_class_path"]
         name = details["name"]
         description = details["description"]
         input_schema = Schema.from_json(details["input_schema"])
@@ -158,7 +187,7 @@ class AITemplate:
             name=name,
             description=description,
             model_class=model_class,
-            model_class_path=load_path,
+            model_class_path=model_class_path,
             requirements=requirements,
             code_path=code_path,
             conda_env=conda_env,
@@ -170,84 +199,108 @@ class AITemplate:
         return template
 
     def save(self, version_save_path):
-        if os.path.exists(f"{self.model_class}.py"):
-            shutil.copy(f"{self.model_class}.py", os.path.join(version_save_path, f"{self.model_class}.py"))
-        # copy requirements file and conda_env
+        target = Path(version_save_path)
+
+        # Save conda env file
+        conda_target = target / CONDA_ENV_FILE_NAME
         if self.conda_env is not None:
+            log.debug("Copying conda env")
             if type(self.conda_env) == dict:
-                with open(os.path.join(version_save_path, "environment.yml"), "w") as conda_file:
-                    yaml.dump(self.conda_env, conda_file, default_flow_style=False)
-            elif (
-                type(self.conda_env) == str
-                and os.path.exists(os.path.abspath(self.conda_env))
-                and (self.conda_env.endswith(".yml") or self.conda_env.endswith(".yaml"))
-            ):
-                shutil.copy(os.path.abspath(self.conda_env), os.path.join(version_save_path, "environment.yml"))
+                with open(conda_target, "w") as f:
+                    yaml.dump(self.conda_env, f, default_flow_style=False)
+            elif type(self.conda_env) == str:
+                conda_file = Path(self.conda_env)
+                if conda_file.is_file() and conda_file.suffix in [".yml", ".yaml"]:
+                    copy(conda_file, conda_target)
             else:
                 raise ValueError("Make sure conda_env is a valid path to a .yml file or a dictionary.")
-        log.info("Copying all code_path content")
-        if self.code_path is not None:
-            if isinstance(self.code_path, str):
-                assert Path(self.code_path).is_dir(), "code_path should point to a directory when passing a string."
-                self.code_path = [self.code_path]
-            elif isinstance(self.code_path, list):
-                assert all(
-                    isinstance(path, str) for path in self.code_path
-                ), "Types don't match for code_path, please pass a list of strings."
+
+        # Copy code directories and files
+        self.code_path.append(self.model_class_path)
+        self._validate_code_paths()
+        log.info(f"Copying over: {self.code_path}")
+        ignore_ai_save = ignore_patterns(target.name)
+        cwd = Path(os.getcwd())
+        for p in self.code_path:
+            path = p.absolute().relative_to(cwd)
+            if path.is_dir():
+                copytree(path, target / path, dirs_exist_ok=True, ignore=ignore_ai_save)
+            elif path.is_file():
+                copy(path, target / path)
             else:
-                raise ValueError("Make sure code_path is a valid path to a directory or a list of files/directories.")
-        if self.model_class_path != ".":
-            self.code_path = (
-                [self.model_class_path] + self.code_path if self.code_path is not None else [self.model_class_path]
-            )
-        if self.code_path is not None:
-            for path in self.code_path:
-                if Path(path).is_dir():
-                    shutil.copytree(path, os.path.join(version_save_path, os.path.basename(path)))
-                elif Path(path).is_file():
-                    shutil.copyfile(path, os.path.join(version_save_path, os.path.basename(path)))
-                else:
-                    raise ValueError(f"{path} does not represent a valid path to a local directory or file.")
+                raise ValueError(f"{path} does not represent a valid path to a local directory or file.")
+        # Ensure that model_class_path is python module with __init__.py for correct import
+        model_module = target / self.model_class_path / "__init__.py"
+        if not model_module.is_file():
+            model_module.touch()
+
+        # Save requirements file
+        requirements_target = target / REQUIREMENTS_FILE_NAME
         if self.requirements is not None:
-            if type(self.requirements) == str and os.path.exists(os.path.abspath(self.requirements)):
-                shutil.copy(os.path.abspath(self.requirements), os.path.join(version_save_path, "requirements.txt"))
+            log.debug("Copying all requirements")
+            if type(self.requirements) == str:
+                requirements_file = Path(self.requirements)
+                if requirements_file.exists():
+                    copy(requirements_file, requirements_target)
             elif type(self.requirements) == list:
-                with open(os.path.join(version_save_path, "requirements.txt"), "w") as requirements_file:
-                    requirements_file.write("\n".join(self.requirements))
+                with open(requirements_target, "w") as f:
+                    f.write("\n".join(self.requirements))
             else:
                 raise ValueError(
                     "Make sure requirements is a list of requirements or valid path to requirements.txt file"
                 )
+
+        # Save setup script
         if self.artifacts is not None and "run" in self.artifacts:
-            shutil.copy(os.path.abspath(self.artifacts["run"]), os.path.join(version_save_path, "setup.sh"))
-        # create the environment file
-        self.environs = EnvironmentFileProcessor(os.path.abspath(version_save_path), filename="environment")
+            copy(Path(self.artifacts["run"]), target / ARTIFACT_SETUP_SCRIPT_NAME)
+
+        # Create and save the environment file
+        self.environs = EnvironmentFileProcessor(os.path.abspath(version_save_path), filename=ENV_VAR_FILENAME)
         self.environs.add_or_update("MODEL_NAME", self.model_class)
-        if os.path.exists(os.path.join(version_save_path, "environment.yml")):
-            with open(os.path.join(version_save_path, "environment.yml"), "r") as env_yaml:
+        model_module_path = self.model_class_path
+        if not model_module_path == Path("."):
+            self.environs.add_or_update("MODEL_CLASS_PATH", str(model_module_path).replace("/", "."))
+            log.error("Not the same path, adding model_class_path")
+        if conda_target.exists():
+            with open(conda_target, "r") as env_yaml:
                 try:
                     conda_env_yaml = yaml.safe_load(env_yaml)
                     self.environs.add_or_update("CONDA_ENV_NAME", conda_env_yaml.get("name", "env"))
                 except yaml.YAMLError as exc:
                     log.error(exc)
-        with open(os.path.join(version_save_path, "AITemplateSaveFile.json"), "w") as ai_template_writer:
+
+        # Save json
+        save_file_path = target / TEMPLATE_SAVE_FILE_NAME
+        with open(save_file_path, "w") as ai_template_writer:
             content = {
                 "description": self.description,
                 "input_schema": self.input_schema.to_json,
                 "output_schema": self.output_schema.to_json,
                 "configuration": self.configuration.to_json,
                 "name": self.name,
-                "requirements": os.path.join(version_save_path, "requirements.txt")
-                if self.requirements is not None
-                else None,
-                "code_path": self.code_path,
-                "conda_env": os.path.join(version_save_path, "conda.yml") if self.conda_env is not None else None,
+                "requirements": str(requirements_target) if requirements_target.exists() else None,
+                "code_path": [str(cp) for cp in self.code_path],
+                "conda_env": str(conda_target) if conda_target.exists() else None,
                 "model_class": self.model_class,
-                "model_class_path": self.model_class_path,
+                "model_class_path": str(self.model_class_path),
                 "artifacts": self.artifacts,
                 "environs": self.environs.to_dict(),
             }
             json.dump(content, ai_template_writer, indent=1)
+
+    def _validate_code_paths(self):
+        if self.code_path is not None:
+            cwd = Path(os.getcwd())
+            for path in self.code_path:
+                path_object = path.absolute()
+                log.info(f"Validating {path_object} with {cwd}")
+                if cwd == path_object:
+                    log.warning(
+                        "code_path or model_class_path is pointing to the current working directory."
+                        "This can be the case when `./` or `.` is used in the code_path or model_class_path."
+                        "  This is not recommended since all project files will be copied."
+                        " We recommend putting source files in sub-directories."
+                    )
 
     def get_or_create_training_entry(self, model_id: str, app_id: str = None, properties: dict = {}):
         existing_template_id = self.client.get_training_templates(model_id=model_id, app_id=app_id)
