@@ -10,7 +10,7 @@ import requests
 from boto3.session import Session  # type: ignore
 from botocore.exceptions import ClientError  # type: ignore
 from docker import DockerClient  # type: ignore
-from docker.errors import APIError  # type: ignore
+from docker.errors import DockerException  # type: ignore
 from jinja2 import Template
 from rich.progress import BarColumn, DownloadColumn, Progress, Task, Text
 
@@ -346,10 +346,10 @@ def get_docker_client() -> DockerClient:
     """
     Returns a Docker client, raising a ModelDeploymentError if the Docker server is not accessible.
     """
-    client = docker.from_env(timeout=10)
     try:
+        client = docker.from_env(timeout=10)
         client.ping()
-    except (requests.ConnectionError, APIError) as e:
+    except (DockerException, requests.ConnectionError) as e:
         raise ModelDeploymentError("Could not find a running Docker daemon. Is Docker running?")
     return client
 

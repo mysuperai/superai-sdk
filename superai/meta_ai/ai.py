@@ -846,13 +846,9 @@ class AI:
         existing_deployment = self.client.get_deployment(self.served_by) if self.served_by else None
         log.info(f"Existing deployments : {existing_deployment}")
         if existing_deployment is None or "status" not in existing_deployment:
-            # check if weights are present in the database
             models = self.client.get_model_by_name_version(self.name, self.version, verbose=True)
             model = models[0]
             log.info(f"Model attributes: {model}")
-            assert (
-                model["weights_path"] is not None
-            ), "Weights Path cannot be None in the database for the deployment to finish"
             self.client.update_model(self.id, image=ecr_image_name)
             self.served_by = self.client.deploy(self.id, deployment_type=orchestrator.value, properties=properties)
             self.client.update_model(self.id, served_by=self.served_by)

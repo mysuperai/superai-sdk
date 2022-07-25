@@ -12,6 +12,7 @@ fi
 if [ "$(ls $RESTORED_ARTIFACTS 2>/dev/null)" ]; then
   echo "--> Restoring build artifacts ..."
   shopt -s dotglob
+  mkdir -p $PIP_CACHE/
   rsync $RESTORED_ARTIFACTS/ $PIP_CACHE/
   rm -rf $RESTORED_ARTIFACTS
 fi

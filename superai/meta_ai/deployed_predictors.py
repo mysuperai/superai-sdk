@@ -62,6 +62,7 @@ class LocalPredictor(DeployedPredictor):
         self.enable_cuda = deploy_properties.get("enable_cuda", False)
         self.k8s_mode = deploy_properties.get("k8s_mode", False)
         self.ai = kwargs.get("ai")
+        self.weights_path = deploy_properties.get("weights_path") or self.ai.weights_path
         container_name = deploy_properties["image_name"].replace(":", "_")
         weights_volume = deploy_properties["kubernetes_config"]["mountPath"] if self.k8s_mode else "/opt/ml/model/"
         if not existing:
@@ -83,12 +84,7 @@ class LocalPredictor(DeployedPredictor):
                     name=container_name,
                     detach=True,
                     remove=remove,
-                    volumes={
-                        os.path.abspath(deploy_properties.get("weights_path") or self.ai.weights_path): {
-                            "bind": weights_volume,
-                            "mode": "rw",
-                        }
-                    },
+                    volumes=self._get_volumes(weights_volume),
                     ports=self._get_port_assignment(),
                     device_requests=self._get_device_requests(),
                 )
@@ -167,11 +163,21 @@ class LocalPredictor(DeployedPredictor):
         else:
             return {8080: 80, 8081: 8081}
 
+    def _get_volumes(self, weights_volume: str):
+        volumes = {}
+        if self.weights_path is not None:
+            volumes = {
+                os.path.abspath(self.weights_path): {
+                    "bind": weights_volume,
+                    "mode": "rw",
+                }
+            }
+        return volumes
+
     def _get_device_requests(self):
         device_requests = None
         if self.enable_cuda and shutil.which("nvidia-container-runtime") is not None:
             device_requests = [docker.types.DeviceRequest(count=-1, capabilities=[["gpu"]])]
-
         return device_requests
 
     def to_dict(self) -> dict:
