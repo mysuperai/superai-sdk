@@ -818,7 +818,7 @@ class AI:
 
         # Build image and compile deployment properties
         full_image_name, deploy_properties = self.build(
-            orchestrator, enable_cuda, enable_eia, skip_build, cuda_devel, **kwargs
+            orchestrator, enable_cuda, enable_eia, skip_build, cuda_devel, properties=properties, **kwargs
         )
         properties.update(deploy_properties)
 
@@ -833,7 +833,14 @@ class AI:
         return predictor_obj
 
     def build(
-        self, orchestrator: BaseAIOrchestrator, enable_cuda: bool, enable_eia: bool, skip_build, cuda_devel, **kwargs
+        self,
+        orchestrator: BaseAIOrchestrator,
+        enable_cuda: bool,
+        enable_eia: bool,
+        skip_build,
+        cuda_devel,
+        properties: Optional[dict] = None,
+        **kwargs,
     ) -> Tuple[str, dict]:
         """
         Build the image and return the image name and image deployment properties.
@@ -843,6 +850,8 @@ class AI:
             enable_eia:
             skip_build:
             cuda_devel:
+            properties: dict
+              Deployment specific properties.
             **kwargs:
 
         Returns:
@@ -860,7 +869,12 @@ class AI:
             artifacts=self.artifacts,
         )
         full_image_name, properties = image_builder.build_image(
-            cuda_devel=cuda_devel, enable_cuda=enable_cuda, enable_eia=enable_eia, skip_build=skip_build, **kwargs
+            cuda_devel=cuda_devel,
+            enable_cuda=enable_cuda,
+            enable_eia=enable_eia,
+            skip_build=skip_build,
+            properties=properties,
+            **kwargs,
         )
         return full_image_name, properties
 

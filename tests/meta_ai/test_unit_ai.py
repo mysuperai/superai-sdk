@@ -2,6 +2,7 @@ import logging
 import os
 import shutil
 import tarfile
+from pathlib import Path
 from subprocess import CalledProcessError
 
 import pytest
@@ -104,14 +105,15 @@ def test_builder(caplog, capsys, mocker, enable_cuda, skip_build, build_all_laye
         configuration=Config(),
         name="My_template",
         description="Template for my new awesome project",
-        model_class="MyKerasModel",
+        model_class="DummyModel",
+        model_class_path=Path(__file__).parent / "fixtures" / "model",
         requirements=["sklearn"],
     )
     ai = AI(
         ai_template=template,
         input_params=template.input_schema.parameters(),
         output_params=template.output_schema.parameters(choices=map(str, range(0, 10))),
-        name="my_mnist_model",
+        name="my_dummy_model",
         version=1,
     )
     builder = AiImageBuilder(
@@ -144,14 +146,18 @@ def test_builder(caplog, capsys, mocker, enable_cuda, skip_build, build_all_laye
         return_value="123.dkr.ecr.us-east-1.amazonaws.com",
     )
 
-    image_name, properties = builder.build_image(
+    properties = dict(kubernetes_config=dict(minReplicas=1, maxReplicas=5))
+    image_name, new_properties = builder.build_image(
         skip_build=skip_build,
         build_all_layers=build_all_layers,
         download_base=download_base,
         enable_cuda=enable_cuda,
+        properties=properties,
     )
     assert image_name == f"{ai.name}:{ai.version}"
-    assert properties
+    assert new_properties
+    assert new_properties["kubernetes_config"]["minReplicas"] == 1
+    assert new_properties["kubernetes_config"]["maxReplicas"] == 5
 
 
 def test_system_commands():

@@ -146,6 +146,7 @@ class AiImageBuilder:
         skip_build: bool = False,
         build_all_layers: bool = False,
         download_base: bool = False,
+        properties: Optional[Dict] = None,
         **kwargs: dict,
     ) -> Tuple[str, dict]:
         """
@@ -181,6 +182,7 @@ class AiImageBuilder:
             cuda_devel=cuda_devel,
             enable_cuda=enable_cuda,
             enable_eia=enable_eia,
+            properties=properties,
             **kwargs,
         )
         return image_name, properties
@@ -431,7 +433,7 @@ class AiImageBuilder:
         mountPath="/shared",
         worker_count=1,
         enable_cuda=False,
-        properties=None,
+        properties: Optional[dict] = None,
         **kwargs,
     ) -> dict:
         """
@@ -451,12 +453,11 @@ class AiImageBuilder:
             targetMemoryRequirement: Average memory requirement for the pod, 512Mi, 1Gi ...
             targetMemoryLimit: Maximum memory limit for the pod, 512Mi, 1Gi ...
 
-
+        TODO: Introduce pydantic model for these parameters
         Return:
              Dictionary of the CRD. This is saved in the save location as well.
         """
-        if properties is None:
-            properties = {}
+        properties = properties or {}
         kubernetes_config = properties.get("kubernetes_config", {})
         kubernetes_config.update(
             dict(
@@ -478,15 +479,17 @@ class AiImageBuilder:
             json.dump(kubernetes_config, wfp, indent=2)
         return kubernetes_config
 
-    def get_deployment_properties(self, **kwargs) -> dict:
+    def get_deployment_properties(self, properties: Optional[dict] = None, **kwargs) -> dict:
         """
         Get the deployment properties
+        Args:
+            properties: Properties to be used for deployment
         Return:
             Dictionary of the deployment properties
         """
-        properties = {}
+        properties = properties or {}
         if self.orchestrator in [Orchestrator.AWS_EKS, Orchestrator.LOCAL_DOCKER_K8S]:
-            k8s_config = self._prepare_k8s_parameters(**kwargs)
+            k8s_config = self._prepare_k8s_parameters(properties=properties, **kwargs)
             properties["kubernetes_config"] = k8s_config
         if self.orchestrator in [
             Orchestrator.LOCAL_DOCKER,
