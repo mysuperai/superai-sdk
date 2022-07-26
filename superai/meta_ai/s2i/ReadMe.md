@@ -11,7 +11,7 @@ You can install on MacOs using
 ```bash
 brew install source-to-image
 ```
-####Linux
+#### Linux
 For linux systems, download
 ```bash
 mkdir /tmp/s2i/ && cd /tmp/s2i/ 
@@ -38,8 +38,10 @@ To create a base image to be utilized for s2i image creation, you would need to 
 ```bash
 cd builder
 make build
+# build kubernetes container
+make build-seldon
 ```
-By default this uses a `x86_64` base image. For `ARM64` based images you can use `make build TARGET_PLATFORM=linux/arm64`.
+By default this uses a `x86_64` base image. For `ARM64` based images you can use `make build TARGET_PLATFORM=linux/arm64`. For using Cuda, you can specify `mode=gpu` in the make command above.
 
 Any specific build logic can be changed in the `builder/s2i/bin` folder. 
 
