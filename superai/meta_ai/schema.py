@@ -162,7 +162,7 @@ class TrainerOutput(BaseModel):
         validate_all = True
 
 
-class TaskInputElement(BaseModel):
+class TaskElement(BaseModel):
     type: str
     schema_instance: Any
 
@@ -171,15 +171,40 @@ class TaskInputElement(BaseModel):
         return getattr(self, item)
 
 
-class TaskInput(BaseModel):
-    __root__: List[TaskInputElement]
+class TaskIO(BaseModel):
+    __root__: List[TaskElement]
 
     def __iter__(self):
         return iter(self.__root__)
 
+    def __len__(self):
+        return len(self.__root__)
 
-class TaskBatchInput(BaseModel):
+
+class TaskInput(TaskIO):
+    pass
+
+
+class TaskOutput(TaskIO):
+    pass
+
+
+class TaskBatchIO(BaseModel):
     __root__: List[TaskInput]
 
     def __iter__(self):
         return iter(self.__root__)
+
+    def __len__(self):
+        return len(self.__root__)
+
+    def __getitem__(self, item):
+        return self.__root__[item]
+
+
+class TaskBatchInput(TaskBatchIO):
+    pass
+
+
+class TaskBatchOutput(TaskBatchIO):
+    pass

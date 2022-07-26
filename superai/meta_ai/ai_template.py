@@ -121,9 +121,7 @@ class AITemplate:
         self.name = name
         self.description = description
 
-        code_path = code_path or []
-        self.code_path = code_path
-
+        self.code_path = code_path or []
         self.conda_env = conda_env
         self.artifacts = artifacts
         self.client = (
@@ -260,7 +258,6 @@ class AITemplate:
         model_module_path = self.model_class_path
         if not model_module_path == Path("."):
             self.environs.add_or_update("MODEL_CLASS_PATH", str(model_module_path).replace("/", "."))
-            log.error("Not the same path, adding model_class_path")
         if conda_target.exists():
             with open(conda_target, "r") as env_yaml:
                 try:

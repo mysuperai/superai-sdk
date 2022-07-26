@@ -12,7 +12,7 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 
 from superai import Client
 from superai.log import logger
-from superai.meta_ai.schema import TaskBatchInput
+from superai.meta_ai.dataset import Dataset
 from superai.utils import load_api_key, load_auth_token, load_id_token
 
 log = logger.get_logger(__name__)
@@ -194,26 +194,16 @@ def load_and_predict(
         weights_path = str(Path(weights_path).absolute())
         log.info("Loading model weights from: {}".format(weights_path))
     if data_path:
-        data_path = str(Path(data_path).absolute())
-        log.info("Loading data from: {}".format(data_path))
+        data_path = Path(data_path).absolute()
+        log.info("Loading data from: {}".format(str(data_path)))
+        dataset = Dataset.from_file(data_path)
+    else:
+        dataset = Dataset.from_json(json_input=json_input)
 
     ai_object = AI.load_local(model_path, weights_path=weights_path)
-    if data_path:
-        with open(data_path, "r") as f:
-            json_input = f.read()
-    decoded_input = json.loads(json_input)
-    is_batch = None
-    try:
-        _ = decoded_input[0][0]
-        is_batch = True
-    except KeyError:
-        # If it's not a List[List[...]], it's a single input
-        pass
-
-    if is_batch:
-        batch_input = TaskBatchInput.parse_obj(decoded_input)
-        result = ai_object.predict_batch(batch_input)
+    task_input = dataset.X_train
+    if len(task_input) > 1:
+        result = ai_object.predict_batch(task_input)
     else:
-        result = ai_object.predict(decoded_input)
-
+        result = ai_object.predict(task_input[0])
     return result
