@@ -164,7 +164,7 @@ class TrainerOutput(BaseModel):
 
 class TaskInputElement(BaseModel):
     type: str
-    schema_instance: object
+    schema_instance: Any
 
     def __getitem__(self, item):
         """allows access via "[field]" to make backwards compatible with old code"""
