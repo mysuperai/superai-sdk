@@ -813,7 +813,7 @@ class AI:
                 orchestrator = Orchestrator[orchestrator]
             except KeyError:
                 raise ValueError(
-                    f"Unknown orchestrator: {orchestrator}. Try one of: {list(Orchestrator.__members__.values())}"
+                    f"Unknown orchestrator: {orchestrator}. Try one of: {', '.join(Orchestrator.__members__.values())}"
                 )
 
         # Build image and compile deployment properties

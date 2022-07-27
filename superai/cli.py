@@ -5,7 +5,7 @@ import shutil
 import signal
 import sys
 from datetime import datetime
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import click
 import yaml
@@ -20,8 +20,6 @@ from superai.client import Client
 from superai.config import get_config_dir, list_env_configs, set_env_config, settings
 from superai.exceptions import SuperAIAuthorizationError
 from superai.log import logger
-from superai.meta_ai.deployed_predictors import DeployedPredictor
-from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters
 from superai.utils import (
     load_api_key,
     remove_aws_credentials,
@@ -862,6 +860,7 @@ def train(
     train_logger,
 ):
     from superai.meta_ai.ai import AI
+    from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters
 
     click.echo(
         f"Starting training from the path {path} with hyperparameters {hyperparameters} "
@@ -911,11 +910,9 @@ def train(
     type=click.Path(exists=True, readable=True),
 )
 def predict(path, json_input=None, data_path: str = None, weights_path=None):
-
     from superai.meta_ai.ai_helper import load_and_predict
 
     result = load_and_predict(path, weights_path, data_path, json_input)
-
     click.echo(f"Result : {result}")
 
 
@@ -1313,6 +1310,8 @@ def trigger_template_training(client, app_id, model_id, training_template_id, ta
     "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
 )
 def training_deploy(config_file, push=True, clean=True):
+    from superai.meta_ai.ai_helper import obtain_object_template_config
+
     if clean:
         if os.path.exists(".AISave"):
             shutil.rmtree(".AISave")
@@ -1425,26 +1424,6 @@ def update_template(client, app_id, model_id, properties: str, description: str)
         print(f"Updated training template with id={id}")
 
 
-def obtain_object_template_config(config_file: pathlib.Path) -> Tuple:
-    """
-    From the config file, obtain the AITemplate, AI instance and the config
-    Args:
-        config_file: Path to config file
-    Returns:
-        Tuple of AI instance, AITemplate and AIConfig
-    """
-    from superai.meta_ai.ai import AI
-    from superai.meta_ai.ai_template import AITemplate
-    from superai.meta_ai.config_parser import AIConfig
-
-    config_data = AIConfig(_env_file=str(config_file))
-
-    ai_template_object = AITemplate.from_settings(config_data.template)
-    ai_object = AI.from_settings(ai_template_object, config_data.instance)
-
-    return ai_object, ai_template_object, config_data
-
-
 @template.command(name="list")
 @click.option("--app_id", "-a", help="Application id", required=False, default=None)
 @click.option("--model_id", "-m", help="Model id", required=True)
@@ -1483,6 +1462,9 @@ def view_training_template(client, app_id, template_id):
 )
 @click.option("--push/--no-push", "-p/-np", help="Push to create a model entry", default=False)
 def deploy_ai(config_file, clean=True, push=False):
+    from superai.meta_ai.ai_helper import obtain_object_template_config
+    from superai.meta_ai.deployed_predictors import DeployedPredictor
+
     if clean:
         if os.path.exists(".AISave"):
             shutil.rmtree(".AISave")
@@ -1547,6 +1529,9 @@ def deploy_ai(config_file, clean=True, push=False):
 def predictor_test(
     client, config_file, predict_input=None, predict_input_file=None, expected_output=None, expected_output_file=None
 ):
+    from superai.meta_ai.ai_helper import obtain_object_template_config
+    from superai.meta_ai.deployed_predictors import DeployedPredictor
+
     ai_object, ai_template_object, config_data = obtain_object_template_config(config_file=config_file)
     config_path = os.path.join(
         settings.path_for(), "cache", ai_object.name, str(ai_object.version), ".predictor_config.json"
@@ -1583,6 +1568,9 @@ def predictor_test(
 )
 @pass_client
 def predictor_teardown(client, config_file):
+    from superai.meta_ai.ai_helper import obtain_object_template_config
+    from superai.meta_ai.deployed_predictors import DeployedPredictor
+
     ai_object, ai_template_object, config_data = obtain_object_template_config(config_file=config_file)
     config_path = os.path.join(
         settings.path_for(), "cache", ai_object.name, str(ai_object.version), ".predictor_config.json"

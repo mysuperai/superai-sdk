@@ -4,7 +4,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import boto3
 import pandas as pd
@@ -124,39 +124,57 @@ def find_root_model(name, client) -> Optional[str]:
             )
 
 
-def upload_dir(localDir, awsInitDir, bucketName, prefix="/"):
+def upload_dir(local_dir: Union[Path, str], aws_root_dir: Union[Path, str], bucket_name: str, prefix: str = "/"):
     """
-    from current working directory, upload a 'localDir' with all its subcontents (files and subdirectories...)
+    from current working directory, upload a 'local_dir' with all its subcontents (files and subdirectories...)
     to a aws bucket
     Parameters
     ----------
-    localDir :   localDirectory to be uploaded, with respect to current working directory
-    awsInitDir : prefix 'directory' in aws
-    bucketName : bucket in aws
-    prefix :     to remove initial '/' from file names
+    local_dir : local directory to be uploaded, with respect to current working directory
+    aws_root_dir : prefix 'directory' in aws
+    bucket_name : bucket in aws
+    prefix : to remove initial '/' from file names
 
     https://stackoverflow.com/a/64445594/15820564
     Returns
     -------
     None
     """
-    assert localDir, "localDir must be provided"
-    log.info("Uploading directory: {} to bucket: {}".format(localDir, bucketName))
+    log.info(f"Uploading directory: {local_dir} to bucket: {bucket_name}")
     s3 = boto3.resource("s3")
     cwd = str(Path.cwd())
-    p = Path(os.path.join(Path.cwd(), localDir))
-    mydirs = list(p.glob("**"))
-    for mydir in mydirs:
-        fileNames = glob.glob(os.path.join(mydir, "*"))
-        fileNames = [f for f in fileNames if not Path(f).is_dir()]
-        len(fileNames)
-        for i, fileName in enumerate(fileNames):
-            fileName = str(fileName).replace(os.path.join(cwd, localDir), "")
-            if fileName.startswith(prefix):  # only modify the text if it starts with the prefix
-                fileName = fileName.replace(prefix, "", 1)  # remove one instance of prefix
-            log.info("Uploading file: {}".format(fileName))
-            awsPath = os.path.join(awsInitDir, str(fileName))
-            s3.meta.client.upload_file(os.path.join(localDir, fileName), bucketName, awsPath)
+    p = Path(os.path.join(Path.cwd(), local_dir))
+    subdirectories = list(p.glob("**"))
+    for subdir in subdirectories:
+        file_names = glob.glob(os.path.join(subdir, "*"))
+        file_names = [f for f in file_names if not Path(f).is_dir()]
+        for i, file_name in enumerate(file_names):
+            file_name = str(file_name).replace(os.path.join(cwd, local_dir), "")
+            if file_name.startswith(prefix):  # only modify the text if it starts with the prefix
+                file_name = file_name.replace(prefix, "", 1)  # remove one instance of prefix
+            log.info(f"Uploading file: {file_name}")
+            aws_path = os.path.join(aws_root_dir, str(file_name))
+            s3.meta.client.upload_file(os.path.join(local_dir, file_name), bucket_name, aws_path)
+
+
+def obtain_object_template_config(config_file: Union[Path, str]) -> Tuple:
+    """
+    From the config file, obtain the AITemplate, AI instance and the config
+    Args:
+        config_file: Path to config file
+    Returns:
+        Tuple of AI instance, AITemplate and AIConfig
+    """
+    from superai.meta_ai.ai import AI
+    from superai.meta_ai.ai_template import AITemplate
+    from superai.meta_ai.config_parser import AIConfig
+
+    config_data = AIConfig(_env_file=str(config_file))
+
+    ai_template_object = AITemplate.from_settings(config_data.template)
+    ai_object = AI.from_settings(ai_template_object, config_data.instance)
+
+    return ai_object, ai_template_object, config_data
 
 
 def load_and_predict(
@@ -189,13 +207,13 @@ def load_and_predict(
     from superai.meta_ai import AI
 
     model_path = str(Path(model_path).absolute())
-    log.info("Loading model files from: {}".format(model_path))
+    log.info(f"Loading model files from: {model_path}")
     if weights_path:
         weights_path = str(Path(weights_path).absolute())
-        log.info("Loading model weights from: {}".format(weights_path))
+        log.info(f"Loading model weights from: {weights_path}")
     if data_path:
         data_path = Path(data_path).absolute()
-        log.info("Loading data from: {}".format(str(data_path)))
+        log.info(f"Loading data from: {data_path}")
         dataset = Dataset.from_file(data_path)
     else:
         dataset = Dataset.from_json(json_input=json_input)

@@ -214,9 +214,12 @@ class AITemplate:
                 raise ValueError("Make sure conda_env is a valid path to a .yml file or a dictionary.")
 
         # Copy code directories and files
+        if self.model_class_path in self.code_path:
+            log.warning("model_class_path already matches one entry in code_path. This is most likely redundant.")
         self.code_path.append(self.model_class_path)
+
         self._validate_code_paths()
-        log.info(f"Copying over: {self.code_path}")
+        log.info(f"Copying over: {', '.join(map(str, self.code_path))}")
         ignore_ai_save = ignore_patterns(target.name)
         cwd = Path(os.getcwd())
         for p in self.code_path:
@@ -256,7 +259,8 @@ class AITemplate:
         self.environs = EnvironmentFileProcessor(os.path.abspath(version_save_path), filename=ENV_VAR_FILENAME)
         self.environs.add_or_update("MODEL_NAME", self.model_class)
         model_module_path = self.model_class_path
-        if not model_module_path == Path("."):
+        if model_module_path != Path("."):
+            log.debug("Copying model_class_path")
             self.environs.add_or_update("MODEL_CLASS_PATH", str(model_module_path).replace("/", "."))
         if conda_target.exists():
             with open(conda_target, "r") as env_yaml:
@@ -290,7 +294,7 @@ class AITemplate:
             cwd = Path(os.getcwd())
             for path in self.code_path:
                 path_object = path.absolute()
-                log.info(f"Validating {path_object} with {cwd}")
+                log.info(f"Validating {path_object} with working directory {cwd}")
                 if cwd == path_object:
                     log.warning(
                         "code_path or model_class_path is pointing to the current working directory."
