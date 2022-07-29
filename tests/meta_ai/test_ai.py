@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 from pathlib import Path
@@ -5,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from superai.meta_ai import AI, AITemplate
-from superai.meta_ai.ai_helper import load_and_predict
+from superai.meta_ai.ai_helper import PREDICTION_METRICS_JSON, load_and_predict
 from superai.meta_ai.parameters import Config
 from superai.meta_ai.schema import Schema, TaskBatchInput, TaskElement, TaskInput
 
@@ -138,7 +139,17 @@ def test_predict_dataset(local_ai, tmp_path: Path, monkeypatch):
 
     npz_file_path = Path(__file__).parent / "fixtures" / "dataset.npz"
     result = load_and_predict(
-        model_path=str(absolute_location), weights_path=local_ai.weights_path, data_path=npz_file_path
+        model_path=str(absolute_location),
+        weights_path=local_ai.weights_path,
+        data_path=npz_file_path,
+        metrics_output_dir=tmp_path,
     )
     assert result
     assert result[0][0]["prediction"]
+
+    metric_file = tmp_path / PREDICTION_METRICS_JSON
+    assert metric_file.exists()
+    with open(metric_file, "r") as f:
+        metrics = json.load(f)
+    assert metrics["score"]
+    assert metrics["score"] == 1.0

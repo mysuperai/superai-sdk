@@ -909,10 +909,22 @@ def train(
     help="Path to weights to be loaded",
     type=click.Path(exists=True, readable=True),
 )
-def predict(path, json_input=None, data_path: str = None, weights_path=None):
+@click.option(
+    "--metrics-output-dir",
+    required=False,
+    help="If provided, metrics will be computed and saved to this directory.",
+    type=click.Path(exists=True, readable=True, writable=True),
+)
+def predict(path, json_input=None, data_path: str = None, weights_path=None, metrics_output_dir=None):
     from superai.meta_ai.ai_helper import load_and_predict
 
-    result = load_and_predict(path, weights_path, data_path, json_input)
+    result = load_and_predict(
+        model_path=path,
+        weights_path=weights_path,
+        data_path=data_path,
+        json_input=json_input,
+        metrics_output_dir=metrics_output_dir,
+    )
     click.echo(f"Result : {result}")
 
 

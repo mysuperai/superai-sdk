@@ -19,7 +19,6 @@ from pydantic import ValidationError
 from rich.prompt import Confirm
 
 from superai import settings
-from superai.exceptions import ModelDeploymentError, ModelNotFoundError
 from superai.log import logger
 from superai.meta_ai.ai_helper import (
     find_root_model,
@@ -33,6 +32,7 @@ from superai.meta_ai.config_parser import InstanceConfig
 from superai.meta_ai.deployed_predictors import DeployedPredictor, PredictorFactory
 from superai.meta_ai.dockerizer import push_image
 from superai.meta_ai.environment_file import EnvironmentFileProcessor
+from superai.meta_ai.exceptions import ModelDeploymentError, ModelNotFoundError
 from superai.meta_ai.image_builder import (
     AiImageBuilder,
     AiTrainerImageBuilder,
@@ -47,10 +47,10 @@ from superai.meta_ai.parameters import (
     TrainingParameters,
 )
 from superai.meta_ai.schema import (
-    EasyPredictions,
     SchemaParameters,
     TaskBatchInput,
     TaskInput,
+    TaskPredictionInstance,
     TrainerOutput,
 )
 from superai.utils import retry
@@ -141,16 +141,32 @@ class AI:
         # ID of deployment serving predictions
         self.served_by: Optional[str] = None
 
-    def _init_model_class(self):
-        model_class_template = get_user_model_class(
-            model_name=self.model_class_name, save_location=self._location, path=self.model_class_path
-        )
-        self.model_class: BaseModel = model_class_template(
-            input_schema=self.ai_template.input_schema,
-            output_schema=self.ai_template.output_schema,
-            configuration=self.ai_template.configuration,
-        )
-        self.model_class.update_parameters(self.input_params, self.output_params)
+    def _init_model_class(self, load_weights=True, force_reload=False):
+        """
+        Initializes the BaseModel class.
+
+        Args:
+            load_weights: bool
+                Will also load weights if True.
+            force_reload:
+                Will reload the model class even if it was already loaded before.
+
+        """
+        if self.model_class is None or force_reload:
+            model_class_template = get_user_model_class(
+                model_name=self.model_class_name, save_location=self._location, path=self.model_class_path
+            )
+            self.model_class: BaseModel = model_class_template(
+                input_schema=self.ai_template.input_schema,
+                output_schema=self.ai_template.output_schema,
+                configuration=self.ai_template.configuration,
+            )
+            self.model_class.update_parameters(self.input_params, self.output_params)
+
+            if load_weights and (not self.is_weights_loaded or force_reload):
+                if self.weights_path is not None:
+                    self.model_class.load_weights(self.weights_path)
+                self.is_weights_loaded = True
 
     @property
     def id(self) -> Optional[str]:
@@ -553,18 +569,18 @@ class AI:
         log.info("AI.update complete!")
         self.push()
 
-    def predict(self, inputs: Union[TaskInput, List[dict]]) -> dict:
+    def predict(self, inputs: Union[TaskInput, List[dict]]) -> List[TaskPredictionInstance]:
         """Predicts from model_class and ensures that predict method adheres to schema in ai_definition.
 
         Args:
             inputs
+
+        Returns:
+            List of TaskPredictions
+            Each TaskPredictionInstance corresponds to a single prediction instance.
+            Models can output multiple instances per input.
         """
-        if self.model_class is None:
-            self._init_model_class()
-        if not self.is_weights_loaded:
-            if self.weights_path is not None:
-                self.model_class.load_weights(self.weights_path)
-            self.is_weights_loaded = True
+        self._init_model_class(load_weights=True)
 
         if not isinstance(inputs, TaskInput):
             try:
@@ -575,22 +591,22 @@ class AI:
                 )
 
         output = self.model_class.predict(inputs)
-
-        result = EasyPredictions(output).value
+        result = TaskPredictionInstance.validate_prediction(output)
         return result
 
-    def predict_batch(self, inputs: Union[List[List[dict]], TaskBatchInput]) -> List[dict]:
+    def predict_batch(self, inputs: Union[List[List[dict]], TaskBatchInput]) -> List[List[TaskPredictionInstance]]:
         """Predicts a batch of inputs from model_class and ensures that predict method adheres to schema in ai_definition.
 
         Args:
             inputs
+
+        Returns:
+            Batch of lists of TaskPredictions
+            Each TaskPredictionInstance corresponds to a single prediction instance.
+            For each input in the batch we expect a list of prediction instances.
+
         """
-        if self.model_class is None:
-            self._init_model_class()
-        if not self.is_weights_loaded:
-            if self.weights_path is not None:
-                self.model_class.load_weights(self.weights_path)
-            self.is_weights_loaded = True
+        self._init_model_class(load_weights=True)
 
         if not isinstance(inputs, TaskBatchInput):
             try:
@@ -600,9 +616,8 @@ class AI:
                     f"AI input could not be parsed as TaskBatchInput. This could be enforced in future versions! {e}"
                 )
 
-        output = self.model_class.predict_batch(inputs)
-
-        result = [EasyPredictions(o).value for o in output]
+        batch = self.model_class.predict_batch(inputs)
+        result = TaskPredictionInstance.validate_prediction_batch(batch)
         return result
 
     def save(self, path: str = ".AISave", overwrite: bool = False):
@@ -999,8 +1014,8 @@ class AI:
             model_parameters: Model parameters for training
             train_logger: Logger for training
         """
-        if self.model_class is None:
-            self._init_model_class()
+        self._init_model_class(load_weights=True)
+
         if train_logger is not None:
             self.model_class.update_logger_path(train_logger)
         else:

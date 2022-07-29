@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import boto3
+import numpy as np
 import pandas as pd
 from jinja2 import Environment, PackageLoader, select_autoescape
 
@@ -14,6 +15,8 @@ from superai import Client
 from superai.log import logger
 from superai.meta_ai.dataset import Dataset
 from superai.utils import load_api_key, load_auth_token, load_id_token
+
+PREDICTION_METRICS_JSON = "metrics.json"
 
 log = logger.get_logger(__name__)
 
@@ -182,6 +185,7 @@ def load_and_predict(
     weights_path: Optional[Union[Path, str]] = None,
     data_path: Optional[Union[Path, str]] = None,
     json_input: Optional[str] = None,
+    metrics_output_dir: Path = None,
 ):
     """
     Loads a model and makes a prediction on the data.
@@ -197,6 +201,9 @@ def load_and_predict(
         Path to the data file.
     json_input : str, optional
         JSON string input.
+    metrics_output_dir : Path, optional
+        Path to the directory where metrics will be saved.
+
 
     """
     if json_input is None and data_path is None:
@@ -217,11 +224,41 @@ def load_and_predict(
         dataset = Dataset.from_file(data_path)
     else:
         dataset = Dataset.from_json(json_input=json_input)
+    log.info(f"Dataset loaded: {dataset}")
 
     ai_object = AI.load_local(model_path, weights_path=weights_path)
     task_input = dataset.X_train
     if len(task_input) > 1:
         result = ai_object.predict_batch(task_input)
+        scores = [instance["score"] for p in result for instance in p]
+        predict_score = np.mean(scores)
     else:
         result = ai_object.predict(task_input[0])
+        scores = [instance["score"] for instance in result]
+        predict_score = np.mean(scores)
+    log.info("Prediction score: {}".format(predict_score))
+    if metrics_output_dir:
+        store_prediction_metrics(metrics_output_dir, dict(score=predict_score))
     return result
+
+
+def store_prediction_metrics(metrics_output_dir: Path, metrics: dict, filename: str = PREDICTION_METRICS_JSON) -> Path:
+    """
+    Method to store prediction metrics in a json file.
+    Args:
+        metrics_output_dir: Path to the directory where metrics will be saved.
+        metrics: dict
+            Dictionary of metrics.
+            Keys should be the metric names and values should be the metric values.
+
+    Returns:
+
+    """
+    metrics_output_dir = Path(metrics_output_dir)
+    metrics_output_dir.mkdir(parents=True, exist_ok=True)
+    metrics_output_path = metrics_output_dir / filename
+
+    with open(metrics_output_path, "w") as f:
+        json.dump(metrics, f)
+    log.info("Metrics saved to: {}".format(metrics_output_path))
+    return metrics_output_path

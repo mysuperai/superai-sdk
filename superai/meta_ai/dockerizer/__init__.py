@@ -14,10 +14,10 @@ from docker.errors import DockerException  # type: ignore
 from jinja2 import Template
 from rich.progress import BarColumn, DownloadColumn, Progress, Task, Text
 
-from superai.exceptions import ModelDeploymentError
 from superai.log import logger
 
 from ... import config
+from ..exceptions import ModelDeploymentError
 from .sagemaker_endpoint import (
     create_endpoint,
     invoke_local,

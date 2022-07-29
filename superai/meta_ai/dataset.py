@@ -31,26 +31,7 @@ class Dataset(BaseModel):
     def from_npz(cls, npz_file_path: Path) -> "Dataset":
         logger.info(f"Loading data from {npz_file_path}")
         compressed_file = np.load(str(npz_file_path), allow_pickle=True)
-        (X_train, X_test, y_train, y_test, task_ids_train, task_ids_test, job_ids_train, job_ids_test,) = (
-            compressed_file["X_train"],
-            compressed_file["X_test"],
-            compressed_file["y_train"],
-            compressed_file["y_test"],
-            compressed_file["task_ids_train"],
-            compressed_file["task_ids_test"],
-            compressed_file["job_ids_train"],
-            compressed_file["job_ids_test"],
-        )
-        return cls(
-            X_train=X_train.tolist(),
-            X_test=X_test.tolist(),
-            y_train=y_train.tolist(),
-            y_test=y_test.tolist(),
-            task_ids_train=task_ids_train.tolist(),
-            task_ids_test=task_ids_test.tolist(),
-            job_ids_train=job_ids_train.tolist(),
-            job_ids_test=job_ids_test.tolist(),
-        )
+        return cls(**{name: compressed_file[name].tolist() for name in cls.__fields__})
 
     @classmethod
     def from_json(cls, json_path: Optional[Path] = None, json_input: Optional[str] = None) -> "Dataset":
@@ -71,6 +52,18 @@ class Dataset(BaseModel):
             i = TaskInput.parse_obj(decoded_input)
             input = TaskBatchInput(__root__=[i])
         return cls(X_train=input)
+
+    def __str__(self) -> str:
+        """
+        Represent dataset by length of its arrays.
+        Returns:
+
+        """
+        array_sizes = [
+            len(getattr(self, array_name)) if getattr(self, array_name) else None for array_name in self.__fields__
+        ]
+        len_strings = ", ".join([f"{array_name}={size}" for array_name, size in zip(self.__fields__, array_sizes)])
+        return f"Dataset(lengths: ({len_strings}) )"
 
 
 def _is_batch(input_object: object) -> bool:

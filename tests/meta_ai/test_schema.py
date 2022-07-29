@@ -1,6 +1,7 @@
 import datetime
 
 import pytest
+from pydantic import ValidationError
 
 from superai.apis.meta_ai.meta_ai_graphql_schema import RawPrediction
 from superai.meta_ai.schema import EasyPredictions, LogMetric, ManyMetric, TrainerOutput
@@ -34,18 +35,14 @@ def test_raw_predictions():
 
 
 def test_wrong_schema():
-    with pytest.raises(ValueError) as execinfo:
+    with pytest.raises(ValidationError) as execinfo:
         preds = EasyPredictions()
-    assert str(execinfo.value) == "Unexpected type <class 'NoneType'>, needs to be a dict or list"
-    with pytest.raises(AttributeError) as execinfo:
+    with pytest.raises(ValidationError) as execinfo:
         preds = EasyPredictions({"prediction": "something"})
-    assert str(execinfo.value) == "Keys `score` needs to be present and between 0 and 1"
-    with pytest.raises(AttributeError) as execinfoval:
+    with pytest.raises(ValidationError) as execinfoval:
         preds = EasyPredictions({"prediction": "something", "score": 10})
-    assert str(execinfoval.value) == "Keys `score` needs to be present and between 0 and 1"
-    with pytest.raises(AttributeError) as execinfoval:
+    with pytest.raises(ValidationError) as execinfoval:
         preds = EasyPredictions({"prediction": "something", "score": "other"})
-    assert str(execinfoval.value) == "Keys `score` needs to be present and between 0 and 1"
 
 
 def test_trainer_output_exceptions():
