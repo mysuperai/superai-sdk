@@ -18,7 +18,11 @@ def system(command: str) -> int:
     with process.stdout:
         try:
             for line in iter(process.stdout.readline, b""):
-                logger.info(line.decode("utf-8").strip())
+                line = line.decode("utf-8").strip()
+                if line:
+                    # take only the text after the last carriage return character
+                    # this effectively takes the last state for progress bars which overwrite the same line
+                    logger.info(line.split("\r")[-1])
         except subprocess.CalledProcessError as e:
             logger.error(f"{str(e)}")
             raise
