@@ -96,5 +96,5 @@ def model_to_task_io_payload(m: BaseModel) -> TaskIOPayload:
     return {
         "schema": m.schema(),
         "uiSchema": m.ui_schema() if isinstance(m, UiWidget) else {},
-        "formData": json.loads(m.json()),
+        "formData": json.loads(m.json(exclude_unset=True)),
     }
