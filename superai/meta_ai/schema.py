@@ -72,7 +72,7 @@ class EasyPredictions:
         if isinstance(input, RawPrediction) or (isinstance(input, list) and isinstance(input[0], RawPrediction)):
             log.warning("RawPrediction is deprecated. Use TaskPredictionInstance instead.")
         else:
-            TaskPredictionInstance.parse_obj(input)
+            TaskPredictionInstance.validate_prediction(input)
         self.value = input
 
 
@@ -198,7 +198,7 @@ class TaskPredictionInstance(BaseModel):
         arbitrary_types_allowed = True
 
     @validator("prediction")
-    def validate_prediction(cls, value):
+    def validate_prediction_field(cls, value):
         if isinstance(value, TaskOutput):
             return True
         elif isinstance(value, dict):
@@ -225,6 +225,8 @@ class TaskPredictionInstance(BaseModel):
             result = [cls.parse_obj(x) for x in prediction]
         elif isinstance(prediction, dict):
             log.warning("model_class.predict returned a dict. We expect a list of TaskPredictionInstance.")
+            result = cls.parse_obj(prediction)
+        elif prediction is None:
             result = cls.parse_obj(prediction)
         else:
             log.warning("model_class.predict returned a non-standard object. Expecting List[TaskPredictionInstance].")
