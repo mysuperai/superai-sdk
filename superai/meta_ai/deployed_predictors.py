@@ -84,6 +84,7 @@ class LocalPredictor(DeployedPredictor):
                     name=container_name,
                     detach=True,
                     remove=remove,
+                    environment=dict(MNT_PATH=weights_volume),
                     volumes=self._get_volumes(weights_volume),
                     ports=self._get_port_assignment(),
                     device_requests=self._get_device_requests(),
