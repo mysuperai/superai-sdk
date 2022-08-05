@@ -52,7 +52,7 @@ REQUIRES = [
     "rich>=10.1",
     "scikit-learn>=0.23.2",
     "sentry-sdk>=0.19.4",
-    "sgqlc>=16",
+    "sgqlc[websocket]>=16",
     "six",
     "uvicorn>=0.15.0",
 ]
