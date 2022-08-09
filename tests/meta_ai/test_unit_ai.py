@@ -7,6 +7,7 @@ from subprocess import CalledProcessError
 
 import pytest
 from docker import DockerClient
+from docker.api import APIClient
 from docker.models.images import Image
 
 from superai.meta_ai import AI
@@ -129,12 +130,14 @@ def test_builder(caplog, capsys, mocker, enable_cuda, skip_build, build_all_laye
     )
     # Disable actual S2I call until we have efficient way to test it
     mocker.patch("superai.meta_ai.image_builder.system", return_value=0)
-    # Mock docker client
+    # Mock Docker client and API client
     mock_docker_client = mocker.Mock(spec=DockerClient)
+    mock_docker_client.api = mocker.Mock(spec=APIClient)
     mock_image = mocker.Mock(spec=Image)
     mock_image._id = "test_image_id"
     mock_docker_client.images.get.return_value = mock_image
     mock_docker_client.images.pull.return_value = mock_image
+    mock_docker_client.api.reload_config.return_value = None
     mocker.patch("superai.meta_ai.image_builder.get_docker_client", return_value=mock_docker_client)
     # Mock s2i availability
     mocker.patch("superai.meta_ai.image_builder.shutil.which", return_value="s2i")

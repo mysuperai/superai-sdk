@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import enum
+import functools
 import hashlib
 import json
 import os
@@ -40,6 +41,18 @@ class Orchestrator(BaseAIOrchestrator):
 class TrainingOrchestrator(BaseAIOrchestrator):
     LOCAL_DOCKER_K8S = "LOCAL_DOCKER_K8S"
     AWS_EKS = "AWS_EKS"
+
+
+def reset_workdir(function):
+    @functools.wraps(function)
+    def decorator(*args, **kwargs):
+        cwd = os.getcwd()
+        try:
+            return function(*args, **kwargs)
+        finally:
+            os.chdir(cwd)
+
+    return decorator
 
 
 class AiImageBuilder:
@@ -237,6 +250,7 @@ class AiImageBuilder:
 
         return changes_in_build
 
+    @reset_workdir
     def build_image_s2i(
         self,
         image_name: str,
@@ -265,7 +279,6 @@ class AiImageBuilder:
         lambda_mode = self.orchestrator in [Orchestrator.LOCAL_DOCKER_LAMBDA, Orchestrator.AWS_LAMBDA]
 
         start = time.time()
-        cwd = os.getcwd()
         os.chdir(self.location)
         changes_in_build = self._track_changes()
 
@@ -316,7 +329,7 @@ class AiImageBuilder:
         )
         log.info(f"Built main container `{full_image_name}`")
         log.info(f"Time taken to build: {time.time() - start:.2f}s")
-        os.chdir(cwd)
+
         return full_image_name
 
     def full_image_name(self, image_name, version_tag):
@@ -361,12 +374,14 @@ class AiImageBuilder:
         region = boto3.Session().region_name
         registry_name = self._get_docker_registry(region=region)
         ecr_image_name = f"{registry_name}/{base_image}"
-        log.info(f"Base image not found. Downloading from ECR '{ecr_image_name}'")
+        log.info(f"Downloading image from ECR '{ecr_image_name}'")
+        # login to ECR and reload the auth configuration for the Docker client
         aws_ecr_login(region, registry_name)
+        client.api.reload_config()
         client.images.pull(ecr_image_name)
         system(f"docker pull {ecr_image_name}")
         log.info(f"Re-tagging image to '{base_image}'")
-        client.images.get(f"{ecr_image_name}").tag(base_image)
+        client.images.get(ecr_image_name).tag(base_image)
 
     def _get_docker_registry(self, region: str) -> str:
         account_id = boto3.client("sts").get_caller_identity()["Account"]
