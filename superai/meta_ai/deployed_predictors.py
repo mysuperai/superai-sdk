@@ -58,6 +58,7 @@ class LocalPredictor(DeployedPredictor):
     def __init__(self, *args, deploy_properties: dict, existing=False, remove=True, **kwargs):
         super(LocalPredictor, self).__init__(*args, **kwargs)
         client = get_docker_client()
+        self.deploy_properties = deploy_properties
         self.lambda_mode = deploy_properties.get("lambda_mode", False)
         self.enable_cuda = deploy_properties.get("enable_cuda", False)
         self.k8s_mode = deploy_properties.get("k8s_mode", False)
@@ -182,7 +183,9 @@ class LocalPredictor(DeployedPredictor):
         return device_requests
 
     def to_dict(self) -> dict:
-        return self.kwargs
+        dictionary = {"deploy_properties": self.deploy_properties}
+        dictionary["deploy_properties"]["weights_path"] = self.weights_path
+        return dictionary
 
     @classmethod
     def from_dict(cls, dictionary, client: Optional[Client] = None) -> "LocalPredictor":
