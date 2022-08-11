@@ -306,12 +306,15 @@ class AITemplate:
     def get_or_create_training_entry(self, model_id: str, app_id: str = None, properties: dict = {}):
         existing_template_id = self.client.get_training_templates(model_id=model_id, app_id=app_id)
         if len(existing_template_id):
-            log.info(f"Found existing template {existing_template_id}")
             self.template_id = existing_template_id[0].id
+            log.info(f"Found existing template {existing_template_id}")
+            if properties:
+                self.client.update_training_template(template_id=self.template_id, properties=properties)
+
         else:
             template_id = self.client.create_training_template_entry(
                 model_id=model_id, properties=properties, app_id=app_id
-            )
+            )["id"]
             log.info(f"Created template : {template_id}")
             self.template_id = template_id
         return self.template_id

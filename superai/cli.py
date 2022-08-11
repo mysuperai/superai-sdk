@@ -913,7 +913,7 @@ def train(
     "--metrics-output-dir",
     required=False,
     help="If provided, metrics will be computed and saved to this directory.",
-    type=click.Path(exists=True, readable=True, writable=True),
+    type=click.Path(file_okay=False, path_type=pathlib.Path),
 )
 def predict(path, json_input=None, data_path: str = None, weights_path=None, metrics_output_dir=None):
     from superai.meta_ai.ai_helper import load_and_predict

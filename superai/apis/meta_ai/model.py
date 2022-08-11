@@ -841,7 +841,13 @@ class TrainApiMixin(ABC):
                 )
 
     @staticmethod
-    def update_training_template(model_id: uuid, app_id: uuid = None, properties: dict = None, description: str = None):
+    def update_training_template(
+        template_id: uuid = None,
+        model_id: uuid = None,
+        app_id: uuid = None,
+        properties: dict = None,
+        description: str = None,
+    ):
         """
         Update existing training template entry.
 
@@ -856,11 +862,11 @@ class TrainApiMixin(ABC):
         app_id_str = str(app_id) if app_id else None
         sess = MetaAISession(app_id=app_id_str)
         op = Operation(mutation_root)
-
-        templates = TrainApiMixin.get_training_templates(model_id, app_id)
-        if len(templates) < 1:
-            raise Exception("Cannot update template. Template does not exist.")
-        template_id = templates[0].id
+        if not template_id:
+            templates = TrainApiMixin.get_training_templates(model_id, app_id)
+            if len(templates) < 1:
+                raise Exception("Cannot update template. Template does not exist.")
+            template_id = templates[0].id
 
         update_dict = {}
         if properties:

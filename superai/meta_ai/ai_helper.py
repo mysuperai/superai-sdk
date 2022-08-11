@@ -242,7 +242,9 @@ def load_and_predict(
     return result
 
 
-def store_prediction_metrics(metrics_output_dir: Path, metrics: dict, filename: str = PREDICTION_METRICS_JSON) -> Path:
+def store_prediction_metrics(
+    metrics_output_dir: Union[Path, str], metrics: dict, filename: str = PREDICTION_METRICS_JSON
+) -> Path:
     """
     Method to store prediction metrics in a json file.
     Args:
