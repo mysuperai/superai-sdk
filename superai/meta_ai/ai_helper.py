@@ -214,9 +214,12 @@ def load_and_predict(
     from superai.meta_ai import AI
 
     if metrics_output_dir:
-        from polyaxon import tracking
+        try:
+            from polyaxon import tracking
 
-        tracking.init()
+            tracking.init()
+        except:
+            log.debug("Polyaxon not installed. Tracking not enabled.")
 
     model_path = str(Path(model_path).absolute())
     log.info(f"Loading model files from: {model_path}")
