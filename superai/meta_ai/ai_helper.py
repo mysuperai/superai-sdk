@@ -213,6 +213,11 @@ def load_and_predict(
 
     from superai.meta_ai import AI
 
+    if metrics_output_dir:
+        from polyaxon import tracking
+
+        tracking.init()
+
     model_path = str(Path(model_path).absolute())
     log.info(f"Loading model files from: {model_path}")
     if weights_path:
