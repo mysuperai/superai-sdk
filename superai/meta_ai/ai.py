@@ -813,7 +813,7 @@ class AI:
             envs: Pass custom environment variables to the deployment. Should be a dictionary like
                   {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
             download_base: Always download the base image to get the latest version from ECR
-            use_internal: Use internal development base image
+            use_internal: Use internal development base image. Only accessible for super.AI developers.
 
         """
         properties = properties or {}
@@ -1114,7 +1114,7 @@ class AI:
             envs: Pass custom environment variables to the deployment. Should be a dictionary like
                   {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
             download_base: Always download the base image to get the latest version from ECR
-            use_internal: Use internal development base image
+            use_internal: Use internal development base image. Only accessible for super.AI developers.
         """
         allowed_kwargs = [
             "enable_cuda",
@@ -1195,7 +1195,7 @@ class AI:
             current_properties: Properties of training
             metadata: Metadata
             skip_build: Whether to skip building the AI image
-            use_internal: Use internal development base image
+            use_internal: Use internal development base image. Only accessible for super.AI developers.
 
 
         # Hidden kwargs
