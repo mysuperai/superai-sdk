@@ -53,9 +53,9 @@ else
     echo "Starting Seldon microservice"
     export PATH=/home/model-server:$PATH
     if [ -n "$PERSISTENCE" ]; then
-      exec seldon-core-microservice "$MODEL_NAME" --service-type "$SERVICE_TYPE" --persistence "$PERSISTENCE" --debug --tracing --log-level DEBUG
+      exec seldon-core-microservice "$MODEL_NAME" --service-type "$SERVICE_TYPE" --persistence "$PERSISTENCE" --tracing
     else
-      exec seldon-core-microservice "$MODEL_NAME" --service-type "$SERVICE_TYPE" --debug --tracing --log-level DEBUG
+      exec seldon-core-microservice "$MODEL_NAME" --service-type "$SERVICE_TYPE" --tracing
     fi
   else
     echo "Starting serving with Sagemaker Backend"
