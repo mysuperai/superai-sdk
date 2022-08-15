@@ -65,8 +65,9 @@ class AITemplate:
             model_class_path: Path to the location where :param model_class is present
             name: Name of the AI template
             description: Description of the AI template
-            requirements: A list of PyPi requirements or the path to a requirements.txt file. If both this
-                             parameter and the :param: conda_env is specified an ValueError is raised.
+            requirements: A list of PyPI requirements or the path to a requirements.txt file. If both this
+                             parameter and the :param: conda_env are specified then conda dependencies will
+                             be installed first followed by pip dependencies.
             code_path: A list of local filesystem paths to Python file dependencies (or directories containing file
                           dependencies). These files are *prepended* to the system path before the ai is loaded.
             conda_env: Either a dictionary representation of a Conda environment or the path to a Conda environment
@@ -210,6 +211,8 @@ class AITemplate:
                 conda_file = Path(self.conda_env)
                 if conda_file.is_file() and conda_file.suffix in [".yml", ".yaml"]:
                     copy(conda_file, conda_target)
+                else:
+                    raise ValueError("Make sure conda_env is a valid path to a .yml or .yaml file.")
             else:
                 raise ValueError("Make sure conda_env is a valid path to a .yml file or a dictionary.")
 
@@ -250,6 +253,27 @@ class AITemplate:
                 raise ValueError(
                     "Make sure requirements is a list of requirements or valid path to requirements.txt file"
                 )
+
+        if conda_target.exists():
+            conda_env_text = conda_target.read_text()
+            if "pip:" in conda_env_text:
+                conda_pip_packages = None
+                # Extract pip dependencies from conda environment file
+                conda_env_dict = yaml.safe_load(conda_env_text)
+                conda_dependencies = conda_env_dict.get("dependencies", {})
+                for package in conda_dependencies:
+                    if isinstance(package, dict) and "pip" in package:
+                        conda_pip_packages = package.pop("pip")
+
+                if conda_pip_packages is not None:
+                    # Write the environment file without the pip dependencies
+                    # pip dependencies will be installed separately from conda dependencies
+                    with open(conda_target, "w") as f:
+                        yaml.dump(conda_env_dict, f, sort_keys=False)
+                    # Append pip packages extracted from conda env to the requirements file
+                    initial_line = "\n" if self.requirements is not None else ""
+                    with open(requirements_target, "a") as f:
+                        f.write(initial_line + "\n".join(conda_pip_packages))
 
         # Save setup script
         if self.artifacts is not None and "run" in self.artifacts:

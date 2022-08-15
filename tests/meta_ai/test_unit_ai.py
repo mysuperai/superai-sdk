@@ -50,7 +50,7 @@ def test_compression():
     os.remove(path_to_tarfile)
 
 
-def test_track_changes(caplog, tmp_path):
+def test_track_changes(caplog, tmp_path, clean):
     caplog.set_level(logging.INFO)
     template = AITemplate(
         input_schema=Schema(),
@@ -91,6 +91,40 @@ def test_track_changes(caplog, tmp_path):
         fp.write(backup_content)
     assert builder._track_changes(cache_root=tmp_path)
     assert not builder._track_changes(cache_root=tmp_path)
+    os.chdir(pwd)
+
+
+def test_conda_pip_dependencies(caplog, clean):
+    caplog.set_level(logging.INFO)
+    template = AITemplate(
+        input_schema=Schema(),
+        output_schema=Schema(),
+        configuration=Config(),
+        name="My_template",
+        description="Template for my new awesome project",
+        model_class="MyKerasModel",
+        conda_env={
+            "name": "keras-model",
+            "dependencies": ["pip", "tensorflow", {"pip": ["opencv-python-headless"]}],
+        },
+        requirements=["imgaug", "scikit-image"],
+    )
+    ai = AI(
+        ai_template=template,
+        input_params=template.input_schema.parameters(),
+        output_params=template.output_schema.parameters(choices=map(str, range(0, 10))),
+        name="my_mnist_model2",
+        version=1,
+    )
+    pwd = os.getcwd()
+    os.chdir(ai._location)
+    with open("requirements.txt", "r") as fp:
+        requirements = fp.read()
+    with open("environment.yml", "r") as fp:
+        conda_env_text = fp.read()
+    assert "tensorflow" in conda_env_text
+    assert "opencv-python-headless" not in conda_env_text
+    assert all(requirement in requirements for requirement in ["opencv-python-headless", "imgaug", "scikit-image"])
     os.chdir(pwd)
 
 
