@@ -782,6 +782,7 @@ class AI:
         enable_eia: bool = False,
         cuda_devel: bool = False,
         redeploy: bool = False,
+        use_internal: bool = False,
         **kwargs,
     ) -> "DeployedPredictor.Type":
         """Here we need to create a docker container with superai-sdk installed. Then we need to create a server
@@ -812,6 +813,8 @@ class AI:
             envs: Pass custom environment variables to the deployment. Should be a dictionary like
                   {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
             download_base: Always download the base image to get the latest version from ECR
+            use_internal: Use internal development base image
+
         """
         properties = properties or {}
         if redeploy and settings.current_env == "prod":
@@ -833,7 +836,14 @@ class AI:
 
         # Build image and compile deployment properties
         full_image_name, deploy_properties = self.build(
-            orchestrator, enable_cuda, enable_eia, skip_build, cuda_devel, properties=properties, **kwargs
+            orchestrator,
+            enable_cuda,
+            enable_eia,
+            skip_build,
+            cuda_devel,
+            properties=properties,
+            use_internal=use_internal,
+            **kwargs,
         )
         properties.update(deploy_properties)
 
@@ -855,6 +865,7 @@ class AI:
         skip_build,
         cuda_devel,
         properties: Optional[dict] = None,
+        use_internal=False,
         **kwargs,
     ) -> Tuple[str, dict]:
         """
@@ -867,6 +878,8 @@ class AI:
             cuda_devel:
             properties: dict
               Deployment specific properties.
+            use_internal:
+                Use the internal development base image
             **kwargs:
 
         Returns:
@@ -889,6 +902,7 @@ class AI:
             enable_eia=enable_eia,
             skip_build=skip_build,
             properties=properties,
+            use_internal=use_internal,
             **kwargs,
         )
         return full_image_name, properties
@@ -1080,6 +1094,7 @@ class AI:
         skip_build: bool = False,
         properties: Optional[dict] = None,
         training_parameters: Optional[TrainingParameters] = None,
+        use_internal: bool = False,
         **kwargs,
     ):
         """Here we need to create a docker container with superai-sdk installed. Then we will create a run script
@@ -1099,6 +1114,7 @@ class AI:
             envs: Pass custom environment variables to the deployment. Should be a dictionary like
                   {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
             download_base: Always download the base image to get the latest version from ECR
+            use_internal: Use internal development base image
         """
         allowed_kwargs = [
             "enable_cuda",
@@ -1120,7 +1136,7 @@ class AI:
             conda_env=self.conda_env,
             artifacts=self.artifacts,
         )
-        image_builder.build_image(skip_build=skip_build, **kwargs)
+        image_builder.build_image(skip_build=skip_build, use_internal=use_internal, **kwargs)
         # build kwargs
         kwargs = {}
         if orchestrator in [TrainingOrchestrator.LOCAL_DOCKER_K8S]:
@@ -1167,6 +1183,7 @@ class AI:
         current_properties: Optional[dict] = None,
         metadata: Optional[dict] = None,
         skip_build=False,
+        use_internal: bool = False,
         **kwargs,
     ):
         """
@@ -1178,6 +1195,8 @@ class AI:
             current_properties: Properties of training
             metadata: Metadata
             skip_build: Whether to skip building the AI image
+            use_internal: Use internal development base image
+
 
         # Hidden kwargs
             enable_cuda: Whether CUDA base image is to be used
@@ -1205,7 +1224,7 @@ class AI:
             conda_env=self.conda_env,
             artifacts=self.artifacts,
         )
-        image_builder.build_image(skip_build=skip_build, **kwargs)
+        image_builder.build_image(skip_build=skip_build, use_internal=use_internal, **kwargs)
         if not skip_build:
             image_name = self.push_model(self.name, str(self.version))
         else:

@@ -160,6 +160,7 @@ class AiImageBuilder:
         build_all_layers: bool = False,
         download_base: bool = False,
         properties: Optional[Dict] = None,
+        use_internal: bool = False,
         **kwargs: dict,
     ) -> Tuple[str, dict]:
         """
@@ -169,6 +170,7 @@ class AiImageBuilder:
             enable_cuda:
             enable_eia:
             skip_build:
+            use_internal: If true, use the internal development base image
 
         Returns:
             full image name, dict of deployment properties
@@ -187,6 +189,7 @@ class AiImageBuilder:
                 cuda_devel=cuda_devel,
                 from_scratch=build_all_layers,
                 always_download=download_base,
+                use_internal=use_internal,
             )
         else:
             image_name = self.full_image_name(self.name, self.version)
@@ -260,6 +263,7 @@ class AiImageBuilder:
         cuda_devel: bool = False,
         from_scratch: bool = False,
         always_download=False,
+        use_internal=False,
     ) -> str:
         """
         Build the image using s2i
@@ -272,6 +276,7 @@ class AiImageBuilder:
             cuda_devel: Use CUDA devel base image
             from_scratch: Generate all layers from the scratch
             always_download: Always download the base image
+            use_internal: Use internal development image for building the final image
         Returns:
             String image name
         """
@@ -396,6 +401,7 @@ class AiImageBuilder:
         cuda_devel: bool = False,
         k8s_mode: bool = False,
         version: int = 1,
+        use_internal=False,
     ) -> str:
         """Get Base Image given the configuration. By default the sagemaker CPU image name will be returned.
 
@@ -405,7 +411,7 @@ class AiImageBuilder:
             enable_cuda: Return runtime GPU image name
             cuda_devel: Return development GPU image name
             k8s_mode: Return Kubernetes base image names
-
+            use_internal: Use internal development base image
         Return:
             String image name
         """
@@ -425,7 +431,7 @@ class AiImageBuilder:
         else:
             base_image += "-cpu"
 
-        if settings.current_env == "dev":
+        if settings.current_env == "dev" or use_internal:
             base_image += "-internal"
 
         if lambda_mode:

@@ -182,6 +182,10 @@ def test_base_name():
     assert (
         AiImageBuilder._get_base_name(k8s_mode=True, enable_cuda=True) == f"superai-model-s2i-python3711-gpu-seldon:1"
     )
+    assert (
+        AiImageBuilder._get_base_name(k8s_mode=True, enable_cuda=True, use_internal=True)
+        == f"superai-model-s2i-python3711-gpu-internal-seldon:1"
+    )
 
 
 def test_kwargs_warning(monkeypatch):
