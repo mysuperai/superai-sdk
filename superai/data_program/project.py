@@ -33,6 +33,7 @@ class Project:
         force_update: bool = None,
         run_dataprogram=True,
         client: Client = None,
+        organisation=None,
         **kwargs,
     ):
         self.quality = quality
@@ -72,16 +73,18 @@ class Project:
             name=name,
             description=description,
             uuid=uuid,
+            organisation=organisation,
         )
         log.info(f"[Project.__init__] DataProgram: {self.__project_obj}")
 
         # TODO: Use sys.excepthook
         try:
             assert "uuid" in self.__project_obj
-            assert self.dataprogram.template_name == self.__project_obj["templateName"], (
-                f"Project is already registered to dataprogram {self.__project_obj['templateName']} "
-                f"but expected {self.dataprogram.template_name}"
-            )
+            if self.dataprogram:
+                assert self.dataprogram.template_name == self.__project_obj["templateName"], (
+                    f"Project is already registered to dataprogram {self.__project_obj['templateName']} "
+                    f"but expected {self.dataprogram.template_name}"
+                )
 
             if uuid:
                 assert uuid == self.__project_obj["uuid"]
@@ -101,6 +104,7 @@ class Project:
         name: str = None,
         description: str = None,
         uuid: str = None,
+        organisation: str = None,
     ) -> Dict:
         """
         Create a data program instance.
@@ -116,7 +120,20 @@ class Project:
             )
 
         body_json = {}
-        body_json["templateName"] = f"{self.dataprogram._name}.router"
+        if not self.dataprogram:
+            if not self.dp_name:
+                raise ValueError(
+                    "Dataprogram or dataprogram name needs to be defined for the current version to create a project"
+                )
+            if not name:
+                raise ValueError("You need to provide a name for the project if the dataprogram is not defined")
+
+        if self.dataprogram:
+            template_name = self.dataprogram._name
+        else:
+            template_name = self.dp_name
+
+        body_json["templateName"] = f"{template_name}.router"
         body_json["appName"] = name if name else f"{self.dataprogram._name}"
         if parameters is not None:
             # TODO: Send only schema values until the rest of the infrastructure supports self contained schemas (definition_v1,v2)
@@ -138,7 +155,7 @@ class Project:
         if uuid:
             return self.client.get_project(uuid)
         else:
-            return self.client.create_project(body=body_json)
+            return self.client.create_project(body=body_json, org=organisation)
 
     # TODO: Implementation
     def _sanitize_params(self, parameters):
