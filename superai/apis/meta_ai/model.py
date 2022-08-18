@@ -1148,3 +1148,29 @@ class TrainApiMixin(ABC):
         res = (opq + data).start_training
         training_instance_id = res.training_instance_id
         return training_instance_id
+
+    @staticmethod
+    def get_artifact_download_url(model_id: uuid, artifact_type: str, app_id: uuid = None) -> str:
+        """
+        Get the download url for an artifact.
+
+        Parameters
+        ----------
+        model_id : uuid
+            Model UUID for which the artifacts are downloaded.
+        app_id : uuid, Optional
+            `app_id` is necessary when model was assigned to an app for training.
+        artifact_type : str
+            Allowed `artifact_type` is one of [weights,source].
+        """
+        app_id_str = str(app_id) if app_id else None
+        sess = MetaAISession(app_id=app_id_str)
+        op = Operation(query_root)
+
+        if artifact_type not in ["weights", "source"]:
+            raise ValueError(f"artifact_type must be one of ['weights', 'source']")
+
+        op.download_artifact(model_id=model_id, artifact_type=artifact_type).__fields__("url")
+        data = sess.perform_op(op)
+        res = (op + data).download_artifact
+        return res.url

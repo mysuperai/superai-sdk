@@ -6,6 +6,7 @@ import signal
 import sys
 from datetime import datetime
 from typing import List, Optional
+from urllib.parse import urlparse
 
 import click
 import yaml
@@ -13,6 +14,7 @@ from botocore.exceptions import ClientError
 from pycognito import Cognito
 from requests import ReadTimeout
 from rich import print
+from rich.console import Console
 
 from superai import __version__
 from superai.apis.meta_ai.model import PredictionError
@@ -27,6 +29,7 @@ from superai.utils import (
     save_aws_credentials,
     save_cognito_user,
 )
+from superai.utils.files import download_file_to_directory
 from superai.utils.pip_config import pip_configure
 
 BASE_FOLDER = get_config_dir()
@@ -762,6 +765,34 @@ def update_ai(client, id: str, name: str, description: str, visibility: str):
         params["visibility"] = visibility
 
     print(client.update_model(str(id), **params))
+
+
+@ai.command("download")
+@click.argument("artifact_type", type=click.Choice(["source", "weights"]))
+@click.argument("id", type=click.UUID)
+@click.option("--app-id", required=False, help="Application id, necessary for app trained models.")
+@click.option(
+    "--path",
+    required=False,
+    help="Path to download artifact. Default is current working directory.",
+    type=click.Path(exists=True, writable=True),
+    default=os.getcwd(),
+)
+@pass_client
+def download_artifact(client, id: str, artifact_type: str, app_id: str, path: str):
+    """Download model artifact"""
+    # Use rich progress to wait for url
+    console = Console()
+    with console.status(f"Preparing download of {artifact_type} in backend...") as status:
+        url = client.get_artifact_download_url(model_id=str(id), artifact_type=artifact_type, app_id=app_id)
+
+    parsed = urlparse(url)
+    url_path = pathlib.Path(parsed.path)
+    filename = url_path.name
+
+    logger.info(f"Downloading {filename} to {path}")
+    with console.status("Downloading...") as status:
+        download_file_to_directory(url=url, filename=filename, path=path)
 
 
 @ai.group()
