@@ -8,7 +8,6 @@ try:
     if settings.backend == "qumes":
         # isort: off
         try:
-            logger.info("Importing from canotic qumes transport")
             from canotic.qumes_transport import (
                 schedule_task,
                 schedule_workflow,
@@ -37,7 +36,6 @@ try:
                 task_result,
             )  # noqa # nosort
         except ImportError:
-            logger.info("Importing from superai_transport qumes transport")
             from superai_transport.transport.transport import (
                 schedule_task,
                 schedule_workflow,
@@ -66,8 +64,6 @@ try:
                 task_result,
             )  # noqa # nosort
     else:
-        logger.info("Importing from superai websocket transport")
-
         from .transport import (
             attach_bill,
             decline_result,
