@@ -76,6 +76,21 @@ class meta_ai_assignment_update_column(sgqlc.types.Enum):
     __choices__ = ("type",)
 
 
+class meta_ai_batch_prediction_constraint(sgqlc.types.Enum):
+    __schema__ = meta_ai_graphql_schema
+    __choices__ = ("batch_prediction_pkey", "batch_prediction_run_uuid_key")
+
+
+class meta_ai_batch_prediction_select_column(sgqlc.types.Enum):
+    __schema__ = meta_ai_graphql_schema
+    __choices__ = ("created_at", "dataset_id", "id", "model_id", "output", "run_uuid", "state", "updated_at")
+
+
+class meta_ai_batch_prediction_update_column(sgqlc.types.Enum):
+    __schema__ = meta_ai_graphql_schema
+    __choices__ = ("created_at", "dataset_id", "id", "model_id", "output", "run_uuid", "state", "updated_at")
+
+
 class meta_ai_dataset_constraint(sgqlc.types.Enum):
     __schema__ = meta_ai_graphql_schema
     __choices__ = ("dataset_pkey",)
@@ -83,7 +98,7 @@ class meta_ai_dataset_constraint(sgqlc.types.Enum):
 
 class meta_ai_dataset_metric_constraint(sgqlc.types.Enum):
     __schema__ = meta_ai_graphql_schema
-    __choices__ = ("dataset_metric_pkey",)
+    __choices__ = ("dataset_metric_dataset_id_model_id_key", "dataset_metric_pkey")
 
 
 class meta_ai_dataset_metric_select_column(sgqlc.types.Enum):
@@ -155,7 +170,7 @@ class meta_ai_deployment_purpose_constraint(sgqlc.types.Enum):
 
 class meta_ai_deployment_purpose_enum(sgqlc.types.Enum):
     __schema__ = meta_ai_graphql_schema
-    __choices__ = ("SERVING", "TRAINING")
+    __choices__ = ("BATCH_PREDICT", "SERVING", "TRAINING")
 
 
 class meta_ai_deployment_purpose_select_column(sgqlc.types.Enum):
@@ -175,7 +190,6 @@ class meta_ai_deployment_select_column(sgqlc.types.Enum):
         "current_log_id",
         "endpoint",
         "id",
-        "image",
         "min_instances",
         "modelId",
         "ownerId",
@@ -238,7 +252,6 @@ class meta_ai_deployment_update_column(sgqlc.types.Enum):
         "current_log_id",
         "endpoint",
         "id",
-        "image",
         "min_instances",
         "modelId",
         "ownerId",
@@ -572,10 +585,6 @@ class order_by(sgqlc.types.Enum):
     __choices__ = ("asc", "asc_nulls_first", "asc_nulls_last", "desc", "desc_nulls_first", "desc_nulls_last")
 
 
-class timestamp(sgqlc.types.Scalar):
-    __schema__ = meta_ai_graphql_schema
-
-
 class timestamptz(sgqlc.types.Scalar):
     __schema__ = meta_ai_graphql_schema
 
@@ -602,34 +611,12 @@ class turbine_job_constraint(sgqlc.types.Enum):
 
 class turbine_job_select_column(sgqlc.types.Enum):
     __schema__ = meta_ai_graphql_schema
-    __choices__ = (
-        "created",
-        "data",
-        "id",
-        "payload",
-        "root_app_uuid",
-        "started",
-        "state",
-        "type",
-        "update_count",
-        "workflow",
-    )
+    __choices__ = ("id", "root_app_uuid", "type")
 
 
 class turbine_job_update_column(sgqlc.types.Enum):
     __schema__ = meta_ai_graphql_schema
-    __choices__ = (
-        "created",
-        "data",
-        "id",
-        "payload",
-        "root_app_uuid",
-        "started",
-        "state",
-        "type",
-        "update_count",
-        "workflow",
-    )
+    __choices__ = ("id", "root_app_uuid", "type")
 
 
 class turbine_task_constraint(sgqlc.types.Enum):
@@ -1167,6 +1154,124 @@ class meta_ai_assignment_set_input(sgqlc.types.Input):
     type = sgqlc.types.Field(String, graphql_name="type")
 
 
+class meta_ai_batch_prediction_bool_exp(sgqlc.types.Input):
+    __schema__ = meta_ai_graphql_schema
+    __field_names__ = (
+        "_and",
+        "_not",
+        "_or",
+        "created_at",
+        "dataset",
+        "dataset_id",
+        "id",
+        "model",
+        "model_id",
+        "output",
+        "run_uuid",
+        "state",
+        "updated_at",
+    )
+    _and = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("meta_ai_batch_prediction_bool_exp")), graphql_name="_and"
+    )
+    _not = sgqlc.types.Field("meta_ai_batch_prediction_bool_exp", graphql_name="_not")
+    _or = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("meta_ai_batch_prediction_bool_exp")), graphql_name="_or"
+    )
+    created_at = sgqlc.types.Field("timestamptz_comparison_exp", graphql_name="created_at")
+    dataset = sgqlc.types.Field("meta_ai_dataset_bool_exp", graphql_name="dataset")
+    dataset_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="dataset_id")
+    id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="id")
+    model = sgqlc.types.Field("meta_ai_model_bool_exp", graphql_name="model")
+    model_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="model_id")
+    output = sgqlc.types.Field(String_comparison_exp, graphql_name="output")
+    run_uuid = sgqlc.types.Field(String_comparison_exp, graphql_name="run_uuid")
+    state = sgqlc.types.Field("meta_ai_training_state_enum_comparison_exp", graphql_name="state")
+    updated_at = sgqlc.types.Field("timestamptz_comparison_exp", graphql_name="updated_at")
+
+
+class meta_ai_batch_prediction_insert_input(sgqlc.types.Input):
+    __schema__ = meta_ai_graphql_schema
+    __field_names__ = (
+        "created_at",
+        "dataset",
+        "dataset_id",
+        "id",
+        "model",
+        "model_id",
+        "output",
+        "run_uuid",
+        "state",
+        "updated_at",
+    )
+    created_at = sgqlc.types.Field(timestamptz, graphql_name="created_at")
+    dataset = sgqlc.types.Field("meta_ai_dataset_obj_rel_insert_input", graphql_name="dataset")
+    dataset_id = sgqlc.types.Field(uuid, graphql_name="dataset_id")
+    id = sgqlc.types.Field(uuid, graphql_name="id")
+    model = sgqlc.types.Field("meta_ai_model_obj_rel_insert_input", graphql_name="model")
+    model_id = sgqlc.types.Field(uuid, graphql_name="model_id")
+    output = sgqlc.types.Field(String, graphql_name="output")
+    run_uuid = sgqlc.types.Field(String, graphql_name="run_uuid")
+    state = sgqlc.types.Field(meta_ai_training_state_enum, graphql_name="state")
+    updated_at = sgqlc.types.Field(timestamptz, graphql_name="updated_at")
+
+
+class meta_ai_batch_prediction_on_conflict(sgqlc.types.Input):
+    __schema__ = meta_ai_graphql_schema
+    __field_names__ = ("constraint", "update_columns", "where")
+    constraint = sgqlc.types.Field(sgqlc.types.non_null(meta_ai_batch_prediction_constraint), graphql_name="constraint")
+    update_columns = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_batch_prediction_update_column))),
+        graphql_name="update_columns",
+    )
+    where = sgqlc.types.Field(meta_ai_batch_prediction_bool_exp, graphql_name="where")
+
+
+class meta_ai_batch_prediction_order_by(sgqlc.types.Input):
+    __schema__ = meta_ai_graphql_schema
+    __field_names__ = (
+        "created_at",
+        "dataset",
+        "dataset_id",
+        "id",
+        "model",
+        "model_id",
+        "output",
+        "run_uuid",
+        "state",
+        "updated_at",
+    )
+    created_at = sgqlc.types.Field(order_by, graphql_name="created_at")
+    dataset = sgqlc.types.Field("meta_ai_dataset_order_by", graphql_name="dataset")
+    dataset_id = sgqlc.types.Field(order_by, graphql_name="dataset_id")
+    id = sgqlc.types.Field(order_by, graphql_name="id")
+    model = sgqlc.types.Field("meta_ai_model_order_by", graphql_name="model")
+    model_id = sgqlc.types.Field(order_by, graphql_name="model_id")
+    output = sgqlc.types.Field(order_by, graphql_name="output")
+    run_uuid = sgqlc.types.Field(order_by, graphql_name="run_uuid")
+    state = sgqlc.types.Field(order_by, graphql_name="state")
+    updated_at = sgqlc.types.Field(order_by, graphql_name="updated_at")
+
+
+class meta_ai_batch_prediction_pk_columns_input(sgqlc.types.Input):
+    __schema__ = meta_ai_graphql_schema
+    __field_names__ = ("id",)
+    id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="id")
+
+
+class meta_ai_batch_prediction_set_input(sgqlc.types.Input):
+    __schema__ = meta_ai_graphql_schema
+    __field_names__ = ("created_at", "dataset_id", "id", "model_id", "output", "run_uuid", "state", "updated_at")
+    created_at = sgqlc.types.Field(timestamptz, graphql_name="created_at")
+    dataset_id = sgqlc.types.Field(uuid, graphql_name="dataset_id")
+    id = sgqlc.types.Field(uuid, graphql_name="id")
+    model_id = sgqlc.types.Field(uuid, graphql_name="model_id")
+    output = sgqlc.types.Field(String, graphql_name="output")
+    run_uuid = sgqlc.types.Field(String, graphql_name="run_uuid")
+    state = sgqlc.types.Field(meta_ai_training_state_enum, graphql_name="state")
+    updated_at = sgqlc.types.Field(timestamptz, graphql_name="updated_at")
+
+
 class meta_ai_dataset_aggregate_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
     __field_names__ = ("count", "max", "min")
@@ -1349,7 +1454,19 @@ class meta_ai_dataset_metric_avg_order_by(sgqlc.types.Input):
 
 class meta_ai_dataset_metric_bool_exp(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("_and", "_not", "_or", "created_at", "dataset_id", "id", "metric", "model_id", "updated_at")
+    __field_names__ = (
+        "_and",
+        "_not",
+        "_or",
+        "created_at",
+        "dataset",
+        "dataset_id",
+        "id",
+        "metric",
+        "model",
+        "model_id",
+        "updated_at",
+    )
     _and = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null("meta_ai_dataset_metric_bool_exp")), graphql_name="_and"
     )
@@ -1358,9 +1475,11 @@ class meta_ai_dataset_metric_bool_exp(sgqlc.types.Input):
         sgqlc.types.list_of(sgqlc.types.non_null("meta_ai_dataset_metric_bool_exp")), graphql_name="_or"
     )
     created_at = sgqlc.types.Field("timestamptz_comparison_exp", graphql_name="created_at")
+    dataset = sgqlc.types.Field(meta_ai_dataset_bool_exp, graphql_name="dataset")
     dataset_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="dataset_id")
     id = sgqlc.types.Field(Int_comparison_exp, graphql_name="id")
     metric = sgqlc.types.Field(jsonb_comparison_exp, graphql_name="metric")
+    model = sgqlc.types.Field("meta_ai_model_bool_exp", graphql_name="model")
     model_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="model_id")
     updated_at = sgqlc.types.Field("timestamptz_comparison_exp", graphql_name="updated_at")
 
@@ -1391,11 +1510,13 @@ class meta_ai_dataset_metric_inc_input(sgqlc.types.Input):
 
 class meta_ai_dataset_metric_insert_input(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("created_at", "dataset_id", "id", "metric", "model_id", "updated_at")
+    __field_names__ = ("created_at", "dataset", "dataset_id", "id", "metric", "model", "model_id", "updated_at")
     created_at = sgqlc.types.Field(timestamptz, graphql_name="created_at")
+    dataset = sgqlc.types.Field("meta_ai_dataset_obj_rel_insert_input", graphql_name="dataset")
     dataset_id = sgqlc.types.Field(uuid, graphql_name="dataset_id")
     id = sgqlc.types.Field(Int, graphql_name="id")
     metric = sgqlc.types.Field(jsonb, graphql_name="metric")
+    model = sgqlc.types.Field("meta_ai_model_obj_rel_insert_input", graphql_name="model")
     model_id = sgqlc.types.Field(uuid, graphql_name="model_id")
     updated_at = sgqlc.types.Field(timestamptz, graphql_name="updated_at")
 
@@ -1433,11 +1554,13 @@ class meta_ai_dataset_metric_on_conflict(sgqlc.types.Input):
 
 class meta_ai_dataset_metric_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("created_at", "dataset_id", "id", "metric", "model_id", "updated_at")
+    __field_names__ = ("created_at", "dataset", "dataset_id", "id", "metric", "model", "model_id", "updated_at")
     created_at = sgqlc.types.Field(order_by, graphql_name="created_at")
+    dataset = sgqlc.types.Field("meta_ai_dataset_order_by", graphql_name="dataset")
     dataset_id = sgqlc.types.Field(order_by, graphql_name="dataset_id")
     id = sgqlc.types.Field(order_by, graphql_name="id")
     metric = sgqlc.types.Field(order_by, graphql_name="metric")
+    model = sgqlc.types.Field("meta_ai_model_order_by", graphql_name="model")
     model_id = sgqlc.types.Field(order_by, graphql_name="model_id")
     updated_at = sgqlc.types.Field(order_by, graphql_name="updated_at")
 
@@ -1680,7 +1803,6 @@ class meta_ai_deployment_bool_exp(sgqlc.types.Input):
         "deployment_logs",
         "endpoint",
         "id",
-        "image",
         "min_instances",
         "model",
         "model_id",
@@ -1708,7 +1830,6 @@ class meta_ai_deployment_bool_exp(sgqlc.types.Input):
     deployment_logs = sgqlc.types.Field("meta_ai_deployment_log_bool_exp", graphql_name="deployment_logs")
     endpoint = sgqlc.types.Field(String_comparison_exp, graphql_name="endpoint")
     id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="id")
-    image = sgqlc.types.Field(String_comparison_exp, graphql_name="image")
     min_instances = sgqlc.types.Field(Int_comparison_exp, graphql_name="min_instances")
     model = sgqlc.types.Field("meta_ai_model_bool_exp", graphql_name="model")
     model_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="modelId")
@@ -1760,7 +1881,6 @@ class meta_ai_deployment_insert_input(sgqlc.types.Input):
         "deployment_logs",
         "endpoint",
         "id",
-        "image",
         "min_instances",
         "model",
         "model_id",
@@ -1781,7 +1901,6 @@ class meta_ai_deployment_insert_input(sgqlc.types.Input):
     deployment_logs = sgqlc.types.Field("meta_ai_deployment_log_arr_rel_insert_input", graphql_name="deployment_logs")
     endpoint = sgqlc.types.Field(String, graphql_name="endpoint")
     id = sgqlc.types.Field(uuid, graphql_name="id")
-    image = sgqlc.types.Field(String, graphql_name="image")
     min_instances = sgqlc.types.Field(Int, graphql_name="min_instances")
     model = sgqlc.types.Field("meta_ai_model_obj_rel_insert_input", graphql_name="model")
     model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
@@ -1985,7 +2104,6 @@ class meta_ai_deployment_max_order_by(sgqlc.types.Input):
         "current_log_id",
         "endpoint",
         "id",
-        "image",
         "min_instances",
         "model_id",
         "owner_id",
@@ -1998,7 +2116,6 @@ class meta_ai_deployment_max_order_by(sgqlc.types.Input):
     current_log_id = sgqlc.types.Field(order_by, graphql_name="current_log_id")
     endpoint = sgqlc.types.Field(order_by, graphql_name="endpoint")
     id = sgqlc.types.Field(order_by, graphql_name="id")
-    image = sgqlc.types.Field(order_by, graphql_name="image")
     min_instances = sgqlc.types.Field(order_by, graphql_name="min_instances")
     model_id = sgqlc.types.Field(order_by, graphql_name="modelId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
@@ -2015,7 +2132,6 @@ class meta_ai_deployment_min_order_by(sgqlc.types.Input):
         "current_log_id",
         "endpoint",
         "id",
-        "image",
         "min_instances",
         "model_id",
         "owner_id",
@@ -2028,7 +2144,6 @@ class meta_ai_deployment_min_order_by(sgqlc.types.Input):
     current_log_id = sgqlc.types.Field(order_by, graphql_name="current_log_id")
     endpoint = sgqlc.types.Field(order_by, graphql_name="endpoint")
     id = sgqlc.types.Field(order_by, graphql_name="id")
-    image = sgqlc.types.Field(order_by, graphql_name="image")
     min_instances = sgqlc.types.Field(order_by, graphql_name="min_instances")
     model_id = sgqlc.types.Field(order_by, graphql_name="modelId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
@@ -2065,7 +2180,6 @@ class meta_ai_deployment_order_by(sgqlc.types.Input):
         "deployment_logs_aggregate",
         "endpoint",
         "id",
-        "image",
         "min_instances",
         "model",
         "model_id",
@@ -2088,7 +2202,6 @@ class meta_ai_deployment_order_by(sgqlc.types.Input):
     )
     endpoint = sgqlc.types.Field(order_by, graphql_name="endpoint")
     id = sgqlc.types.Field(order_by, graphql_name="id")
-    image = sgqlc.types.Field(order_by, graphql_name="image")
     min_instances = sgqlc.types.Field(order_by, graphql_name="min_instances")
     model = sgqlc.types.Field("meta_ai_model_order_by", graphql_name="model")
     model_id = sgqlc.types.Field(order_by, graphql_name="modelId")
@@ -2192,7 +2305,6 @@ class meta_ai_deployment_set_input(sgqlc.types.Input):
         "current_log_id",
         "endpoint",
         "id",
-        "image",
         "min_instances",
         "model_id",
         "owner_id",
@@ -2210,7 +2322,6 @@ class meta_ai_deployment_set_input(sgqlc.types.Input):
     current_log_id = sgqlc.types.Field(Int, graphql_name="current_log_id")
     endpoint = sgqlc.types.Field(String, graphql_name="endpoint")
     id = sgqlc.types.Field(uuid, graphql_name="id")
-    image = sgqlc.types.Field(String, graphql_name="image")
     min_instances = sgqlc.types.Field(Int, graphql_name="min_instances")
     model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
@@ -2786,6 +2897,7 @@ class meta_ai_model_bool_exp(sgqlc.types.Input):
         "source_training_id",
         "stage",
         "trainable",
+        "training_templates",
         "updated_at",
         "version",
         "visibility",
@@ -2820,6 +2932,7 @@ class meta_ai_model_bool_exp(sgqlc.types.Input):
     source_training_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="source_training_id")
     stage = sgqlc.types.Field(meta_ai_environment_enum_comparison_exp, graphql_name="stage")
     trainable = sgqlc.types.Field(Boolean_comparison_exp, graphql_name="trainable")
+    training_templates = sgqlc.types.Field("meta_ai_training_template_bool_exp", graphql_name="training_templates")
     updated_at = sgqlc.types.Field("timestamptz_comparison_exp", graphql_name="updatedAt")
     version = sgqlc.types.Field(Int_comparison_exp, graphql_name="version")
     visibility = sgqlc.types.Field("meta_ai_visibility_enum_comparison_exp", graphql_name="visibility")
@@ -2893,6 +3006,7 @@ class meta_ai_model_insert_input(sgqlc.types.Input):
         "source_training_id",
         "stage",
         "trainable",
+        "training_templates",
         "updated_at",
         "version",
         "visibility",
@@ -2926,6 +3040,9 @@ class meta_ai_model_insert_input(sgqlc.types.Input):
     source_training_id = sgqlc.types.Field(uuid, graphql_name="source_training_id")
     stage = sgqlc.types.Field(meta_ai_environment_enum, graphql_name="stage")
     trainable = sgqlc.types.Field(Boolean, graphql_name="trainable")
+    training_templates = sgqlc.types.Field(
+        "meta_ai_training_template_arr_rel_insert_input", graphql_name="training_templates"
+    )
     updated_at = sgqlc.types.Field(timestamptz, graphql_name="updatedAt")
     version = sgqlc.types.Field(Int, graphql_name="version")
     visibility = sgqlc.types.Field(meta_ai_visibility_enum, graphql_name="visibility")
@@ -3059,6 +3176,7 @@ class meta_ai_model_order_by(sgqlc.types.Input):
         "source_training_id",
         "stage",
         "trainable",
+        "training_templates_aggregate",
         "updated_at",
         "version",
         "visibility",
@@ -3094,6 +3212,9 @@ class meta_ai_model_order_by(sgqlc.types.Input):
     source_training_id = sgqlc.types.Field(order_by, graphql_name="source_training_id")
     stage = sgqlc.types.Field(order_by, graphql_name="stage")
     trainable = sgqlc.types.Field(order_by, graphql_name="trainable")
+    training_templates_aggregate = sgqlc.types.Field(
+        "meta_ai_training_template_aggregate_order_by", graphql_name="training_templates_aggregate"
+    )
     updated_at = sgqlc.types.Field(order_by, graphql_name="updatedAt")
     version = sgqlc.types.Field(order_by, graphql_name="version")
     visibility = sgqlc.types.Field(order_by, graphql_name="visibility")
@@ -4389,10 +4510,28 @@ class meta_ai_training_state_set_input(sgqlc.types.Input):
     state = sgqlc.types.Field(String, graphql_name="state")
 
 
+class meta_ai_training_template_aggregate_order_by(sgqlc.types.Input):
+    __schema__ = meta_ai_graphql_schema
+    __field_names__ = ("count", "max", "min")
+    count = sgqlc.types.Field(order_by, graphql_name="count")
+    max = sgqlc.types.Field("meta_ai_training_template_max_order_by", graphql_name="max")
+    min = sgqlc.types.Field("meta_ai_training_template_min_order_by", graphql_name="min")
+
+
 class meta_ai_training_template_append_input(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
     __field_names__ = ("properties",)
     properties = sgqlc.types.Field(jsonb, graphql_name="properties")
+
+
+class meta_ai_training_template_arr_rel_insert_input(sgqlc.types.Input):
+    __schema__ = meta_ai_graphql_schema
+    __field_names__ = ("data", "on_conflict")
+    data = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("meta_ai_training_template_insert_input"))),
+        graphql_name="data",
+    )
+    on_conflict = sgqlc.types.Field("meta_ai_training_template_on_conflict", graphql_name="on_conflict")
 
 
 class meta_ai_training_template_bool_exp(sgqlc.types.Input):
@@ -4475,6 +4614,30 @@ class meta_ai_training_template_insert_input(sgqlc.types.Input):
         meta_ai_training_instance_arr_rel_insert_input, graphql_name="training_instances"
     )
     updated_at = sgqlc.types.Field(timestamptz, graphql_name="updated_at")
+
+
+class meta_ai_training_template_max_order_by(sgqlc.types.Input):
+    __schema__ = meta_ai_graphql_schema
+    __field_names__ = ("app_id", "created_at", "description", "id", "model_id", "name", "updated_at")
+    app_id = sgqlc.types.Field(order_by, graphql_name="appId")
+    created_at = sgqlc.types.Field(order_by, graphql_name="createdAt")
+    description = sgqlc.types.Field(order_by, graphql_name="description")
+    id = sgqlc.types.Field(order_by, graphql_name="id")
+    model_id = sgqlc.types.Field(order_by, graphql_name="modelId")
+    name = sgqlc.types.Field(order_by, graphql_name="name")
+    updated_at = sgqlc.types.Field(order_by, graphql_name="updated_at")
+
+
+class meta_ai_training_template_min_order_by(sgqlc.types.Input):
+    __schema__ = meta_ai_graphql_schema
+    __field_names__ = ("app_id", "created_at", "description", "id", "model_id", "name", "updated_at")
+    app_id = sgqlc.types.Field(order_by, graphql_name="appId")
+    created_at = sgqlc.types.Field(order_by, graphql_name="createdAt")
+    description = sgqlc.types.Field(order_by, graphql_name="description")
+    id = sgqlc.types.Field(order_by, graphql_name="id")
+    model_id = sgqlc.types.Field(order_by, graphql_name="modelId")
+    name = sgqlc.types.Field(order_by, graphql_name="name")
+    updated_at = sgqlc.types.Field(order_by, graphql_name="updated_at")
 
 
 class meta_ai_training_template_obj_rel_insert_input(sgqlc.types.Input):
@@ -4625,20 +4788,6 @@ class numeric_comparison_exp(sgqlc.types.Input):
     _nin = sgqlc.types.Field(sgqlc.types.list_of(sgqlc.types.non_null(numeric)), graphql_name="_nin")
 
 
-class timestamp_comparison_exp(sgqlc.types.Input):
-    __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("_eq", "_gt", "_gte", "_in", "_is_null", "_lt", "_lte", "_neq", "_nin")
-    _eq = sgqlc.types.Field(timestamp, graphql_name="_eq")
-    _gt = sgqlc.types.Field(timestamp, graphql_name="_gt")
-    _gte = sgqlc.types.Field(timestamp, graphql_name="_gte")
-    _in = sgqlc.types.Field(sgqlc.types.list_of(sgqlc.types.non_null(timestamp)), graphql_name="_in")
-    _is_null = sgqlc.types.Field(Boolean, graphql_name="_is_null")
-    _lt = sgqlc.types.Field(timestamp, graphql_name="_lt")
-    _lte = sgqlc.types.Field(timestamp, graphql_name="_lte")
-    _neq = sgqlc.types.Field(timestamp, graphql_name="_neq")
-    _nin = sgqlc.types.Field(sgqlc.types.list_of(sgqlc.types.non_null(timestamp)), graphql_name="_nin")
-
-
 class timestamptz_comparison_exp(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
     __field_names__ = ("_eq", "_gt", "_gte", "_in", "_is_null", "_lt", "_lte", "_neq", "_nin")
@@ -4741,13 +4890,6 @@ class turbine_job_aggregate_order_by(sgqlc.types.Input):
     variance = sgqlc.types.Field("turbine_job_variance_order_by", graphql_name="variance")
 
 
-class turbine_job_append_input(sgqlc.types.Input):
-    __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("data", "payload")
-    data = sgqlc.types.Field(jsonb, graphql_name="data")
-    payload = sgqlc.types.Field(jsonb, graphql_name="payload")
-
-
 class turbine_job_arr_rel_insert_input(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
     __field_names__ = ("data", "on_conflict")
@@ -4759,129 +4901,53 @@ class turbine_job_arr_rel_insert_input(sgqlc.types.Input):
 
 class turbine_job_avg_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("id", "update_count")
+    __field_names__ = ("id",)
     id = sgqlc.types.Field(order_by, graphql_name="id")
-    update_count = sgqlc.types.Field(order_by, graphql_name="update_count")
 
 
 class turbine_job_bool_exp(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = (
-        "_and",
-        "_not",
-        "_or",
-        "app",
-        "created",
-        "data",
-        "id",
-        "payload",
-        "predictions",
-        "root_app_uuid",
-        "started",
-        "state",
-        "type",
-        "update_count",
-        "workflow",
-    )
+    __field_names__ = ("_and", "_not", "_or", "app", "id", "predictions", "root_app_uuid", "type")
     _and = sgqlc.types.Field(sgqlc.types.list_of(sgqlc.types.non_null("turbine_job_bool_exp")), graphql_name="_and")
     _not = sgqlc.types.Field("turbine_job_bool_exp", graphql_name="_not")
     _or = sgqlc.types.Field(sgqlc.types.list_of(sgqlc.types.non_null("turbine_job_bool_exp")), graphql_name="_or")
     app = sgqlc.types.Field(turbine_app_bool_exp, graphql_name="app")
-    created = sgqlc.types.Field(timestamp_comparison_exp, graphql_name="created")
-    data = sgqlc.types.Field(jsonb_comparison_exp, graphql_name="data")
     id = sgqlc.types.Field(bigint_comparison_exp, graphql_name="id")
-    payload = sgqlc.types.Field(jsonb_comparison_exp, graphql_name="payload")
     predictions = sgqlc.types.Field(meta_ai_prediction_bool_exp, graphql_name="predictions")
     root_app_uuid = sgqlc.types.Field("uuid_comparison_exp", graphql_name="root_app_uuid")
-    started = sgqlc.types.Field(timestamp_comparison_exp, graphql_name="started")
-    state = sgqlc.types.Field(String_comparison_exp, graphql_name="state")
     type = sgqlc.types.Field(String_comparison_exp, graphql_name="type")
-    update_count = sgqlc.types.Field(Int_comparison_exp, graphql_name="update_count")
-    workflow = sgqlc.types.Field(String_comparison_exp, graphql_name="workflow")
-
-
-class turbine_job_delete_at_path_input(sgqlc.types.Input):
-    __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("data", "payload")
-    data = sgqlc.types.Field(sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="data")
-    payload = sgqlc.types.Field(sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="payload")
-
-
-class turbine_job_delete_elem_input(sgqlc.types.Input):
-    __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("data", "payload")
-    data = sgqlc.types.Field(Int, graphql_name="data")
-    payload = sgqlc.types.Field(Int, graphql_name="payload")
-
-
-class turbine_job_delete_key_input(sgqlc.types.Input):
-    __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("data", "payload")
-    data = sgqlc.types.Field(String, graphql_name="data")
-    payload = sgqlc.types.Field(String, graphql_name="payload")
 
 
 class turbine_job_inc_input(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("id", "update_count")
+    __field_names__ = ("id",)
     id = sgqlc.types.Field(bigint, graphql_name="id")
-    update_count = sgqlc.types.Field(Int, graphql_name="update_count")
 
 
 class turbine_job_insert_input(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = (
-        "app",
-        "created",
-        "data",
-        "id",
-        "payload",
-        "predictions",
-        "root_app_uuid",
-        "started",
-        "state",
-        "type",
-        "update_count",
-        "workflow",
-    )
+    __field_names__ = ("app", "id", "predictions", "root_app_uuid", "type")
     app = sgqlc.types.Field(turbine_app_obj_rel_insert_input, graphql_name="app")
-    created = sgqlc.types.Field(timestamp, graphql_name="created")
-    data = sgqlc.types.Field(jsonb, graphql_name="data")
     id = sgqlc.types.Field(bigint, graphql_name="id")
-    payload = sgqlc.types.Field(jsonb, graphql_name="payload")
     predictions = sgqlc.types.Field(meta_ai_prediction_arr_rel_insert_input, graphql_name="predictions")
     root_app_uuid = sgqlc.types.Field(uuid, graphql_name="root_app_uuid")
-    started = sgqlc.types.Field(timestamp, graphql_name="started")
-    state = sgqlc.types.Field(String, graphql_name="state")
     type = sgqlc.types.Field(String, graphql_name="type")
-    update_count = sgqlc.types.Field(Int, graphql_name="update_count")
-    workflow = sgqlc.types.Field(String, graphql_name="workflow")
 
 
 class turbine_job_max_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("created", "id", "root_app_uuid", "started", "state", "type", "update_count", "workflow")
-    created = sgqlc.types.Field(order_by, graphql_name="created")
+    __field_names__ = ("id", "root_app_uuid", "type")
     id = sgqlc.types.Field(order_by, graphql_name="id")
     root_app_uuid = sgqlc.types.Field(order_by, graphql_name="root_app_uuid")
-    started = sgqlc.types.Field(order_by, graphql_name="started")
-    state = sgqlc.types.Field(order_by, graphql_name="state")
     type = sgqlc.types.Field(order_by, graphql_name="type")
-    update_count = sgqlc.types.Field(order_by, graphql_name="update_count")
-    workflow = sgqlc.types.Field(order_by, graphql_name="workflow")
 
 
 class turbine_job_min_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("created", "id", "root_app_uuid", "started", "state", "type", "update_count", "workflow")
-    created = sgqlc.types.Field(order_by, graphql_name="created")
+    __field_names__ = ("id", "root_app_uuid", "type")
     id = sgqlc.types.Field(order_by, graphql_name="id")
     root_app_uuid = sgqlc.types.Field(order_by, graphql_name="root_app_uuid")
-    started = sgqlc.types.Field(order_by, graphql_name="started")
-    state = sgqlc.types.Field(order_by, graphql_name="state")
     type = sgqlc.types.Field(order_by, graphql_name="type")
-    update_count = sgqlc.types.Field(order_by, graphql_name="update_count")
-    workflow = sgqlc.types.Field(order_by, graphql_name="workflow")
 
 
 class turbine_job_obj_rel_insert_input(sgqlc.types.Input):
@@ -4904,34 +4970,14 @@ class turbine_job_on_conflict(sgqlc.types.Input):
 
 class turbine_job_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = (
-        "app",
-        "created",
-        "data",
-        "id",
-        "payload",
-        "predictions_aggregate",
-        "root_app_uuid",
-        "started",
-        "state",
-        "type",
-        "update_count",
-        "workflow",
-    )
+    __field_names__ = ("app", "id", "predictions_aggregate", "root_app_uuid", "type")
     app = sgqlc.types.Field(turbine_app_order_by, graphql_name="app")
-    created = sgqlc.types.Field(order_by, graphql_name="created")
-    data = sgqlc.types.Field(order_by, graphql_name="data")
     id = sgqlc.types.Field(order_by, graphql_name="id")
-    payload = sgqlc.types.Field(order_by, graphql_name="payload")
     predictions_aggregate = sgqlc.types.Field(
         meta_ai_prediction_aggregate_order_by, graphql_name="predictions_aggregate"
     )
     root_app_uuid = sgqlc.types.Field(order_by, graphql_name="root_app_uuid")
-    started = sgqlc.types.Field(order_by, graphql_name="started")
-    state = sgqlc.types.Field(order_by, graphql_name="state")
     type = sgqlc.types.Field(order_by, graphql_name="type")
-    update_count = sgqlc.types.Field(order_by, graphql_name="update_count")
-    workflow = sgqlc.types.Field(order_by, graphql_name="workflow")
 
 
 class turbine_job_pk_columns_input(sgqlc.types.Input):
@@ -4940,86 +4986,54 @@ class turbine_job_pk_columns_input(sgqlc.types.Input):
     id = sgqlc.types.Field(sgqlc.types.non_null(bigint), graphql_name="id")
 
 
-class turbine_job_prepend_input(sgqlc.types.Input):
-    __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("data", "payload")
-    data = sgqlc.types.Field(jsonb, graphql_name="data")
-    payload = sgqlc.types.Field(jsonb, graphql_name="payload")
-
-
 class turbine_job_set_input(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = (
-        "created",
-        "data",
-        "id",
-        "payload",
-        "root_app_uuid",
-        "started",
-        "state",
-        "type",
-        "update_count",
-        "workflow",
-    )
-    created = sgqlc.types.Field(timestamp, graphql_name="created")
-    data = sgqlc.types.Field(jsonb, graphql_name="data")
+    __field_names__ = ("id", "root_app_uuid", "type")
     id = sgqlc.types.Field(bigint, graphql_name="id")
-    payload = sgqlc.types.Field(jsonb, graphql_name="payload")
     root_app_uuid = sgqlc.types.Field(uuid, graphql_name="root_app_uuid")
-    started = sgqlc.types.Field(timestamp, graphql_name="started")
-    state = sgqlc.types.Field(String, graphql_name="state")
     type = sgqlc.types.Field(String, graphql_name="type")
-    update_count = sgqlc.types.Field(Int, graphql_name="update_count")
-    workflow = sgqlc.types.Field(String, graphql_name="workflow")
 
 
 class turbine_job_stddev_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("id", "update_count")
+    __field_names__ = ("id",)
     id = sgqlc.types.Field(order_by, graphql_name="id")
-    update_count = sgqlc.types.Field(order_by, graphql_name="update_count")
 
 
 class turbine_job_stddev_pop_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("id", "update_count")
+    __field_names__ = ("id",)
     id = sgqlc.types.Field(order_by, graphql_name="id")
-    update_count = sgqlc.types.Field(order_by, graphql_name="update_count")
 
 
 class turbine_job_stddev_samp_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("id", "update_count")
+    __field_names__ = ("id",)
     id = sgqlc.types.Field(order_by, graphql_name="id")
-    update_count = sgqlc.types.Field(order_by, graphql_name="update_count")
 
 
 class turbine_job_sum_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("id", "update_count")
+    __field_names__ = ("id",)
     id = sgqlc.types.Field(order_by, graphql_name="id")
-    update_count = sgqlc.types.Field(order_by, graphql_name="update_count")
 
 
 class turbine_job_var_pop_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("id", "update_count")
+    __field_names__ = ("id",)
     id = sgqlc.types.Field(order_by, graphql_name="id")
-    update_count = sgqlc.types.Field(order_by, graphql_name="update_count")
 
 
 class turbine_job_var_samp_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("id", "update_count")
+    __field_names__ = ("id",)
     id = sgqlc.types.Field(order_by, graphql_name="id")
-    update_count = sgqlc.types.Field(order_by, graphql_name="update_count")
 
 
 class turbine_job_variance_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("id", "update_count")
+    __field_names__ = ("id",)
     id = sgqlc.types.Field(order_by, graphql_name="id")
-    update_count = sgqlc.types.Field(order_by, graphql_name="update_count")
 
 
 class turbine_task_aggregate_order_by(sgqlc.types.Input):
@@ -5973,6 +5987,99 @@ class meta_ai_assignment_mutation_response(sgqlc.types.Type):
     )
 
 
+class meta_ai_batch_prediction(sgqlc.types.Type):
+    __schema__ = meta_ai_graphql_schema
+    __field_names__ = (
+        "created_at",
+        "dataset",
+        "dataset_id",
+        "id",
+        "model",
+        "model_id",
+        "output",
+        "run_uuid",
+        "state",
+        "updated_at",
+    )
+    created_at = sgqlc.types.Field(sgqlc.types.non_null(timestamptz), graphql_name="created_at")
+    dataset = sgqlc.types.Field(sgqlc.types.non_null("meta_ai_dataset"), graphql_name="dataset")
+    dataset_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="dataset_id")
+    id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="id")
+    model = sgqlc.types.Field(sgqlc.types.non_null("meta_ai_model"), graphql_name="model")
+    model_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="model_id")
+    output = sgqlc.types.Field(String, graphql_name="output")
+    run_uuid = sgqlc.types.Field(String, graphql_name="run_uuid")
+    state = sgqlc.types.Field(sgqlc.types.non_null(meta_ai_training_state_enum), graphql_name="state")
+    updated_at = sgqlc.types.Field(sgqlc.types.non_null(timestamptz), graphql_name="updated_at")
+
+
+class meta_ai_batch_prediction_aggregate(sgqlc.types.Type):
+    __schema__ = meta_ai_graphql_schema
+    __field_names__ = ("aggregate", "nodes")
+    aggregate = sgqlc.types.Field("meta_ai_batch_prediction_aggregate_fields", graphql_name="aggregate")
+    nodes = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_batch_prediction))), graphql_name="nodes"
+    )
+
+
+class meta_ai_batch_prediction_aggregate_fields(sgqlc.types.Type):
+    __schema__ = meta_ai_graphql_schema
+    __field_names__ = ("count", "max", "min")
+    count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int),
+        graphql_name="count",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "columns",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_batch_prediction_select_column)),
+                        graphql_name="columns",
+                        default=None,
+                    ),
+                ),
+                ("distinct", sgqlc.types.Arg(Boolean, graphql_name="distinct", default=None)),
+            )
+        ),
+    )
+    max = sgqlc.types.Field("meta_ai_batch_prediction_max_fields", graphql_name="max")
+    min = sgqlc.types.Field("meta_ai_batch_prediction_min_fields", graphql_name="min")
+
+
+class meta_ai_batch_prediction_max_fields(sgqlc.types.Type):
+    __schema__ = meta_ai_graphql_schema
+    __field_names__ = ("created_at", "dataset_id", "id", "model_id", "output", "run_uuid", "updated_at")
+    created_at = sgqlc.types.Field(timestamptz, graphql_name="created_at")
+    dataset_id = sgqlc.types.Field(uuid, graphql_name="dataset_id")
+    id = sgqlc.types.Field(uuid, graphql_name="id")
+    model_id = sgqlc.types.Field(uuid, graphql_name="model_id")
+    output = sgqlc.types.Field(String, graphql_name="output")
+    run_uuid = sgqlc.types.Field(String, graphql_name="run_uuid")
+    updated_at = sgqlc.types.Field(timestamptz, graphql_name="updated_at")
+
+
+class meta_ai_batch_prediction_min_fields(sgqlc.types.Type):
+    __schema__ = meta_ai_graphql_schema
+    __field_names__ = ("created_at", "dataset_id", "id", "model_id", "output", "run_uuid", "updated_at")
+    created_at = sgqlc.types.Field(timestamptz, graphql_name="created_at")
+    dataset_id = sgqlc.types.Field(uuid, graphql_name="dataset_id")
+    id = sgqlc.types.Field(uuid, graphql_name="id")
+    model_id = sgqlc.types.Field(uuid, graphql_name="model_id")
+    output = sgqlc.types.Field(String, graphql_name="output")
+    run_uuid = sgqlc.types.Field(String, graphql_name="run_uuid")
+    updated_at = sgqlc.types.Field(timestamptz, graphql_name="updated_at")
+
+
+class meta_ai_batch_prediction_mutation_response(sgqlc.types.Type):
+    __schema__ = meta_ai_graphql_schema
+    __field_names__ = ("affected_rows", "returning")
+    affected_rows = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="affected_rows")
+    returning = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_batch_prediction))),
+        graphql_name="returning",
+    )
+
+
 class meta_ai_dataset(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
     __field_names__ = (
@@ -6118,8 +6225,9 @@ class meta_ai_dataset_max_fields(sgqlc.types.Type):
 
 class meta_ai_dataset_metric(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("created_at", "dataset_id", "id", "metric", "model_id", "updated_at")
+    __field_names__ = ("created_at", "dataset", "dataset_id", "id", "metric", "model", "model_id", "updated_at")
     created_at = sgqlc.types.Field(sgqlc.types.non_null(timestamptz), graphql_name="created_at")
+    dataset = sgqlc.types.Field(sgqlc.types.non_null(meta_ai_dataset), graphql_name="dataset")
     dataset_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="dataset_id")
     id = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="id")
     metric = sgqlc.types.Field(
@@ -6127,6 +6235,7 @@ class meta_ai_dataset_metric(sgqlc.types.Type):
         graphql_name="metric",
         args=sgqlc.types.ArgDict((("path", sgqlc.types.Arg(String, graphql_name="path", default=None)),)),
     )
+    model = sgqlc.types.Field(sgqlc.types.non_null("meta_ai_model"), graphql_name="model")
     model_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="model_id")
     updated_at = sgqlc.types.Field(timestamptz, graphql_name="updated_at")
 
@@ -6303,7 +6412,6 @@ class meta_ai_deployment(sgqlc.types.Type):
         "deployment_logs_aggregate",
         "endpoint",
         "id",
-        "image",
         "min_instances",
         "model",
         "model_id",
@@ -6377,7 +6485,6 @@ class meta_ai_deployment(sgqlc.types.Type):
     )
     endpoint = sgqlc.types.Field(String, graphql_name="endpoint")
     id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="id")
-    image = sgqlc.types.Field(String, graphql_name="image")
     min_instances = sgqlc.types.Field(Int, graphql_name="min_instances")
     model = sgqlc.types.Field(sgqlc.types.non_null("meta_ai_model"), graphql_name="model")
     model_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="modelId")
@@ -6605,7 +6712,6 @@ class meta_ai_deployment_max_fields(sgqlc.types.Type):
         "current_log_id",
         "endpoint",
         "id",
-        "image",
         "min_instances",
         "model_id",
         "owner_id",
@@ -6618,7 +6724,6 @@ class meta_ai_deployment_max_fields(sgqlc.types.Type):
     current_log_id = sgqlc.types.Field(Int, graphql_name="current_log_id")
     endpoint = sgqlc.types.Field(String, graphql_name="endpoint")
     id = sgqlc.types.Field(uuid, graphql_name="id")
-    image = sgqlc.types.Field(String, graphql_name="image")
     min_instances = sgqlc.types.Field(Int, graphql_name="min_instances")
     model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
@@ -6635,7 +6740,6 @@ class meta_ai_deployment_min_fields(sgqlc.types.Type):
         "current_log_id",
         "endpoint",
         "id",
-        "image",
         "min_instances",
         "model_id",
         "owner_id",
@@ -6648,7 +6752,6 @@ class meta_ai_deployment_min_fields(sgqlc.types.Type):
     current_log_id = sgqlc.types.Field(Int, graphql_name="current_log_id")
     endpoint = sgqlc.types.Field(String, graphql_name="endpoint")
     id = sgqlc.types.Field(uuid, graphql_name="id")
-    image = sgqlc.types.Field(String, graphql_name="image")
     min_instances = sgqlc.types.Field(Int, graphql_name="min_instances")
     model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
@@ -7376,6 +7479,8 @@ class meta_ai_model(sgqlc.types.Type):
         "source_training_id",
         "stage",
         "trainable",
+        "training_templates",
+        "training_templates_aggregate",
         "updated_at",
         "version",
         "visibility",
@@ -7582,6 +7687,60 @@ class meta_ai_model(sgqlc.types.Type):
     source_training_id = sgqlc.types.Field(uuid, graphql_name="source_training_id")
     stage = sgqlc.types.Field(sgqlc.types.non_null(meta_ai_environment_enum), graphql_name="stage")
     trainable = sgqlc.types.Field(Boolean, graphql_name="trainable")
+    training_templates = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("meta_ai_training_template"))),
+        graphql_name="training_templates",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "distinct_on",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_training_template_select_column)),
+                        graphql_name="distinct_on",
+                        default=None,
+                    ),
+                ),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                (
+                    "order_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_training_template_order_by)),
+                        graphql_name="order_by",
+                        default=None,
+                    ),
+                ),
+                ("where", sgqlc.types.Arg(meta_ai_training_template_bool_exp, graphql_name="where", default=None)),
+            )
+        ),
+    )
+    training_templates_aggregate = sgqlc.types.Field(
+        sgqlc.types.non_null("meta_ai_training_template_aggregate"),
+        graphql_name="training_templates_aggregate",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "distinct_on",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_training_template_select_column)),
+                        graphql_name="distinct_on",
+                        default=None,
+                    ),
+                ),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                (
+                    "order_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_training_template_order_by)),
+                        graphql_name="order_by",
+                        default=None,
+                    ),
+                ),
+                ("where", sgqlc.types.Arg(meta_ai_training_template_bool_exp, graphql_name="where", default=None)),
+            )
+        ),
+    )
     updated_at = sgqlc.types.Field(timestamptz, graphql_name="updatedAt")
     version = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="version")
     visibility = sgqlc.types.Field(sgqlc.types.non_null(meta_ai_visibility_enum), graphql_name="visibility")
@@ -9178,6 +9337,8 @@ class mutation_root(sgqlc.types.Type):
         "delete_meta_ai_app_by_pk",
         "delete_meta_ai_assignment",
         "delete_meta_ai_assignment_by_pk",
+        "delete_meta_ai_batch_prediction",
+        "delete_meta_ai_batch_prediction_by_pk",
         "delete_meta_ai_dataset",
         "delete_meta_ai_dataset_by_pk",
         "delete_meta_ai_dataset_metric",
@@ -9224,6 +9385,8 @@ class mutation_root(sgqlc.types.Type):
         "insert_meta_ai_app_one",
         "insert_meta_ai_assignment",
         "insert_meta_ai_assignment_one",
+        "insert_meta_ai_batch_prediction",
+        "insert_meta_ai_batch_prediction_one",
         "insert_meta_ai_dataset",
         "insert_meta_ai_dataset_metric",
         "insert_meta_ai_dataset_metric_one",
@@ -9272,6 +9435,8 @@ class mutation_root(sgqlc.types.Type):
         "update_meta_ai_app_by_pk",
         "update_meta_ai_assignment",
         "update_meta_ai_assignment_by_pk",
+        "update_meta_ai_batch_prediction",
+        "update_meta_ai_batch_prediction_by_pk",
         "update_meta_ai_dataset",
         "update_meta_ai_dataset_by_pk",
         "update_meta_ai_dataset_metric",
@@ -9382,6 +9547,27 @@ class mutation_root(sgqlc.types.Type):
         graphql_name="delete_meta_ai_assignment_by_pk",
         args=sgqlc.types.ArgDict(
             (("type", sgqlc.types.Arg(sgqlc.types.non_null(String), graphql_name="type", default=None)),)
+        ),
+    )
+    delete_meta_ai_batch_prediction = sgqlc.types.Field(
+        meta_ai_batch_prediction_mutation_response,
+        graphql_name="delete_meta_ai_batch_prediction",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "where",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(meta_ai_batch_prediction_bool_exp), graphql_name="where", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    delete_meta_ai_batch_prediction_by_pk = sgqlc.types.Field(
+        meta_ai_batch_prediction,
+        graphql_name="delete_meta_ai_batch_prediction_by_pk",
+        args=sgqlc.types.ArgDict(
+            (("id", sgqlc.types.Arg(sgqlc.types.non_null(uuid), graphql_name="id", default=None)),)
         ),
     )
     delete_meta_ai_dataset = sgqlc.types.Field(
@@ -9904,6 +10090,46 @@ class mutation_root(sgqlc.types.Type):
                 (
                     "on_conflict",
                     sgqlc.types.Arg(meta_ai_assignment_on_conflict, graphql_name="on_conflict", default=None),
+                ),
+            )
+        ),
+    )
+    insert_meta_ai_batch_prediction = sgqlc.types.Field(
+        meta_ai_batch_prediction_mutation_response,
+        graphql_name="insert_meta_ai_batch_prediction",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "objects",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(
+                            sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_batch_prediction_insert_input))
+                        ),
+                        graphql_name="objects",
+                        default=None,
+                    ),
+                ),
+                (
+                    "on_conflict",
+                    sgqlc.types.Arg(meta_ai_batch_prediction_on_conflict, graphql_name="on_conflict", default=None),
+                ),
+            )
+        ),
+    )
+    insert_meta_ai_batch_prediction_one = sgqlc.types.Field(
+        meta_ai_batch_prediction,
+        graphql_name="insert_meta_ai_batch_prediction_one",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "object",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(meta_ai_batch_prediction_insert_input), graphql_name="object", default=None
+                    ),
+                ),
+                (
+                    "on_conflict",
+                    sgqlc.types.Arg(meta_ai_batch_prediction_on_conflict, graphql_name="on_conflict", default=None),
                 ),
             )
         ),
@@ -10783,6 +11009,38 @@ class mutation_root(sgqlc.types.Type):
                     "pk_columns",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(meta_ai_assignment_pk_columns_input),
+                        graphql_name="pk_columns",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    update_meta_ai_batch_prediction = sgqlc.types.Field(
+        meta_ai_batch_prediction_mutation_response,
+        graphql_name="update_meta_ai_batch_prediction",
+        args=sgqlc.types.ArgDict(
+            (
+                ("_set", sgqlc.types.Arg(meta_ai_batch_prediction_set_input, graphql_name="_set", default=None)),
+                (
+                    "where",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(meta_ai_batch_prediction_bool_exp), graphql_name="where", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    update_meta_ai_batch_prediction_by_pk = sgqlc.types.Field(
+        meta_ai_batch_prediction,
+        graphql_name="update_meta_ai_batch_prediction_by_pk",
+        args=sgqlc.types.ArgDict(
+            (
+                ("_set", sgqlc.types.Arg(meta_ai_batch_prediction_set_input, graphql_name="_set", default=None)),
+                (
+                    "pk_columns",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(meta_ai_batch_prediction_pk_columns_input),
                         graphql_name="pk_columns",
                         default=None,
                     ),
@@ -11717,21 +11975,7 @@ class mutation_root(sgqlc.types.Type):
         graphql_name="update_turbine_job",
         args=sgqlc.types.ArgDict(
             (
-                ("_append", sgqlc.types.Arg(turbine_job_append_input, graphql_name="_append", default=None)),
-                (
-                    "_delete_at_path",
-                    sgqlc.types.Arg(turbine_job_delete_at_path_input, graphql_name="_delete_at_path", default=None),
-                ),
-                (
-                    "_delete_elem",
-                    sgqlc.types.Arg(turbine_job_delete_elem_input, graphql_name="_delete_elem", default=None),
-                ),
-                (
-                    "_delete_key",
-                    sgqlc.types.Arg(turbine_job_delete_key_input, graphql_name="_delete_key", default=None),
-                ),
                 ("_inc", sgqlc.types.Arg(turbine_job_inc_input, graphql_name="_inc", default=None)),
-                ("_prepend", sgqlc.types.Arg(turbine_job_prepend_input, graphql_name="_prepend", default=None)),
                 ("_set", sgqlc.types.Arg(turbine_job_set_input, graphql_name="_set", default=None)),
                 (
                     "where",
@@ -11745,21 +11989,7 @@ class mutation_root(sgqlc.types.Type):
         graphql_name="update_turbine_job_by_pk",
         args=sgqlc.types.ArgDict(
             (
-                ("_append", sgqlc.types.Arg(turbine_job_append_input, graphql_name="_append", default=None)),
-                (
-                    "_delete_at_path",
-                    sgqlc.types.Arg(turbine_job_delete_at_path_input, graphql_name="_delete_at_path", default=None),
-                ),
-                (
-                    "_delete_elem",
-                    sgqlc.types.Arg(turbine_job_delete_elem_input, graphql_name="_delete_elem", default=None),
-                ),
-                (
-                    "_delete_key",
-                    sgqlc.types.Arg(turbine_job_delete_key_input, graphql_name="_delete_key", default=None),
-                ),
                 ("_inc", sgqlc.types.Arg(turbine_job_inc_input, graphql_name="_inc", default=None)),
-                ("_prepend", sgqlc.types.Arg(turbine_job_prepend_input, graphql_name="_prepend", default=None)),
                 ("_set", sgqlc.types.Arg(turbine_job_set_input, graphql_name="_set", default=None)),
                 (
                     "pk_columns",
@@ -11833,6 +12063,7 @@ class mutation_root(sgqlc.types.Type):
 class query_root(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
     __field_names__ = (
+        "download_artifact",
         "get_prelabel",
         "meta_ai_app",
         "meta_ai_app_aggregate",
@@ -11840,6 +12071,9 @@ class query_root(sgqlc.types.Type):
         "meta_ai_assignment",
         "meta_ai_assignment_aggregate",
         "meta_ai_assignment_by_pk",
+        "meta_ai_batch_prediction",
+        "meta_ai_batch_prediction_aggregate",
+        "meta_ai_batch_prediction_by_pk",
         "meta_ai_dataset",
         "meta_ai_dataset_aggregate",
         "meta_ai_dataset_by_pk",
@@ -11912,6 +12146,19 @@ class query_root(sgqlc.types.Type):
         "turbine_task",
         "turbine_task_aggregate",
         "turbine_task_by_pk",
+    )
+    download_artifact = sgqlc.types.Field(
+        URL,
+        graphql_name="download_artifact",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "artifact_type",
+                    sgqlc.types.Arg(sgqlc.types.non_null(String), graphql_name="artifact_type", default=None),
+                ),
+                ("model_id", sgqlc.types.Arg(sgqlc.types.non_null(uuid), graphql_name="model_id", default=None)),
+            )
+        ),
     )
     get_prelabel = sgqlc.types.Field(
         sgqlc.types.list_of(Prelabel),
@@ -12052,6 +12299,67 @@ class query_root(sgqlc.types.Type):
         graphql_name="meta_ai_assignment_by_pk",
         args=sgqlc.types.ArgDict(
             (("type", sgqlc.types.Arg(sgqlc.types.non_null(String), graphql_name="type", default=None)),)
+        ),
+    )
+    meta_ai_batch_prediction = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("meta_ai_batch_prediction"))),
+        graphql_name="meta_ai_batch_prediction",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "distinct_on",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_batch_prediction_select_column)),
+                        graphql_name="distinct_on",
+                        default=None,
+                    ),
+                ),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                (
+                    "order_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_batch_prediction_order_by)),
+                        graphql_name="order_by",
+                        default=None,
+                    ),
+                ),
+                ("where", sgqlc.types.Arg(meta_ai_batch_prediction_bool_exp, graphql_name="where", default=None)),
+            )
+        ),
+    )
+    meta_ai_batch_prediction_aggregate = sgqlc.types.Field(
+        sgqlc.types.non_null("meta_ai_batch_prediction_aggregate"),
+        graphql_name="meta_ai_batch_prediction_aggregate",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "distinct_on",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_batch_prediction_select_column)),
+                        graphql_name="distinct_on",
+                        default=None,
+                    ),
+                ),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                (
+                    "order_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_batch_prediction_order_by)),
+                        graphql_name="order_by",
+                        default=None,
+                    ),
+                ),
+                ("where", sgqlc.types.Arg(meta_ai_batch_prediction_bool_exp, graphql_name="where", default=None)),
+            )
+        ),
+    )
+    meta_ai_batch_prediction_by_pk = sgqlc.types.Field(
+        "meta_ai_batch_prediction",
+        graphql_name="meta_ai_batch_prediction_by_pk",
+        args=sgqlc.types.ArgDict(
+            (("id", sgqlc.types.Arg(sgqlc.types.non_null(uuid), graphql_name="id", default=None)),)
         ),
     )
     meta_ai_dataset = sgqlc.types.Field(
@@ -13499,6 +13807,9 @@ class subscription_root(sgqlc.types.Type):
         "meta_ai_assignment",
         "meta_ai_assignment_aggregate",
         "meta_ai_assignment_by_pk",
+        "meta_ai_batch_prediction",
+        "meta_ai_batch_prediction_aggregate",
+        "meta_ai_batch_prediction_by_pk",
         "meta_ai_dataset",
         "meta_ai_dataset_aggregate",
         "meta_ai_dataset_by_pk",
@@ -13696,6 +14007,67 @@ class subscription_root(sgqlc.types.Type):
         graphql_name="meta_ai_assignment_by_pk",
         args=sgqlc.types.ArgDict(
             (("type", sgqlc.types.Arg(sgqlc.types.non_null(String), graphql_name="type", default=None)),)
+        ),
+    )
+    meta_ai_batch_prediction = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("meta_ai_batch_prediction"))),
+        graphql_name="meta_ai_batch_prediction",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "distinct_on",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_batch_prediction_select_column)),
+                        graphql_name="distinct_on",
+                        default=None,
+                    ),
+                ),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                (
+                    "order_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_batch_prediction_order_by)),
+                        graphql_name="order_by",
+                        default=None,
+                    ),
+                ),
+                ("where", sgqlc.types.Arg(meta_ai_batch_prediction_bool_exp, graphql_name="where", default=None)),
+            )
+        ),
+    )
+    meta_ai_batch_prediction_aggregate = sgqlc.types.Field(
+        sgqlc.types.non_null("meta_ai_batch_prediction_aggregate"),
+        graphql_name="meta_ai_batch_prediction_aggregate",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "distinct_on",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_batch_prediction_select_column)),
+                        graphql_name="distinct_on",
+                        default=None,
+                    ),
+                ),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                (
+                    "order_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_batch_prediction_order_by)),
+                        graphql_name="order_by",
+                        default=None,
+                    ),
+                ),
+                ("where", sgqlc.types.Arg(meta_ai_batch_prediction_bool_exp, graphql_name="where", default=None)),
+            )
+        ),
+    )
+    meta_ai_batch_prediction_by_pk = sgqlc.types.Field(
+        "meta_ai_batch_prediction",
+        graphql_name="meta_ai_batch_prediction_by_pk",
+        args=sgqlc.types.ArgDict(
+            (("id", sgqlc.types.Arg(sgqlc.types.non_null(uuid), graphql_name="id", default=None)),)
         ),
     )
     meta_ai_dataset = sgqlc.types.Field(
@@ -15294,34 +15666,9 @@ class turbine_app_mutation_response(sgqlc.types.Type):
 
 class turbine_job(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = (
-        "app",
-        "created",
-        "data",
-        "id",
-        "payload",
-        "predictions",
-        "predictions_aggregate",
-        "root_app_uuid",
-        "started",
-        "state",
-        "type",
-        "update_count",
-        "workflow",
-    )
+    __field_names__ = ("app", "id", "predictions", "predictions_aggregate", "root_app_uuid", "type")
     app = sgqlc.types.Field(turbine_app, graphql_name="app")
-    created = sgqlc.types.Field(timestamp, graphql_name="created")
-    data = sgqlc.types.Field(
-        jsonb,
-        graphql_name="data",
-        args=sgqlc.types.ArgDict((("path", sgqlc.types.Arg(String, graphql_name="path", default=None)),)),
-    )
     id = sgqlc.types.Field(sgqlc.types.non_null(bigint), graphql_name="id")
-    payload = sgqlc.types.Field(
-        sgqlc.types.non_null(jsonb),
-        graphql_name="payload",
-        args=sgqlc.types.ArgDict((("path", sgqlc.types.Arg(String, graphql_name="path", default=None)),)),
-    )
     predictions = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_prediction))),
         graphql_name="predictions",
@@ -15377,11 +15724,7 @@ class turbine_job(sgqlc.types.Type):
         ),
     )
     root_app_uuid = sgqlc.types.Field(uuid, graphql_name="root_app_uuid")
-    started = sgqlc.types.Field(timestamp, graphql_name="started")
-    state = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="state")
     type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="type")
-    update_count = sgqlc.types.Field(Int, graphql_name="update_count")
-    workflow = sgqlc.types.Field(String, graphql_name="workflow")
 
 
 class turbine_job_aggregate(sgqlc.types.Type):
@@ -15439,35 +15782,24 @@ class turbine_job_aggregate_fields(sgqlc.types.Type):
 
 class turbine_job_avg_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("id", "update_count")
+    __field_names__ = ("id",)
     id = sgqlc.types.Field(Float, graphql_name="id")
-    update_count = sgqlc.types.Field(Float, graphql_name="update_count")
 
 
 class turbine_job_max_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("created", "id", "root_app_uuid", "started", "state", "type", "update_count", "workflow")
-    created = sgqlc.types.Field(timestamp, graphql_name="created")
+    __field_names__ = ("id", "root_app_uuid", "type")
     id = sgqlc.types.Field(bigint, graphql_name="id")
     root_app_uuid = sgqlc.types.Field(uuid, graphql_name="root_app_uuid")
-    started = sgqlc.types.Field(timestamp, graphql_name="started")
-    state = sgqlc.types.Field(String, graphql_name="state")
     type = sgqlc.types.Field(String, graphql_name="type")
-    update_count = sgqlc.types.Field(Int, graphql_name="update_count")
-    workflow = sgqlc.types.Field(String, graphql_name="workflow")
 
 
 class turbine_job_min_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("created", "id", "root_app_uuid", "started", "state", "type", "update_count", "workflow")
-    created = sgqlc.types.Field(timestamp, graphql_name="created")
+    __field_names__ = ("id", "root_app_uuid", "type")
     id = sgqlc.types.Field(bigint, graphql_name="id")
     root_app_uuid = sgqlc.types.Field(uuid, graphql_name="root_app_uuid")
-    started = sgqlc.types.Field(timestamp, graphql_name="started")
-    state = sgqlc.types.Field(String, graphql_name="state")
     type = sgqlc.types.Field(String, graphql_name="type")
-    update_count = sgqlc.types.Field(Int, graphql_name="update_count")
-    workflow = sgqlc.types.Field(String, graphql_name="workflow")
 
 
 class turbine_job_mutation_response(sgqlc.types.Type):
@@ -15481,51 +15813,44 @@ class turbine_job_mutation_response(sgqlc.types.Type):
 
 class turbine_job_stddev_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("id", "update_count")
+    __field_names__ = ("id",)
     id = sgqlc.types.Field(Float, graphql_name="id")
-    update_count = sgqlc.types.Field(Float, graphql_name="update_count")
 
 
 class turbine_job_stddev_pop_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("id", "update_count")
+    __field_names__ = ("id",)
     id = sgqlc.types.Field(Float, graphql_name="id")
-    update_count = sgqlc.types.Field(Float, graphql_name="update_count")
 
 
 class turbine_job_stddev_samp_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("id", "update_count")
+    __field_names__ = ("id",)
     id = sgqlc.types.Field(Float, graphql_name="id")
-    update_count = sgqlc.types.Field(Float, graphql_name="update_count")
 
 
 class turbine_job_sum_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("id", "update_count")
+    __field_names__ = ("id",)
     id = sgqlc.types.Field(bigint, graphql_name="id")
-    update_count = sgqlc.types.Field(Int, graphql_name="update_count")
 
 
 class turbine_job_var_pop_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("id", "update_count")
+    __field_names__ = ("id",)
     id = sgqlc.types.Field(Float, graphql_name="id")
-    update_count = sgqlc.types.Field(Float, graphql_name="update_count")
 
 
 class turbine_job_var_samp_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("id", "update_count")
+    __field_names__ = ("id",)
     id = sgqlc.types.Field(Float, graphql_name="id")
-    update_count = sgqlc.types.Field(Float, graphql_name="update_count")
 
 
 class turbine_job_variance_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("id", "update_count")
+    __field_names__ = ("id",)
     id = sgqlc.types.Field(Float, graphql_name="id")
-    update_count = sgqlc.types.Field(Float, graphql_name="update_count")
 
 
 class turbine_task(sgqlc.types.Type):

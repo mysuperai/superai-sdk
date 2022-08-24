@@ -24,6 +24,13 @@ if [[ -z "$MODEL_NAME" ]]; then
 
 else
   cd /home/model-server
+  if [[ -z "$MODEL_CLASS_PATH" ]]; then
+    echo "--> No model class path specified. Using root directory as model class path."
+  else
+     # If MODEL_CLASS_PATH is set, then we assume that the model is in a subfolder
+     # We prepend the path to the model name
+     export MODEL_NAME=$MODEL_CLASS_PATH.$MODEL_NAME.$MODEL_NAME
+  fi
 
   if [[ -x before-run ]]; then
     echo "Executing before-run script"
@@ -46,9 +53,9 @@ else
     echo "Starting Seldon microservice"
     export PATH=/home/model-server:$PATH
     if [ -n "$PERSISTENCE" ]; then
-      exec seldon-core-microservice "$MODEL_NAME" --service-type "$SERVICE_TYPE" --persistence "$PERSISTENCE" --debug --tracing --log-level DEBUG
+      exec seldon-core-microservice "$MODEL_NAME" --service-type "$SERVICE_TYPE" --persistence "$PERSISTENCE" --tracing
     else
-      exec seldon-core-microservice "$MODEL_NAME" --service-type "$SERVICE_TYPE" --debug --tracing --log-level DEBUG
+      exec seldon-core-microservice "$MODEL_NAME" --service-type "$SERVICE_TYPE" --tracing
     fi
   else
     echo "Starting serving with Sagemaker Backend"

@@ -62,7 +62,6 @@ class DataProgramBase:
             log.debug(Fore.RED + "_run_local tried to run but DataProgramBase._thread is already set" + Style.RESET_ALL)
             return
 
-        name = name if name else self.name
         if not name:
             raise Exception("DataProgram can not be deployed without a name")
 

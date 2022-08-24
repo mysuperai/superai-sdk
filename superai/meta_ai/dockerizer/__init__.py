@@ -10,14 +10,14 @@ import requests
 from boto3.session import Session  # type: ignore
 from botocore.exceptions import ClientError  # type: ignore
 from docker import DockerClient  # type: ignore
-from docker.errors import APIError  # type: ignore
+from docker.errors import DockerException  # type: ignore
 from jinja2 import Template
 from rich.progress import BarColumn, DownloadColumn, Progress, Task, Text
 
-from superai.exceptions import ModelDeploymentError
 from superai.log import logger
 
 from ... import config
+from ..exceptions import ModelDeploymentError
 from .sagemaker_endpoint import (
     create_endpoint,
     invoke_local,
@@ -205,7 +205,7 @@ def build_image(
         log.info(f"Running {docker_command}")
         os.system(docker_command)
     else:
-        docker_client = docker.from_env()
+        docker_client = get_docker_client()
         build = docker_client.images.build(path=".dockerizer", tag=image_name)
         log.info(f"Docker_api build : {build}")
     end = time.time()
@@ -243,7 +243,10 @@ def push_image(
     full_name = f"{registry_name}/{full_suffix}:{version}"
     logger.info(f"Pushing image to ECR: {full_name}")
 
-    docker_client = docker.from_env()
+    # login to the ECR registry where the image will be pushed to
+    aws_ecr_login(region, registry_name)
+
+    docker_client = get_docker_client()
     ecr_client = boto_session.client("ecr")
     try:
         ecr_client.describe_repositories(registryId=account, repositoryNames=[full_suffix])
@@ -251,8 +254,6 @@ def push_image(
         log.info(e)
         ecr_client.create_repository(repositoryName=full_suffix)
         log.info(f"Created repository for `{full_suffix}`.")
-
-    aws_ecr_login(region, registry_name)
 
     log.info(f"Tagging to `{full_name}`")
     docker_client.images.get(f"{image_name}:{version}").tag(full_name)
@@ -308,38 +309,47 @@ def aws_ecr_login(region: str, registry_name: str) -> Optional[int]:
     aws_major = aws_version.split(".")[0]
 
     def aws_cli_v1_login():
-        p = subprocess.Popen(
+        return subprocess.Popen(
             ["aws", "ecr", "get-login", "--region", region, "--no-include-email"], stdout=subprocess.PIPE
         )
-        code = p.wait()
-        return code
 
     def aws_cli_v2_login():
-        p = subprocess.Popen(
-            f"aws ecr get-login-password --region {region} | docker login --username AWS --password-stdin {registry_name}",
-            shell=True,
-            stdout=subprocess.PIPE,
-        )
-        code = p.wait()
-        return code
+        return subprocess.Popen(["aws", "ecr", "get-login-password", "--region", region], stdout=subprocess.PIPE)
 
-    if int(aws_major) < 2:
-        code = aws_cli_v1_login()
-    else:
-        code = aws_cli_v2_login()
-    if code != 0:
+    ecr_login_proc = aws_cli_v1_login() if int(aws_major) < 2 else aws_cli_v2_login()
+    ecr_login_code = ecr_login_proc.wait()
+    if ecr_login_code != 0:
         log.warning("Failed to login to ECR")
-    return code
+        return ecr_login_code
+
+    # login to ECR via the docker login command, i.e. the output of the ECR login command
+    ecr_login_output, _ = ecr_login_proc.communicate()
+    if int(aws_major) < 2:
+        docker_login_stdin = None
+        docker_login_cmd = ecr_login_output.decode("utf-8")
+    else:
+        docker_login_stdin = ecr_login_output
+        docker_login_cmd = f"docker login --username AWS --password-stdin {registry_name}"
+
+    docker_login_proc = subprocess.Popen(
+        docker_login_cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT
+    )
+    docker_login_proc.communicate(docker_login_stdin)
+    docker_login_code = docker_login_proc.wait()
+    if docker_login_code != 0:
+        log.warning("Failed to login to ECR via docker login. Is the docker daemon up and running?")
+
+    return docker_login_code
 
 
 def get_docker_client() -> DockerClient:
     """
     Returns a Docker client, raising a ModelDeploymentError if the Docker server is not accessible.
     """
-    client = docker.from_env()
     try:
+        client = docker.from_env(timeout=10)
         client.ping()
-    except (requests.ConnectionError, APIError) as e:
+    except (DockerException, requests.ConnectionError) as e:
         raise ModelDeploymentError("Could not find a running Docker daemon. Is Docker running?")
     return client
 

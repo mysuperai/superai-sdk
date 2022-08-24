@@ -5,7 +5,8 @@ import shutil
 import signal
 import sys
 from datetime import datetime
-from typing import List, Optional, Tuple
+from typing import List, Optional
+from urllib.parse import urlparse
 
 import click
 import yaml
@@ -13,6 +14,7 @@ from botocore.exceptions import ClientError
 from pycognito import Cognito
 from requests import ReadTimeout
 from rich import print
+from rich.console import Console
 
 from superai import __version__
 from superai.apis.meta_ai.model import PredictionError
@@ -20,8 +22,6 @@ from superai.client import Client
 from superai.config import get_config_dir, list_env_configs, set_env_config, settings
 from superai.exceptions import SuperAIAuthorizationError
 from superai.log import logger
-from superai.meta_ai.deployed_predictors import DeployedPredictor
-from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters
 from superai.utils import (
     load_api_key,
     remove_aws_credentials,
@@ -29,6 +29,7 @@ from superai.utils import (
     save_aws_credentials,
     save_cognito_user,
 )
+from superai.utils.files import download_file_to_directory
 from superai.utils.pip_config import pip_configure
 
 BASE_FOLDER = get_config_dir()
@@ -766,6 +767,34 @@ def update_ai(client, id: str, name: str, description: str, visibility: str):
     print(client.update_model(str(id), **params))
 
 
+@ai.command("download")
+@click.argument("artifact_type", type=click.Choice(["source", "weights"]))
+@click.argument("id", type=click.UUID)
+@click.option("--app-id", required=False, help="Application id, necessary for app trained models.")
+@click.option(
+    "--path",
+    required=False,
+    help="Path to download artifact. Default is current working directory.",
+    type=click.Path(exists=True, writable=True),
+    default=os.getcwd(),
+)
+@pass_client
+def download_artifact(client, id: str, artifact_type: str, app_id: str, path: str):
+    """Download model artifact"""
+    # Use rich progress to wait for url
+    console = Console()
+    with console.status(f"Preparing download of {artifact_type} in backend...") as status:
+        url = client.get_artifact_download_url(model_id=str(id), artifact_type=artifact_type, app_id=app_id)
+
+    parsed = urlparse(url)
+    url_path = pathlib.Path(parsed.path)
+    filename = url_path.name
+
+    logger.info(f"Downloading {filename} to {path}")
+    with console.status("Downloading...") as status:
+        download_file_to_directory(url=url, filename=filename, path=path)
+
+
 @ai.group()
 def method():
     """Directly call the AI methods to train and predict"""
@@ -862,6 +891,7 @@ def train(
     train_logger,
 ):
     from superai.meta_ai.ai import AI
+    from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters
 
     click.echo(
         f"Starting training from the path {path} with hyperparameters {hyperparameters} "
@@ -895,7 +925,14 @@ def train(
     required=True,
     type=click.Path(exists=True, readable=True),
 )
-@click.option("--json-input", "-i", required=True, type=str, help="Prediction input. Should be a valid JSON string")
+@click.option(
+    "--data-path",
+    "-dp",
+    help="Path to file location where the input data is stored in the local file system.",
+    type=click.Path(exists=True, readable=True, dir_okay=False),
+    required=False,
+)
+@click.option("--json-input", "-i", required=False, type=str, help="Prediction input. Should be a valid JSON string")
 @click.option(
     "--weights-path",
     "-wp",
@@ -903,16 +940,23 @@ def train(
     help="Path to weights to be loaded",
     type=click.Path(exists=True, readable=True),
 )
-def predict(path, json_input, weights_path=None):
-    from superai.meta_ai import AI
+@click.option(
+    "--metrics-output-dir",
+    required=False,
+    help="If provided, metrics will be computed and saved to this directory.",
+    type=click.Path(file_okay=False, path_type=pathlib.Path),
+)
+def predict(path, json_input=None, data_path: str = None, weights_path=None, metrics_output_dir=None):
+    from superai.meta_ai.ai_helper import load_and_predict
 
-    ai_object = AI.load_local(path, weights_path=weights_path)
-    try:
-        dict_input = json.loads(json_input)
-    except Exception:
-        click.echo("Incorrect JSON string, see if the input is a valid JSON string")
-        raise
-    click.echo(f"Result : {ai_object.predict(inputs=dict_input)}")
+    result = load_and_predict(
+        model_path=path,
+        weights_path=weights_path,
+        data_path=data_path,
+        json_input=json_input,
+        metrics_output_dir=metrics_output_dir,
+    )
+    click.echo(f"Result : {result}")
 
 
 @ai.group(help="Deployed models running in our infrastructure")
@@ -1309,6 +1353,8 @@ def trigger_template_training(client, app_id, model_id, training_template_id, ta
     "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
 )
 def training_deploy(config_file, push=True, clean=True):
+    from superai.meta_ai.ai_helper import obtain_object_template_config
+
     if clean:
         if os.path.exists(".AISave"):
             shutil.rmtree(".AISave")
@@ -1421,25 +1467,6 @@ def update_template(client, app_id, model_id, properties: str, description: str)
         print(f"Updated training template with id={id}")
 
 
-def obtain_object_template_config(config_file: pathlib.Path) -> Tuple:
-    """
-    From the config file, obtain the AITemplate, AI instance and the config
-    Args:
-        config_file: Path to config file
-    Returns:
-        Tuple of AI instance, AITemplate and AIConfig
-    """
-    from superai.meta_ai.ai import AI, AITemplate
-    from superai.meta_ai.config_parser import AIConfig
-
-    config_data = AIConfig(_env_file=str(config_file))
-
-    ai_template_object = AITemplate.from_settings(config_data.template)
-    ai_object = AI.from_settings(ai_template_object, config_data.instance)
-
-    return ai_object, ai_template_object, config_data
-
-
 @template.command(name="list")
 @click.option("--app_id", "-a", help="Application id", required=False, default=None)
 @click.option("--model_id", "-m", help="Model id", required=True)
@@ -1476,21 +1503,26 @@ def view_training_template(client, app_id, template_id):
 @click.option(
     "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
 )
-def deploy_ai(config_file, clean=True):
+@click.option("--push/--no-push", "-p/-np", help="Push to create a model entry", default=False)
+def deploy_ai(config_file, clean=True, push=False):
+    from superai.meta_ai.ai_helper import obtain_object_template_config
+    from superai.meta_ai.deployed_predictors import DeployedPredictor
+
     if clean:
         if os.path.exists(".AISave"):
             shutil.rmtree(".AISave")
     ai_object, ai_template_object, config_data = obtain_object_template_config(config_file=config_file)
-
+    print(f"Configuration : {config_data}")
     if isinstance(config_data.deploy.properties, str):
         properties = json.loads(config_data.deploy.properties)
     else:
         properties = config_data.deploy.properties
-    ai_object.push(
-        update_weights=config_data.deploy.update_weights,
-        overwrite=config_data.deploy.overwrite,
-        weights_path=config_data.instance.weights_path,
-    )
+    if push or config_data.deploy.push:
+        ai_object.push(
+            update_weights=config_data.deploy.update_weights,
+            overwrite=config_data.deploy.overwrite,
+            weights_path=config_data.instance.weights_path,
+        )
     predictor: DeployedPredictor = ai_object.deploy(
         orchestrator=config_data.deploy.orchestrator,
         skip_build=config_data.deploy.skip_build,
@@ -1540,6 +1572,9 @@ def deploy_ai(config_file, clean=True):
 def predictor_test(
     client, config_file, predict_input=None, predict_input_file=None, expected_output=None, expected_output_file=None
 ):
+    from superai.meta_ai.ai_helper import obtain_object_template_config
+    from superai.meta_ai.deployed_predictors import DeployedPredictor
+
     ai_object, ai_template_object, config_data = obtain_object_template_config(config_file=config_file)
     config_path = os.path.join(
         settings.path_for(), "cache", ai_object.name, str(ai_object.version), ".predictor_config.json"
@@ -1576,6 +1611,9 @@ def predictor_test(
 )
 @pass_client
 def predictor_teardown(client, config_file):
+    from superai.meta_ai.ai_helper import obtain_object_template_config
+    from superai.meta_ai.deployed_predictors import DeployedPredictor
+
     ai_object, ai_template_object, config_data = obtain_object_template_config(config_file=config_file)
     config_path = os.path.join(
         settings.path_for(), "cache", ai_object.name, str(ai_object.version), ".predictor_config.json"

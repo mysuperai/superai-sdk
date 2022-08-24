@@ -1,7 +1,9 @@
 import os.path
 import shutil
 
-from superai.meta_ai.ai import AI, AITemplate, TrainingOrchestrator
+from superai.meta_ai.ai import AI
+from superai.meta_ai.ai_template import AITemplate
+from superai.meta_ai.image_builder import TrainingOrchestrator
 from superai.meta_ai.parameters import (
     Config,
     HyperParameterSpec,

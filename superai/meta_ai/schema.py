@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import jsonpickle  # type: ignore
 from apm import *  # type: ignore
-from pydantic import BaseModel, root_validator, validator
+from pydantic import BaseModel, Field, root_validator, validator
 
 from superai.apis.meta_ai.meta_ai_graphql_schema import RawPrediction
 from superai.log import logger
@@ -60,6 +60,8 @@ class SchemaParameters:
 
 class EasyPredictions:
     """
+    --- DEPRECATED ---: use `TaskPredictionInstance` directly instead.
+
     A prediction object which verifies the predictions obtained from the model.
 
     Usage should be like:
@@ -67,40 +69,11 @@ class EasyPredictions:
     """
 
     def __init__(self, input: Optional[Union[Dict, List[Dict], RawPrediction, List[RawPrediction]]] = None):
-        if isinstance(input, RawPrediction):
-            pass
-        elif isinstance(input, dict):
-            assert self.verify(input)
-        elif isinstance(input, list):
-            input_list = input
-            if len(input) == 1 and isinstance(input[0], list):
-                # Sagemaker does not allow returning simple list (it checks for length of Batch)
-                # in that case we wrap the model output in another list
-                # this allows the verification to inspect the correct elements
-                input_list = input[0]
-            for a in input_list:
-                if not isinstance(a, RawPrediction):
-                    assert self.verify(a)
+        if isinstance(input, RawPrediction) or (isinstance(input, list) and isinstance(input[0], RawPrediction)):
+            log.warning("RawPrediction is deprecated. Use TaskPredictionInstance instead.")
         else:
-            log.info(f"Received input : {input}")
-            raise ValueError(f"Unexpected type {type(input)}, needs to be a dict or list")
+            TaskPredictionInstance.validate_prediction(input)
         self.value = input
-
-    @staticmethod
-    def verify(args):
-        if args is None:
-            raise AttributeError("Need to pass some input")
-        result = {}
-        if not match(
-            args,
-            {"prediction": "prediction" @ _},
-        ).bind(result):
-            log.info(f"Received input : {args}")
-            raise AttributeError("Keys `prediction` needs to be present")
-        if not match(args, {"score": "score" @ (InstanceOf(int) | InstanceOf(float)) & Between(0, 1)}).bind(result):
-            log.info(f"Received input : {args}")
-            raise AttributeError("Keys `score` needs to be present and between 0 and 1")
-        return True
 
 
 class LogMetric(BaseModel):
@@ -160,3 +133,110 @@ class TrainerOutput(BaseModel):
     class Config:
         validate_assignment = True
         validate_all = True
+
+
+class TaskElement(BaseModel):
+    type: str
+    schema_instance: Any
+
+    def __getitem__(self, item):
+        """allows access via "[field]" to make backwards compatible with old code"""
+        return getattr(self, item)
+
+
+class TaskIO(BaseModel):
+    __root__: List[TaskElement]
+
+    def __iter__(self):
+        return iter(self.__root__)
+
+    def __len__(self):
+        return len(self.__root__)
+
+    def __getitem__(self, item):
+        return self.__root__[item]
+
+
+class TaskInput(TaskIO):
+    pass
+
+
+class TaskOutput(TaskIO):
+    pass
+
+
+class TaskBatchIO(BaseModel):
+    __root__: List[TaskIO]
+
+    def __iter__(self):
+        return iter(self.__root__)
+
+    def __len__(self):
+        return len(self.__root__)
+
+    def __getitem__(self, item):
+        return self.__root__[item]
+
+
+class TaskBatchInput(TaskBatchIO):
+    pass
+
+
+class TaskBatchOutput(TaskBatchIO):
+    pass
+
+
+class TaskPredictionInstance(BaseModel):
+    prediction: Union[TaskOutput, dict, str, RawPrediction]  # TODO: Deprecated dict,str usage here
+    score: float = Field(..., ge=0, le=1)
+
+    def __getitem__(self, item):
+        """allows access via "[field]" to make backwards compatible with old code"""
+        return getattr(self, item)
+
+    class Config:
+        arbitrary_types_allowed = True
+
+    @validator("prediction")
+    def validate_prediction_field(cls, value):
+        if isinstance(value, TaskOutput):
+            return True
+        elif isinstance(value, dict):
+            log.warning(
+                "Deprecation: TaskPredictionInstance.prediction is expected to be of type `TaskOutput`, but got a dict. "
+            )
+            return True
+        elif isinstance(value, str):
+            log.warning(
+                "Deprecation: TaskPredictionInstance.prediction is expected to be of type `TaskOutput`, but got a str. "
+            )
+            return True
+        elif isinstance(value, RawPrediction):
+            log.warning(
+                "Deprecation: TaskPredictionInstance.prediction is expected to be of type `TaskOutput`, but got a RawPrediction. "
+            )
+            return True
+        else:
+            return False
+
+    @classmethod
+    def validate_prediction(cls, prediction) -> Union[List["TaskPredictionInstance"], "TaskPredictionInstance", Any]:
+        if isinstance(prediction, list):
+            result = [cls.parse_obj(x) for x in prediction]
+        elif isinstance(prediction, dict):
+            log.warning("model_class.predict returned a dict. We expect a list of TaskPredictionInstance.")
+            result = cls.parse_obj(prediction)
+        elif prediction is None:
+            result = cls.parse_obj(prediction)
+        else:
+            log.warning("model_class.predict returned a non-standard object. Expecting List[TaskPredictionInstance].")
+            result = prediction
+        return result
+
+    @classmethod
+    def validate_prediction_batch(cls, batch) -> List[List["TaskPredictionInstance"]]:
+        # Parse TaskPredictionInstance in nested list
+        # The outer list is of size(len(inputs))
+        # The inner list has unknown size, since it is a list of possible prediction_instances generated by the model
+        result = [[cls.parse_obj(instance) for instance in prediction] for prediction in batch]
+        return result

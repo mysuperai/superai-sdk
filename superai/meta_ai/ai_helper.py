@@ -4,15 +4,19 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import boto3
+import numpy as np
 import pandas as pd
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 from superai import Client
 from superai.log import logger
+from superai.meta_ai.dataset import Dataset
 from superai.utils import load_api_key, load_auth_token, load_id_token
+
+PREDICTION_METRICS_JSON = "metrics.json"
 
 log = logger.get_logger(__name__)
 
@@ -48,13 +52,18 @@ def list_models(
         return table
 
 
-def get_user_model_class(model_name, path: str = "."):
-    """Obtain a class definition given the path to the class module"""
-    cwd = os.getcwd()
-    path_dir = os.path.abspath(path)
-    if path != ".":
-        os.chdir(path_dir)
-        sys.path.append(path_dir)
+def get_user_model_class(model_name, save_location, path: Union[str, Path] = "."):
+    """Obtain a class definition given the path to the class module
+
+    Args:
+        save_location: Location of the stored model (e.g. .AISave/...)
+        path: Path to the class module relative to `save_location`
+        model_name: Name of the model
+    """
+    location = Path(save_location)
+    path_dir = location / path
+    ai_module_path_str = str(path_dir.absolute())
+    sys.path.append(ai_module_path_str)
     parts = model_name.rsplit(".", 1)
     if len(parts) == 1:
         logger.info(f"Importing {model_name} from {path} (Absolute path: {path_dir})")
@@ -64,9 +73,7 @@ def get_user_model_class(model_name, path: str = "."):
         logger.info(f"Importing submodule {parts}")
         interface_file = importlib.import_module(parts[0])
         user_class = getattr(interface_file, parts[1])
-    if path != ".":
-        os.chdir(cwd)
-        sys.path.remove(path_dir)
+    sys.path.remove(ai_module_path_str)
     return user_class
 
 
@@ -91,7 +98,7 @@ def create_model_entrypoint(worker_count: int) -> str:
     return entry_point_file_content
 
 
-def create_model_handler(model_name: str, ai_cache: int, lambda_mode: bool) -> str:
+def create_model_handler(model_name: str, lambda_mode: bool, ai_cache: int = None) -> str:
     """Creates a model handler python script called by sagemaker to wrap the AI class."""
     assert model_name, "Model name must be provided"
     jinja_env = Environment(
@@ -116,40 +123,152 @@ def find_root_model(name, client) -> Optional[str]:
             return possible_root_models[0].id
         else:
             log.error(
-                "Found multiple possible root AIs based on name: {possible_root_models}. Please pass an explicit root_id."
+                f"Found multiple possible root AIs based on name: {possible_root_models}. Please pass an explicit root_id."
             )
 
 
-def upload_dir(localDir, awsInitDir, bucketName, prefix="/"):
+def upload_dir(local_dir: Union[Path, str], aws_root_dir: Union[Path, str], bucket_name: str, prefix: str = "/"):
     """
-    from current working directory, upload a 'localDir' with all its subcontents (files and subdirectories...)
+    from current working directory, upload a 'local_dir' with all its subcontents (files and subdirectories...)
     to a aws bucket
     Parameters
     ----------
-    localDir :   localDirectory to be uploaded, with respect to current working directory
-    awsInitDir : prefix 'directory' in aws
-    bucketName : bucket in aws
-    prefix :     to remove initial '/' from file names
+    local_dir : local directory to be uploaded, with respect to current working directory
+    aws_root_dir : prefix 'directory' in aws
+    bucket_name : bucket in aws
+    prefix : to remove initial '/' from file names
 
     https://stackoverflow.com/a/64445594/15820564
     Returns
     -------
     None
     """
-    assert localDir, "localDir must be provided"
-    log.info("Uploading directory: {} to bucket: {}".format(localDir, bucketName))
+    log.info(f"Uploading directory: {local_dir} to bucket: {bucket_name}")
     s3 = boto3.resource("s3")
     cwd = str(Path.cwd())
-    p = Path(os.path.join(Path.cwd(), localDir))
-    mydirs = list(p.glob("**"))
-    for mydir in mydirs:
-        fileNames = glob.glob(os.path.join(mydir, "*"))
-        fileNames = [f for f in fileNames if not Path(f).is_dir()]
-        len(fileNames)
-        for i, fileName in enumerate(fileNames):
-            fileName = str(fileName).replace(os.path.join(cwd, localDir), "")
-            if fileName.startswith(prefix):  # only modify the text if it starts with the prefix
-                fileName = fileName.replace(prefix, "", 1)  # remove one instance of prefix
-            log.info("Uploading file: {}".format(fileName))
-            awsPath = os.path.join(awsInitDir, str(fileName))
-            s3.meta.client.upload_file(os.path.join(localDir, fileName), bucketName, awsPath)
+    p = Path(os.path.join(Path.cwd(), local_dir))
+    subdirectories = list(p.glob("**"))
+    for subdir in subdirectories:
+        file_names = glob.glob(os.path.join(subdir, "*"))
+        file_names = [f for f in file_names if not Path(f).is_dir()]
+        for i, file_name in enumerate(file_names):
+            file_name = str(file_name).replace(os.path.join(cwd, local_dir), "")
+            if file_name.startswith(prefix):  # only modify the text if it starts with the prefix
+                file_name = file_name.replace(prefix, "", 1)  # remove one instance of prefix
+            log.info(f"Uploading file: {file_name}")
+            aws_path = os.path.join(aws_root_dir, str(file_name))
+            s3.meta.client.upload_file(os.path.join(local_dir, file_name), bucket_name, aws_path)
+
+
+def obtain_object_template_config(config_file: Union[Path, str]) -> Tuple:
+    """
+    From the config file, obtain the AITemplate, AI instance and the config
+    Args:
+        config_file: Path to config file
+    Returns:
+        Tuple of AI instance, AITemplate and AIConfig
+    """
+    from superai.meta_ai.ai import AI
+    from superai.meta_ai.ai_template import AITemplate
+    from superai.meta_ai.config_parser import AIConfig
+
+    config_data = AIConfig(_env_file=str(config_file))
+
+    ai_template_object = AITemplate.from_settings(config_data.template)
+    ai_object = AI.from_settings(ai_template_object, config_data.instance)
+
+    return ai_object, ai_template_object, config_data
+
+
+def load_and_predict(
+    model_path: Union[Path, str],
+    weights_path: Optional[Union[Path, str]] = None,
+    data_path: Optional[Union[Path, str]] = None,
+    json_input: Optional[str] = None,
+    metrics_output_dir: Path = None,
+):
+    """
+    Loads a model and makes a prediction on the data.
+    Supports json string input or json file input.
+
+    Parameters
+    ----------
+    model_path : str, Path
+        Path to the model directory.
+    weights_path : str, Path, optional
+        Path to the weights file.
+    data_path : str, Path, optional
+        Path to the data file.
+    json_input : str, optional
+        JSON string input.
+    metrics_output_dir : Path, optional
+        Path to the directory where metrics will be saved.
+
+
+    """
+    if json_input is None and data_path is None:
+        raise ValueError("No input data provided. Please provide either a JSON input or a data path")
+    if data_path and json_input:
+        raise ValueError("Please provide either a JSON input or a data path")
+
+    from superai.meta_ai import AI
+
+    if metrics_output_dir:
+        try:
+            from polyaxon import tracking
+
+            tracking.init()
+        except:
+            log.debug("Polyaxon not installed. Tracking not enabled.")
+
+    model_path = str(Path(model_path).absolute())
+    log.info(f"Loading model files from: {model_path}")
+    if weights_path:
+        weights_path = str(Path(weights_path).absolute())
+        log.info(f"Loading model weights from: {weights_path}")
+    if data_path:
+        data_path = Path(data_path).absolute()
+        log.info(f"Loading data from: {data_path}")
+        dataset = Dataset.from_file(data_path)
+    else:
+        dataset = Dataset.from_json(json_input=json_input)
+    log.info(f"Dataset loaded: {dataset}")
+
+    ai_object = AI.load_local(model_path, weights_path=weights_path)
+    task_input = dataset.X_train
+    if len(task_input) > 1:
+        result = ai_object.predict_batch(task_input)
+        scores = [instance["score"] for p in result for instance in p]
+        predict_score = np.mean(scores)
+    else:
+        result = ai_object.predict(task_input[0])
+        scores = [instance["score"] for instance in result]
+        predict_score = np.mean(scores)
+    log.info("Prediction score: {}".format(predict_score))
+    if metrics_output_dir:
+        store_prediction_metrics(metrics_output_dir, dict(score=predict_score))
+    return result
+
+
+def store_prediction_metrics(
+    metrics_output_dir: Union[Path, str], metrics: dict, filename: str = PREDICTION_METRICS_JSON
+) -> Path:
+    """
+    Method to store prediction metrics in a json file.
+    Args:
+        metrics_output_dir: Path to the directory where metrics will be saved.
+        metrics: dict
+            Dictionary of metrics.
+            Keys should be the metric names and values should be the metric values.
+
+    Returns:
+
+    """
+    metrics_output_dir = Path(metrics_output_dir)
+    metrics_output_dir.mkdir(parents=True, exist_ok=True)
+    metrics_output_path = metrics_output_dir / filename
+
+    with open(metrics_output_path, "w") as f:
+        json.dump(metrics, f)
+    log.info("Metrics saved to: {}".format(metrics_output_path))
+    return metrics_output_path

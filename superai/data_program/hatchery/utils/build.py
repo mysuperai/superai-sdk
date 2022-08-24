@@ -10,6 +10,7 @@ from sys import exit
 from typing import List
 
 from colorama import Fore, Style
+from rich.progress import DownloadColumn, Progress, TransferSpeedColumn
 from yaml import safe_load
 
 from superai.config import settings
@@ -150,23 +151,22 @@ def copy_local(filename: str):
 
 @logdecorator.log_on_start(
     logging.DEBUG,
-    Fore.CYAN + "Started downloading from s3 bucket {bucket:s} file:{filename:s}" + Style.RESET_ALL,
+    "Started downloading from s3 bucket {bucket:s} file:{filename:s}",
 )
 @logdecorator.log_on_end(
     logging.DEBUG,
-    Fore.CYAN
-    + "Downloading from s3 bucket {bucket:s} file:{filename:s} finished successfully {result!s}"
-    + Style.RESET_ALL,
+    "Downloading from s3 bucket {bucket:s} file:{filename:s} finished successfully {result!s}",
 )
 @logdecorator.log_on_error(
     logging.ERROR,
-    Fore.RED + "Error on downloading from s3 bucket {bucket:s} file:{filename:s}: {e!r}" + Style.RESET_ALL,
+    "Error on downloading from s3 bucket {bucket:s} file:{filename:s}: {e!r}",
     on_exceptions=Exception,
     reraise=True,
 )
 def copy_from_s3(bucket: str, filename: str, force_copy: bool = True):
     import boto3
     import botocore
+    from boto3.s3.transfer import TransferConfig
 
     session = boto3.session.Session(profile_name="superai")
     s3 = session.resource("s3")
@@ -174,26 +174,33 @@ def copy_from_s3(bucket: str, filename: str, force_copy: bool = True):
     filename = filename.strip()
     filePath = Path(filename)
     destinationPath = build_path(filePath.name)
+    s3_bucket = s3.Bucket(bucket)
 
     if force_copy or not Path(destinationPath).exists():
-        log.info(
-            Fore.LIGHTBLACK_EX
-            + 'Pulling "{}" from bucket "{}" to "{}"'.format(filename, bucket, build_path(filePath.name))
-            + Style.RESET_ALL
-        )
+        log.info('Pulling "{}" from bucket "{}" to "{}"'.format(filename, bucket, destinationPath))
         try:
-            s3.Bucket(bucket).download_file(filename, destinationPath)
+            # Use Rich progress bar to track download progress
+            size_bytes = s3_bucket.Object(filename).content_length
+            with Progress(*Progress.get_default_columns(), DownloadColumn(), TransferSpeedColumn()) as progress:
+                download_task = progress.add_task("Downloading", total=size_bytes, unit="B")
+
+                def work_done(chunk):
+                    progress.update(download_task, advance=chunk)
+
+                # Disable threading during transfer to mitigate Python 3.9 threading issues
+                config = TransferConfig(use_threads=False)
+                s3_bucket.download_file(filename, destinationPath, Config=config, Callback=work_done)
         except botocore.exceptions.ClientError as e:
             if e.response["Error"]["Code"] == "404" or e.response["Error"]["Code"] == "403":
+                log.error(f"prefix {bucket} and filename {filename} does not exist or aws access is forbidden")
+            if e.response["Error"]["Code"] == "400":
                 log.error(
-                    Fore.RED
-                    + f"prefix {bucket} and filename {filename} does not exist or aws access is forbidden"
-                    + Style.RESET_ALL
+                    f"S3 Operation not possible. Is session token still valid? Try `superai login` again when in doubt."
                 )
-            log.error(Fore.RED + str(e) + Style.RESET_ALL)
+            log.error(str(e))
             exit(1)
     else:
-        log.info(Fore.LIGHTBLACK_EX + f'{destinationPath} exists"' + Style.RESET_ALL)
+        log.info(f"{destinationPath} exists")
     return Path(destinationPath)
 
 

@@ -6,6 +6,7 @@ from sgqlc.endpoint.websocket import WebSocketEndpoint
 from sgqlc.operation import Operation
 
 from superai.config import settings
+from superai.exceptions import SuperAIAuthorizationError
 from superai.utils.apikey_manager import load_api_key
 from superai.utils.decorators import retry
 
@@ -21,11 +22,10 @@ class MetaAISession(RequestsEndpoint):
     """
 
     def __init__(self, app_id: str = None, timeout: int = 60):
-        base_url = f"{settings.get('meta_ai_request_protocol')}://{settings.get('meta_ai_base')}"
-        # base_url = "http://localhost:52619/v1/graphql"
+        self.base_url = f"{settings.get('meta_ai_request_protocol')}://{settings.get('meta_ai_base')}"
         api_key = load_api_key()
         headers = {"x-api-key": api_key, "x-app-id": app_id, "Accept-Encoding": "gzip"}
-        super().__init__(base_url, headers, timeout=timeout)
+        super().__init__(self.base_url, headers, timeout=timeout)
 
     @retry(TimeoutError)
     def perform_op(self, op: Operation, timeout: int = 60):
@@ -34,6 +34,8 @@ class MetaAISession(RequestsEndpoint):
             error = data["errors"][0]
             if "Endpoint request timed out" in str(error):
                 raise TimeoutError()
+            elif "Authentication hook unauthorized" in str(error):
+                raise SuperAIAuthorizationError(error, error_code=401, endpoint=self.base_url)
             else:
                 raise GraphQlException(data)
         else:

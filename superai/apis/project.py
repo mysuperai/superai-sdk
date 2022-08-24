@@ -340,7 +340,7 @@ class ProjectApiMixin(ABC):
         on_exceptions=Exception,
         reraise=True,
     )
-    def create_project(self, body, **kwargs):
+    def create_project(self, body, org=None, **kwargs):
         """Update a superai given its uuid
 
         If the dataprogram already exists and it is owned by  somebody else then if will throw a 409
@@ -356,6 +356,10 @@ class ProjectApiMixin(ABC):
         all_params.append("_request_timeout")
 
         params = locals()
+        query_params = {}
+        if org:
+            query_params["org"] = org
+        del params["org"]
         for key, val in six.iteritems(params["kwargs"]):
             if key not in all_params:
                 raise TypeError("Got an unexpected keyword argument '%s'" " to method update_template" % key)
@@ -366,8 +370,6 @@ class ProjectApiMixin(ABC):
             raise ValueError("Missing the required parameter `body` when calling `update_instance`")
 
         collection_formats = {}
-
-        query_params = []
 
         header_params = {}
         if "x_fields" in params:

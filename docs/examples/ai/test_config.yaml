@@ -3,7 +3,7 @@ template:
   description: "Keras MNIST Model testing template"
   model_class: "MyKerasModel"
   requirements:
-    - tensorflow
+    - tensorflow==2.9.0
     - opencv-python-headless==4.5.5.64
     - protobuf<4.*,>=3.20.1
 instance:
@@ -17,7 +17,8 @@ deploy:
   properties: {}
   enable_cuda: false
   redeploy: true
-  build_all_layers: false
-  download_base: true
+  build_all_layers: true
+  download_base: false
   update_weights: true
   overwrite: true
+  push: true

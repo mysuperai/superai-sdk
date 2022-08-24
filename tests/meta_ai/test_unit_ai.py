@@ -2,12 +2,17 @@ import logging
 import os
 import shutil
 import tarfile
+from pathlib import Path
 from subprocess import CalledProcessError
 
 import pytest
+from docker import DockerClient
+from docker.api import APIClient
+from docker.models.images import Image
 
 from superai.meta_ai import AI
-from superai.meta_ai.ai import AITemplate
+from superai.meta_ai.ai_template import AITemplate
+from superai.meta_ai.image_builder import AiImageBuilder, Orchestrator, kwargs_warning
 from superai.meta_ai.parameters import Config
 from superai.meta_ai.schema import Schema
 
@@ -45,7 +50,7 @@ def test_compression():
     os.remove(path_to_tarfile)
 
 
-def test_track_changes(caplog):
+def test_track_changes(caplog, tmp_path, clean):
     caplog.set_level(logging.INFO)
     template = AITemplate(
         input_schema=Schema(),
@@ -60,7 +65,7 @@ def test_track_changes(caplog):
         ai_template=template,
         input_params=template.input_schema.parameters(),
         output_params=template.output_schema.parameters(choices=map(str, range(0, 10))),
-        name="my_mnist_model",
+        name="my_mnist_model2",
         version=1,
     )
     pwd = os.getcwd()
@@ -69,13 +74,127 @@ def test_track_changes(caplog):
         backup_content = fp.read()
     with open("requirements.txt", "a") as fp:
         fp.write("\nscipy")
-    assert ai._track_changes()
-    assert not ai._track_changes()
+    builder = AiImageBuilder(
+        orchestrator=Orchestrator.LOCAL_DOCKER,
+        name=ai.name,
+        version=ai.version,
+        location=ai._location,
+        environs=ai.environs,
+        entrypoint_class=template.model_class,
+        requirements=ai.requirements,
+        conda_env=ai.conda_env,
+        artifacts=ai.artifacts,
+    )
+    assert builder._track_changes(cache_root=tmp_path)
+    assert not builder._track_changes(cache_root=tmp_path)
     with open("requirements.txt", "w") as fp:
         fp.write(backup_content)
-    assert ai._track_changes()
-    assert not ai._track_changes()
+    assert builder._track_changes(cache_root=tmp_path)
+    assert not builder._track_changes(cache_root=tmp_path)
     os.chdir(pwd)
+
+
+def test_conda_pip_dependencies(caplog, clean):
+    caplog.set_level(logging.INFO)
+    template = AITemplate(
+        input_schema=Schema(),
+        output_schema=Schema(),
+        configuration=Config(),
+        name="My_template",
+        description="Template for my new awesome project",
+        model_class="MyKerasModel",
+        conda_env={
+            "name": "keras-model",
+            "dependencies": ["pip", "tensorflow", {"pip": ["opencv-python-headless"]}],
+        },
+        requirements=["imgaug", "scikit-image"],
+    )
+    ai = AI(
+        ai_template=template,
+        input_params=template.input_schema.parameters(),
+        output_params=template.output_schema.parameters(choices=map(str, range(0, 10))),
+        name="my_mnist_model2",
+        version=1,
+    )
+    pwd = os.getcwd()
+    os.chdir(ai._location)
+    with open("requirements.txt", "r") as fp:
+        requirements = fp.read()
+    with open("environment.yml", "r") as fp:
+        conda_env_text = fp.read()
+    assert "tensorflow" in conda_env_text
+    assert "opencv-python-headless" not in conda_env_text
+    assert all(requirement in requirements for requirement in ["opencv-python-headless", "imgaug", "scikit-image"])
+    os.chdir(pwd)
+
+
+@pytest.mark.parametrize("enable_cuda", [True, False])
+@pytest.mark.parametrize("skip_build", [True, False])
+@pytest.mark.parametrize("build_all_layers", [True, False])
+@pytest.mark.parametrize("download_base", [True, False])
+def test_builder(caplog, capsys, mocker, enable_cuda, skip_build, build_all_layers, download_base):
+    caplog.set_level(logging.DEBUG)
+    template = AITemplate(
+        input_schema=Schema(),
+        output_schema=Schema(),
+        configuration=Config(),
+        name="My_template",
+        description="Template for my new awesome project",
+        model_class="DummyModel",
+        model_class_path=Path(__file__).parent / "fixtures" / "model",
+        requirements=["sklearn"],
+    )
+    ai = AI(
+        ai_template=template,
+        input_params=template.input_schema.parameters(),
+        output_params=template.output_schema.parameters(choices=map(str, range(0, 10))),
+        name="my_dummy_model",
+        version=1,
+    )
+    builder = AiImageBuilder(
+        orchestrator=Orchestrator.LOCAL_DOCKER,
+        name=ai.name,
+        version=ai.version,
+        location=ai._location,
+        environs=ai.environs,
+        entrypoint_class=template.model_class,
+        requirements=ai.requirements,
+        conda_env=ai.conda_env,
+        artifacts=ai.artifacts,
+    )
+    # Disable actual S2I call until we have efficient way to test it
+    mocker.patch("superai.meta_ai.image_builder.system", return_value=0)
+    # Mock Docker client and API client
+    mock_docker_client = mocker.Mock(spec=DockerClient)
+    mock_docker_client.api = mocker.Mock(spec=APIClient)
+    mock_image = mocker.Mock(spec=Image)
+    mock_image._id = "test_image_id"
+    mock_docker_client.images.get.return_value = mock_image
+    mock_docker_client.images.pull.return_value = mock_image
+    mock_docker_client.api.reload_config.return_value = None
+    mocker.patch("superai.meta_ai.image_builder.get_docker_client", return_value=mock_docker_client)
+    # Mock s2i availability
+    mocker.patch("superai.meta_ai.image_builder.shutil.which", return_value="s2i")
+    # Mock ecr login
+    mocker.patch("superai.meta_ai.image_builder.aws_ecr_login", return_value=0)
+    # Mock ecr registry call
+    mocker.patch(
+        "superai.meta_ai.image_builder.AiImageBuilder._get_docker_registry",
+        return_value="123.dkr.ecr.us-east-1.amazonaws.com",
+    )
+
+    properties = dict(kubernetes_config=dict(minReplicas=1, maxReplicas=5))
+    image_name, new_properties = builder.build_image(
+        skip_build=skip_build,
+        build_all_layers=build_all_layers,
+        download_base=download_base,
+        enable_cuda=enable_cuda,
+        properties=properties,
+    )
+    assert image_name == f"{ai.name}:{ai.version}"
+    assert new_properties
+    assert new_properties["kubernetes_config"]["minReplicas"] == 1
+    assert new_properties["kubernetes_config"]["maxReplicas"] == 5
 
 
 def test_system_commands():
@@ -90,11 +209,17 @@ def test_system_commands():
 
 
 def test_base_name():
-    assert AI._get_base_name() == f"superai-model-s2i-python3711-cpu:1"
-    assert AI._get_base_name(enable_cuda=True) == f"superai-model-s2i-python3711-gpu:1"
-    assert AI._get_base_name(lambda_mode=True) == f"superai-model-s2i-python3711-cpu-lambda:1"
-    assert AI._get_base_name(k8s_mode=True) == f"superai-model-s2i-python3711-cpu-seldon:1"
-    assert AI._get_base_name(k8s_mode=True, enable_cuda=True) == f"superai-model-s2i-python3711-gpu-seldon:1"
+    assert AiImageBuilder._get_base_name() == f"superai-model-s2i-python3711-cpu:1"
+    assert AiImageBuilder._get_base_name(enable_cuda=True) == f"superai-model-s2i-python3711-gpu:1"
+    assert AiImageBuilder._get_base_name(lambda_mode=True) == f"superai-model-s2i-python3711-cpu-lambda:1"
+    assert AiImageBuilder._get_base_name(k8s_mode=True) == f"superai-model-s2i-python3711-cpu-seldon:1"
+    assert (
+        AiImageBuilder._get_base_name(k8s_mode=True, enable_cuda=True) == f"superai-model-s2i-python3711-gpu-seldon:1"
+    )
+    assert (
+        AiImageBuilder._get_base_name(k8s_mode=True, enable_cuda=True, use_internal=True)
+        == f"superai-model-s2i-python3711-gpu-internal-seldon:1"
+    )
 
 
 def test_kwargs_warning(monkeypatch):
@@ -107,7 +232,7 @@ def test_kwargs_warning(monkeypatch):
         assert "some_argument" not in list(kwargs.keys())
         assert "other_argument" not in list(kwargs.keys())
         assert "random_arg" in list(kwargs.keys())
-        AI.kwargs_warning(allowed_kwargs=["random_arg"], **kwargs)
+        kwargs_warning(allowed_kwargs=["random_arg"], **kwargs)
 
     monkeypatch.setattr(log, "warn", warn_method)
     dummy_method(random_arg="bla")

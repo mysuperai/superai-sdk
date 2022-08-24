@@ -2,8 +2,8 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import asyncio
 import os
-import shutil
-from tempfile import NamedTemporaryFile
+import tempfile
+from io import BytesIO
 from time import time
 
 import boto3
@@ -16,34 +16,41 @@ from superai.log import logger
 
 log = logger.get_logger(__name__)
 
-
-cache = Cache(
-    directory=f"memo/{settings.name}", size_limit=settings.cache_size_in_bytes, eviction_policy="least-recently-used"
+cache = None
+_cache_dir = os.path.join(tempfile.gettempdir(), "memo", settings.name)
+cache_settings = dict(
+    directory=_cache_dir, size_limit=settings.cache_size_in_bytes, eviction_policy="least-recently-used"
 )
 
 
+def init_cache():
+    global cache
+    if not cache:
+        cache = Cache(**cache_settings)
+
+
 # TODO removing push function
-def _push_to_s3(filename, path, client, s3_bucket):
-    # client.upload_file
-    client.meta.client.upload_file(
-        path, s3_bucket, filename, Config=boto3.s3.transfer.TransferConfig(use_threads=False)
+def _push_to_s3(filename, object, client, s3_bucket):
+    client.Bucket(s3_bucket)
+    client.meta.client.upload_fileobj(
+        Fileobj=object, Key=filename, Bucket=s3_bucket, Config=boto3.s3.transfer.TransferConfig(use_threads=False)
     )
 
 
-def _pull_from_s3(path, filename, client, s3_bucket):
-    dest_folder = os.path.dirname(filename)
-    if not os.path.isdir(dest_folder):
-        os.makedirs(dest_folder)
+def _pull_from_s3(object, filename, client, s3_bucket) -> object:
     bucket = client.Bucket(s3_bucket)
-    bucket.download_file(filename, path, Config=boto3.s3.transfer.TransferConfig(use_threads=False))
+    return bucket.download_fileobj(
+        Key=filename, Fileobj=object, Config=boto3.s3.transfer.TransferConfig(use_threads=False)
+    )
 
 
-def _refresh_push_to_s3(method, filepath, client, s3_bucket):
+def _refresh_push_to_s3(method, filepath, client, s3_bucket) -> object:
     result = method()
+    init_cache()
     cache[filepath] = result
-    with NamedTemporaryFile(mode="w") as tmpfile:
-        joblib.dump(result, tmpfile.name)
-        _push_to_s3(filepath, tmpfile.name, client, s3_bucket)
+    with BytesIO() as tmpfile:
+        joblib.dump(result, tmpfile)
+        _push_to_s3(filepath, tmpfile, client, s3_bucket)
     return result
 
 
@@ -57,25 +64,24 @@ def memo(method, filename, folder=None, refresh=False):
         session = boto3.session.Session()
         client = session.resource("s3")
         s3_bucket = settings.memo_bucket
-
         filepath = os.path.join(folder, filename)
-        if not os.path.isdir(os.path.dirname(filepath)):
-            os.makedirs(os.path.dirname(filepath))
 
         # logic
         if refresh:  # if forced refresh, then redo the method
             log.info("Refresh True {0}".format(method.__name__))
             return _refresh_push_to_s3(method, filepath, client, s3_bucket)
-
+        init_cache()
         if filepath in cache:  # if have local cache, great, then continue
-            return cache.get(filepath)
+            result = cache.get(filepath)
+            return result
         else:  # if local cache does not exist,
             try:  # try checking s3 for cache first, if exist, then return the value
-                with NamedTemporaryFile(mode="w") as tempfile:
-                    _pull_from_s3(tempfile.name, filename, client, s3_bucket)
-                    loaded_res = joblib.load(tempfile.name)
-                    cache[filepath] = loaded_res
-                    return loaded_res
+                with BytesIO() as tmpfile:
+                    _pull_from_s3(tmpfile, filename, client, s3_bucket)
+                    result = joblib.load(tmpfile)
+                init_cache()
+                cache[filepath] = result
+                return result
             except botocore.exceptions.ClientError as e:
                 if e.response["Error"]["Code"] == "404":  # no local/s3 cache, produce the task, cache in local and s3
                     log.debug("The S3 and local cache does not exist.")
@@ -148,12 +154,9 @@ def forget_memo(filename, folder=None, prefix: str = None):
 
     if filename:
         filepath = os.path.join(folder, filename)
-        if os.path.isfile(filepath):
-            log.info(f"Removing local memo for {folder}/{filename}")
-            os.remove(filepath)
-        else:
-            log.info(f"No local memo found for {folder}/{filename}")
-
+        init_cache()
+        if filepath in cache:  # if have local cache, great, then continue
+            cache.pop(filepath)
         try:
             log.info(f"Removing s3 memo for {s3_bucket}/{folder}/{filename}")
             session = boto3.session.Session()
@@ -163,16 +166,6 @@ def forget_memo(filename, folder=None, prefix: str = None):
             log.warning("S3 Error: {}".format(e))
 
     if prefix:
-        try:
-            dirpath = os.path.join(folder, prefix)
-            if os.path.isdir(dirpath):
-                log.info(f"Removing local memo for {dirpath}")
-                shutil.rmtree(dirpath)
-            else:
-                log.info(f"No local memo found for {folder}/{filename}")
-        except Exception as e:
-            log.warning(f"Exception while deleting memo {e}")
-
         try:
             s3_prefix = f"{folder}/{prefix}" if prefix.endswith("/") else f"{folder}/{prefix}/"
             log.info(f"Removing s3 memo for Bucket={s3_bucket} Prefix={s3_prefix}")

@@ -6,13 +6,13 @@ import os
 import tarfile
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional, Union
 from urllib.parse import urlparse
 
 import boto3
 
 from superai.meta_ai.parameters import Config, HyperParameterSpec, ModelParameters
-from superai.meta_ai.schema import Schema, SchemaParameters, TrainerOutput
+from superai.meta_ai.schema import Schema, SchemaParameters, TaskInput, TrainerOutput
 from superai.meta_ai.tracking import SuperTracker
 
 default_random_seed = 65778
@@ -198,7 +198,7 @@ class BaseModel(metaclass=ABCMeta):
         return inference_output
 
     @abstractmethod
-    def predict(self, inputs, context=None):
+    def predict(self, inputs: Union[TaskInput, List[dict]], context=None):
         """Generate model predictions.
 
         Enforces the input schema first before calling the model implementation with the sanitized input.
@@ -213,6 +213,21 @@ class BaseModel(metaclass=ABCMeta):
         Returns
             Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
+
+    def predict_batch(self, input_batch: List[Union[TaskInput, List[dict]]], context=None):
+        """
+        Generate model predictions for a batch of inputs.
+        Can be overridden to support more efficient batch predictions inside the model.
+
+        Args:
+            input_batch: List of model input
+            context: Support for seldon predict calls
+
+        Returns:
+            List of model predictions.
+        """
+        log.warning("predict_batch() is not implemented. Falling back to loop predict method.")
+        return [self.predict(input, context) for input in input_batch]
 
     @abstractmethod
     def train(

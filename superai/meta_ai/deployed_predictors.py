@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import shutil
 from abc import ABCMeta, abstractmethod
@@ -14,6 +16,7 @@ from rich.prompt import Confirm
 
 from superai import Client
 from superai.meta_ai.dockerizer import get_docker_client
+from superai.meta_ai.image_builder import Orchestrator
 from superai.meta_ai.schema import EasyPredictions
 from superai.utils import log
 
@@ -52,14 +55,17 @@ class DeployedPredictor(metaclass=ABCMeta):
 
 
 class LocalPredictor(DeployedPredictor):
-    def __init__(self, *args, existing=False, remove=True, **kwargs):
+    def __init__(self, *args, deploy_properties: dict, existing=False, remove=True, **kwargs):
         super(LocalPredictor, self).__init__(*args, **kwargs)
         client = get_docker_client()
-        self.lambda_mode = kwargs.get("lambda_mode", False)
-        self.enable_cuda = kwargs.get("enable_cuda", False)
-        self.k8s_mode = kwargs.get("k8s_mode", False)
-        container_name = kwargs["image_name"].replace(":", "_")
-        weights_volume = "/mnt/models" if self.k8s_mode else "/opt/ml/model/"
+        self.deploy_properties = deploy_properties
+        self.lambda_mode = deploy_properties.get("lambda_mode", False)
+        self.enable_cuda = deploy_properties.get("enable_cuda", False)
+        self.k8s_mode = deploy_properties.get("k8s_mode", False)
+        self.ai = kwargs.get("ai")
+        self.weights_path = deploy_properties.get("weights_path") or self.ai.weights_path
+        container_name = deploy_properties["image_name"].replace(":", "_")
+        weights_volume = deploy_properties["kubernetes_config"]["mountPath"] if self.k8s_mode else "/opt/ml/model/"
         if not existing:
             try:
                 try:
@@ -75,16 +81,12 @@ class LocalPredictor(DeployedPredictor):
 
                 log.info(f"Starting new container with name {container_name}.")
                 self.container: Container = client.containers.run(
-                    image=kwargs["image_name"],
+                    image=deploy_properties["image_name"],
                     name=container_name,
                     detach=True,
                     remove=remove,
-                    volumes={
-                        os.path.abspath(kwargs["weights_path"]): {
-                            "bind": weights_volume,
-                            "mode": "rw",
-                        }
-                    },
+                    environment=dict(MNT_PATH=weights_volume),
+                    volumes=self._get_volumes(weights_volume),
                     ports=self._get_port_assignment(),
                     device_requests=self._get_device_requests(),
                 )
@@ -163,15 +165,27 @@ class LocalPredictor(DeployedPredictor):
         else:
             return {8080: 80, 8081: 8081}
 
+    def _get_volumes(self, weights_volume: str):
+        volumes = {}
+        if self.weights_path is not None:
+            volumes = {
+                os.path.abspath(self.weights_path): {
+                    "bind": weights_volume,
+                    "mode": "rw",
+                }
+            }
+        return volumes
+
     def _get_device_requests(self):
         device_requests = None
         if self.enable_cuda and shutil.which("nvidia-container-runtime") is not None:
             device_requests = [docker.types.DeviceRequest(count=-1, capabilities=[["gpu"]])]
-
         return device_requests
 
     def to_dict(self) -> dict:
-        return self.kwargs
+        dictionary = {"deploy_properties": self.deploy_properties}
+        dictionary["deploy_properties"]["weights_path"] = self.weights_path
+        return dictionary
 
     @classmethod
     def from_dict(cls, dictionary, client: Optional[Client] = None) -> "LocalPredictor":
@@ -181,11 +195,11 @@ class LocalPredictor(DeployedPredictor):
 class RemotePredictor(DeployedPredictor):
     """A predictor that runs on a remote machine."""
 
-    def __init__(self, client: Client, id: str, **kwargs):
+    def __init__(self, client: Client, deploy_properties: dict, **kwargs):
         super().__init__()
         self.client = client
-        self.id = id
-        self.target_status = kwargs.get("target_status", "ONLINE")
+        self.id = deploy_properties["id"]
+        self.target_status = deploy_properties.get("target_status", "ONLINE")
         client.set_deployment_status(deployment_id=self.id, target_status=self.target_status)
 
     def predict(self, input, **kwargs):
@@ -210,3 +224,31 @@ class RemotePredictor(DeployedPredictor):
     def from_dict(cls, dictionary, client: Optional[Client] = None) -> "RemotePredictor":
         client = client or Client()
         return cls(client=client, id=dictionary["id"], target_status=dictionary["target_status"])
+
+
+class PredictorFactory(object):
+    __predictor_classes = {
+        "LOCAL_DOCKER": LocalPredictor,
+        "LOCAL_DOCKER_LAMBDA": LocalPredictor,
+        "LOCAL_DOCKER_K8S": LocalPredictor,
+        "AWS_SAGEMAKER": RemotePredictor,
+        "AWS_SAGEMAKER_ASYNC": RemotePredictor,
+        "AWS_LAMBDA": RemotePredictor,
+        "AWS_EKS": RemotePredictor,
+    }
+
+    @staticmethod
+    def get_predictor_obj(
+        orchestrator: Orchestrator, deploy_properties: dict, *args, **kwargs
+    ) -> "DeployedPredictor.Type":
+        """Factory method to get a predictor"""
+        predictor_class = PredictorFactory.__predictor_classes.get(orchestrator)
+        log.info("Creating predictor of type: {} with properties: {}".format(predictor_class, deploy_properties))
+
+        if predictor_class:
+            return predictor_class(deploy_properties=deploy_properties, *args, **kwargs)
+        raise NotImplementedError(f"The predictor of orchestrator:`{orchestrator}` is not implemented yet.")
+
+    @classmethod
+    def is_remote(cls, orchestrator: str) -> bool:
+        return cls.__predictor_classes.get(orchestrator) is RemotePredictor
