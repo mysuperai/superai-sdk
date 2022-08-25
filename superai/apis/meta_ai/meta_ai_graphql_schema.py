@@ -5621,6 +5621,15 @@ class URL(sgqlc.types.Type):
     url = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="url")
 
 
+class download_artifact_async(sgqlc.types.Type):
+    __schema__ = meta_ai_graphql_schema
+    __field_names__ = ("created_at", "errors", "id", "output")
+    created_at = sgqlc.types.Field(sgqlc.types.non_null(timestamptz), graphql_name="created_at")
+    errors = sgqlc.types.Field(json, graphql_name="errors")
+    id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="id")
+    output = sgqlc.types.Field(URL, graphql_name="output")
+
+
 class meta_ai_app(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
     __field_names__ = (
@@ -9455,6 +9464,7 @@ class mutation_root(sgqlc.types.Type):
         "delete_turbine_job_by_pk",
         "delete_turbine_task",
         "delete_turbine_task_by_pk",
+        "download_artifact_async",
         "insert_meta_ai_app",
         "insert_meta_ai_app_one",
         "insert_meta_ai_assignment",
@@ -10094,6 +10104,19 @@ class mutation_root(sgqlc.types.Type):
         graphql_name="delete_turbine_task_by_pk",
         args=sgqlc.types.ArgDict(
             (("id", sgqlc.types.Arg(sgqlc.types.non_null(bigint), graphql_name="id", default=None)),)
+        ),
+    )
+    download_artifact_async = sgqlc.types.Field(
+        sgqlc.types.non_null(uuid),
+        graphql_name="download_artifact_async",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "artifact_type",
+                    sgqlc.types.Arg(sgqlc.types.non_null(String), graphql_name="artifact_type", default=None),
+                ),
+                ("model_id", sgqlc.types.Arg(sgqlc.types.non_null(uuid), graphql_name="model_id", default=None)),
+            )
         ),
     )
     insert_meta_ai_app = sgqlc.types.Field(
@@ -12138,6 +12161,7 @@ class query_root(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
     __field_names__ = (
         "download_artifact",
+        "download_artifact_async",
         "get_prelabel",
         "meta_ai_app",
         "meta_ai_app_aggregate",
@@ -12232,6 +12256,13 @@ class query_root(sgqlc.types.Type):
                 ),
                 ("model_id", sgqlc.types.Arg(sgqlc.types.non_null(uuid), graphql_name="model_id", default=None)),
             )
+        ),
+    )
+    download_artifact_async = sgqlc.types.Field(
+        "download_artifact_async",
+        graphql_name="download_artifact_async",
+        args=sgqlc.types.ArgDict(
+            (("id", sgqlc.types.Arg(sgqlc.types.non_null(uuid), graphql_name="id", default=None)),)
         ),
     )
     get_prelabel = sgqlc.types.Field(
@@ -13875,6 +13906,7 @@ class start_deployment(sgqlc.types.Type):
 class subscription_root(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
     __field_names__ = (
+        "download_artifact_async",
         "meta_ai_app",
         "meta_ai_app_aggregate",
         "meta_ai_app_by_pk",
@@ -13951,6 +13983,13 @@ class subscription_root(sgqlc.types.Type):
         "turbine_task",
         "turbine_task_aggregate",
         "turbine_task_by_pk",
+    )
+    download_artifact_async = sgqlc.types.Field(
+        "download_artifact_async",
+        graphql_name="download_artifact_async",
+        args=sgqlc.types.ArgDict(
+            (("id", sgqlc.types.Arg(sgqlc.types.non_null(uuid), graphql_name="id", default=None)),)
+        ),
     )
     meta_ai_app = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("meta_ai_app"))),

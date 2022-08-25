@@ -14,7 +14,6 @@ from botocore.exceptions import ClientError
 from pycognito import Cognito
 from requests import ReadTimeout
 from rich import print
-from rich.console import Console
 
 from superai import __version__
 from superai.apis.meta_ai.model import PredictionError
@@ -779,21 +778,20 @@ def update_ai(client, id: str, name: str, description: str, visibility: str):
     type=click.Path(exists=True, writable=True),
     default=os.getcwd(),
 )
+@click.option("--timeout", required=False, help="Timeout in seconds", type=int, default=360)
 @pass_client
-def download_artifact(client, id: str, artifact_type: str, app_id: str, path: str):
+def download_artifact(client, id: str, artifact_type: str, app_id: str, path: str, timeout: int):
     """Download model artifact"""
-    # Use rich progress to wait for url
-    console = Console()
-    with console.status(f"Preparing download of {artifact_type} in backend...") as status:
-        url = client.get_artifact_download_url(model_id=str(id), artifact_type=artifact_type, app_id=app_id)
+    url = client.get_artifact_download_url(
+        model_id=str(id), artifact_type=artifact_type, app_id=app_id, timeout=timeout
+    )
 
     parsed = urlparse(url)
     url_path = pathlib.Path(parsed.path)
     filename = url_path.name
 
     logger.info(f"Downloading {filename} to {path}")
-    with console.status("Downloading...") as status:
-        download_file_to_directory(url=url, filename=filename, path=path)
+    download_file_to_directory(url=url, filename=filename, path=path)
 
 
 @ai.group()

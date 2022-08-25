@@ -11,6 +11,7 @@ from sgqlc.operation import Operation
 
 from superai.apis.meta_ai.meta_ai_graphql_schema import (
     RawPrediction,
+    download_artifact_async,
     meta_ai_assignment_enum,
     meta_ai_deployment,
     meta_ai_deployment_bool_exp,
@@ -1155,7 +1156,9 @@ class TrainApiMixin(ABC):
         return training_instance_id
 
     @staticmethod
-    def get_artifact_download_url(model_id: uuid, artifact_type: str, app_id: uuid = None) -> str:
+    def get_artifact_download_url(
+        model_id: Union[str, uuid], artifact_type: str, app_id: uuid = None, timeout: int = 360
+    ) -> str:
         """
         Get the download url for an artifact.
 
@@ -1167,15 +1170,42 @@ class TrainApiMixin(ABC):
             `app_id` is necessary when model was assigned to an app for training.
         artifact_type : str
             Allowed `artifact_type` is one of [weights,source].
+        timeout : int, Optional
+            Timeout in seconds for the artifact download. Default is 360 seconds.
         """
         app_id_str = str(app_id) if app_id else None
-        sess = MetaAISession(app_id=app_id_str)
-        op = Operation(query_root)
 
         if artifact_type not in ["weights", "source"]:
             raise ValueError(f"artifact_type must be one of ['weights', 'source']")
 
-        op.download_artifact(model_id=model_id, artifact_type=artifact_type).__fields__("url")
-        data = sess.perform_op(op)
-        res = (op + data).download_artifact
-        return res.url
+        sess = MetaAIWebsocketSession(app_id=app_id_str)
+
+        # Start artifact compression in backend and get operation id
+        op = Operation(mutation_root)
+        op.download_artifact_async(artifact_type=artifact_type, model_id=model_id)
+
+        data = next(sess.perform_op(op))
+        id = (op + data).download_artifact_async
+
+        # Query id for results until ready
+        start = time.time()
+        console = Console()
+        with console.status(f"Waiting for artifact preparation to complete for model_id={model_id}") as status:
+            while time.time() - start < timeout:
+                os = Operation(subscription_root)
+                result = os.download_artifact_async(id=id)
+                result.__fields__("id", "errors")
+                result.output.__fields__("url")
+                data = next(sess.perform_op(os))
+                res: download_artifact_async = (os + data).download_artifact_async
+                if res.errors:
+                    if "error" in res.errors:
+                        error = res.errors["error"]
+                    else:
+                        error = res.errors
+                    raise Exception("Error while preparing model artifact: {}".format(error))
+                if res.output:
+                    console.log("Artifact ready for download")
+                    return res.output.url
+            else:
+                raise TimeoutError("Waiting for Artifact download url timed out. Try increasing timeout.")
