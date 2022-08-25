@@ -22,6 +22,7 @@ from superai.client import Client
 from superai.config import get_config_dir, list_env_configs, set_env_config, settings
 from superai.exceptions import SuperAIAuthorizationError
 from superai.log import logger
+from superai.meta_ai.parameters import AiDeploymentParameters
 from superai.utils import (
     load_api_key,
     remove_aws_credentials,
@@ -1353,7 +1354,7 @@ def trigger_template_training(client, app_id, model_id, training_template_id, ta
     "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
 )
 def training_deploy(config_file, push=True, clean=True):
-    from superai.meta_ai.ai_helper import obtain_object_template_config
+    from superai.meta_ai.ai import obtain_object_template_config
 
     if clean:
         if os.path.exists(".AISave"):
@@ -1367,7 +1368,6 @@ def training_deploy(config_file, push=True, clean=True):
                 overwrite=config_data.training_deploy.overwrite,
             )
         ai_object.training_deploy(
-            orchestrator=config_data.training_deploy.orchestrator,
             training_data_dir=config_data.training_deploy.training_data_dir,
             skip_build=config_data.training_deploy.skip_build,
             properties=config_data.training_deploy.properties,
@@ -1505,18 +1505,24 @@ def view_training_template(client, app_id, template_id):
 )
 @click.option("--push/--no-push", "-p/-np", help="Push to create a model entry", default=False)
 def deploy_ai(config_file, clean=True, push=False):
-    from superai.meta_ai.ai_helper import obtain_object_template_config
+    from superai.meta_ai.ai import obtain_object_template_config
     from superai.meta_ai.deployed_predictors import DeployedPredictor
 
     if clean:
         if os.path.exists(".AISave"):
             shutil.rmtree(".AISave")
+
     ai_object, ai_template_object, config_data = obtain_object_template_config(config_file=config_file)
     print(f"Configuration : {config_data}")
-    if isinstance(config_data.deploy.properties, str):
-        properties = json.loads(config_data.deploy.properties)
+
+    properties = config_data.deploy.properties
+    if isinstance(properties, str):
+        properties = json.loads(properties)
+    if isinstance(properties, dict):
+        properties = AiDeploymentParameters.parse_obj(properties)
     else:
-        properties = config_data.deploy.properties
+        properties = AiDeploymentParameters()
+
     if push or config_data.deploy.push:
         ai_object.push(
             update_weights=config_data.deploy.update_weights,
@@ -1527,15 +1533,11 @@ def deploy_ai(config_file, clean=True, push=False):
         orchestrator=config_data.deploy.orchestrator,
         skip_build=config_data.deploy.skip_build,
         properties=properties,
-        enable_cuda=config_data.deploy.enable_cuda,
         enable_eia=config_data.deploy.enable_eia,
         cuda_devel=config_data.deploy.cuda_devel,
         redeploy=config_data.deploy.redeploy,
         build_all_layers=config_data.deploy.build_all_layers,
         download_base=config_data.deploy.download_base,
-        envs=config_data.deploy.envs,
-        worker_count=config_data.deploy.worker_count,
-        ai_cache=config_data.deploy.ai_cache,
     )
     predictor_dictionary = {predictor.__class__.__name__: predictor.to_dict()}
     with open(
@@ -1572,7 +1574,7 @@ def deploy_ai(config_file, clean=True, push=False):
 def predictor_test(
     client, config_file, predict_input=None, predict_input_file=None, expected_output=None, expected_output_file=None
 ):
-    from superai.meta_ai.ai_helper import obtain_object_template_config
+    from superai.meta_ai.ai import obtain_object_template_config
     from superai.meta_ai.deployed_predictors import DeployedPredictor
 
     ai_object, ai_template_object, config_data = obtain_object_template_config(config_file=config_file)
@@ -1611,7 +1613,7 @@ def predictor_test(
 )
 @pass_client
 def predictor_teardown(client, config_file):
-    from superai.meta_ai.ai_helper import obtain_object_template_config
+    from superai.meta_ai.ai import obtain_object_template_config
     from superai.meta_ai.deployed_predictors import DeployedPredictor
 
     ai_object, ai_template_object, config_data = obtain_object_template_config(config_file=config_file)

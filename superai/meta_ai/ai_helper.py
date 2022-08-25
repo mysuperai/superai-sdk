@@ -4,7 +4,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Union
 
 import boto3
 import numpy as np
@@ -158,26 +158,6 @@ def upload_dir(local_dir: Union[Path, str], aws_root_dir: Union[Path, str], buck
             log.info(f"Uploading file: {file_name}")
             aws_path = os.path.join(aws_root_dir, str(file_name))
             s3.meta.client.upload_file(os.path.join(local_dir, file_name), bucket_name, aws_path)
-
-
-def obtain_object_template_config(config_file: Union[Path, str]) -> Tuple:
-    """
-    From the config file, obtain the AITemplate, AI instance and the config
-    Args:
-        config_file: Path to config file
-    Returns:
-        Tuple of AI instance, AITemplate and AIConfig
-    """
-    from superai.meta_ai.ai import AI
-    from superai.meta_ai.ai_template import AITemplate
-    from superai.meta_ai.config_parser import AIConfig
-
-    config_data = AIConfig(_env_file=str(config_file))
-
-    ai_template_object = AITemplate.from_settings(config_data.template)
-    ai_object = AI.from_settings(ai_template_object, config_data.instance)
-
-    return ai_object, ai_template_object, config_data
 
 
 def load_and_predict(

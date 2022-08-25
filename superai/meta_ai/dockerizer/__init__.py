@@ -2,7 +2,7 @@ import os
 import shutil
 import subprocess
 import time
-from typing import Optional
+from typing import Optional, Tuple
 
 import boto3  # type: ignore
 import docker  # type: ignore
@@ -26,6 +26,7 @@ from .sagemaker_endpoint import (
 )
 
 log = logger.get_logger(__name__)
+ECR_MODEL_ROOT_PREFIX = "models"
 
 
 class UploadColumn(DownloadColumn):
@@ -229,31 +230,24 @@ def push_image(
     :param show_progress: Enable / disable progress bar
     :param verbose: Whether to log the image push stream
     """
+    full_name, registry_prefix, repository_name = ecr_full_name(image_name, version, model_id, region)
     boto_session = get_boto_session(region_name=region)
     account = boto_session.client("sts").get_caller_identity()["Account"]
-    env = config.settings.get("name")
-    MODEL_ROOT = "models"
 
-    full_suffix = f"{MODEL_ROOT}/{env}/{model_id}/{image_name}"
-    if len(full_suffix + str(version)) > 255:
-        # AWS allows 256 characters for the name
-        logger.warn("Image name is too long. Truncating to 255 characters...")
-        full_suffix = full_suffix[: 255 - len(str(version))]
-    registry_name = f"{account}.dkr.ecr.{region}.amazonaws.com"
-    full_name = f"{registry_name}/{full_suffix}:{version}"
     logger.info(f"Pushing image to ECR: {full_name}")
 
     # login to the ECR registry where the image will be pushed to
-    aws_ecr_login(region, registry_name)
+    aws_ecr_login(region, registry_prefix)
 
     docker_client = get_docker_client()
     ecr_client = boto_session.client("ecr")
+    log.info(f"Checking if image repository exists with name {repository_name}")
     try:
-        ecr_client.describe_repositories(registryId=account, repositoryNames=[full_suffix])
+        ecr_client.describe_repositories(registryId=account, repositoryNames=[repository_name])
     except Exception as e:
         log.info(e)
-        ecr_client.create_repository(repositoryName=full_suffix)
-        log.info(f"Created repository for `{full_suffix}`.")
+        ecr_client.create_repository(repositoryName=repository_name)
+        log.info(f"Created repository for `{repository_name}`.")
 
     log.info(f"Tagging to `{full_name}`")
     docker_client.images.get(f"{image_name}:{version}").tag(full_name)
@@ -299,6 +293,26 @@ def push_image(
 
     log.info(f" Image pushed successfully to {full_name} ")
     return full_name
+
+
+def ecr_full_name(image_name, version, model_id, region: str = "us-east-1") -> Tuple[str, str, str]:
+    boto_session = get_boto_session(region_name=region)
+    account = boto_session.client("sts").get_caller_identity()["Account"]
+    full_suffix, repository_name = ecr_registry_suffix(image_name, model_id, version)
+    registry_prefix = f"{account}.dkr.ecr.{region}.amazonaws.com"
+    full_name = f"{registry_prefix}/{full_suffix}"
+    return full_name, registry_prefix, repository_name
+
+
+def ecr_registry_suffix(image_name: str, model_id: str, tag: str) -> Tuple[str, str]:
+    env = config.settings.get("name")
+    full_suffix = f"{ECR_MODEL_ROOT_PREFIX}/{env}/{model_id}/{image_name}"
+    if len(full_suffix + str(tag)) > 255:
+        # AWS allows 256 characters for the name
+        logger.warn("Image name is too long. Truncating to 255 characters...")
+        full_suffix = full_suffix[: 255 - len(str(tag))]
+    full_suffix_with_version = f"{full_suffix}:{tag}"
+    return full_suffix_with_version, full_suffix
 
 
 def aws_ecr_login(region: str, registry_name: str) -> Optional[int]:

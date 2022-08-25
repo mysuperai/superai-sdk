@@ -7,7 +7,7 @@ import json
 import os
 import shutil
 import time
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 import boto3  # type: ignore
 from docker import DockerClient
@@ -18,6 +18,7 @@ from superai.log import logger
 from superai.meta_ai.ai_helper import create_model_entrypoint, create_model_handler
 from superai.meta_ai.dockerizer import aws_ecr_login, get_docker_client
 from superai.meta_ai.environment_file import EnvironmentFileProcessor
+from superai.meta_ai.parameters import AiDeploymentParameters
 from superai.utils import system
 
 log = logger.get_logger(__name__)
@@ -63,7 +64,7 @@ class AiImageBuilder:
     Under the hood we built on top of a base image and adding AI source code with S2I.
     """
 
-    ALLOWED_ORCHESTRATOR = Orchestrator
+    ALLOWED_ORCHESTRATOR = BaseAIOrchestrator
 
     def __init__(
         self,
@@ -76,6 +77,7 @@ class AiImageBuilder:
         requirements: Optional[Union[str, List[str]]] = None,
         conda_env: Optional[Union[str, Dict]] = None,
         artifacts: Optional[Dict] = None,
+        deployment_parameters: Optional[AiDeploymentParameters] = None,
     ):
         """
 
@@ -98,26 +100,21 @@ class AiImageBuilder:
         self.requirements = requirements
         self.conda_env = conda_env
         self.artifacts = artifacts
+        self.deployment_parameters = deployment_parameters or AiDeploymentParameters()
 
     def _check_orchestrator(self) -> None:
         """
         Check if the orchestrator is valid for the current builder class.
         Subclasses should overwrite `ALLOWED_ORCHESTRATOR`.
         """
-        if self.orchestrator not in self.ALLOWED_ORCHESTRATOR:
-            raise ValueError(f"Invalid Orchestrator, should be one of {[e for e in self.ALLOWED_ORCHESTRATOR]}")
+        if not isinstance(self.orchestrator, self.ALLOWED_ORCHESTRATOR):
+            raise ValueError(
+                f"Invalid Orchestrator={type(self.orchestrator)}, should be one of {[e for e in self.ALLOWED_ORCHESTRATOR]}"
+            )
 
-    def prepare_entrypoint(
-        self, lambda_ai_cache: Optional[int] = 32, sagemaker_worker_count: Optional[int] = 1
-    ) -> None:
+    def prepare_entrypoint(self) -> None:
         """
         Prepare entrypoints and environment variables for the image.
-
-        Args:
-            lambda_ai_cache: Size of the cache for lambda AI
-            sagemaker_worker_count: Number of workers for sagemaker
-
-        Returns:
 
         """
         if self.orchestrator in [
@@ -129,62 +126,62 @@ class AiImageBuilder:
                 scripts_content = create_model_handler(self.entrypoint_class, lambda_mode=False)
                 handler_file.write(scripts_content)
             with open(os.path.join(self.location, "dockerd-entrypoint.py"), "w") as entry_point_file:
-                entry_point_file_content = create_model_entrypoint(sagemaker_worker_count)
+                entry_point_file_content = create_model_entrypoint(self.deployment_parameters.sagemaker_worker_count)
                 entry_point_file.write(entry_point_file_content)
 
         elif self.orchestrator in [Orchestrator.LOCAL_DOCKER_LAMBDA, Orchestrator.AWS_LAMBDA]:
             with open(os.path.join(self.location, "handler.py"), "w") as handler_file:
                 scripts_content = create_model_handler(
-                    self.entrypoint_class, lambda_mode=True, ai_cache=lambda_ai_cache
+                    self.entrypoint_class, lambda_mode=True, ai_cache=self.deployment_parameters.lambda_ai_cache
                 )
                 handler_file.write(scripts_content)
 
-        elif self.orchestrator in [Orchestrator.AWS_EKS, Orchestrator.LOCAL_DOCKER_K8S]:
+        elif self.orchestrator in [
+            Orchestrator.AWS_EKS,
+            Orchestrator.LOCAL_DOCKER_K8S,
+            TrainingOrchestrator.AWS_EKS,
+            TrainingOrchestrator.LOCAL_DOCKER_K8S,
+        ]:
             # No handler needed for EKS
             return
         else:
             raise NotImplementedError()
 
-    def prepare(self, **kwargs):
-        self.prepare_entrypoint(
-            lambda_ai_cache=kwargs.get("lambda_ai_cache", 32),
-            sagemaker_worker_count=kwargs.get("sagemaker_worker_count", 1),
-        )
+    def prepare(self):
+        self.prepare_entrypoint()
 
     def build_image(
         self,
         cuda_devel: bool = False,
-        enable_cuda: bool = False,
         enable_eia: bool = False,
         skip_build: bool = False,
         build_all_layers: bool = False,
         download_base: bool = False,
-        properties: Optional[Dict] = None,
         use_internal: bool = False,
-        **kwargs: dict,
-    ) -> Tuple[str, dict]:
+    ) -> str:
         """
-        Build the image and return the properties
+        Build the image and return the image name.
         Args:
             cuda_devel
-            enable_cuda:
             enable_eia:
             skip_build:
             use_internal: If true, use the internal development base image
 
         Returns:
-            full image name, dict of deployment properties
+            full image name
 
         """
         # Updating environs before image builds
-        for key, value in kwargs.get("envs", {}).items():
+        envs = self.deployment_parameters.dict().get("envs") or {}
+        for key, value in envs.items():
             self.environs.add_or_update(key, value)
-        self.prepare(**kwargs)
+
+        self.prepare()
         if not skip_build:
             image_name = self.build_image_s2i(
                 self.name,
                 self.version,
-                enable_cuda=enable_cuda,
+                enable_cuda=self.deployment_parameters.enable_cuda,
                 enable_eia=enable_eia,
                 cuda_devel=cuda_devel,
                 from_scratch=build_all_layers,
@@ -193,15 +190,7 @@ class AiImageBuilder:
             )
         else:
             image_name = self.full_image_name(self.name, self.version)
-        properties = self.get_deployment_properties(
-            image_name=image_name,
-            cuda_devel=cuda_devel,
-            enable_cuda=enable_cuda,
-            enable_eia=enable_eia,
-            properties=properties,
-            **kwargs,
-        )
-        return image_name, properties
+        return image_name
 
     def _track_changes(
         self,
@@ -288,7 +277,14 @@ class AiImageBuilder:
         changes_in_build = self._track_changes()
 
         client = get_docker_client()
-        base_image = self._get_base_name(enable_eia, lambda_mode, enable_cuda, cuda_devel, k8s_mode)
+        base_image = self._get_base_name(
+            enable_eia=enable_eia,
+            enable_cuda=enable_cuda,
+            cuda_devel=cuda_devel,
+            k8s_mode=k8s_mode,
+            lambda_mode=lambda_mode,
+            use_internal=use_internal,
+        )
         if always_download:
             log.info(f"Downloading newest base image {base_image}...")
             self._download_base_image(base_image, client)
@@ -440,98 +436,6 @@ class AiImageBuilder:
             base_image += "-seldon"
 
         return f"{base_image}:{version}"
-
-    def _prepare_k8s_parameters(
-        self,
-        maxReplicas=5,
-        minReplicas=0,
-        cooldownPeriod=1800,
-        targetAverageUtilization=0.5,
-        gpuTargetAverageUtilization=60,
-        targetMemoryRequirement="512Mi",
-        targetMemoryLimit="4Gi",
-        volumeMountName="efs-vpc",
-        mountPath="/shared",
-        worker_count=1,
-        enable_cuda=False,
-        properties: Optional[dict] = None,
-        **kwargs,
-    ) -> dict:
-        """
-        Prepare dependencies like kubernetes CRD
-        Args:
-            enable_cuda: Use CUDA in the CRD or not
-            num_workers: Number of workers to run inside the po
-            minReplicas: Minimum number of replicas allowed
-                0 means deployment can be scaled to zero when not needed
-            maxReplicas: Maximum number of allowed replicas at the same time
-            targetAverageUtilization:(NonFunctional) Estimated utilization to trigger autoscaling
-            gpuTargetAverageUtilization: (NonFunctional) Estimated utilization to trigger autoscaling for GPU
-            volumeMountName: Name of the volume to be mounted
-            mountPath: folder_name to be used for mounting. Please note that this should be the path
-            gpuBaseUtilization: GPU Base utilization
-            cooldownPeriod: Cooldown period for autoscaling in seconds
-            targetMemoryRequirement: Average memory requirement for the pod, 512Mi, 1Gi ...
-            targetMemoryLimit: Maximum memory limit for the pod, 512Mi, 1Gi ...
-
-        TODO: Introduce pydantic model for these parameters
-        Return:
-             Dictionary of the CRD. This is saved in the save location as well.
-        """
-        properties = properties or {}
-        kubernetes_config = properties.get("kubernetes_config", {})
-        kubernetes_config.update(
-            dict(
-                maxReplicaCount=kubernetes_config.get("maxReplicas") or maxReplicas,
-                minReplicaCount=kubernetes_config.get("minReplicas") or minReplicas,
-                cooldownPeriod=kubernetes_config.get("cooldownPeriod") or cooldownPeriod,
-                targetAverageUtilization=kubernetes_config.get("targetAverageUtilization") or targetAverageUtilization,
-                gpuTargetAverageUtilization=kubernetes_config.get("gpuTargetAverageUtilization")
-                or gpuTargetAverageUtilization,
-                targetMemoryRequirement=kubernetes_config.get("targetMemoryRequirement") or targetMemoryRequirement,
-                targetMemoryLimit=kubernetes_config.get("targetMemoryLimit") or targetMemoryLimit,
-                volumeMountName=kubernetes_config.get("volumeMountName") or volumeMountName,
-                mountPath=kubernetes_config.get("mountPath") or mountPath,
-                numThreads=kubernetes_config.get("worker_count") or worker_count,
-                enableCuda=enable_cuda,
-            )
-        )
-        with open(os.path.join(self.location, f"{self.name}_config.json"), "w") as wfp:
-            json.dump(kubernetes_config, wfp, indent=2)
-        return kubernetes_config
-
-    def get_deployment_properties(self, properties: Optional[dict] = None, **kwargs) -> dict:
-        """
-        Get the deployment properties
-        Args:
-            properties: Properties to be used for deployment
-        Return:
-            Dictionary of the deployment properties
-        """
-        properties = properties or {}
-        if self.orchestrator in [Orchestrator.AWS_EKS, Orchestrator.LOCAL_DOCKER_K8S]:
-            k8s_config = self._prepare_k8s_parameters(properties=properties, **kwargs)
-            properties["kubernetes_config"] = k8s_config
-        if self.orchestrator in [
-            Orchestrator.LOCAL_DOCKER,
-            Orchestrator.LOCAL_DOCKER_LAMBDA,
-            Orchestrator.LOCAL_DOCKER_K8S,
-        ]:
-            properties["image_name"] = kwargs.get("image_name")
-            properties["lambda_mode"] = self.orchestrator in [Orchestrator.LOCAL_DOCKER_LAMBDA, Orchestrator.AWS_LAMBDA]
-            properties["enable_cuda"] = kwargs.get("enable_cuda")
-            properties["k8s_mode"] = self.orchestrator == Orchestrator.LOCAL_DOCKER_K8S or None
-
-        return properties
-
-
-class AiTrainerImageBuilder(AiImageBuilder):
-    ALLOWED_ORCHESTRATOR = TrainingOrchestrator
-
-    def prepare(self, **kwargs):
-        self._prepare_k8s_parameters(
-            enable_cuda=kwargs.get("enable_cuda"), properties=kwargs.get("properties"), **kwargs
-        )
 
 
 def kwargs_warning(allowed_kwargs: List[str], **kwargs: Dict[str, Any]) -> None:

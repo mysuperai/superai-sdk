@@ -4,6 +4,8 @@ import dictdiffer
 import pytest
 
 from superai.meta_ai.parameters import (
+    GPUVRAM,
+    AiDeploymentParameters,
     HyperParameterSpec,
     ModelParameters,
     TrainingParameters,
@@ -139,3 +141,34 @@ def test_integration():
         model_parameter=ModelParameters(conv1_size=32, conv2_size=64, hidden1_size=500, dropout=0.8),
     )
     assert list(dictdiffer.diff(json.loads(tp.to_json()), ref_params)) == []
+
+
+def test_deployment_parameters():
+    dp = AiDeploymentParameters()
+    assert dp
+    dumped = dp.dict(by_alias=True, exclude_none=True)
+    assert dumped
+    assert "minReplicaCount" in dumped
+
+    dp_parsed_json = AiDeploymentParameters.parse_raw(json.dumps(dp.dict(by_alias=True, exclude_none=True)))
+    assert dp_parsed_json == dp
+
+    cuda_dp = AiDeploymentParameters(enable_cuda=True)
+    assert cuda_dp.enable_cuda
+
+    big_vram_dp = AiDeploymentParameters(enable_cuda=True, gpu_memory_requirement=GPUVRAM.VRAM_24576)
+    assert big_vram_dp.gpu_memory_requirement == GPUVRAM.VRAM_24576
+    dumped = big_vram_dp.dict(by_alias=True, exclude_none=True)
+    assert dumped["gpuMemoryRequirement"] == 24576
+
+    always_on_dp = AiDeploymentParameters(min_replica_count=1, max_replica_count=10)
+    assert always_on_dp
+
+    big_memory_dp = AiDeploymentParameters(
+        target_memory_requirement="2Gi", target_memory_limit="4Gi", target_average_utilization=1
+    )
+    assert big_memory_dp.target_memory_requirement == "2Gi"
+
+    db_dict = big_memory_dp.dict_for_db()
+    assert db_dict
+    assert "enableCuda" not in db_dict

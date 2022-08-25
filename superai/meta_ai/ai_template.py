@@ -12,7 +12,7 @@ from superai import Client, settings
 from superai.log import logger
 from superai.meta_ai.config_parser import TemplateConfig
 from superai.meta_ai.environment_file import EnvironmentFileProcessor
-from superai.meta_ai.parameters import Config
+from superai.meta_ai.parameters import AiDeploymentParameters, Config
 from superai.meta_ai.schema import Schema
 from superai.utils import load_api_key, load_auth_token, load_id_token
 
@@ -42,6 +42,7 @@ class AITemplate:
         client: Client = None,
         bucket_name: str = None,
         parameters=None,
+        deployment_parameters: Optional[Union[AiDeploymentParameters, dict]] = None,
     ):
         """Create an AI template for subsequently creating instances of AI objects
 
@@ -113,7 +114,10 @@ class AITemplate:
                                                                     strides=(1, 1),
                                                                     padding='valid',
                                                                     dilation_rate=(1, 1),
-                                                                    conv_use_bias=True)
+                                                                   conv_use_bias=True)
+            deployment_parameters: Optional; Specification for the hardware (e.g. GPU) and
+                                    scaling configuration (e.g. throughput) of the model.
+
         """
         self.input_schema = input_schema
         self.output_schema = output_schema
@@ -143,7 +147,8 @@ class AITemplate:
         self.model_class = model_class
         self.model_class_path = Path(model_class_path)
         self.environs: Optional[EnvironmentFileProcessor] = None
-        self.template_id = None
+
+        self.deployment_parameters = AiDeploymentParameters.parse_from_optional(deployment_parameters)
 
     @property
     def model_class_path(self) -> Path:
@@ -327,22 +332,6 @@ class AITemplate:
                         " We recommend putting source files in sub-directories."
                     )
 
-    def get_or_create_training_entry(self, model_id: str, app_id: str = None, properties: dict = {}):
-        existing_template_id = self.client.get_training_templates(model_id=model_id, app_id=app_id)
-        if len(existing_template_id):
-            self.template_id = existing_template_id[0].id
-            log.info(f"Found existing template {existing_template_id}")
-            if properties:
-                self.client.update_training_template(template_id=self.template_id, properties=properties)
-
-        else:
-            template_id = self.client.create_training_template_entry(
-                model_id=model_id, properties=properties, app_id=app_id
-            )["id"]
-            log.info(f"Created template : {template_id}")
-            self.template_id = template_id
-        return self.template_id
-
     @classmethod
     def from_settings(cls, template: TemplateConfig) -> AITemplate:
         if template.input_schema is None:
@@ -380,4 +369,5 @@ class AITemplate:
             artifacts=template.artifacts,
             bucket_name=template.bucket_name,
             parameters=template.parameters,
+            deployment_parameters=template.deployment_parameters,
         )

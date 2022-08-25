@@ -5,6 +5,7 @@ import yaml
 from pydantic import ValidationError
 
 from superai.meta_ai.config_parser import AIConfig
+from superai.meta_ai.parameters import GPUVRAM
 
 
 @pytest.fixture
@@ -27,6 +28,12 @@ def test_parsed_config(config_file: str):
     assert config.deploy
     assert config.template.name == "MyKerasModel_template"
 
+    deployment_parameters = config.template.deployment_parameters
+    assert deployment_parameters.enable_cuda == True
+    assert deployment_parameters.gpu_memory_requirement == GPUVRAM.VRAM_16384
+    assert deployment_parameters.cooldown_period == 200
+    assert deployment_parameters.max_replica_count == 5
+
 
 def test_root_validator(conf: dict, tmp_path):
     conf.pop("deploy", None)
@@ -46,7 +53,12 @@ def test_check_orchestrator(conf: dict, tmp_path):
 
 def test_most_basic_settings(tmp_path):
     config = {
-        "template": {"name": "template_name", "description": "some description", "model_class": "some_class"},
+        "template": {
+            "name": "template_name",
+            "description": "some description",
+            "model_class": "some_class",
+            "deployment_parameters": {"enableCuda": True},
+        },
         "instance": {"name": "instance_name"},
         "deploy": {"orchestrator": "AWS_EKS"},
     }
@@ -57,3 +69,7 @@ def test_most_basic_settings(tmp_path):
     assert loaded_config.template.description == config["template"]["description"]
     assert loaded_config.instance.name == config["instance"]["name"]
     assert loaded_config.deploy.orchestrator == config["deploy"]["orchestrator"]
+    assert (
+        loaded_config.template.deployment_parameters.enable_cuda
+        == config["template"]["deployment_parameters"]["enableCuda"]
+    )

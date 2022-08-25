@@ -22,25 +22,24 @@ from superai import settings
 from superai.log import logger
 from superai.meta_ai.ai_helper import (
     find_root_model,
-    get_ecr_image_name,
     get_user_model_class,
     list_models,
     upload_dir,
 )
 from superai.meta_ai.ai_template import AITemplate
-from superai.meta_ai.config_parser import InstanceConfig
+from superai.meta_ai.config_parser import AIConfig, InstanceConfig
 from superai.meta_ai.deployed_predictors import DeployedPredictor, PredictorFactory
-from superai.meta_ai.dockerizer import push_image
+from superai.meta_ai.dockerizer import ecr_full_name, push_image
 from superai.meta_ai.environment_file import EnvironmentFileProcessor
 from superai.meta_ai.exceptions import ModelDeploymentError, ModelNotFoundError
 from superai.meta_ai.image_builder import (
     AiImageBuilder,
-    AiTrainerImageBuilder,
     BaseAIOrchestrator,
     Orchestrator,
     TrainingOrchestrator,
 )
 from superai.meta_ai.parameters import (
+    AiDeploymentParameters,
     Config,
     HyperParameterSpec,
     ModelParameters,
@@ -54,6 +53,10 @@ from superai.meta_ai.schema import (
     TrainerOutput,
 )
 from superai.utils import retry
+
+DEPLOYMENT_PARAMETERS_SUBKEY = (
+    "deployment_parameters"  # Used to access deployment parameters in the training parameters
+)
 
 # Prefix path for the model directory on storage backend
 MODEL_ARTIFACT_PREFIX_S3 = "meta_ai_models"
@@ -189,7 +192,7 @@ class AI:
 
     @property
     def deployed(self) -> Optional[bool]:
-        if self.id and self.deployment_id:
+        if self.id and self.served_by:
             deployment = self.client.get_deployment(self.served_by)
             if deployment:
                 return True
@@ -434,6 +437,7 @@ class AI:
             weights_path: Location of weights.
             visibility: Visibility of model. Default visibility: PRIVATE.
             root_id: Id of the root model. Establishes the lineage of the model.
+            deployment_parameters: Hardware and scaling parameters for the model.
             **kwargs: Arbitrary keyword arguments
 
         """
@@ -724,11 +728,17 @@ class AI:
                 input_schema=self.input_params.to_json,
                 output_schema=self.output_params.to_json,
                 root_id=self.root_id,
+                deployment_parameters=self.ai_template.deployment_parameters,
             )
 
         modelSavePath = self._upload_model_folder(self.id)
         weights = self._upload_weights(self.id, update_weights, weights_path)
-        self.client.update_model(self.id, weights_path=weights, model_save_path=modelSavePath)
+        self.client.update_model(
+            self.id,
+            weights_path=weights,
+            model_save_path=modelSavePath,
+            deployment_parameters=self.ai_template.deployment_parameters,
+        )
         return self.id
 
     def _upload_model_folder(self, idx: str) -> str:
@@ -777,19 +787,17 @@ class AI:
         self,
         orchestrator: Union[str, "Orchestrator"] = Orchestrator.LOCAL_DOCKER,
         skip_build: bool = False,
-        properties: Optional[dict] = None,
+        properties: Optional[dict, AiDeploymentParameters] = None,
         enable_cuda: bool = False,
         enable_eia: bool = False,
         cuda_devel: bool = False,
         redeploy: bool = False,
+        build_all_layers: bool = False,
+        download_base: bool = False,
         use_internal: bool = False,
-        **kwargs,
-    ) -> "DeployedPredictor.Type":
-        """Here we need to create a docker container with superai-sdk installed. Then we need to create a server
-        script and prediction script, which basically calls ai.predict.
-        We need to pass the ai model inside the image, install conda env or requirements.txt as required.
-        Serve local: run the container locally using Cli (in a separate thread)
-        Serve sagemaker: create endpoint after pushing container to ECR
+    ) -> "DeployedPredictor":
+        """
+        Deploys the model to the specified orchestrator.
 
         Args:
             orchestrator: Which orchestrator to be used to deploy.
@@ -797,26 +805,14 @@ class AI:
             enable_cuda: Create CUDA-Compatible image
             enable_eia: Create Elastic Inference compatible image
             cuda_devel: Create development CUDA image
-            properties: Optional dictionary with properties for instance creation.
-                Possible values (with defaults) are:
-                    "sagemaker_instance_type": "ml.m5.xlarge"
-                    "sagemaker_initial_instance_count": 1
-                    "sagemaker_accelerator_type": "ml.eia2.large" (None by default)
-                    "lambda_memory": 256
-                    "lambda_timeout": 30
+            properties: Optional variable to override hardware and scaling deployment parameters from the AI template.
             redeploy: Allow un-deploying existing deployment and replacing it.
-
-            # Hidden kwargs
-            worker_count: Number of workers to use for serving with Sagemaker.
-            ai_cache: Cache of ai objects for a lambda, 5 by default considering the short life of a lambda function
             build_all_layers: Perform a fresh build of all layers
-            envs: Pass custom environment variables to the deployment. Should be a dictionary like
-                  {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
             download_base: Always download the base image to get the latest version from ECR
             use_internal: Use internal development base image. Only accessible for super.AI developers.
 
         """
-        properties = properties or {}
+
         if redeploy and settings.current_env == "prod":
             confirmed = Confirm.ask(
                 "Do you [bold]really[/bold] want to redeploy a [red]production[/red] AI? "
@@ -834,55 +830,84 @@ class AI:
                     f"Unknown orchestrator: {orchestrator}. Try one of: {', '.join(Orchestrator.__members__.values())}"
                 )
 
+        deployment_parameters = self._merge_deployment_parameters(properties, enable_cuda)
         # Build image and compile deployment properties
-        full_image_name, deploy_properties = self.build(
+        local_image_name, global_image_name = self.build(
             orchestrator,
-            enable_cuda,
-            enable_eia,
-            skip_build,
-            cuda_devel,
-            properties=properties,
+            enable_eia=enable_eia,
+            skip_build=skip_build,
+            cuda_devel=cuda_devel,
             use_internal=use_internal,
-            **kwargs,
+            deployment_parameters=deployment_parameters,
+            build_all_layers=build_all_layers,
+            download_base=download_base,
         )
-        properties.update(deploy_properties)
 
-        # Create remote deployment if necessary
         if PredictorFactory.is_remote(orchestrator):
-            properties["id"] = self._remote_deploy(orchestrator, properties, redeploy, skip_build)
+            if not skip_build:
+                self.push_model(image_name=local_image_name)
 
-        predictor_obj: DeployedPredictor.Type = PredictorFactory.get_predictor_obj(
-            orchestrator=orchestrator, deploy_properties=properties, client=self.client, ai=self
+        predictor_obj: DeployedPredictor = PredictorFactory.get_predictor_obj(
+            orchestrator=orchestrator,
+            local_image_name=local_image_name,
+            deploy_properties=deployment_parameters,
+            weights_path=self.weights_path,
+            client=self.client,
+            ai=self,
         )
+        predictor_obj.deploy(redeploy=redeploy)
 
         return predictor_obj
+
+    def _merge_deployment_parameters(self, properties: Union[dict, AiDeploymentParameters], enable_cuda):
+        """
+        Merges deployment parameters from the AI template and the user-provided deployment parameters.
+        Precedence is given to the user-provided deployment parameters.
+
+        Args:
+            properties: Optional variable to override hardware and scaling deployment parameters from the AI template.
+            enable_cuda: Legacy kwarg for backwards compatibility.
+
+        Returns:
+
+        """
+        # Parse properties into DeploymentParameters object
+        properties = AiDeploymentParameters.parse_from_optional(properties)
+        if enable_cuda:
+            log.warning("enable_cuda is deprecated and will be removed in future versions. Use `properties` instead.")
+            properties.enable_cuda = enable_cuda
+        # Merge properties with deployment parameters from AI template with precedence to properties
+        template_deployment_parameters = self.ai_template.deployment_parameters.dict_for_db()
+        template_deployment_parameters.update(properties.dict_for_db())
+        deployment_parameters = AiDeploymentParameters.parse_obj(template_deployment_parameters)
+        return deployment_parameters
 
     def build(
         self,
         orchestrator: BaseAIOrchestrator,
-        enable_cuda: bool,
-        enable_eia: bool,
-        skip_build,
-        cuda_devel,
-        properties: Optional[dict] = None,
+        deployment_parameters: Optional[AiDeploymentParameters] = None,
+        enable_eia: bool = False,
+        skip_build=False,
+        cuda_devel=False,
         use_internal=False,
-        **kwargs,
-    ) -> Tuple[str, dict]:
+        build_all_layers=False,
+        download_base=False,
+    ) -> Tuple[str, str]:
         """
-        Build the image and return the image name and image deployment properties.
+        Build the image and return the image name.
         Args:
             orchestrator:
-            enable_cuda:
+            deployment_parameters: Optional deployment parameters to override the default deployment parameters.
             enable_eia:
-            skip_build:
+            skip_build: Skip building and return the image name which would be built.
             cuda_devel:
-            properties: dict
-              Deployment specific properties.
             use_internal:
                 Use the internal development base image
-            **kwargs:
+            build_all_layers: Force a fresh build of all layers
+            download_base: Force redownload of the base image
 
         Returns:
+            Tuple[str,str]: The local image name and the global image name.
 
         """
         image_builder = AiImageBuilder(
@@ -895,63 +920,23 @@ class AI:
             requirements=self.requirements,
             conda_env=self.conda_env,
             artifacts=self.artifacts,
+            deployment_parameters=deployment_parameters or self.ai_template.deployment_parameters,
         )
-        full_image_name, properties = image_builder.build_image(
-            cuda_devel=cuda_devel,
-            enable_cuda=enable_cuda,
-            enable_eia=enable_eia,
-            skip_build=skip_build,
-            properties=properties,
-            use_internal=use_internal,
-            **kwargs,
-        )
-        return full_image_name, properties
 
-    def _remote_deploy(
-        self, orchestrator: BaseAIOrchestrator, properties: dict, redeploy: bool, skip_build: bool
-    ) -> str:
-        """
-        Deploy the image to the remote orchestrator.
-        Args:
-            orchestrator: Orchestrator to deploy to.
-            properties: Properties to deploy with.
-            redeploy: Allow redeploying existing deployment.
-            skip_build: Skip building and force reuse existing image.
-
-        Returns:
-            Id of deployment
-
-        """
-        if not skip_build:
-            ecr_image_name = self.push_model(self.name, str(self.version))
+        if skip_build:
+            local_image_name = image_builder.full_image_name(self.name, self.version)
         else:
-            ecr_image_name = get_ecr_image_name(self.name, self.version)
+            local_image_name = image_builder.build_image(
+                cuda_devel=cuda_devel,
+                enable_eia=enable_eia,
+                skip_build=skip_build,
+                use_internal=use_internal,
+                build_all_layers=build_all_layers,
+                download_base=download_base,
+            )
+        global_image_name, *_ = ecr_full_name(image_name=self.name, version=self.version, model_id=self.id)
 
-        if self.id is None:
-            raise LookupError("Cannot establish id, please make sure you push the AI model to create a database entry")
-
-        self.served_by = self.served_by or self.client.get_model(self.id)["served_by"]
-        existing_deployment = self.client.get_deployment(self.served_by) if self.served_by else None
-        log.info(f"Existing deployments : {existing_deployment}")
-        if existing_deployment is None or "status" not in existing_deployment:
-            models = self.client.get_model_by_name_version(self.name, self.version, verbose=True)
-            model = models[0]
-            log.info(f"Model attributes: {model}")
-            self.client.update_model(self.id, image=ecr_image_name)
-            self.served_by = self.client.deploy(self.id, deployment_type=orchestrator.value, properties=properties)
-            self.client.update_model(self.id, served_by=self.served_by)
-        else:
-            if redeploy:
-                self.undeploy()
-            else:
-                raise Exception(
-                    "Deployment with this version already exists. Try undeploy first or set `redeploy=True`."
-                )
-            self.client.update_model(model_id=self.id, image=ecr_image_name)
-            if properties:
-                self.client.set_deployment_properties(deployment_id=self.deployment_id, properties=properties)
-            self.client.set_deployment_status(deployment_id=self.deployment_id, target_status="ONLINE")
-        return self.served_by
+        return local_image_name, global_image_name
 
     def undeploy(self) -> Optional[bool]:
         if self.id:
@@ -991,11 +976,17 @@ class AI:
         if image_name is None:
             image_name = self.name
         if version is None:
-            version = str(self.version)
+            if ":" in image_name:
+                version = image_name.split(":")[1]
+                image_name = image_name.split(":")[0]
+            else:
+                version = str(self.version)
         id = self.id
         if id is None:
             raise Exception("No ID found. AI needs to be registered  via `push()` first.")
-        return push_image(image_name=image_name, model_id=id, version=version)
+        full_name = push_image(image_name=image_name, model_id=id, version=version)
+        self.client.update_model(id, image=full_name)
+        return full_name
 
     def train(
         self,
@@ -1089,21 +1080,26 @@ class AI:
 
     def training_deploy(
         self,
-        orchestrator: Union[str, "TrainingOrchestrator"] = TrainingOrchestrator.LOCAL_DOCKER_K8S,
         training_data_dir: Optional[Union[str, Path]] = None,
         skip_build: bool = False,
-        properties: Optional[dict] = None,
+        properties: Optional[dict, AiDeploymentParameters] = None,
         training_parameters: Optional[TrainingParameters] = None,
         use_internal: bool = False,
+        enable_cuda: bool = False,
+        app_id: Optional[str] = None,
+        task_name: Optional[str] = None,
+        metadata: dict = None,
         **kwargs,
     ):
         """Here we need to create a docker container with superai-sdk installed. Then we will create a run script
 
         Args:
-            orchestrator: Which training orchestrator to be used to deploy.
+            app_id: Application ID to be used for retrieving training data, Either app_id or training_data_dir is required
+            task_name: Task name to be used for retrieving training data, Only used together with app_id.
+            metadata: Metadata used for display in UI
             skip_build: Skip building
-            properties: An optional dictionary with properties for instance creation.
-            training_data_dir: Path to training data
+            properties: An optional dictionary with hardware properties for training run execution.
+            training_data_dir: Path to local training data, Either app_id or training_data_dir is required
             training_parameters: A TrainingParameters object used for all training parameters to be passed to
                                 BaseModel train method
 
@@ -1116,138 +1112,172 @@ class AI:
             download_base: Always download the base image to get the latest version from ECR
             use_internal: Use internal development base image. Only accessible for super.AI developers.
         """
-        allowed_kwargs = [
-            "enable_cuda",
-            "cuda_devel",
-            "build_all_layers",
-            "envs",
-            "download_base",
-        ]
-        if isinstance(orchestrator, str):
-            orchestrator = TrainingOrchestrator[orchestrator]
-        image_builder = AiTrainerImageBuilder(
-            orchestrator,
-            name=self.name,
-            version=self.version,
-            entrypoint_class=self.ai_template.model_class,
-            environs=self.environs,
-            location=self._location,
-            requirements=self.requirements,
-            conda_env=self.conda_env,
-            artifacts=self.artifacts,
+        if training_data_dir is None and app_id is None:
+            raise ValueError("Either app_id or training_data_dir is required")
+        if training_data_dir is not None and app_id is not None:
+            raise ValueError("Only one of app_id or training_data_dir is allowed")
+        if app_id is not None and task_name is None:
+            raise ValueError("task_name is required when app_id is provided")
+
+        # TODO: add method which works with local training
+        orchestrator = TrainingOrchestrator.AWS_EKS
+        kwargs.pop("orchestrator")
+
+        properties = properties or {}
+        metadata = metadata or {}
+        deployment_parameters = self._merge_deployment_parameters(properties, enable_cuda)
+
+        # Build image and merge all parameters
+        loaded_parameters = self._prepare_training(
+            orchestrator, deployment_parameters, training_parameters, skip_build, use_internal, **kwargs
         )
-        image_builder.build_image(skip_build=skip_build, use_internal=use_internal, **kwargs)
-        # build kwargs
-        kwargs = {}
-        if orchestrator in [TrainingOrchestrator.LOCAL_DOCKER_K8S]:
-            kwargs["image_name"] = f"{self.name}:{self.version}"
-            kwargs["weights_path"] = self.weights_path
-            kwargs["k8s_mode"] = orchestrator == TrainingOrchestrator.LOCAL_DOCKER_K8S
-        else:
-            if not skip_build:
-                image_name = self.push_model(self.name, str(self.version))
-                self.client.update_model(self.id, image=image_name, trainable=True)
-            if self.id is None:
-                raise LookupError(
-                    "Cannot establish id, please make sure you push the AI model to create a database entry"
-                )
-            if training_parameters:
-                if isinstance(training_parameters, dict):
-                    obj = TrainingParameters().from_dict(training_parameters)
-                    training_parameters = obj
-                loaded_parameters = json.loads(training_parameters.to_json())
-            else:
-                # TODO: load default parameters from AI
-                loaded_parameters = {}
-            loaded_parameters["enable_cuda"] = kwargs.get("enable_cuda", False)
-            # check if we have a training data directory
+
+        # Create a training template
+        template_id = self._get_or_create_training_entry(model_id=self.id, properties=loaded_parameters, app_id=app_id)
+        log.info(
+            f"Starting training for model_id={self.id} template_id="
+            f"{template_id} with properties={loaded_parameters} and deployment_parameters={deployment_parameters} "
+        )
+        if training_data_dir is not None:
+            log.info(f"Using local training data from {training_data_dir}")
+            # Create the database entry for the training, initially in stopped state
             instance_id = self.client.create_training_entry(
                 model_id=self.id,
                 properties=loaded_parameters,
                 starting_state="STOPPED",
-                template_id=self.ai_template.template_id,
+                template_id=template_id,
             )
-            if training_data_dir is not None:
-                self._upload_training_data(training_data_dir, training_id=instance_id)
-            else:
-                # TODO: Add alternative logic to inject app data
-                log.warning("No training data directory provided, skipping upload")
+            self._upload_training_data(training_data_dir, training_id=instance_id)
+        else:
+            log.info(f"Using app_id={app_id} and task_name={task_name} to retrieve training data")
+            instance_id = self.client.start_training_from_app_model_template(
+                app_id=app_id,
+                model_id=self.id,
+                task_name=task_name,
+                training_template_id=template_id,
+                current_properties=loaded_parameters,
+                metadata=metadata,
+            )
 
-            self.client.update_training_instance(instance_id, state="STARTING")
-            log.info(f"Create training instance : {instance_id}")
+        # Start the training in the backend
+        instance = self.client.update_training_instance(instance_id, state="STARTING")
+        log.info(f"Created training instance : {instance}. Will be started in the backend")
+
+    def _prepare_training(
+        self, orchestrator, deployment_parameters, training_parameters, skip_build, use_internal, **kwargs
+    ) -> dict:
+        """
+        Prepares image and parameters for training
+
+        1. Builds the model if not skipped
+        2. Uploads the model to ECR
+        3. Queries the default training parameters and merges with the provided ones
+        4. Add the deployment parameters to the training parameters (contain hardware requirements)
+
+
+
+        Args:
+            orchestrator: The orchestrator to use for training (currently only AWS EKS is supported)
+            deployment_parameters: Deployment parameters, e.g. hardware requirements
+            training_parameters: Training parameters
+            skip_build: Skip building
+            use_internal: Use internal development base image. Only accessible for super.AI developers.
+            **kwargs: Additional kwargs for the image builder
+
+        Returns:
+
+        """
+        # Build image and compile deployment properties
+        local_image_name, global_image_name = self.build(
+            orchestrator,
+            deployment_parameters=deployment_parameters,
+            use_internal=use_internal,
+            skip_build=skip_build,
+            **kwargs,
+        )
+        if not skip_build:
+            self.push_model(image_name=local_image_name)
+        self.client.update_model(model_id=self.id, trainable=True)
+
+        # Merge training parameters with default ones
+        if training_parameters:
+            if isinstance(training_parameters, dict):
+                obj = TrainingParameters().from_dict(training_parameters)
+                training_parameters = obj
+            loaded_parameters = json.loads(training_parameters.to_json())
+        else:
+            loaded_parameters = self.client.get_model(model_id=self.id)["default_training_parameters"] or {}
+            if isinstance(loaded_parameters, str):
+                loaded_parameters = json.loads(loaded_parameters)
+
+        # Merge parameters with deployment parameters
+        # TODO: correctly load parameters in backend
+        loaded_parameters[DEPLOYMENT_PARAMETERS_SUBKEY] = deployment_parameters.dict_for_db()
+        if deployment_parameters.enable_cuda:
+            # Legacy path to enable GPU training
+            loaded_parameters["enable_cuda"] = deployment_parameters.enable_cuda
+
+        return loaded_parameters
 
     def start_training_from_app(
         self,
         app_id: str,
         task_name: str,
         current_properties: Optional[dict] = None,
+        training_parameters: Optional[TrainingParameters] = None,
         metadata: Optional[dict] = None,
         skip_build=False,
         use_internal: bool = False,
         **kwargs,
     ):
         """
-        Given the App ID, task name, start a training from the AI object
-
-        Args:
-            app_id: app ID
-            task_name: Name of the task for the dataset
-            current_properties: Properties of training
-            metadata: Metadata
-            skip_build: Whether to skip building the AI image
-            use_internal: Use internal development base image. Only accessible for super.AI developers.
-
-
-        # Hidden kwargs
-            enable_cuda: Whether CUDA base image is to be used
-            cuda_devel: Create development CUDA image
-            build_all_layers: Perform a fresh build of all layers
-            envs: Pass custom environment variables to the deployment. Should be a dictionary like
-                  {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
-            download_base: Always download the base image to get the latest version from ECR
+        (Deprecated) Start a training from an app. This method is deprecated and will be removed in future versions.
+        Use training_deploy(app_id=..., task_name=...) instead.
         """
-        if metadata is None:
-            metadata = {}
-        if current_properties is None:
-            current_properties = {}
-
-        current_properties["enable_cuda"] = kwargs.get("enable_cuda", False)
-        orchestrator = TrainingOrchestrator.AWS_EKS
-        image_builder = AiTrainerImageBuilder(
-            orchestrator,
-            name=self.name,
-            version=self.version,
-            entrypoint_class=self.ai_template.model_class,
-            environs=self.environs,
-            location=self._location,
-            requirements=self.requirements,
-            conda_env=self.conda_env,
-            artifacts=self.artifacts,
+        # TODO: remove this method in future versions
+        log.warning(
+            "start_training_from_app is deprecated and will be removed in future versions. Use training_deploy instead."
         )
-        image_builder.build_image(skip_build=skip_build, use_internal=use_internal, **kwargs)
-        if not skip_build:
-            image_name = self.push_model(self.name, str(self.version))
-        else:
-            image_name = get_ecr_image_name(self.name, str(self.version))
-        self.client.update_model(self.id, image=image_name, trainable=True)
-        if self.id is None:
-            raise LookupError("Cannot establish id, please make sure you push the AI model to create a database entry")
-        if self.ai_template.template_id is None:
-            log.info("Training template unknown, getting or creating")
-            self.ai_template.get_or_create_training_entry(
-                model_id=self.id, app_id=app_id, properties=current_properties
-            )
-        log.info(
-            f"Starting training for app ID {app_id}, task name {task_name}, model ID {self.id} template Id "
-            f"{self.ai_template.template_id} with properties {current_properties} and metadata {metadata}"
-        )
-        instance_id = self.client.start_training_from_app_model_template(
+        self.training_deploy(
             app_id=app_id,
-            model_id=self.id,
             task_name=task_name,
-            training_template_id=self.ai_template.template_id,
-            current_properties=current_properties,
+            properties=current_properties,
+            training_parameters=training_parameters,
             metadata=metadata,
+            skip_build=skip_build,
+            use_internal=use_internal,
+            **kwargs,
         )
-        self.client.update_training_instance(instance_id, state="STARTING")
-        log.info(f"Create training instance : {instance_id}")
+
+    def _get_or_create_training_entry(self, model_id: str, app_id: str = None, properties: dict = {}):
+        existing_template_id = self.client.get_training_templates(model_id=model_id, app_id=app_id)
+        if len(existing_template_id):
+            template_id = existing_template_id[0].id
+            log.info(f"Found existing template {existing_template_id}")
+            if properties:
+                self.client.update_training_template(template_id=template_id, properties=properties)
+
+        else:
+            template_id = self.client.create_training_template_entry(
+                model_id=model_id, properties=properties, app_id=app_id
+            )["id"]
+            log.info(f"Created template : {template_id}")
+            template_id = template_id
+        return template_id
+
+
+def obtain_object_template_config(config_file: Union[Path, str]) -> Tuple[AI, AITemplate, AIConfig]:
+    """
+    From the config file, obtain the AITemplate, AI instance and the config
+    Args:
+        config_file: Path to config file
+    Returns:
+        Tuple of AI instance, AITemplate and AIConfig
+    """
+
+    config_data = AIConfig(_env_file=str(config_file))
+
+    ai_template_object = AITemplate.from_settings(config_data.template)
+    ai_object = AI.from_settings(ai_template_object, config_data.instance)
+
+    return ai_object, ai_template_object, config_data

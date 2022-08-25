@@ -183,18 +183,10 @@ def test_builder(caplog, capsys, mocker, enable_cuda, skip_build, build_all_laye
         return_value="123.dkr.ecr.us-east-1.amazonaws.com",
     )
 
-    properties = dict(kubernetes_config=dict(minReplicas=1, maxReplicas=5))
-    image_name, new_properties = builder.build_image(
-        skip_build=skip_build,
-        build_all_layers=build_all_layers,
-        download_base=download_base,
-        enable_cuda=enable_cuda,
-        properties=properties,
+    image_name = builder.build_image(
+        skip_build=skip_build, build_all_layers=build_all_layers, download_base=download_base
     )
     assert image_name == f"{ai.name}:{ai.version}"
-    assert new_properties
-    assert new_properties["kubernetes_config"]["minReplicas"] == 1
-    assert new_properties["kubernetes_config"]["maxReplicas"] == 5
 
 
 def test_system_commands():

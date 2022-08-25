@@ -61,6 +61,7 @@ EXTRA_FIELDS = [
     "served_by",
     "default_training_parameters",
     "image",
+    "deployment_parameters",
 ]
 
 
@@ -113,6 +114,7 @@ class ModelApiMixin(ABC):
             "trainable",
             "default_training_parameters",
             "image",
+            "deployment_parameters",
         )
         data = self.sess.perform_op(op)
         return self._output_formatter((op + data).meta_ai_model_by_pk, to_json)
@@ -212,6 +214,7 @@ class ModelApiMixin(ABC):
         default_training_parameters: dict = None,
         trainable: bool = False,
         image: str = None,
+        deployment_parameters: Optional[Union[dict, "DeploymentParameters"]] = None,
     ) -> str:
         """
         Add a new model to the database.
@@ -248,10 +251,17 @@ class ModelApiMixin(ABC):
             image:
                 Path to the docker image containing the model execution environment.
                 Will be used for prediction serving and training.
+            deployment_parameters:
+                Parameters for the deployment in the backend. Mainly contains hardware and scaling parameters.
 
         Returns:
 
         """
+        from superai.meta_ai.parameters import AiDeploymentParameters
+
+        deployment_parameters = deployment_parameters or {}
+        if not isinstance(deployment_parameters, AiDeploymentParameters):
+            deployment_parameters = AiDeploymentParameters.parse_obj(deployment_parameters)
         op = Operation(mutation_root)
         op.insert_meta_ai_model_one(
             object=meta_ai_model_insert_input(
@@ -271,8 +281,11 @@ class ModelApiMixin(ABC):
                 default_training_parameters=json.dumps(default_training_parameters)
                 if default_training_parameters is not None
                 else default_training_parameters,
+                deployment_parameters=deployment_parameters.json_for_db(),
             )
-        ).__fields__("name", "version", "id", "stage", "description", "visibility", "root_id", "image")
+        ).__fields__(
+            "name", "version", "id", "stage", "description", "visibility", "root_id", "image", "deployment_parameters"
+        )
         data = self.sess.perform_op(op)
         log.info(f"Created new model: {data}")
         return (op + data).insert_meta_ai_model_one.id
@@ -294,11 +307,19 @@ class ModelApiMixin(ABC):
             stage: str
             trainable: bool
             visibility: str
+            deployment_parameters: dict
 
         Returns:
             str: Id of the updated model.
 
         """
+        from superai.meta_ai.parameters import AiDeploymentParameters
+
+        deployment_parameters = kwargs.get("deployment_parameters", {})
+        if not isinstance(deployment_parameters, AiDeploymentParameters):
+            deployment_parameters = AiDeploymentParameters.parse_obj(deployment_parameters)
+        kwargs["deployment_parameters"] = deployment_parameters.json_for_db()
+
         op = Operation(mutation_root)
         op.update_meta_ai_model_by_pk(
             _set=meta_ai_model_set_input(**kwargs),
@@ -389,9 +410,11 @@ class DeploymentApiMixin(ABC):
     def deploy(
         self,
         model_id: str,
-        deployment_type: meta_ai_deployment_type_enum = "AWS_SAGEMAKER",
+        deployment_type: meta_ai_deployment_type_enum = "AWS_EKS",
         purpose: str = "SERVING",
         properties: dict = None,
+        initial_status: meta_ai_deployment_status_enum = "OFFLINE",
+        wait: bool = False,
     ) -> Optional[str]:
         """Mutation query to create a new entry in the deployment table, should deploy an endpoint in the action handler
         and store the endpoint name in the table.
@@ -400,12 +423,8 @@ class DeploymentApiMixin(ABC):
             deployment_type: type of backend deployment
             purpose:
             model_id:
-            properties: dict
-                Possible values (with defaults) are:
-                    "sagemaker_instance_type": "ml.m5.xlarge"
-                    "sagemaker_initial_instance_count": 1
-                    "lambda_memory": 256
-                    "lambda_timeout": 30
+            properties: dict, as in AITemplate.deployment_parameters
+            wait: bool, if True, wait for the deployment to be completed before returning.
 
         Returns:
             str: id of the newly created deployment
@@ -418,17 +437,18 @@ class DeploymentApiMixin(ABC):
                     model_id=model_id,
                     type=meta_ai_deployment_type_enum(deployment_type),
                     purpose=meta_ai_deployment_purpose_enum(purpose),
-                    target_status="ONLINE",
+                    target_status=meta_ai_deployment_status_enum(initial_status),
                     properties=json.dumps(properties),
                 )
             ).__fields__("id", "model_id", "target_status", "created_at")
             data = self.sess.perform_op(op)
             log.info(f"Created new deployment: {data}")
             deployment_id = (op + data).insert_meta_ai_deployment_one.id
-            try:
-                self._wait_for_state_change(deployment_id, field="status", target_status="ONLINE")
-            except Exception as e:
-                log.warning(f"Exception during wait, aborting wait: {e}")
+            if wait:
+                try:
+                    self._wait_for_state_change(deployment_id, field="status", target_status=initial_status)
+                except Exception as e:
+                    log.warning(f"Exception during wait, aborting wait: {e}")
             return deployment_id
         else:
             log.info(f"Deployment already exists with properties: {existing_deployment} ")
@@ -458,26 +478,11 @@ class DeploymentApiMixin(ABC):
             target_status: The designated status of the deployment which the backend will fulfill
             timeout: The number of seconds to wait for a status change in a polling fashion
         """
-        model_deployment = self.get_deployment(deployment_id)
-        current_status = model_deployment["status"]
-        current_target_status = model_deployment["target_status"]
-
-        if current_status == target_status:
-            if current_status != target_status:
-                logger.info(f"Deployment status not consistent. Setting field target_status to {target_status}")
-                stored_target_status = self._set_target_status(deployment_id, target_status)
-                return stored_target_status == target_status
-            return True
-        elif current_status != target_status and current_target_status == target_status:
-            return self._wait_for_state_change(
-                deployment_id, field="status", target_status=target_status, timeout=timeout
-            )
-        else:
-            stored_target_status = self._set_target_status(deployment_id, target_status)
-            assert stored_target_status == target_status, "Could not set Deployment target_status properly."
-            return self._wait_for_state_change(
-                deployment_id, field="status", target_status=target_status, timeout=timeout
-            )
+        # Set to neutral state first to trigger event handler in any case
+        self._set_target_status(deployment_id, "UNKNOWN")
+        time.sleep(1)
+        self._set_target_status(deployment_id, target_status)
+        return self._wait_for_state_change(deployment_id, field="status", target_status=target_status, timeout=timeout)
 
     def _wait_for_state_change(self, deployment_id: str, field: str, target_status, timeout=600):
         console = Console()

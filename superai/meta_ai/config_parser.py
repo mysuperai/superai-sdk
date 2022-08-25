@@ -7,6 +7,8 @@ import yaml
 from pydantic import BaseModel, BaseSettings, Field, root_validator, validator
 from pydantic.env_settings import SettingsSourceCallable
 
+from superai.meta_ai.parameters import AiDeploymentParameters
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,8 +24,9 @@ class TemplateConfig(BaseModel):
     code_path: Optional[Union[str, List[str]]] = None
     conda_env: Optional[Union[str, dict]] = None
     artifacts: Optional[dict] = None
-    bucket_name: str = "canotic-ai"
+    bucket_name: Optional[str] = None
     parameters: Optional[dict] = None
+    deployment_parameters: Optional[AiDeploymentParameters] = None
 
     @validator("name")
     def name_must_not_contain_space(cls, v: str) -> str:
@@ -99,16 +102,12 @@ class InstanceConfig(BaseModel):
 class DeployConfig(BaseModel):
     orchestrator: str
     skip_build: bool = False
-    properties: Optional[Union[str, dict]] = {}
-    enable_cuda: bool = False
+    properties: Optional[Union[AiDeploymentParameters, str, dict]] = {}
     enable_eia: bool = False
     cuda_devel: bool = False
     redeploy: bool = False
     build_all_layers: bool = False
     download_base: bool = False
-    envs: Dict[str, Any] = {}
-    worker_count: int = 1
-    ai_cache: int = 5
 
     push: bool = False
     update_weights: bool = False
@@ -139,7 +138,7 @@ class TrainingDeployConfig(BaseModel):
     orchestrator: str
     training_data_dir: Optional[str] = None
     skip_build: bool = False
-    properties: Optional[Dict[str, Any]] = None
+    properties: Optional[Union[AiDeploymentParameters, Dict[str, Any]]] = None
     enable_cuda: bool = False
     training_parameters: Optional[Dict[str, Any]] = None
     envs: Dict[str, Any] = {}
@@ -178,7 +177,7 @@ class TrainingDeployConfig(BaseModel):
 class TrainingDeploymentFromApp(BaseModel):
     app_id: str
     task_name: str
-    current_properties: dict = {}
+    current_properties: Union[AiDeploymentParameters, dict] = {}
     metadata: dict = {}
     skip_build: bool = False
     enable_cuda: bool = False
