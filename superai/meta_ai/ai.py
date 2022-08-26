@@ -1121,7 +1121,7 @@ class AI:
 
         # TODO: add method which works with local training
         orchestrator = TrainingOrchestrator.AWS_EKS
-        kwargs.pop("orchestrator")
+        kwargs.pop("orchestrator", None)
 
         properties = properties or {}
         metadata = metadata or {}
