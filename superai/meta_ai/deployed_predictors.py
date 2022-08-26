@@ -290,12 +290,12 @@ class RemotePredictor(DeployedPredictor):
         self.client.set_deployment_status(deployment_id=self.id, target_status="OFFLINE")
 
     def to_dict(self) -> dict:
-        return dict(id=self.id, target_status=self.target_status)
+        return dict(id=self.id)
 
     @classmethod
     def from_dict(cls, dictionary, client: Optional[Client] = None) -> "RemotePredictor":
         client = client or Client()
-        return cls(client=client, id=dictionary["id"], target_status=dictionary["target_status"])
+        return cls(client=client, id=dictionary["id"])
 
 
 class PredictorFactory(object):

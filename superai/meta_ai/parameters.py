@@ -337,7 +337,7 @@ class AiDeploymentParameters(BaseModel):
         alias="cooldownPeriod",
     )
     target_average_utilization: Optional[float] = Field(
-        0.5, gt=0, description="Target average utilization", alias="targetAverageUtilization"
+        0.5, gt=0, description="Target average CPU utilization", alias="targetAverageUtilization"
     )
     gpu_target_average_utilization: Optional[float] = Field(
         None, description="[Not implemented] Target average utilization for gpu", alias="gpuTargetAverageUtilization"
