@@ -305,3 +305,29 @@ class JobsApiMixin(ABC):
         resp = requests.get(download_jobs_url)
         zipfile = ZipFile(BytesIO(resp.content))
         return json.load(zipfile.open(zipfile.namelist()[0]))
+
+    def review_job(
+        self,
+        job_id: int,
+        response: dict = None,
+        correct: bool = None,
+    ) -> dict:
+        """
+        Review jobs
+
+        :param job_id: Job id
+        :param response: New job response. If not present
+        :param correct: Whether the current job id should be marked as correct. If None no action would be taken.
+        :return: Status code
+        """
+        if not response and correct is None:
+            raise ValueError("Review flow requires either `response` or `correct` parameters")
+
+        body_json = {}
+        if response is not None:
+            body_json["response"] = response
+        if correct is not None:
+            body_json["correct"] = correct
+
+        uri = f"jobs/{job_id}/review"
+        return self.request(uri, method="PATCH", body_params=body_json, required_api_key=True)
