@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import jsonpickle  # type: ignore
 from apm import *  # type: ignore
-from pydantic import BaseModel, Field, root_validator, validator
+from pydantic import BaseModel, Field, ValidationError, root_validator, validator
 
 from superai.apis.meta_ai.meta_ai_graphql_schema import RawPrediction
 from superai.log import logger
@@ -145,7 +145,8 @@ class TaskElement(BaseModel):
 
 
 class TaskIO(BaseModel):
-    __root__: List[TaskElement]
+    # Dict represents new schema, TODO: add proper validation of new schema fields
+    __root__: Union[List[TaskElement], dict]
 
     def __iter__(self):
         return iter(self.__root__)
@@ -200,24 +201,20 @@ class TaskPredictionInstance(BaseModel):
     @validator("prediction")
     def validate_prediction_field(cls, value):
         if isinstance(value, TaskOutput):
-            return True
-        elif isinstance(value, dict):
+            return value
+        elif isinstance(value, (dict, str, RawPrediction)):
             log.warning(
-                "Deprecation: TaskPredictionInstance.prediction is expected to be of type `TaskOutput`, but got a dict. "
+                f"Deprecation: TaskPredictionInstance.prediction is expected to be of type `TaskOutput`, but got a {type(value)}. "
             )
-            return True
-        elif isinstance(value, str):
-            log.warning(
-                "Deprecation: TaskPredictionInstance.prediction is expected to be of type `TaskOutput`, but got a str. "
-            )
-            return True
-        elif isinstance(value, RawPrediction):
-            log.warning(
-                "Deprecation: TaskPredictionInstance.prediction is expected to be of type `TaskOutput`, but got a RawPrediction. "
-            )
-            return True
+            return value
         else:
-            return False
+            try:
+                parsed = TaskOutput.parse_obj(value)
+                return parsed
+            except ValidationError:
+                raise ValueError(
+                    "TaskPredictionInstance.prediction is expected to be of type `TaskOutput` or be compatible with it."
+                )
 
     @classmethod
     def validate_prediction(cls, prediction) -> Union[List["TaskPredictionInstance"], "TaskPredictionInstance", Any]:
