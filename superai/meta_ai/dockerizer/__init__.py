@@ -309,7 +309,7 @@ def ecr_registry_suffix(image_name: str, model_id: str, tag: str) -> Tuple[str, 
     full_suffix = f"{ECR_MODEL_ROOT_PREFIX}/{env}/{model_id}/{image_name}"
     if len(full_suffix + str(tag)) > 255:
         # AWS allows 256 characters for the name
-        logger.warn("Image name is too long. Truncating to 255 characters...")
+        logger.warning("Image name is too long. Truncating to 255 characters...")
         full_suffix = full_suffix[: 255 - len(str(tag))]
     full_suffix_with_version = f"{full_suffix}:{tag}"
     return full_suffix_with_version, full_suffix

@@ -690,7 +690,7 @@ class DeploymentApiMixin(ABC):
                     return res
                 elif res.state == meta_ai_prediction_state_enum.FAILED:
                     error_object = self.get_prediction_error(prediction_id)
-                    logger.warn(f"Prediction failed while waiting for completion:\n {error_object.error_message}")
+                    logger.warning(f"Prediction failed while waiting for completion:\n {error_object.error_message}")
                     raise PredictionError(error_object["error_message"])
             else:
                 raise TimeoutError("Waiting for Prediction result timed out. Try increasing timeout.")

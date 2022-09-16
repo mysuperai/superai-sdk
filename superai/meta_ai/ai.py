@@ -776,9 +776,9 @@ class AI:
                 weights = f"s3://{os.path.join(self.bucket_name, upload_object_name)}"
                 log.info(f"Uploaded weights to '{weights}'")
             else:
-                log.warn("Weights path provided were invalid, weights will not be uploaded")
+                log.warning("Weights path provided were invalid, weights will not be uploaded")
         else:
-            log.warn("No weights path given, weights will not be uploaded")
+            log.warning("No weights path given, weights will not be uploaded")
             if weights_path is not None:
                 weights = weights_path
         return weights

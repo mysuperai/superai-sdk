@@ -168,7 +168,7 @@ class DataProgram(DataProgramBase):
             raise Exception("Environment variable 'WF_PREFIX' is missing.")
 
         if service is None:
-            log.warn(
+            log.warning(
                 """Environment variable 'SERVICE' is missing. Starting data_program by default
     If you are running data program with 'canotic deploy' command,
     make sure to pass `--serve-schema` in order to opt-in schema server."""
@@ -221,7 +221,7 @@ class DataProgram(DataProgramBase):
         dp.start_service(default_params, handler, workflows, metadata, auto_generate_metadata)
         ```
         """
-        log.warn("DataProgram.run method has been deprecated. Please use DataProgram.create with DataProgram.start")
+        log.warning("DataProgram.run method has been deprecated. Please use DataProgram.create with DataProgram.start")
         # TODO: Fix: start the DP without legacy dependencies
         from canotic.hatchery import hatchery_config
         from canotic.qumes_transport import start_threads

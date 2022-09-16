@@ -5,6 +5,7 @@ import itertools
 import logging
 import os
 import sys
+import warnings
 from logging.handlers import RotatingFileHandler
 from typing import List
 
@@ -72,7 +73,13 @@ def debug(line):
 
 def warn(line):
     """Log warning"""
-    return logging.warn(line)
+    warnings.warn("The 'warn' function is deprecated, use 'warning' instead")
+    return logging.warning(line)
+
+
+def warning(line):
+    """Log warning"""
+    return logging.warning(line)
 
 
 def error(line):
