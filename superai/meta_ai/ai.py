@@ -787,7 +787,7 @@ class AI:
         self,
         orchestrator: Union[str, "Orchestrator"] = Orchestrator.LOCAL_DOCKER,
         skip_build: bool = False,
-        properties: Optional[dict, AiDeploymentParameters] = None,
+        properties: Optional[Union[dict, AiDeploymentParameters]] = None,
         enable_cuda: bool = False,
         enable_eia: bool = False,
         cuda_devel: bool = False,
