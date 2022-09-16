@@ -8,11 +8,12 @@ from superai_schema.generators import dynamic_generator
 from superai_schema.types import UiWidget
 from superai_schema.universal_schema import task_schema_functions as df
 
-from superai import Client
+from superai import Client, settings
 from superai.data_program import Task, Workflow
 from superai.data_program.base import DataProgramBase
 from superai.data_program.dp_server import DPServer
 from superai.data_program.Exceptions import UnknownTaskStatus
+from superai.data_program.protocol.task import start_threading
 from superai.data_program.protocol.task import task as task
 from superai.data_program.router import BasicRouter, Router
 from superai.data_program.router.training import Training
@@ -75,8 +76,8 @@ class DataProgram(DataProgramBase):
             self.parameter_ui_schema,
         ) = parse_dp_definition(definition)
 
-        self._default_workflow: str = None
-        self._gold_workflow: str = None
+        self._default_workflow: Optional[str] = None
+        self._gold_workflow: Optional[str] = None
         self._name = name
         self.__validate_name()
 
@@ -117,6 +118,88 @@ class DataProgram(DataProgramBase):
     def __str__(self):
         return f"DataProgram({self._name}, {self.description}, {self.template_name}, {self.metadata})"
 
+    @classmethod
+    def create(
+        cls,
+        *,
+        default_params: Parameters,
+        handler: Handler[Parameters],
+        metadata: dict = None,
+        auto_generate_metadata: bool = True,
+    ) -> "DataProgram":
+        name = os.getenv("WF_PREFIX")
+        if name is None:
+            raise Exception("Environment variable 'WF_PREFIX' is missing.")
+        training_dataprogram = os.getenv("TRAINING_DATAPROGRAM")
+        is_training = training_dataprogram is not None and training_dataprogram != name
+        default_definition = DataProgram._get_definition_for_params(default_params, handler)
+        dp = DataProgram(
+            name=name,
+            metadata=metadata,
+            add_basic_workflow=False,
+            definition=default_definition,
+            auto_generate_metadata=auto_generate_metadata,
+            dataprogram=training_dataprogram if is_training else None,
+        )
+        return dp
+
+    def start_service(
+        self,
+        *,
+        default_params: Parameters,
+        handler: Handler[Parameters],
+        workflows: List[WorkflowConfig],
+        name: Optional[str] = os.getenv("WF_PREFIX"),
+        service: Optional[str] = os.getenv("SERVICE"),
+    ):
+        if len(workflows) == 1 and (workflows[0].is_default != True or workflows[0].is_gold != True):
+            log.info("WARNING: The only workflow should be default and gold")
+            workflows[0].is_default = True
+            workflows[0].is_gold = True
+        else:
+            assert len(list(filter(lambda w: w.is_default, workflows))) == 1, "There should be one default workflow"
+            assert len(list(filter(lambda w: w.is_gold, workflows))) == 1, "There should be one gold workflow"
+
+        # Setting the SERVICE env variable indicates that we are running the Data Program as a service
+
+        params_cls = default_params.__class__
+
+        if name is None:
+            raise Exception("Environment variable 'WF_PREFIX' is missing.")
+
+        if service is None:
+            log.warn(
+                """Environment variable 'SERVICE' is missing. Starting data_program by default
+    If you are running data program with 'canotic deploy' command,
+    make sure to pass `--serve-schema` in order to opt-in schema server."""
+            )
+            service = "data_program"
+
+        if settings.backend != "qumes":
+            raise Exception("Non Qumes transport is not supported by this API.")
+
+        if service == "data_program":
+            log.info("Starting data_program service...")
+
+            log.info("Setting CANOTIC_AGENT=1 and IN_AGENT=YES")
+            os.environ["CANOTIC_AGENT"] = "1"
+            os.environ["IN_AGENT"] = "YES"
+
+            self.check_workflow_deletion(workflows)
+            for workflow_config in workflows:
+                self._add_workflow_by_config(workflow_config, params_cls, handler)
+
+            self.__init_router()
+            start_threading()
+            return
+
+        if service == "schema":
+            log.info("Starting schema service...")
+            DPServer(default_params, handler, name=name, workflows=workflows).run()
+            return
+
+        raise Exception(f"{service} is invalid service. 'data_program' or 'schema' is available.")
+
     @staticmethod
     def run(
         *,
@@ -126,6 +209,19 @@ class DataProgram(DataProgramBase):
         metadata: dict = None,
         auto_generate_metadata: bool = True,
     ):
+        """
+        [DEPRECATED]
+
+        The method starts a data program in qumes mode. This method is deprecated and will be removed in a future
+        release.
+
+        Please use the following method to replicate the methodology
+        ```python
+        dp = DataProgram.create(default_params, handler, metadata, auto_generate_metadata)
+        dp.start_service(default_params, handler, workflows, metadata, auto_generate_metadata)
+        ```
+        """
+        log.warn("DataProgram.run method has been deprecated. Please use DataProgram.create with DataProgram.start")
         # TODO: Fix: start the DP without legacy dependencies
         from canotic.hatchery import hatchery_config
         from canotic.qumes_transport import start_threads
@@ -316,6 +412,18 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         assert workflow_dict.get("name") == workflow.qualified_name
 
         return workflow_dict
+
+    def add_workflow_object(self, workflow: WorkflowConfig) -> Dict:
+        return self.add_workflow(
+            workflow.func,
+            workflow.name,
+            workflow.description,
+            workflow.is_default,
+            workflow.is_gold,
+        )
+
+    def add_workflow_objects(self, workflows: List[WorkflowConfig]) -> List[Dict]:
+        return [self.add_workflow_object(workflow) for workflow in workflows]
 
     def add_workflow(
         self,

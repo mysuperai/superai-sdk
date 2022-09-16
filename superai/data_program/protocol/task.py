@@ -51,6 +51,7 @@ from .transport_factory import (  # noqa # nosort
     schedule_workflow,
     send_report,
     send_reward,
+    start_threads,
     subscribe_workflow,
     task_future,
     task_result,
@@ -1199,3 +1200,7 @@ def urgent_task(
         show_reject=show_reject,
         amount=amount,
     )
+
+
+def start_threading():
+    start_threads()

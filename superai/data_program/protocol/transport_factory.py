@@ -34,6 +34,7 @@ try:
                 get_context_simple_id,
                 task_future,
                 task_result,
+                start_threads,
             )  # noqa # nosort
         except ImportError:
             from superai_transport.transport.transport import (
@@ -62,6 +63,7 @@ try:
                 get_context_simple_id,
                 task_future,
                 task_result,
+                start_threads,
             )  # noqa # nosort
     else:
         from .transport import (
@@ -90,6 +92,7 @@ try:
             subscribe_workflow,
             task_future,
             task_result,
+            start_threads,
         )  # noqa # nosort
 
         # isort: off

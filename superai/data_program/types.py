@@ -65,6 +65,7 @@ class WorkflowConfig:
     is_gold: bool
     description: Optional[str]
     measure: bool
+    func: Optional[Callable]
 
     def __init__(
         self,
@@ -74,12 +75,14 @@ class WorkflowConfig:
         is_gold: bool = False,
         description: str = None,
         measure: bool = True,
+        func: Optional[Callable] = None,
     ):
         self.name = name
         self.is_gold = is_gold
         self.is_default = is_default
         self.description = description
         self.measure = measure
+        self.func = func
 
 
 class JobContext(Generic[Output]):

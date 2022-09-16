@@ -1338,3 +1338,7 @@ def schedule_mtask(
         writeln_to_pipe_and_flush(message_for_agent.to_json)
 
     return f
+
+
+def start_threads():
+    pass
