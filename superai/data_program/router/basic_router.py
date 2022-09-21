@@ -8,7 +8,11 @@ import superai_schema.universal_schema.data_types as dt
 from colorama import Fore, Style
 
 from superai import Client
-from superai.data_program.Exceptions import ChildJobFailed, JobTypeNotImplemented
+from superai.data_program.Exceptions import (
+    ChildJobFailed,
+    ChildJobInternalError,
+    JobTypeNotImplemented,
+)
 from superai.data_program.protocol.task import (
     execute,
     get_job_app,
@@ -125,8 +129,13 @@ class BasicRouter(Router):
             job = execute(workflow, params=input, app_params={"params": params}, tag=app_uuid)
             result = job.result()
             status = result.status()
-            if not status or status != "COMPLETED":
-                raise ChildJobFailed(
-                    f"{workflow} method did not complete for {job_type} job. Result {result}. Status {status}"
-                )
+
+            failure_message = f"{workflow} method did not complete for {job_type} job. Result {result}. Status {status}"
+            if not status:
+                raise ChildJobInternalError(failure_message)
+            if status == "FAILED":
+                raise ChildJobFailed(failure_message)
+            if status != "COMPLETED":
+                raise ChildJobInternalError(failure_message)
+
             return job.result().response(), job.result().data(), None
