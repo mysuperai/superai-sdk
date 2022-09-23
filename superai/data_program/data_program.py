@@ -195,7 +195,14 @@ class DataProgram(DataProgramBase):
 
         if service == "schema":
             log.info("Starting schema service...")
-            DPServer(default_params, handler, name=name, workflows=workflows).run()
+            DPServer(
+                default_params,
+                handler,
+                name=name,
+                workflows=workflows,
+                template_name=self.template_name,
+                port=8001,  # TODO: get port from config.yaml
+            ).run()
             return
 
         raise Exception(f"{service} is invalid service. 'data_program' or 'schema' is available.")
@@ -281,7 +288,13 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
 
         if service == "schema":
             log.info("Starting schema service...")
-            DPServer(default_params, handler, name=name, workflows=workflows).run()
+            DPServer(
+                default_params,
+                handler,
+                name=name,
+                workflows=workflows,
+                template_name="",  # Not run the ngrok proxy. Whole run method should be phased out.
+            ).run()
             return
 
         raise Exception(f"{service} is invalid service. 'data_program' or 'schema' is available.")

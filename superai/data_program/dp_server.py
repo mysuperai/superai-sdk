@@ -1,3 +1,5 @@
+import contextlib
+import os
 from typing import Callable, Dict, List, Optional, Union
 
 import fastapi
@@ -5,9 +7,11 @@ import uvicorn
 from fastapi import HTTPException, Response, status
 from jsonschema import ValidationError, validate
 from pydantic import BaseModel
+from pyngrok import ngrok
 from superai_schema.types import UiWidget
 from typing_extensions import Literal
 
+from superai.client import Client
 from superai.data_program.types import (
     Handler,
     MethodResponse,
@@ -23,6 +27,7 @@ from superai.data_program.types import (
     WorkflowConfig,
 )
 from superai.log import logger
+from superai.utils import load_api_key, load_auth_token, load_id_token, retry
 
 log = logger.get_logger(__name__)
 
@@ -44,6 +49,8 @@ class DPServer:
         generate: Handler[Parameters],
         name: str,
         workflows: List[WorkflowConfig],
+        template_name: str,
+        port=8001,
         log_level: Literal["critical", "error", "warning", "info", "debug", "trace"] = "info",
     ):
         self.name = name
@@ -56,6 +63,8 @@ class DPServer:
         self.input_model = handler_output.input_model
         self.output_model = handler_output.output_model
         self.post_process_fn = handler_output.post_process_fn
+
+        self.template_name = template_name
 
         self.workflows = []
         for method in workflows:
@@ -73,6 +82,36 @@ class DPServer:
                 task_template.metrics_dict.keys() == self.metrics_dict.keys()
             ), "The metric names in task template should be a same as in metrics"
         self.task_templates_dict = {task_template.name: task_template for task_template in handler_output.templates}
+        self.dp_server_port = port
+        self.client = Client(api_key=load_api_key(), auth_token=load_auth_token(), id_token=load_id_token())
+
+    @retry(Exception, tries=5, delay=0.5, backoff=1)
+    def get_reverse_proxy_endpoint(self) -> str:
+        endpoint = self.client.get_workflow(self.template_name).get("endpoint", None)
+        return endpoint
+
+    @retry(Exception, tries=5, delay=0.5, backoff=1)
+    def update_reverse_proxy_endpoint(self, public_url: str) -> None:
+        self.client.update_workflow(self.template_name, body={"endpoint": public_url})
+
+    @contextlib.contextmanager
+    def ngrok_contextmanager(self, is_local=False):
+        # Boot up ngrok reverse proxy only in case of local deploy
+        if is_local and self.template_name:
+            # ensure the connection gets closed properly
+            try:
+                original_reverse_proxy_endpoint = self.get_reverse_proxy_endpoint()
+                ngrok_tunnel = ngrok.connect(self.dp_server_port)
+                new_reverse_proxy_endpoint = ngrok_tunnel.public_url
+                logger.info(f"Setting {new_reverse_proxy_endpoint} as public endpoint until shutdown of the DP server")
+                self.update_reverse_proxy_endpoint(new_reverse_proxy_endpoint)
+                yield
+            finally:
+                logger.info(f"Reverting back to {original_reverse_proxy_endpoint}")
+                self.update_reverse_proxy_endpoint(original_reverse_proxy_endpoint)
+                ngrok.disconnect(new_reverse_proxy_endpoint)
+        else:
+            yield
 
     def run(self):
         app = fastapi.FastAPI()
@@ -149,4 +188,5 @@ class DPServer:
                 log.exception(e)
                 raise HTTPException(status_code=422, detail=str(e))
 
-        uvicorn.run(app, host="0.0.0.0", port=8001, log_level=self.log_level)
+        with self.ngrok_contextmanager(is_local=not os.environ.get("ECS")):
+            uvicorn.run(app, host="0.0.0.0", port=self.dp_server_port, log_level=self.log_level)

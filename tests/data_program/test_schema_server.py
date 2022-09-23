@@ -52,6 +52,7 @@ def run_server():
         generate=handler,
         workflows=[WorkflowConfig("top_heroes", is_default=True), WorkflowConfig("crowd_managers", is_gold=True)],
         log_level="critical",
+        template_name="",  # template name should be empty, we don't want the reverse proxy
     ).run()
 
 
