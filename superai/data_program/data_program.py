@@ -40,7 +40,8 @@ class DataProgram(DataProgramBase):
     def __init__(
         self,
         name: str,
-        definition: DataProgramDefinition,
+        default_params: Parameters,
+        handler: Handler[Parameters],
         description: str = None,
         add_basic_workflow: bool = True,
         client: Client = None,
@@ -52,6 +53,10 @@ class DataProgram(DataProgramBase):
         **kwargs,
     ):
         super().__init__(add_basic_workflow=add_basic_workflow)
+        self._default_params = default_params
+        self._handler = handler
+        definition = self._get_definition_for_params(default_params, handler)
+
         assert "input_schema" in definition
         assert "output_schema" in definition
         self.client = (
@@ -132,12 +137,12 @@ class DataProgram(DataProgramBase):
             raise Exception("Environment variable 'WF_PREFIX' is missing.")
         training_dataprogram = os.getenv("TRAINING_DATAPROGRAM")
         is_training = training_dataprogram is not None and training_dataprogram != name
-        default_definition = DataProgram._get_definition_for_params(default_params, handler)
         dp = DataProgram(
             name=name,
+            default_params=default_params,
+            handler=handler,
             metadata=metadata,
             add_basic_workflow=False,
-            definition=default_definition,
             auto_generate_metadata=auto_generate_metadata,
             dataprogram=training_dataprogram if is_training else None,
         )
@@ -146,8 +151,6 @@ class DataProgram(DataProgramBase):
     def start_service(
         self,
         *,
-        default_params: Parameters,
-        handler: Handler[Parameters],
         workflows: List[WorkflowConfig],
         name: Optional[str] = os.getenv("WF_PREFIX"),
         service: Optional[str] = os.getenv("SERVICE"),
@@ -162,7 +165,7 @@ class DataProgram(DataProgramBase):
 
         # Setting the SERVICE env variable indicates that we are running the Data Program as a service
 
-        params_cls = default_params.__class__
+        params_cls = self.default_params.__class__
 
         if name is None:
             raise Exception("Environment variable 'WF_PREFIX' is missing.")
@@ -187,7 +190,7 @@ class DataProgram(DataProgramBase):
 
             self.check_workflow_deletion(workflows)
             for workflow_config in workflows:
-                self._add_workflow_by_config(workflow_config, params_cls, handler)
+                self._add_workflow_by_config(workflow_config, params_cls, self.handler)
 
             self.__init_router()
             start_threading()
@@ -196,8 +199,8 @@ class DataProgram(DataProgramBase):
         if service == "schema":
             log.info("Starting schema service...")
             DPServer(
-                default_params,
-                handler,
+                self.default_params,
+                self.handler,
                 name=name,
                 workflows=workflows,
                 template_name=self.template_name,
@@ -313,6 +316,22 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
             self._default_workflow = self.__load_default_workflow()
 
         return self._default_workflow
+
+    @property
+    def default_params(self) -> Parameters:
+        return self._default_params
+
+    @default_params.setter
+    def default_params(self, default_params: Parameters):
+        self._default_params = default_params
+
+    @property
+    def handler(self) -> Handler[Parameters]:
+        return self._handler
+
+    @handler.setter
+    def handler(self, handler: Handler[Parameters]):
+        self._handler = handler
 
     def check_workflow_deletion(self, new_workflows: List[WorkflowConfig]):
         template = self.client.get_template(template_name=self.template_name)
