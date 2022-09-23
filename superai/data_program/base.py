@@ -4,8 +4,6 @@ import os
 import threading
 from pathlib import Path
 
-from colorama import Fore, Style
-
 from superai.config import settings
 from superai.data_program.hatchery import BuildConfig, RuntimeConfig, run
 from superai.data_program.router import Router
@@ -59,7 +57,7 @@ class DataProgramBase:
     @IgnoreInAgent
     def _run_local(self, name: str = None, **kwargs):
         if DataProgramBase._thread:
-            log.debug(Fore.RED + "_run_local tried to run but DataProgramBase._thread is already set" + Style.RESET_ALL)
+            log.debug("_run_local tried to run but DataProgramBase._thread is already set")
             return
 
         if not name:

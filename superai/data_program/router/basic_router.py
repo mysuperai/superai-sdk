@@ -5,7 +5,6 @@ if TYPE_CHECKING:
     from superai.data_program import DataProgram
 
 import superai_schema.universal_schema.data_types as dt
-from colorama import Fore, Style
 
 from superai import Client
 from superai.data_program.Exceptions import (
@@ -100,10 +99,7 @@ class BasicRouter(Router):
                     return job_response
 
                 else:
-                    logging.warning(
-                        Fore.LIGHTRED_EX + f"No selected workflow for app {app_id}. "
-                        "Falling back to dataprogram default." + Style.RESET_ALL
-                    )
+                    logging.warning(f"No selected workflow for app {app_id}. " "Falling back to dataprogram default.")
                     return send_workflow_job(
                         workflow=self.default_wf_name,
                         input=inp,

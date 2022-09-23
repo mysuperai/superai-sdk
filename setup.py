@@ -34,7 +34,6 @@ REQUIRES = [
     "awesome-pattern-matching>=0.22.0",
     "boto3>=1.15",
     "click>=7.0",
-    "colorama>=0.3.0",
     "diskcache>=5.4.0",
     "dynaconf>=3.1.2",
     "fastapi>=0.70.0",

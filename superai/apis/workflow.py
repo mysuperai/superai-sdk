@@ -1,12 +1,10 @@
 from __future__ import absolute_import
 
 import logging
-import re  # noqa: F401
 from abc import ABC, abstractmethod
 
 # python 2 and python 3 compatibility library
 import six
-from colorama import Fore, Style
 
 from superai.log import logdecorator
 
@@ -18,15 +16,15 @@ class WorkflowApiMixin(ABC):
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        Fore.CYAN + "Workflow get {workflow_name:s}" + Style.RESET_ALL,
+        "Workflow get {workflow_name:s}",
     )
     @logdecorator.log_on_end(
         logging.DEBUG,
-        Fore.CYAN + "Workflow get {workflow_name:s} {result!s}" + Style.RESET_ALL,
+        "Workflow get {workflow_name:s} {result!s}",
     )
     @logdecorator.log_exception(
         logging.ERROR,
-        Fore.RED + "Error on Workflow get {workflow_name:s} {e!r}" + Style.RESET_ALL,
+        "Error on Workflow get {workflow_name:s} {e!r}",
         on_exceptions=Exception,
         reraise=True,
     )
@@ -85,15 +83,15 @@ class WorkflowApiMixin(ABC):
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        Fore.CYAN + "List workflows" + Style.RESET_ALL,
+        "List workflows",
     )
     @logdecorator.log_on_end(
         logging.DEBUG,
-        Fore.CYAN + "List workflows response: {result!s}" + Style.RESET_ALL,
+        "List workflows response: {result!s}",
     )
     @logdecorator.log_exception(
         logging.ERROR,
-        Fore.RED + "Error on list workflow {e!r}" + Style.RESET_ALL,
+        "Error on list workflow {e!r}",
         on_exceptions=Exception,
         reraise=True,
     )
@@ -183,15 +181,15 @@ class WorkflowApiMixin(ABC):
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        Fore.CYAN + "Workflow put {workflow_name:s} with body {body}" + Style.RESET_ALL,
+        "Workflow put {workflow_name:s} with body {body}",
     )
     @logdecorator.log_on_end(
         logging.DEBUG,
-        Fore.CYAN + "Workflow put {workflow_name:s} {result!s}" + Style.RESET_ALL,
+        "Workflow put {workflow_name:s} {result!s}",
     )
     @logdecorator.log_exception(
         logging.ERROR,
-        Fore.RED + "Error on Workflow put {workflow_name:s} {e!r}" + Style.RESET_ALL,
+        "Error on Workflow put {workflow_name:s} {e!r}",
         on_exceptions=Exception,
         reraise=True,
     )
@@ -264,15 +262,15 @@ class WorkflowApiMixin(ABC):
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        Fore.CYAN + "Workflow update {workflow_name:s} with body {body}" + Style.RESET_ALL,
+        "Workflow update {workflow_name:s} with body {body}",
     )
     @logdecorator.log_on_end(
         logging.DEBUG,
-        Fore.CYAN + "Workflow update {workflow_name:s} {result!s}" + Style.RESET_ALL,
+        "Workflow update {workflow_name:s} {result!s}",
     )
     @logdecorator.log_exception(
         logging.ERROR,
-        Fore.RED + "Error on Workflow update {workflow_name:s} {e!r}" + Style.RESET_ALL,
+        "Error on Workflow update {workflow_name:s} {e!r}",
         on_exceptions=Exception,
         reraise=True,
     )
@@ -289,15 +287,15 @@ class WorkflowApiMixin(ABC):
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        Fore.CYAN + "Workflow create {workflow_name:s} with body {body}" + Style.RESET_ALL,
+        "Workflow create {workflow_name:s} with body {body}",
     )
     @logdecorator.log_on_end(
         logging.DEBUG,
-        Fore.CYAN + "Workflow create {workflow_name:s} {result!s}" + Style.RESET_ALL,
+        "Workflow create {workflow_name:s} {result!s}",
     )
     @logdecorator.log_exception(
         logging.ERROR,
-        Fore.RED + "Error on Workflow create {workflow_name:s} {e!r}" + Style.RESET_ALL,
+        "Error on Workflow create {workflow_name:s} {e!r}",
         on_exceptions=Exception,
         reraise=True,
     )

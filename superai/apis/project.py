@@ -6,7 +6,6 @@ from abc import ABC, abstractmethod
 
 # python 2 and python 3 compatibility library
 import six
-from colorama import Fore, Style
 
 from superai.log import logdecorator
 
@@ -18,15 +17,15 @@ class ProjectApiMixin(ABC):
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        Fore.CYAN + "Project get {uuid}" + Style.RESET_ALL,
+        "Project get {uuid}",
     )
     @logdecorator.log_on_end(
         logging.DEBUG,
-        Fore.CYAN + "Project get {uuid} response: {result!s}" + Style.RESET_ALL,
+        "Project get {uuid} response: {result!s}",
     )
     @logdecorator.log_exception(
         logging.ERROR,
-        Fore.RED + "Error on Project get {uuid} {e!r}" + Style.RESET_ALL,
+        "Error on Project get {uuid} {e!r}",
         on_exceptions=Exception,
         reraise=True,
     )
@@ -84,15 +83,15 @@ class ProjectApiMixin(ABC):
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        Fore.CYAN + "Project get selected workflow {uuid:s}" + Style.RESET_ALL,
+        "Project get selected workflow {uuid:s}",
     )
     @logdecorator.log_on_end(
         logging.DEBUG,
-        Fore.CYAN + "Project get selected workflow {uuid:s} response: {result!s}" + Style.RESET_ALL,
+        "Project get selected workflow {uuid:s} response: {result!s}",
     )
     @logdecorator.log_exception(
         logging.ERROR,
-        Fore.RED + "Error on Project get selected workflow {uuid:s} {e!r}" + Style.RESET_ALL,
+        "Error on Project get selected workflow {uuid:s} {e!r}",
         on_exceptions=Exception,
         reraise=True,
     )
@@ -151,15 +150,15 @@ class ProjectApiMixin(ABC):
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        Fore.CYAN + "List instances" + Style.RESET_ALL,
+        "List instances",
     )
     @logdecorator.log_on_end(
         logging.DEBUG,
-        Fore.CYAN + "List instances response: {result!s}" + Style.RESET_ALL,
+        "List instances response: {result!s}",
     )
     @logdecorator.log_exception(
         logging.ERROR,
-        Fore.RED + "Error on list instances {e!r}" + Style.RESET_ALL,
+        "Error on list instances {e!r}",
         on_exceptions=Exception,
         reraise=True,
     )
@@ -249,15 +248,15 @@ class ProjectApiMixin(ABC):
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        Fore.CYAN + "Project update {workflow_name:s} with body {body}" + Style.RESET_ALL,
+        "Project update {workflow_name:s} with body {body}",
     )
     @logdecorator.log_on_end(
         logging.DEBUG,
-        Fore.CYAN + "Project update {workflow_name:s} response: {result!s}" + Style.RESET_ALL,
+        "Project update {workflow_name:s} response: {result!s}",
     )
     @logdecorator.log_exception(
         logging.ERROR,
-        Fore.RED + "Error on Project update {workflow_name:s} {e!r}" + Style.RESET_ALL,
+        "Error on Project update {workflow_name:s} {e!r}",
         on_exceptions=Exception,
         reraise=True,
     )
@@ -328,15 +327,15 @@ class ProjectApiMixin(ABC):
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        Fore.CYAN + "Project update with body {body}" + Style.RESET_ALL,
+        "Project update with body {body}",
     )
     @logdecorator.log_on_end(
         logging.DEBUG,
-        Fore.CYAN + "Project update response: {result!s}" + Style.RESET_ALL,
+        "Project update response: {result!s}",
     )
     @logdecorator.log_exception(
         logging.ERROR,
-        Fore.RED + "Error on Project update {e!r}" + Style.RESET_ALL,
+        "Error on Project update {e!r}",
         on_exceptions=Exception,
         reraise=True,
     )

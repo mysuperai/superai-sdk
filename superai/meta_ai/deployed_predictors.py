@@ -8,7 +8,6 @@ from typing import Optional, TypeVar
 
 import docker  # type: ignore
 import requests
-from colorama import Fore, Style  # type: ignore
 from docker.errors import APIError  # type: ignore
 from docker.models.containers import Container  # type: ignore
 from rich import print
