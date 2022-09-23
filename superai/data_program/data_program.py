@@ -271,12 +271,12 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
 
             training_dataprogram = os.getenv("TRAINING_DATAPROGRAM")
             is_training = training_dataprogram is not None and training_dataprogram != name
-            default_definition = DataProgram._get_definition_for_params(default_params, handler)
             dp = DataProgram(
                 name=name,
+                default_params=default_params,
+                handler=handler,
                 metadata=metadata,
                 add_basic_workflow=False,
-                definition=default_definition,
                 auto_generate_metadata=auto_generate_metadata,
                 dataprogram=training_dataprogram if is_training else None,
             )
