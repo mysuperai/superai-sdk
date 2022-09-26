@@ -188,5 +188,7 @@ class DPServer:
                 log.exception(e)
                 raise HTTPException(status_code=422, detail=str(e))
 
-        with self.ngrok_contextmanager(is_local=not os.environ.get("ECS")):
+        is_local = not (os.environ.get("ECS") or os.environ.get("JENKINS_URL"))
+
+        with self.ngrok_contextmanager(is_local=is_local):
             uvicorn.run(app, host="0.0.0.0", port=self.dp_server_port, log_level=self.log_level)
