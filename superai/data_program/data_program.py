@@ -197,14 +197,15 @@ class DataProgram(DataProgramBase):
             return
 
         if service == "schema":
-            log.info("Starting schema service...")
+            dp_server_port = int(os.getenv("SUPERAI_SCHEMA_PORT"))
+            log.info(f"Starting schema service on port {dp_server_port}...")
             DPServer(
                 self.default_params,
                 self.handler,
                 name=name,
                 workflows=workflows,
                 template_name=self.template_name,
-                port=8001,  # TODO: get port from config.yaml
+                port=dp_server_port,
             ).run()
             return
 
@@ -290,13 +291,15 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
             return
 
         if service == "schema":
-            log.info("Starting schema service...")
+            dp_server_port = int(os.getenv("SUPERAI_SCHEMA_PORT"))
+            log.info(f"Starting schema service on port {dp_server_port}...")
             DPServer(
                 default_params,
                 handler,
                 name=name,
                 workflows=workflows,
                 template_name="",  # Not run the ngrok proxy. Whole run method should be phased out.
+                port=dp_server_port,
             ).run()
             return
 

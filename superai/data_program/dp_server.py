@@ -50,7 +50,7 @@ class DPServer:
         name: str,
         workflows: List[WorkflowConfig],
         template_name: str,
-        port=8001,
+        port: int,
         log_level: Literal["critical", "error", "warning", "info", "debug", "trace"] = "info",
     ):
         self.name = name
@@ -107,7 +107,7 @@ class DPServer:
                 self.update_reverse_proxy_endpoint(new_reverse_proxy_endpoint)
                 yield
             finally:
-                logger.info(f"Reverting back to {original_reverse_proxy_endpoint}")
+                logger.info(f"Reverting endpoint back to {original_reverse_proxy_endpoint}")
                 self.update_reverse_proxy_endpoint(original_reverse_proxy_endpoint)
                 ngrok.disconnect(new_reverse_proxy_endpoint)
         else:
