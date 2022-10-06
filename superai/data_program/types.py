@@ -107,10 +107,14 @@ class JobContext(Generic[Output]):
 class PostProcessContext:
     job_uuid: Optional[str]
     job_cache: Optional[dict]
+    app_uuid: Optional[str]
 
-    def __init__(self, job_uuid: Optional[str] = None, job_cache: Optional[dict] = None):
+    def __init__(
+        self, job_uuid: Optional[str] = None, job_cache: Optional[dict] = None, app_uuid: Optional[str] = None
+    ):
         self.job_uuid = job_uuid
         self.job_cache = job_cache
+        self.app_uuid = app_uuid
 
 
 class HandlerOutput(BaseModel):
@@ -165,6 +169,7 @@ class MetricRequestModel(BaseModel):
 class PostProcessRequestModel(BaseModel):
     job_uuid: str
     response: dict
+    app_uuid: Optional[str]
 
 
 class MethodResponse(BaseModel):

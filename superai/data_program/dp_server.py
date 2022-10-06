@@ -182,7 +182,7 @@ class DPServer:
                 return Response(status_code=status.HTTP_204_NO_CONTENT)
             try:
                 output_response = self.output_model.parse_obj(output.response)
-                context = PostProcessContext(job_uuid=output.job_uuid)
+                context = PostProcessContext(job_uuid=output.job_uuid, app_uuid=output.app_uuid)
                 return self.post_process_fn(output_response, context)
             except Exception as e:
                 log.exception(e)

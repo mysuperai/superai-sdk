@@ -9,7 +9,13 @@ import requests
 from superai_schema.types import BaseModel, Field, UiWidget
 
 from superai.data_program.dp_server import DPServer
-from superai.data_program.types import HandlerOutput, Metric, WorkflowConfig
+from superai.data_program.types import (
+    HandlerOutput,
+    Metric,
+    PostProcessContext,
+    PostProcessRequestModel,
+    WorkflowConfig,
+)
 
 
 def run_server():
@@ -38,10 +44,14 @@ def run_server():
             index = len(job_input.__root__) % len(params.choices)
             return JobOutput(__root__=params.choices[index])
 
+        def post_process_job(job_output: JobOutput, context: PostProcessContext) -> str:
+            return "processed"
+
         return HandlerOutput(
             input_model=JobInput,
             output_model=JobOutput,
             process_fn=process_job,
+            post_process_fn=post_process_job,
             templates=[],
             metrics=[Metric(name="f1_score", metric_fn=metric_func)],
         )
@@ -166,3 +176,10 @@ def test_method_names(server):
     resp = requests.get("http://127.0.0.1:8002/methods")
 
     assert resp.json() == expected
+
+
+def test_post_process(server):
+    r = PostProcessRequestModel(job_uuid="123", response={"__root__": "1"}, app_uuid="123")
+    resp = requests.post("http://127.0.0.1:8002/post-process", json=r.dict())
+
+    assert resp.json() == "processed"
