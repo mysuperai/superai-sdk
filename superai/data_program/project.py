@@ -3,8 +3,6 @@ import os
 import webbrowser
 from typing import Dict, List, Union
 
-from colorama import Fore, Style
-
 from superai.client import Client
 from superai.config import settings
 from superai.log import logger
@@ -228,13 +226,13 @@ class Project:
         url = self.get_url()
         if open_browser:
             url = f"{url}/tasks" if worker == worker.me else f"{url}/jobs"
-            log.info(Fore.BLUE + f"Open {url} to see your jobs" + Style.RESET_ALL)
+            log.info(f"Open {url} to see your jobs")
             webbrowser.open(
                 url,
                 new=2,
             )
 
-        log.info(f"Click here to go to your Dashboard: {Fore.BLUE}{url}{Style.RESET_ALL}/jobs")
+        log.info(f"Click here to go to your Dashboard: {url}/jobs")
 
         return labels
 

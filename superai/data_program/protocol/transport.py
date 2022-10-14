@@ -942,7 +942,7 @@ def _task_pump():
                 if id in _task_futures:
                     if seq not in _task_futures[id]:
                         if "CHILD_RESPONSE" == response["type"]:
-                            logger.warn("CHILD_RESPONSE:missing_child_job_future id {} seq {}".format(id, seq))
+                            logger.warning("CHILD_RESPONSE:missing_child_job_future id {} seq {}".format(id, seq))
                             _task_futures[id][seq] = child_job_future()
                         else:
                             _task_futures[id][seq] = future()
@@ -1338,3 +1338,7 @@ def schedule_mtask(
         writeln_to_pipe_and_flush(message_for_agent.to_json)
 
     return f
+
+
+def start_threads():
+    pass

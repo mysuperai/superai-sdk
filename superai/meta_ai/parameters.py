@@ -1,10 +1,14 @@
+from __future__ import annotations
+
 import ast
 import enum
 import json
 import logging
-from typing import Any, Callable, List, Optional, Union
+from enum import IntEnum
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import jsonpickle  # type: ignore
+from pydantic import BaseModel, Field, validator
 
 logger = logging.getLogger(__file__)
 
@@ -313,3 +317,123 @@ class TrainingParameters:
 if __name__ == "__main__":
     a = Config(default="Something", choice="Something_else")
     print(a.default)
+
+
+class GPUVRAM(IntEnum):
+    VRAM_8192 = 8192
+    VRAM_12288 = 12288
+    VRAM_16384 = 16384
+    VRAM_24576 = 24576
+    VRAM_32768 = 32768
+    VRAM_40960 = 40960
+
+
+class AiDeploymentParameters(BaseModel):
+    min_replica_count: Optional[int] = Field(0, ge=0, description="Minimum number of replicas", alias="minReplicaCount")
+    max_replica_count: Optional[int] = Field(1, ge=1, description="Maximum number of replicas", alias="maxReplicaCount")
+    cooldown_period: Optional[int] = Field(
+        1800,
+        description="Cooldown period (in seconds) after which unused deployments get scaled down.",
+        alias="cooldownPeriod",
+    )
+    target_average_utilization: Optional[float] = Field(
+        0.5, gt=0, description="Target average CPU utilization", alias="targetAverageUtilization"
+    )
+    gpu_target_average_utilization: Optional[float] = Field(
+        None, description="[Not implemented] Target average utilization for gpu", alias="gpuTargetAverageUtilization"
+    )
+    gpu_memory_requirement: Optional[GPUVRAM] = Field(
+        None,
+        description="Controls the amount of VRAM allocated to the GPU. If set to 0, no GPU is used. Can be one of [8192, 12288, 16384, 24576, 32768, 40960]",
+        alias="gpuMemoryRequirement",
+    )
+    target_memory_requirement: Optional[str] = Field(
+        "512Mi", description="Target memory requirement", alias="targetMemoryRequirement"
+    )
+    target_memory_limit: Optional[str] = Field("4Gi", description="Target memory limit", alias="targetMemoryLimit")
+    mount_path: Optional[str] = Field("/shared", description="Mount path", alias="mountPath")
+    num_threads: Optional[int] = Field(
+        1, description="[Untested] Number of concurrent serving threads", alias="numThreads"
+    )
+    enable_cuda: Optional[bool] = Field(
+        False,
+        description="Enable CUDA capable deployment. Is used to build correct image and deploy on Compute nodes with NVIDIA GPU.",
+        alias="enableCuda",
+    )
+    queue_length: Optional[int] = Field(
+        20,
+        description="""Controls scaling behaviour. 
+        Should be the expected throughput per model instance in one minute.
+        If the model queue contains 40 items with a queueLength of 20, the deployment will scale up to 2 instances.
+        """,
+        alias="queueLength",
+    )
+    model_timeout_seconds: Optional[int] = Field(
+        20,
+        gt=0,
+        le=60,
+        description="""The expected time of the model to complete one average prediction.
+        Will be used to cancel waiting for overwhelmed models to complete."
+        The upper bound is a hard limit given by backend constraints.
+        """,
+        alias="modelTimeoutSeconds",
+    )
+    lambda_ai_cache: Optional[int] = Field(32, ge=0, description="Lambda AI cache size", alias="lambdaAICache")
+    sagemaker_worker_count: Optional[int] = Field(
+        1, ge=1, description="SageMaker worker count in the same endpoint", alias="sagemakerWorkerCount"
+    )
+    envs: Optional[Dict[str, str]] = Field(
+        None,
+        description="Pass custom environment variables to the deployment. "
+        'Should be a dictionary like {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}',
+    )
+
+    class Config:
+        use_enum_values = True
+        allow_population_by_field_name = True
+        extra = "forbid"
+
+    # Validate that memory is using correct format
+    @validator("target_memory_requirement", "target_memory_limit")
+    def validate_memory_requirement(cls, v):
+        """
+        Allowed is Mi and Gi, e.g. 512Mi or 4Gi
+        """
+        if v is None:
+            return v
+        if not v.endswith("Mi") and not v.endswith("Gi"):
+            raise ValueError("Memory requirement must be in Mi or Gi")
+        return v
+
+    def dict_for_db(self) -> dict:
+        """
+        Method wrapping pydantics dict() method to only contain set fields.
+        """
+        return self.dict(exclude_unset=True, by_alias=True, exclude_defaults=True)
+
+    def json_for_db(self) -> str:
+        """
+        Method dumping dict_for_db() method to JSON.
+        """
+        return json.dumps(self.dict_for_db())
+
+    @classmethod
+    def parse_from_optional(
+        cls, deployment_parameters: Optional[dict, AiDeploymentParameters]
+    ) -> AiDeploymentParameters:
+        if isinstance(deployment_parameters, dict):
+            deployment_parameters = AiDeploymentParameters.parse_obj(deployment_parameters)
+        if deployment_parameters and not isinstance(deployment_parameters, AiDeploymentParameters):
+            raise ValueError("deployment_parameters must be of type DeploymentParameters or a compatible dict.")
+        if not deployment_parameters:
+            deployment_parameters = AiDeploymentParameters()
+        return deployment_parameters
+
+    def merge(self, other: AiDeploymentParameters):
+        """
+        Merge two DeploymentParameters objects.
+        """
+        for k, v in other.dict().items():
+            if k in self.dict():
+                self.dict()[k] = v
+        return self

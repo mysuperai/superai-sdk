@@ -65,6 +65,7 @@ class WorkflowConfig:
     is_gold: bool
     description: Optional[str]
     measure: bool
+    func: Optional[Callable]
 
     def __init__(
         self,
@@ -74,12 +75,14 @@ class WorkflowConfig:
         is_gold: bool = False,
         description: str = None,
         measure: bool = True,
+        func: Optional[Callable] = None,
     ):
         self.name = name
         self.is_gold = is_gold
         self.is_default = is_default
         self.description = description
         self.measure = measure
+        self.func = func
 
 
 class JobContext(Generic[Output]):
@@ -104,10 +107,14 @@ class JobContext(Generic[Output]):
 class PostProcessContext:
     job_uuid: Optional[str]
     job_cache: Optional[dict]
+    app_uuid: Optional[str]
 
-    def __init__(self, job_uuid: Optional[str] = None, job_cache: Optional[dict] = None):
+    def __init__(
+        self, job_uuid: Optional[str] = None, job_cache: Optional[dict] = None, app_uuid: Optional[str] = None
+    ):
         self.job_uuid = job_uuid
         self.job_cache = job_cache
+        self.app_uuid = app_uuid
 
 
 class HandlerOutput(BaseModel):
@@ -162,6 +169,7 @@ class MetricRequestModel(BaseModel):
 class PostProcessRequestModel(BaseModel):
     job_uuid: str
     response: dict
+    app_uuid: Optional[str]
 
 
 class MethodResponse(BaseModel):

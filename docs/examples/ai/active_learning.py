@@ -37,7 +37,7 @@ template = AITemplate(
     model_class="MyKerasModel",
     requirements=["tensorflow==2.1.0", "opencv-python-headless"],
     code_path=["resources/runDir"],
-    artifacts={"run": "runDir/run_this.sh"},
+    artifacts={"run": "resources/runDir/run_this.sh"},
 )
 ai1 = AI(
     ai_template=template,
@@ -51,7 +51,7 @@ ai1 = AI(
 log.info(
     "Prediction from AI : {}".format(
         ai1.predict(
-            inputs={"data": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
+            inputs=[{"data": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}]
         ),
     )
 )

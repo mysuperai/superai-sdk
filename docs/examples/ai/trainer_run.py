@@ -3,7 +3,6 @@ import shutil
 
 from superai.meta_ai.ai import AI
 from superai.meta_ai.ai_template import AITemplate
-from superai.meta_ai.image_builder import TrainingOrchestrator
 from superai.meta_ai.parameters import (
     Config,
     HyperParameterSpec,
@@ -39,12 +38,11 @@ ai = AI(
 ai.push(overwrite=True)
 #%%
 ai.training_deploy(
-    orchestrator=TrainingOrchestrator.AWS_EKS,
     training_data_dir="./training_data",
-    build_all_layers=False,
     training_parameters=TrainingParameters(
         hyperparameters=HyperParameterSpec(trainable=True, optimizer="adam", log_learning_rate=-3, epochs=10),
         model_parameter=ModelParameters(conv1_size=32, conv2_size=64, hidden1_size=500, dropout=0.8),
     ),
+    build_all_layers=False,
 )
 #%%

@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import asyncio
 import os
 import tempfile
+import threading
 from io import BytesIO
 from time import time
 
@@ -14,43 +15,67 @@ from diskcache import Cache
 from superai.config import settings
 from superai.log import logger
 
+MAX_BOTO_POOL_CONNECTIONS = 30
+
 log = logger.get_logger(__name__)
 
 cache = None
 _cache_dir = os.path.join(tempfile.gettempdir(), "memo", settings.name)
+# least-recently-stored is a read-only cache policy and faster than least-recently-used
 cache_settings = dict(
-    directory=_cache_dir, size_limit=settings.cache_size_in_bytes, eviction_policy="least-recently-used"
+    directory=_cache_dir, size_limit=settings.cache_size_in_bytes, eviction_policy="least-recently-stored"
 )
+_cache_lock = threading.Lock()
 
 
-def init_cache():
-    global cache
-    if not cache:
-        cache = Cache(**cache_settings)
+def _init_cache():
+    global cache, _cache_lock
+    # add lock
+    with _cache_lock:
+        if not cache:
+            log.debug("Initializing cache...")
+            cache = Cache(**cache_settings)
 
+
+_init_cache()
+
+_s3_client_lock = threading.Lock()
+_s3_client = None
+
+
+def _init_s3_client():
+    # Init s3 client in a thread-safe way
+    # using the _s3_client is thread safe and does not require a lock
+    global _s3_client, _s3_client_lock
+    with _s3_client_lock:
+        if not _s3_client:
+            log.debug("Initializing s3 client...")
+            _s3_client = boto3.client(
+                "s3", config=botocore.config.Config(max_pool_connections=MAX_BOTO_POOL_CONNECTIONS)
+            )
+
+
+_init_s3_client()
 
 # TODO removing push function
-def _push_to_s3(filename, object, client, s3_bucket):
-    client.Bucket(s3_bucket)
-    client.meta.client.upload_fileobj(
+def _push_to_s3(filename, object, s3_bucket):
+    _s3_client.upload_fileobj(
         Fileobj=object, Key=filename, Bucket=s3_bucket, Config=boto3.s3.transfer.TransferConfig(use_threads=False)
     )
 
 
-def _pull_from_s3(object, filename, client, s3_bucket) -> object:
-    bucket = client.Bucket(s3_bucket)
-    return bucket.download_fileobj(
-        Key=filename, Fileobj=object, Config=boto3.s3.transfer.TransferConfig(use_threads=False)
+def _pull_from_s3(object, filename, s3_bucket) -> object:
+    return _s3_client.download_fileobj(
+        Bucket=s3_bucket, Key=filename, Fileobj=object, Config=boto3.s3.transfer.TransferConfig(use_threads=False)
     )
 
 
-def _refresh_push_to_s3(method, filepath, client, s3_bucket) -> object:
+def _refresh_push_to_s3(method, filepath, s3_bucket) -> object:
     result = method()
-    init_cache()
     cache[filepath] = result
     with BytesIO() as tmpfile:
         joblib.dump(result, tmpfile)
-        _push_to_s3(filepath, tmpfile, client, s3_bucket)
+        _push_to_s3(filepath, tmpfile, s3_bucket)
     return result
 
 
@@ -61,31 +86,30 @@ def memo(method, filename, folder=None, refresh=False):
         if folder is None:
             folder = "memo/{}".format(settings.name)
         log.debug("Executing memo of {}/{}...".format(settings.name, filename))
-        session = boto3.session.Session()
-        client = session.resource("s3")
+
         s3_bucket = settings.memo_bucket
         filepath = os.path.join(folder, filename)
 
         # logic
         if refresh:  # if forced refresh, then redo the method
             log.info("Refresh True {0}".format(method.__name__))
-            return _refresh_push_to_s3(method, filepath, client, s3_bucket)
-        init_cache()
+            return _refresh_push_to_s3(method, filepath, s3_bucket)
         if filepath in cache:  # if have local cache, great, then continue
+            log.info("Cache hit for {}".format(filepath))
             result = cache.get(filepath)
             return result
         else:  # if local cache does not exist,
             try:  # try checking s3 for cache first, if exist, then return the value
                 with BytesIO() as tmpfile:
-                    _pull_from_s3(tmpfile, filename, client, s3_bucket)
+                    _pull_from_s3(tmpfile, filename, s3_bucket)
                     result = joblib.load(tmpfile)
-                init_cache()
+                log.info("Write to local cache for {}".format(filepath))
                 cache[filepath] = result
                 return result
             except botocore.exceptions.ClientError as e:
                 if e.response["Error"]["Code"] == "404":  # no local/s3 cache, produce the task, cache in local and s3
                     log.debug("The S3 and local cache does not exist.")
-                    return _refresh_push_to_s3(method, filepath, client, s3_bucket)
+                    return _refresh_push_to_s3(method, filepath, s3_bucket)
                 else:
                     raise  # other s3 errors
     finally:
@@ -154,7 +178,6 @@ def forget_memo(filename, folder=None, prefix: str = None):
 
     if filename:
         filepath = os.path.join(folder, filename)
-        init_cache()
         if filepath in cache:  # if have local cache, great, then continue
             cache.pop(filepath)
         try:

@@ -1,8 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-from colorama import Fore, Style
-
 if TYPE_CHECKING:
     from superai.data_program import DataProgram
 
@@ -48,16 +46,16 @@ class Router(ABC):
     def validate_workflow_attribute(self, attr: str):
 
         if not hasattr(self, attr):
-            log.warn(Fore.RED + f"{self.name} missing attribute {attr}" + Style.RESET_ALL)
+            log.warning(f"{self.name} missing attribute {attr}")
 
         for workflow in self.workflows:
             if not hasattr(workflow, attr):
-                log.warn(Fore.RED + f"workflow {workflow.name} missing attribute {attr}" + Style.RESET_ALL)
+                log.warning(f"workflow {workflow.name} missing attribute {attr}")
 
             if getattr(self, attr) != getattr(workflow, attr):
-                log.warn(
-                    Fore.RED + f"{self.name} with {attr}: {getattr(self, attr)} has workflow {workflow.name} with"
-                    f" {attr}: {getattr(workflow, attr)}" + Style.RESET_ALL
+                log.warning(
+                    f"{self.name} with {attr}: {getattr(self, attr)} has workflow {workflow.name} with"
+                    f" {attr}: {getattr(workflow, attr)}"
                 )
 
     @abstractmethod

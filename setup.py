@@ -34,7 +34,6 @@ REQUIRES = [
     "awesome-pattern-matching>=0.22.0",
     "boto3>=1.15",
     "click>=7.0",
-    "colorama>=0.3.0",
     "diskcache>=5.4.0",
     "dynaconf>=3.1.2",
     "fastapi>=0.70.0",
@@ -77,7 +76,8 @@ BUILD_REQUIRES = [
 DP_REQUIRES = [
     "awscli>=1.18.163",
     "superai-dataclient~=0.1.0",
-    "superai-schema~=0.2.0",
+    "superai-schema~=0.4.1",
+    "pyngrok>=5.1.0",
 ]
 
 TEST_REQUIRES = [
@@ -86,7 +86,7 @@ TEST_REQUIRES = [
     "dictdiffer>=0.9.0",
     "pytest-cov>=2.10.1",
     "pytest-env>=0.6.2",
-    "pytest-mock~=3.8.1",
+    "pytest-mock~=3.10.0",
     "pytest-vcr>=1.0.2",
     "pytest>=6.1.2",
     "seldon-core>=1.11.2",

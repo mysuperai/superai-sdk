@@ -32,7 +32,7 @@ class MyKerasModel(BaseModel):
         log.info(f"Predict Input: {input}")
         if isinstance(input, str):
             input = json.loads(input)
-        image_url = input["data"]["image_url"]
+        image_url = input[0]["data"]["image_url"]
         req = urlopen(image_url)
         arr = np.asarray(bytearray(req.read()), dtype=np.uint8)
         img = cv2.imdecode(arr, cv2.IMREAD_GRAYSCALE)

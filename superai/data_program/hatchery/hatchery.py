@@ -2,8 +2,6 @@ from os import environ
 from pathlib import Path
 from typing import List
 
-from colorama import Fore, Style
-
 from superai.data_program.hatchery.utils import (
     build_path,
     create_agent_run_command,
@@ -55,9 +53,9 @@ def run(build_cfg: dict, runtime_cfg: dict, filepath=None):
     template_name = runtime_cfg.get("name")
 
     if not template_name:
-        log.warn(
-            Fore.LIGHTRED_EX + f"template_name not defined in build_config. Using python script name as template name. "
-            f"This might throw some errors." + Style.RESET_ALL
+        log.warning(
+            f"template_name not defined in build_config. Using python script name as template name. "
+            f"This might throw some errors."
         )
 
     if runtime_cfg["simulation"]:

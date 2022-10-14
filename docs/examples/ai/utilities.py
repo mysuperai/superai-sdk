@@ -1,5 +1,4 @@
 import mock
-from colorama import Fore, Style
 
 
 class MockedReturns:
@@ -35,7 +34,3 @@ class MockedReturns:
     def sage_check(ret: bool):
         sage = mock.patch("superai.apis.meta_ai.model.DeploymentApiMixin.check_endpoint_is_available", return_value=ret)
         return sage
-
-
-def color(x: str):
-    return Fore.YELLOW + x + Style.RESET_ALL

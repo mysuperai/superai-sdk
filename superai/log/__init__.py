@@ -12,4 +12,5 @@ from .logger import (
     info,
     init,
     warn,
+    warning,
 )

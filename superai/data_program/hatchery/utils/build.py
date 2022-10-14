@@ -9,7 +9,6 @@ from shutil import copyfile
 from sys import exit
 from typing import List
 
-from colorama import Fore, Style
 from rich.progress import DownloadColumn, Progress, TransferSpeedColumn
 from yaml import safe_load
 
@@ -42,11 +41,11 @@ def build_path(path, asPath=False):
 
 @logdecorator.log_on_start(
     logging.INFO,
-    Fore.LIGHTBLACK_EX + "Initializing build path {path:s}. Forcing clean build {clean_build}" + Style.RESET_ALL,
+    "Initializing build path {path:s}. Forcing clean build {clean_build}",
 )
 @logdecorator.log_exception(
     logging.ERROR,
-    Fore.RED + "Exception creating build path: {e!r}" + Style.RESET_ALL,
+    "Exception creating build path: {e!r}",
     reraise=True,
 )
 def init_build_path(path: str = settings.hatchery_build_folder, clean_build: bool = False):
@@ -101,7 +100,7 @@ def get_binaries(base_path=settings.s3_bucket, manifest=settings.build_manifest,
 
     with open(build_path(manifestPath.name), "r") as f:
         _config = safe_load(f)
-        log.debug(Fore.BLUE + f"BUILD_MANIFEST: {_config}" + Style.RESET_ALL)
+        log.debug(f"BUILD_MANIFEST: {_config}")
 
         if not _config.get("agent"):
             raise ValueError("build_manifest.yml needs to have agent and pips")
@@ -123,21 +122,21 @@ def get_binaries(base_path=settings.s3_bucket, manifest=settings.build_manifest,
         if _config.get("agent", {}).get("s3"):
             agent_location = copy_from_s3(base_path, _config["agent"]["s3"], force_copy=force_download)
 
-    log.info(Fore.LIGHTBLACK_EX + f"Agent location set to {agent_location}" + Style.RESET_ALL)
+    log.info(f"Agent location set to {agent_location}")
     settings.agent.file = agent_location
 
 
 @logdecorator.log_on_start(
     logging.DEBUG,
-    Fore.CYAN + "Started copying dependency {filename:s}" + Style.RESET_ALL,
+    "Started copying dependency {filename:s}",
 )
 @logdecorator.log_on_end(
     logging.DEBUG,
-    Fore.CYAN + "Copying dependency {filename:s} finished successfully {result!s}" + Style.RESET_ALL,
+    "Copying dependency {filename:s} finished successfully {result!s}",
 )
 @logdecorator.log_exception(
     logging.ERROR,
-    Fore.RED + "Error on copying dependency {filename:s}: {e!r}" + Style.RESET_ALL,
+    "Error on copying dependency {filename:s}: {e!r}",
     on_exceptions=Exception,
     reraise=True,
 )

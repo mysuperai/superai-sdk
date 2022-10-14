@@ -14,7 +14,6 @@ from random import randint
 
 import requests
 import sentry_sdk
-from colorama import Fore, Style
 from genson import SchemaBuilder
 from superai_dataclient.data_helper import DataHelper
 from superai_schema.universal_schema.data_types import (
@@ -51,6 +50,7 @@ from .transport_factory import (  # noqa # nosort
     schedule_workflow,
     send_report,
     send_reward,
+    start_threads,
     subscribe_workflow,
     task_future,
     task_result,
@@ -253,7 +253,7 @@ def retry(exceptions, tries=5, delay=1, backoff=2, logger=logging):
     def deco_retry(f):
         @wraps(f)
         def f_retry(*args, **kwargs):
-            logger.warning(Fore.LIGHTRED_EX + "DEPRECATED: Plase use superai.utils.retry" + Style.RESET_ALL)
+            logger.warning("DEPRECATED: Plase use superai.utils.retry")
             mtries, mdelay = tries, delay
             while mtries > 1:
                 try:
@@ -301,7 +301,7 @@ def get_job_by_id(id, active=True, api_key=None, use_memo=False, endpoint_api_ke
     :param api_key: default is root api key # TODO: need to revisit @purnawirman
     :return:
     """
-    logger.warning(Fore.LIGHTRED_EX + "DEPRECATED: Will be removed in next version" + Style.RESET_ALL)
+    logger.warning("DEPRECATED: Will be removed in next version")
 
     def func():
         url_format = "{}/jobqueue/jobs/{}?apiKey={}"
@@ -1199,3 +1199,7 @@ def urgent_task(
         show_reject=show_reject,
         amount=amount,
     )
+
+
+def start_threading():
+    start_threads()

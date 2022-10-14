@@ -2,7 +2,6 @@ import os
 import subprocess
 
 import boto3
-from colorama import Fore, Style
 
 from superai.exceptions import SuperAIConfigurationError
 from superai.log import logger
@@ -74,8 +73,6 @@ def pip_configure(
             token, pip_config_level=pip_config_level, repo=repo, domain=domain, owner_id=owner_id, region=region
         )
         if show_pip:
-            print(
-                f"{Fore.BLUE}Copy/Paste the following command to configure pip manually:{Style.RESET_ALL}\n{Fore.CYAN}{pip_cmd}{Style.RESET_ALL}"
-            )
+            print(f"Copy/Paste the following command to configure pip manually:\n{pip_cmd}")
     except Exception as e:
         raise SuperAIConfigurationError(str(e))

@@ -1,11 +1,7 @@
 from __future__ import absolute_import
 
 import logging
-import re  # noqa: F401
 from abc import abstractmethod
-
-# python 2 and python 3 compatibility library
-from colorama import Fore, Style
 
 from superai.apis.workflow import WorkflowApiMixin
 from superai.log import logdecorator
@@ -18,15 +14,15 @@ class DataProgramApiMixin(WorkflowApiMixin):
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        Fore.CYAN + "DataProgram get {template_name:s}" + Style.RESET_ALL,
+        "DataProgram get {template_name:s}",
     )
     @logdecorator.log_on_end(
         logging.DEBUG,
-        Fore.CYAN + "DataProgram get {template_name:s} {result!s}" + Style.RESET_ALL,
+        "DataProgram get {template_name:s} {result!s}",
     )
     @logdecorator.log_exception(
         logging.ERROR,
-        Fore.RED + "Error on DataProgram get {template_name:s} {e!r}" + Style.RESET_ALL,
+        "Error on DataProgram get {template_name:s} {e!r}",
         on_exceptions=Exception,
         reraise=True,
     )
@@ -42,11 +38,11 @@ class DataProgramApiMixin(WorkflowApiMixin):
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        Fore.CYAN + "DataProgram list" + Style.RESET_ALL,
+        "DataProgram list",
     )
     @logdecorator.log_exception(
         logging.ERROR,
-        Fore.RED + "Error on DataProgram list {e!r}" + Style.RESET_ALL,
+        "Error on DataProgram list {e!r}",
         on_exceptions=Exception,
         reraise=True,
     )
@@ -69,14 +65,12 @@ class DataProgramApiMixin(WorkflowApiMixin):
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        Fore.CYAN + "DataProgram update {template_name:s} with body {body}" + Style.RESET_ALL,
+        "DataProgram update {template_name:s} with body {body}",
     )
-    @logdecorator.log_on_end(
-        logging.DEBUG, Fore.CYAN + "DataProgram update {template_name:s} {result!s}" + Style.RESET_ALL
-    )
+    @logdecorator.log_on_end(logging.DEBUG, "DataProgram update {template_name:s} {result!s}")
     @logdecorator.log_exception(
         logging.ERROR,
-        Fore.RED + "Error on DataProgram update {template_name:s} {e!r}" + Style.RESET_ALL,
+        "Error on DataProgram update {template_name:s} {e!r}",
         on_exceptions=Exception,
         reraise=True,
     )
@@ -94,14 +88,12 @@ class DataProgramApiMixin(WorkflowApiMixin):
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        Fore.CYAN + "DataProgram create {template_name:s} with body {body}" + Style.RESET_ALL,
+        "DataProgram create {template_name:s} with body {body}",
     )
-    @logdecorator.log_on_end(
-        logging.DEBUG, Fore.CYAN + "DataProgram create {template_name:s} {result!s}" + Style.RESET_ALL
-    )
+    @logdecorator.log_on_end(logging.DEBUG, "DataProgram create {template_name:s} {result!s}")
     @logdecorator.log_exception(
         logging.ERROR,
-        Fore.RED + "Error on DataProgram create {template_name:s} {e!r}" + Style.RESET_ALL,
+        "Error on DataProgram create {template_name:s} {e!r}",
         on_exceptions=Exception,
         reraise=True,
     )

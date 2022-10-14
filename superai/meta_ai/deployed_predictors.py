@@ -8,7 +8,6 @@ from typing import Optional, TypeVar
 
 import docker  # type: ignore
 import requests
-from colorama import Fore, Style  # type: ignore
 from docker.errors import APIError  # type: ignore
 from docker.models.containers import Container  # type: ignore
 from rich import print
@@ -17,6 +16,7 @@ from rich.prompt import Confirm
 from superai import Client
 from superai.meta_ai.dockerizer import get_docker_client
 from superai.meta_ai.image_builder import Orchestrator
+from superai.meta_ai.parameters import AiDeploymentParameters
 from superai.meta_ai.schema import EasyPredictions
 from superai.utils import log
 
@@ -32,7 +32,28 @@ class DeployedPredictor(metaclass=ABCMeta):
 
     Type = TypeVar("Type", bound="DeployedPredictor")
 
-    def __init__(self, *args, **kwargs):
+    def __init__(
+        self,
+        orchestrator: Orchestrator,
+        local_image_name: str,
+        ai: "AI",
+        deploy_properties: AiDeploymentParameters,
+        weights_path: Optional[str] = None,
+        *args,
+        **kwargs,
+    ):
+        self.orchestrator = orchestrator
+        self.local_image_name = local_image_name
+        self.ai = ai
+        if isinstance(deploy_properties, dict):
+            self.deploy_properties = AiDeploymentParameters.parse_obj(deploy_properties)
+        else:
+            self.deploy_properties = deploy_properties
+        self.weights_path = weights_path
+        self.id = None
+
+    @abstractmethod
+    def deploy(self, redeploy=False) -> None:
         pass
 
     @abstractmethod
@@ -55,55 +76,62 @@ class DeployedPredictor(metaclass=ABCMeta):
 
 
 class LocalPredictor(DeployedPredictor):
-    def __init__(self, *args, deploy_properties: dict, existing=False, remove=True, **kwargs):
+    def __init__(self, *args, remove=True, **kwargs):
         super(LocalPredictor, self).__init__(*args, **kwargs)
-        client = get_docker_client()
-        self.deploy_properties = deploy_properties
-        self.lambda_mode = deploy_properties.get("lambda_mode", False)
-        self.enable_cuda = deploy_properties.get("enable_cuda", False)
-        self.k8s_mode = deploy_properties.get("k8s_mode", False)
-        self.ai = kwargs.get("ai")
-        self.weights_path = deploy_properties.get("weights_path") or self.ai.weights_path
-        container_name = deploy_properties["image_name"].replace(":", "_")
-        weights_volume = deploy_properties["kubernetes_config"]["mountPath"] if self.k8s_mode else "/opt/ml/model/"
-        if not existing:
-            try:
-                try:
-                    container = client.containers.get(container_name)
-                    log.warning(
-                        "Container with identical name and version already running. "
-                        "Stopping before restarting with new image."
-                    )
-                    container.kill()
-                    container.wait()
-                except Exception as e:
-                    log.debug(f"Ignorable exception: {e}")
 
-                log.info(f"Starting new container with name {container_name}.")
-                self.container: Container = client.containers.run(
-                    image=deploy_properties["image_name"],
-                    name=container_name,
-                    detach=True,
-                    remove=remove,
-                    environment=dict(MNT_PATH=weights_volume),
-                    volumes=self._get_volumes(weights_volume),
-                    ports=self._get_port_assignment(),
-                    device_requests=self._get_device_requests(),
-                )
-                log.info("Started container in serving mode.")
-            except APIError as e:
-                log.error(
-                    "Could not run docker container. "
-                    "Is docker running or is there already a container running under the same ports?",
-                    exc_info=e,
-                )
-                self.container = None
-        else:
-            self.container: Container = client.containers.get(container_name)
-            log.info("Initialized LocalPredictor with already running container.")
+        self.client = get_docker_client()
+        self.lambda_mode = self.orchestrator in [Orchestrator.LOCAL_DOCKER_LAMBDA, Orchestrator.AWS_LAMBDA]
+        self.enable_cuda = self.deploy_properties.enable_cuda
+        self.k8s_mode = self.orchestrator == Orchestrator.LOCAL_DOCKER_K8S or None
+        self.container_name = self.local_image_name.replace(":", "_")
+        self.weights_volume = self.deploy_properties.mount_path if self.k8s_mode else "/opt/ml/model/"
         self.kwargs = kwargs
+        self.remove = remove
+
+    def deploy(self, redeploy=False) -> None:
+        try:
+            try:
+                container = self.client.containers.get(self.container_name)
+                if not redeploy:
+                    log.error(f"Container {self.container_name} already exists. Use `redeploy` to force redeployment.")
+                    return
+                log.warning(
+                    "Container with identical name and version already running. "
+                    "Stopping before restarting with new image."
+                )
+
+                container.kill()
+                container.wait()
+            except Exception as e:
+                log.debug(f"Ignorable exception: {e}")
+
+            log.info(f"Starting new container with name {self.container_name}.")
+            envs = dict(MNT_PATH=self.weights_volume)
+            if self.deploy_properties.envs:
+                envs.update(self.deploy_properties.envs)
+            self.container: Container = self.client.containers.run(
+                image=self.local_image_name,
+                name=self.container_name,
+                detach=True,
+                remove=self.remove,
+                environment=envs,
+                volumes=self._get_volumes(self.weights_volume),
+                ports=self._get_port_assignment(),
+                device_requests=self._get_device_requests(),
+            )
+            log.info("Started container in serving mode.")
+        except APIError as e:
+            log.error(
+                "Could not run docker container. "
+                "Is docker running or is there already a container running under the same ports?",
+                exc_info=e,
+            )
+            self.container = None
 
     def predict(self, input, mime="application/json"):
+        if self.container is None:
+            self.container: Container = self.client.containers.get(self.container_name)
+
         if self.lambda_mode:
             url = f"http://localhost:9000/2015-03-31/functions/function/invocations"
         elif self.k8s_mode:
@@ -183,7 +211,7 @@ class LocalPredictor(DeployedPredictor):
         return device_requests
 
     def to_dict(self) -> dict:
-        dictionary = {"deploy_properties": self.deploy_properties}
+        dictionary = {"deploy_properties": self.deploy_properties.dict_for_db()}
         dictionary["deploy_properties"]["weights_path"] = self.weights_path
         return dictionary
 
@@ -195,12 +223,55 @@ class LocalPredictor(DeployedPredictor):
 class RemotePredictor(DeployedPredictor):
     """A predictor that runs on a remote machine."""
 
-    def __init__(self, client: Client, deploy_properties: dict, **kwargs):
-        super().__init__()
-        self.client = client
-        self.id = deploy_properties["id"]
-        self.target_status = deploy_properties.get("target_status", "ONLINE")
-        client.set_deployment_status(deployment_id=self.id, target_status=self.target_status)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.client = self.ai.client
+
+    def deploy(self, redeploy=False) -> str:
+        """
+        Deploy the image to the remote orchestrator.
+        Args:
+            redeploy:
+            orchestrator: Orchestrator to deploy to.
+            properties: Properties to deploy with.
+            redeploy: Allow redeploying existing deployment.
+            skip_build: Skip building and force reuse existing image.
+
+        Returns:
+            Id of deployment
+
+        """
+        if self.ai.id is None:
+            raise LookupError("Cannot find AI id, please make sure you push the AI model to create a database entry")
+
+        self.ai.served_by = self.ai.served_by or self.ai.client.get_model(self.ai.id)["served_by"]
+        existing_deployment = self.ai.client.get_deployment(self.ai.served_by) if self.ai.served_by else None
+
+        deployment_exists = not (existing_deployment is None or "status" not in existing_deployment)
+
+        if deployment_exists and not redeploy:
+            raise Exception("Deployment with this version already exists. Try undeploy first or set `redeploy=True`.")
+        elif redeploy:
+            self.ai.undeploy()
+
+        if not deployment_exists:
+            self.id = self.client.deploy(self.ai.id, deployment_type=self.orchestrator.value)
+            log.info(f"Created new deployment with id {self.id}.")
+        else:
+            self.id = self.ai.deployment_id
+            log.info(f"Reusing existing deployment with id {self.id}.")
+        self.ai.served_by = self.id
+
+        self.client.set_deployment_properties(
+            deployment_id=self.ai.deployment_id, properties=self.deploy_properties.dict_for_db()
+        )
+        self.client.update_model(self.ai.id, served_by=self.ai.served_by)
+
+        self.client.set_deployment_status(deployment_id=self.ai.deployment_id, target_status="ONLINE")
+        deployment = self.client.get_deployment(self.ai.deployment_id)
+        log.info(f"Deployment={deployment} done.")
+
+        return self.id
 
     def predict(self, input, **kwargs):
         if self.client.check_endpoint_is_available(self.id):
@@ -218,12 +289,12 @@ class RemotePredictor(DeployedPredictor):
         self.client.set_deployment_status(deployment_id=self.id, target_status="OFFLINE")
 
     def to_dict(self) -> dict:
-        return dict(id=self.id, target_status=self.target_status)
+        return dict(id=self.id)
 
     @classmethod
     def from_dict(cls, dictionary, client: Optional[Client] = None) -> "RemotePredictor":
         client = client or Client()
-        return cls(client=client, id=dictionary["id"], target_status=dictionary["target_status"])
+        return cls(client=client, id=dictionary["id"])
 
 
 class PredictorFactory(object):
@@ -238,15 +309,13 @@ class PredictorFactory(object):
     }
 
     @staticmethod
-    def get_predictor_obj(
-        orchestrator: Orchestrator, deploy_properties: dict, *args, **kwargs
-    ) -> "DeployedPredictor.Type":
+    def get_predictor_obj(*args, orchestrator: Orchestrator, **kwargs) -> "DeployedPredictor.Type":
         """Factory method to get a predictor"""
         predictor_class = PredictorFactory.__predictor_classes.get(orchestrator)
-        log.info("Creating predictor of type: {} with properties: {}".format(predictor_class, deploy_properties))
+        log.info("Creating predictor of type: {} with kwargs: {}".format(predictor_class, kwargs))
 
         if predictor_class:
-            return predictor_class(deploy_properties=deploy_properties, *args, **kwargs)
+            return predictor_class(orchestrator, *args, **kwargs)
         raise NotImplementedError(f"The predictor of orchestrator:`{orchestrator}` is not implemented yet.")
 
     @classmethod
