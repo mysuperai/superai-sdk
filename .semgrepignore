@@ -1,1 +1,2 @@
 memoization.py
+.ci/semgrep_rules/*
