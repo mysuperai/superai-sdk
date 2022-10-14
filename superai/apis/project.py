@@ -45,7 +45,7 @@ class ProjectApiMixin(ABC):
         params = locals()
         for key, val in six.iteritems(params["kwargs"]):
             if key not in all_params:
-                raise TypeError("Got an unexpected keyword argument '%s'" " to method get_template" % key)
+                raise TypeError(f"Got an unexpected keyword argument '{key}' to method get_template")
             params[key] = val
         del params["kwargs"]
         if "uuid" not in params or params["uuid"] is None:
@@ -111,7 +111,7 @@ class ProjectApiMixin(ABC):
         params = locals()
         for key, val in six.iteritems(params["kwargs"]):
             if key not in all_params:
-                raise TypeError("Got an unexpected keyword argument '%s'" " to method get_template" % key)
+                raise TypeError(f"Got an unexpected keyword argument '{key}' to method get_template")
             params[key] = val
         del params["kwargs"]
 
@@ -195,7 +195,7 @@ class ProjectApiMixin(ABC):
         params = locals()
         for key, val in six.iteritems(params["kwargs"]):
             if key not in all_params:
-                raise TypeError("Got an unexpected keyword argument '%s'" " to method list_templates" % key)
+                raise TypeError(f"Got an unexpected keyword argument '{key}' to method list_templates")
             params[key] = val
         del params["kwargs"]
 
@@ -279,7 +279,7 @@ class ProjectApiMixin(ABC):
         params = locals()
         for key, val in six.iteritems(params["kwargs"]):
             if key not in all_params:
-                raise TypeError("Got an unexpected keyword argument '%s'" " to method update_template" % key)
+                raise TypeError(f"Got an unexpected keyword argument '{key}' to method update_template")
             params[key] = val
         del params["kwargs"]
         # verify the required parameter 'body' is set
@@ -361,7 +361,7 @@ class ProjectApiMixin(ABC):
         del params["org"]
         for key, val in six.iteritems(params["kwargs"]):
             if key not in all_params:
-                raise TypeError("Got an unexpected keyword argument '%s'" " to method update_template" % key)
+                raise TypeError(f"Got an unexpected keyword argument '{key}' to method update_template")
             params[key] = val
         del params["kwargs"]
         # verify the required parameter 'body' is set

@@ -136,7 +136,7 @@ def terminate_guard(function):
     def wrapper(*args, **kwargs):
         with _terminate_flag_lock:
             if _terminate_flag[_context.id]:
-                raise ValueError("Workflow instance {} terminated".format(_context.id))
+                raise ValueError(f"Workflow instance {_context.id} terminated")
         return function(*args, **kwargs)
 
     return wrapper
@@ -670,7 +670,7 @@ def _worklow_thread(id, suffix, response):
         result = function(subject, context)
         resolve_job(*result) if type(result) == tuple else resolve_job(result, None, None)
     except ValidationError as error:
-        internal_error("\nSchema validation error: {0}".format(error))
+        internal_error(f"\nSchema validation error: {error}")
         with sentry_sdk.push_scope() as scope:
             scope.set_tag("job_id", id)
             scope.set_tag("job_uuid", _context.uuid)
@@ -696,7 +696,7 @@ def _worklow_thread(id, suffix, response):
             )
         )
     except ChildJobFailed as error:
-        fail_job("FAIL_JOB: Job {} child failed".format(_context.uuid))
+        fail_job(f"FAIL_JOB: Job {_context.uuid} child failed")
         with sentry_sdk.push_scope() as scope:
             scope.set_tag("job_id", id)
             scope.set_tag("job_uuid", _context.uuid)
@@ -713,7 +713,7 @@ def _worklow_thread(id, suffix, response):
             "error {}".format(_context.uuid, _context.job_type, _context.app_id, str(error))
         )
     except QualifierTaskExpired as error:
-        fail_job("FAIL_JOB :: {}: {}".format(type(error), error))
+        fail_job(f"FAIL_JOB :: {type(error)}: {error}")
         logger.info(
             "Qualifier task expired for Job #{} of type {}. "
             "error {}".format(_context.uuid, _context.job_type, str(error))
@@ -724,10 +724,10 @@ def _worklow_thread(id, suffix, response):
             "error {}".format(_context.uuid, _context.job_type, str(error))
         )
         if (_context.job_type and _context.job_type == "COLLABORATOR") or response.get("jobType") == "COLLABORATOR":
-            expire_job("\nEXPIRE_JOB :: {}: {}".format(type(error), error))
+            expire_job(f"\nEXPIRE_JOB :: {type(error)}: {error}")
             scope_level = WARN
         else:
-            internal_error("\nINTERNAL_ERROR :: {}: {}".format(type(error), error))
+            internal_error(f"\nINTERNAL_ERROR :: {type(error)}: {error}")
             scope_level = FATAL
         with sentry_sdk.push_scope() as scope:
             scope.set_tag("job_id", id)
@@ -741,7 +741,7 @@ def _worklow_thread(id, suffix, response):
             scope.set_level(scope_level)
             sentry_sdk.capture_exception(error)
     except ChildJobInternalError as error:
-        internal_error("INTERNAL_ERROR: Job {} child threw internal error".format(_context.uuid))
+        internal_error(f"INTERNAL_ERROR: Job {_context.uuid} child threw internal error")
         with sentry_sdk.push_scope() as scope:
             scope.set_tag("job_id", id)
             scope.set_tag("job_uuid", _context.uuid)
@@ -758,7 +758,7 @@ def _worklow_thread(id, suffix, response):
             "error {}".format(_context.uuid, _context.job_type, _context.app_id, str(error))
         )
     except EmptyPerformanceError as error:
-        internal_error("\n INTERNAL_ERROR :: {}: {}".format(type(error), error))
+        internal_error(f"\n INTERNAL_ERROR :: {type(error)}: {error}")
         with sentry_sdk.push_scope() as scope:
             scope.set_tag("job_id", id)
             scope.set_tag("job_uuid", _context.uuid)
@@ -784,9 +784,9 @@ def _worklow_thread(id, suffix, response):
             )
             scope.set_level(WARN)
             sentry_sdk.capture_exception(error)
-        logger.error("Unsatisfied metrics for job: #{}".format(_context.id))
+        logger.error(f"Unsatisfied metrics for job: #{_context.id}")
     except Exception as ex:
-        internal_error("\nINTERNAL_ERROR :: {}: {}".format(type(ex), ex))
+        internal_error(f"\nINTERNAL_ERROR :: {type(ex)}: {ex}")
         with sentry_sdk.push_scope() as scope:
             scope.set_tag("job_id", id)
             scope.set_tag("job_uuid", _context.uuid)
@@ -899,7 +899,7 @@ def _task_pump():
 
             thread = Thread(
                 target=_worklow_thread,
-                name="{0}-{1}".format(suffix, id),
+                name=f"{suffix}-{id}",
                 args=(id, suffix, response),
             )
             thread.daemon = True
@@ -942,7 +942,7 @@ def _task_pump():
                 if id in _task_futures:
                     if seq not in _task_futures[id]:
                         if "CHILD_RESPONSE" == response["type"]:
-                            logger.warning("CHILD_RESPONSE:missing_child_job_future id {} seq {}".format(id, seq))
+                            logger.warning(f"CHILD_RESPONSE:missing_child_job_future id {id} seq {seq}")
                             _task_futures[id][seq] = child_job_future()
                         else:
                             _task_futures[id][seq] = future()
@@ -950,7 +950,7 @@ def _task_pump():
                     f = _task_futures[id][seq]
 
             if f is None:
-                sys.stderr.write("Unexpected id/sequence (late response?): {0}/{1}\n".format(id, seq))
+                sys.stderr.write(f"Unexpected id/sequence (late response?): {id}/{seq}\n")
                 sys.stderr.flush()
             else:
                 f.set_result(response)

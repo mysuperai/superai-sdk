@@ -224,7 +224,7 @@ def load_and_predict(
         result = ai_object.predict(task_input[0])
         scores = [instance["score"] for instance in result]
         predict_score = np.mean(scores)
-    log.info("Prediction score: {}".format(predict_score))
+    log.info(f"Prediction score: {predict_score}")
     if metrics_output_dir:
         store_prediction_metrics(metrics_output_dir, dict(score=predict_score))
     return result
@@ -250,5 +250,5 @@ def store_prediction_metrics(
 
     with open(metrics_output_path, "w") as f:
         json.dump(metrics, f)
-    log.info("Metrics saved to: {}".format(metrics_output_path))
+    log.info(f"Metrics saved to: {metrics_output_path}")
     return metrics_output_path

@@ -84,18 +84,18 @@ def memo(method, filename, folder=None, refresh=False):
     start_time = time()
     try:
         if folder is None:
-            folder = "memo/{}".format(settings.name)
-        log.debug("Executing memo of {}/{}...".format(settings.name, filename))
+            folder = f"memo/{settings.name}"
+        log.debug(f"Executing memo of {settings.name}/{filename}...")
 
         s3_bucket = settings.memo_bucket
         filepath = os.path.join(folder, filename)
 
         # logic
         if refresh:  # if forced refresh, then redo the method
-            log.info("Refresh True {0}".format(method.__name__))
+            log.info(f"Refresh True {method.__name__}")
             return _refresh_push_to_s3(method, filepath, s3_bucket)
         if filepath in cache:  # if have local cache, great, then continue
-            log.info("Cache hit for {}".format(filepath))
+            log.info(f"Cache hit for {filepath}")
             result = cache.get(filepath)
             return result
         else:  # if local cache does not exist,
@@ -103,7 +103,7 @@ def memo(method, filename, folder=None, refresh=False):
                 with BytesIO() as tmpfile:
                     _pull_from_s3(tmpfile, filename, s3_bucket)
                     result = joblib.load(tmpfile)
-                log.info("Write to local cache for {}".format(filepath))
+                log.info(f"Write to local cache for {filepath}")
                 cache[filepath] = result
                 return result
             except botocore.exceptions.ClientError as e:
@@ -113,7 +113,7 @@ def memo(method, filename, folder=None, refresh=False):
                 else:
                     raise  # other s3 errors
     finally:
-        log.debug("Memo elapsed time: {} secs".format(time() - start_time))
+        log.debug(f"Memo elapsed time: {time() - start_time} secs")
 
 
 # TODO: this is hacky way of implementing memoization of random task
@@ -122,8 +122,8 @@ async def async_memo(method, filename, folder=None, refresh=False):
     start_time = time()
     try:
         if folder is None:
-            folder = "memo/{}".format(settings.name)
-        log.info("Executing memo of {}/{}...".format(settings.name, filename))
+            folder = f"memo/{settings.name}"
+        log.info(f"Executing memo of {settings.name}/{filename}...")
         session = boto3.session.Session()
         client = session.resource("s3")
         s3_bucket = settings.memo_bucket
@@ -152,7 +152,7 @@ async def async_memo(method, filename, folder=None, refresh=False):
 
         # logic
         if refresh:  # if forced refresh, then redo the method
-            log.info("Refresh True {0}".format(method.__name__))
+            log.info(f"Refresh True {method.__name__}")
             return await refresh_push_to_s3(method, filepath, client)
 
         if os.path.isfile(filepath):  # if have local cache, great, then continue
@@ -168,13 +168,13 @@ async def async_memo(method, filename, folder=None, refresh=False):
                 else:
                     raise  # other s3 errors
     finally:
-        log.info("Memo elapsed time: {} secs".format(time() - start_time))
+        log.info(f"Memo elapsed time: {time() - start_time} secs")
 
 
 def forget_memo(filename, folder=None, prefix: str = None):
     s3_bucket = settings.memo_bucket
     if folder is None:
-        folder = "memo/{}".format(settings.name)
+        folder = f"memo/{settings.name}"
 
     if filename:
         filepath = os.path.join(folder, filename)
@@ -186,7 +186,7 @@ def forget_memo(filename, folder=None, prefix: str = None):
             client = session.resource("s3")
             client.Object(s3_bucket, filepath).delete()
         except botocore.exceptions.ClientError as e:
-            log.warning("S3 Error: {}".format(e))
+            log.warning(f"S3 Error: {e}")
 
     if prefix:
         try:
@@ -194,7 +194,7 @@ def forget_memo(filename, folder=None, prefix: str = None):
             log.info(f"Removing s3 memo for Bucket={s3_bucket} Prefix={s3_prefix}")
             delete_all_objects(Bucket=s3_bucket, Prefix=s3_prefix)
         except botocore.exceptions.ClientError as e:
-            log.info("S3 Error: {}".format(e))
+            log.info(f"S3 Error: {e}")
 
 
 def delete_all_objects(Bucket, Prefix, MaxKeys=50, KeyMarker=None):

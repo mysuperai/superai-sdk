@@ -34,7 +34,7 @@ def _get_config_path(log: Logger = None):
         if "secrets" in p:
             continue
         if os.path.exists(p):
-            print("Reading configs from {}".format(p))
+            print(f"Reading configs from {p}")
             config_path = p
             break
         else:
@@ -69,7 +69,7 @@ def list_env_configs(printInConsole=True, log: Logger = None) -> Dict:
             for config in list(envs):
                 # Default and testing environments are not relevant thus hidden from the output
                 if config not in ["testing"]:
-                    print("- {}".format(config))
+                    print(f"- {config}")
 
     return envs
 

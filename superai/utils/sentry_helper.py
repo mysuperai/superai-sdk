@@ -31,9 +31,9 @@ def init():
             sentry_sdk.init(
                 dsn=settings.get("sentry", {}).get("dsn"),
                 environment=settings.name,
-                release="superai-sdk@{}".format(__version__),
+                release=f"superai-sdk@{__version__}",
                 before_send=before_send,
                 integrations=[sentry_logging],
             )
     except Exception as error:
-        logging.error("Sentry wasn't initialized because: {}".format(error))
+        logging.error(f"Sentry wasn't initialized because: {error}")

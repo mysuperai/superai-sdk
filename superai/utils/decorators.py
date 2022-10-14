@@ -25,7 +25,7 @@ def retry(exceptions, tries=5, delay=1, backoff=2, logger=logging):
                 try:
                     return f(*args, **kwargs)
                 except exceptions as e:
-                    msg = "{}, Retrying {} in {} seconds... {} tries left".format(e, f, mdelay, mtries)
+                    msg = f"{e}, Retrying {f} in {mdelay} seconds... {mtries} tries left"
                     if logger:
                         logger.warning(msg)
                     else:
@@ -55,7 +55,7 @@ def stopwatch(f):
         extra_args = {"func_name_override": f.__name__}
         return_val = f(*args, **kwargs)
         log.info(
-            "{}() elapsed time: {} ms.".format(f.__name__, int(round(time.time() * 1000) - start_time)),
+            f"{f.__name__}() elapsed time: {int(round(time.time() * 1000) - start_time)} ms.",
             extra=extra_args,
         )
         return return_val

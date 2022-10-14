@@ -152,7 +152,7 @@ class LocalPredictor(DeployedPredictor):
             result = EasyPredictions(res.json()).value
             return result
         else:
-            message = "Error , received error code {}: {}".format(res.status_code, res.text)
+            message = f"Error, received error code {res.status_code}: {res.text}"
             log.error(message)
 
     def log(self):
@@ -312,7 +312,7 @@ class PredictorFactory(object):
     def get_predictor_obj(*args, orchestrator: Orchestrator, **kwargs) -> "DeployedPredictor.Type":
         """Factory method to get a predictor"""
         predictor_class = PredictorFactory.__predictor_classes.get(orchestrator)
-        log.info("Creating predictor of type: {} with kwargs: {}".format(predictor_class, kwargs))
+        log.info(f"Creating predictor of type: {predictor_class} with kwargs: {kwargs}")
 
         if predictor_class:
             return predictor_class(orchestrator, *args, **kwargs)

@@ -21,13 +21,11 @@ log = logger.get_logger()
 
 def get_build_manifest(name: str = "default"):
     if name == "default":
-        return """
+        return f"""
 ---
 agent:
-  s3: piggy/Agent-{0}.jar
-""".format(
-            settings.dependency_version
-        )
+  s3: piggy/Agent-{settings.dependency_version}.jar
+"""
 
     raise ValueError(f"Manifest {name} not found.")
 
@@ -68,7 +66,7 @@ def create_build_folder(path=settings.hatchery_build_folder):
 def clean_build_files(path: str = settings.hatchery_build_folder):
     """Clean build folder"""
     path = Path()
-    log.debug("Deleting {}".format(path))
+    log.debug(f"Deleting {path}")
     try:
         shutil.rmtree(path)
     except Exception:
@@ -143,7 +141,7 @@ def get_binaries(base_path=settings.s3_bucket, manifest=settings.build_manifest,
 def copy_local(filename: str):
     filename = filename.strip()
     filePath = Path(filename)
-    log.info("Copy dependency from {} to {}".format(filename, build_path(filePath.name)))
+    log.info(f"Copy dependency from {filename} to {build_path(filePath.name)}")
     copyfile(filename, build_path(filePath.name))
     return Path(build_path(filePath.name))
 
@@ -176,7 +174,7 @@ def copy_from_s3(bucket: str, filename: str, force_copy: bool = True):
     s3_bucket = s3.Bucket(bucket)
 
     if force_copy or not Path(destinationPath).exists():
-        log.info('Pulling "{}" from bucket "{}" to "{}"'.format(filename, bucket, destinationPath))
+        log.info(f'Pulling "{filename}" from bucket "{bucket}" to "{destinationPath}"')
         try:
             # Use Rich progress bar to track download progress
             size_bytes = s3_bucket.Object(filename).content_length
@@ -221,7 +219,7 @@ def create_agent_run_command(
     piggy_agent_path = Path(settings.agent.file)
     if not piggy_agent_path.is_file():
         piggy_agent_path = Path(settings.hatchery_build_folder) / settings.agent.file
-        assert piggy_agent_path.is_file(), "Unable to find {} file".format(piggy_agent_path.absolute())
+        assert piggy_agent_path.is_file(), f"Unable to find {piggy_agent_path.absolute()} file"
     return (
         "java -jar {path} {host} {websocket} {api_key} {concurrency} {runonce} {force_schema} {serve} "
         "{template_name} --version {version} python {script} {args}\n".format(

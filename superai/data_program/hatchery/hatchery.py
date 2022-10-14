@@ -96,6 +96,6 @@ def _run_local_start_command(environment: List[dict] = []):
     for kv in environment:
         name = kv["name"]
         value = kv["value"]
-        print('Setting ENV["{}"]:"{}"'.format(name, value))
+        print(f'Setting ENV["{name}"]:"{value}"')
         environ[name] = value
-    execute_verbose('/bin/bash -c ". {}"'.format(build_path(START_SH)))
+    execute_verbose(f'/bin/bash -c ". {build_path(START_SH)}"')

@@ -123,7 +123,7 @@ class BaseModel(metaclass=ABCMeta):
         bucket_name = parsed_url.netloc
         path_to_object = parsed_url.path if not parsed_url.path.startswith("/") else parsed_url.path[1:]
         object_name = os.path.basename(path_to_object)
-        log.debug("Bucket name: {}, path to object: {}, tar name: {}".format(bucket_name, path_to_object, object_name))
+        log.debug(f"Bucket name: {bucket_name}, path to object: {path_to_object}, tar name: {object_name}")
         OUTPUT_DIR_NAME = "weights"
         full_path = os.path.join(output_path, OUTPUT_DIR_NAME)
 

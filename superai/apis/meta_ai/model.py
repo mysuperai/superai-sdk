@@ -1203,7 +1203,7 @@ class TrainApiMixin(ABC):
                         error = res.errors["error"]
                     else:
                         error = res.errors
-                    raise Exception("Error while preparing model artifact: {}".format(error))
+                    raise Exception(f"Error while preparing model artifact: {error}")
                 if res.output:
                     console.log("Artifact ready for download")
                     return res.output.url

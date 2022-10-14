@@ -22,7 +22,7 @@ def execute(command):
     res = subprocess.Popen(command.split(), stdout=subprocess.PIPE, stderr=FNULL)
     res.wait()
     end = time.time()
-    logging.debug("pid: {}. Exit code: {}. Message: {}".format(res.pid, res.returncode, res.stdout.read()))
+    logging.debug(f"pid: {res.pid}. Exit code: {res.returncode}. Message: {res.stdout.read()}")
     return end - start
 
 
@@ -47,13 +47,13 @@ def get_directory_size(path="."):
         # can access it later
         my_size = dirs_dict[root] = size + subdir_size
 
-        logging.info("{}: {}".format(root, my_size))
+        logging.info(f"{root}: {my_size}")
         return my_size
 
 
 def create_python_command(args):
     """Create python shell command with args"""
-    return "python {}".format(" ".join(args))
+    return f"python {' '.join(args)}"
 
 
 def which(program):

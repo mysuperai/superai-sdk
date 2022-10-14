@@ -192,7 +192,7 @@ def task_combiner(responses, agreement_score=True):
                 score = agreement_multiple_choice(majority_vote_result, field_values)
 
         else:
-            raise UnexpectedDataType("The data type {} is not currently supported.".format(field_type))
+            raise UnexpectedDataType(f"The data type {field_type} is not currently supported.")
         if rebuild_structured:
             majority_vote_result = df.structured(tag=field_name, type=field_type, value=majority_vote_result)[
                 "schema_instance"

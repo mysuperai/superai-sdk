@@ -44,7 +44,7 @@ class WorkflowApiMixin(ABC):
         params = locals()
         for key, val in six.iteritems(params["kwargs"]):
             if key not in all_params:
-                raise TypeError("Got an unexpected keyword argument '%s'" " to method get_template" % key)
+                raise TypeError(f"Got an unexpected keyword argument '{key}' to method get_template")
             params[key] = val
         del params["kwargs"]
         # verify the required parameter 'workflow_name' is set
@@ -128,7 +128,7 @@ class WorkflowApiMixin(ABC):
         params = locals()
         for key, val in six.iteritems(params["kwargs"]):
             if key not in all_params:
-                raise TypeError("Got an unexpected keyword argument '%s'" " to method list_templates" % key)
+                raise TypeError(f"Got an unexpected keyword argument '{key}' to method list_templates")
             params[key] = val
         del params["kwargs"]
 
@@ -212,7 +212,7 @@ class WorkflowApiMixin(ABC):
         params = locals()
         for key, val in six.iteritems(params["kwargs"]):
             if key not in all_params:
-                raise TypeError("Got an unexpected keyword argument '%s'" " to method update_template" % key)
+                raise TypeError(f"Got an unexpected keyword argument '{key}' to method update_template")
             params[key] = val
         del params["kwargs"]
         # verify the required parameter 'body' is set

@@ -115,7 +115,7 @@ def create_endpoint(
     status = resp["EndpointStatus"]
     log.info("Endpoint Status: " + status)
 
-    log.info("Waiting for {} endpoint to be in service...".format(endpoint_name))
+    log.info(f"Waiting for {endpoint_name} endpoint to be in service...")
     waiter = sm_client.get_waiter("endpoint_in_service")
     waiter.wait(EndpointName=endpoint_name)
     log.info(f"{create_endpoint_response['EndpointArn']} ready for invocations")
@@ -161,7 +161,7 @@ def invoke_local(mime: str, body: str):
     if res.status_code == 200:
         log.info(res.json())
     else:
-        message = "Error , received error code {}: {}".format(res.status_code, res.text)
+        message = f"Error, received error code {res.status_code}: {res.text}"
         log.error(message)
 
 

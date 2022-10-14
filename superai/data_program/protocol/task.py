@@ -210,8 +210,8 @@ def get_job_priority(api_key=None):
         if priority:
             return priority
         else:
-            logger.info("Failed to query job priority `{}`.".format(get_job_id()))
-            raise RuntimeError("Failed to query job priority id `{}`.".format(get_job_id()))
+            logger.info(f"Failed to query job priority `{get_job_id()}`.")
+            raise RuntimeError(f"Failed to query job priority id `{get_job_id()}`.")
     else:
         return "LITTLE_PIGGY"
 
@@ -259,7 +259,7 @@ def retry(exceptions, tries=5, delay=1, backoff=2, logger=logging):
                 try:
                     return f(*args, **kwargs)
                 except exceptions as e:
-                    msg = "{}, Retrying {} in {} seconds... {} tries left".format(e, f, mdelay, mtries)
+                    msg = f"{e}, Retrying {f} in {mdelay} seconds... {mtries} tries left"
                     if logger:
                         logger.warning(msg)
                     else:
@@ -288,7 +288,7 @@ def get_project_name(ID, endpoint_api_key=None, endpoint=None):
         records = res.json()
         return records["name"]
     else:
-        logging.error("Failed to query project `{}`. Error: {}".format(ID, res.json()))
+        logging.error(f"Failed to query project `{ID}`. Error: {res.json()}")
         return None
 
 
@@ -314,13 +314,13 @@ def get_job_by_id(id, active=True, api_key=None, use_memo=False, endpoint_api_ke
             records = res.json()
             return records
         else:
-            logging.error("Failed to query job `{}`. Error: {}".format(id, res.json()))
+            logging.error(f"Failed to query job `{id}`. Error: {res.json()}")
             raise Exception(res.reason)
 
     if use_memo:
         return memo(
             lambda: func,
-            "{}/{}/{}_{}".format(get_job_id(), "get_job_by_id", id, active),
+            f"{get_job_id()}/get_job_by_id/{id}_{active}",
         )
     return func()
 
@@ -355,8 +355,8 @@ def get_job_simple_id(api_key=None):
         if job_id:
             return job_id
         else:
-            logger.info("Failed to query job simple id `{}`.".format(get_job_id()))
-            raise RuntimeError("Failed to query job simple id `{}`.".format(get_job_id()))
+            logger.info(f"Failed to query job simple id `{get_job_id()}`.")
+            raise RuntimeError(f"Failed to query job simple id `{get_job_id()}`.")
     else:
         return "LITTLE_PIGGY"
 
@@ -454,7 +454,7 @@ def report(status):
 
 def update_performance_database(performance):
     """TODO(purnawirman): too trivial to be in DS-SDK"""
-    print("the model performance is {}".format(performance))
+    print(f"the model performance is {performance}")
 
 
 def is_task_skipped(wf_task):
@@ -570,7 +570,7 @@ def qualify(hero_item, metric, value=None):
     if "CANOTIC_AGENT" in os.environ:
         save_hero_qualification(hero_item, metric, value)
     else:
-        print('set metric["{}"]["{}"]={}'.format(hero_item, metric, value))
+        print(f'set metric["{hero_item}"]["{metric}"]={value}')
 
 
 def qualify_canotic(hero_id, metric, value=None):
@@ -632,7 +632,7 @@ def qualify_mturk(
     if use_memo:
         return memo(
             func,
-            "{}/{}/{}_{}_{}_{}".format(get_job_id(), "qualify_mturk", mturkId, metric, value, sandbox),
+            f"{get_job_id()}/qualify_mturk/{mturkId}_{metric}_{value}_{sandbox}",
         )
     return func()
 
@@ -642,7 +642,7 @@ def disqualify(hero_id, metric):
     if "CANOTIC_AGENT" in os.environ:
         remove_hero_qualification(hero_id, metric)
     else:
-        print('delete metric["{}"]["{}"]'.format(hero_id, metric))
+        print(f'delete metric["{hero_id}"]["{metric}"]')
 
 
 def serve_predict(predict_func, port=8080, context=None, use_sagemaker=True):
@@ -679,12 +679,10 @@ def tasks_parallel(records, task_fn, concurrency=1, task_callback=None):
     completed = 0
     while completed < total_tasks:
         remaining_tasks = total_tasks - completed - outstanding_task_count
-        logger.info(
-            "Completed: {}. Remaining Tasks: {}. Total Tasks: {}".format(completed, remaining_tasks, total_tasks)
-        )
+        logger.info(f"Completed: {completed}. Remaining Tasks: {remaining_tasks}. Total Tasks: {total_tasks}")
         for i in range(0, min(remaining_tasks, concurrency - outstanding_task_count)):
             index = completed + i + outstanding_task_count
-            logger.info("INDEX: {}".format(index))
+            logger.info(f"INDEX: {index}")
             record = records[index]
             fn = task_fn(record, index, total_tasks)
             fn.set_cookie({"seq": index})
@@ -724,16 +722,14 @@ def execute_parallel(records, method_fn, concurrency=10, callback=None):
     completed = 0
     while completed < total_tasks:
         remaining_tasks = total_tasks - completed - outstanding_task_count
-        logger.info(
-            "Completed: {}. Remaining Tasks: {}. Total Tasks: {}".format(completed, remaining_tasks, total_tasks)
-        )
-        print("Completed: {}. Remaining Tasks: {}. Total Tasks: {}".format(completed, remaining_tasks, total_tasks))
+        logger.info(f"Completed: {completed}. Remaining Tasks: {remaining_tasks}. Total Tasks: {total_tasks}")
+        print(f"Completed: {completed}. Remaining Tasks: {remaining_tasks}. Total Tasks: {total_tasks}")
         for i in range(0, min(remaining_tasks, concurrency - outstanding_task_count)):
             sTime = randint(1, 8)
-            logger.debug("SLEEPING: {} SECONDS".format(sTime))
+            logger.debug(f"SLEEPING: {sTime} SECONDS")
             time.sleep(sTime)
             index = completed + i + outstanding_task_count
-            logger.info("INDEX: {}".format(index))
+            logger.info(f"INDEX: {index}")
             record = records[index]
             fn = method_fn(record)
             fn.set_cookie({"seq": index})
@@ -792,7 +788,7 @@ def get_all_metrics(metric, owner="1"):
     warnings.warn("this is either a workaround or hack")
     url = (
         "https://prometheus-nlb-prod-internal-b5f0c5af90c09892.elb.us-east-1.amazonaws.com"
-        + "/resource/workers/metrics/{}/{}".format(owner, metric)
+        + f"/resource/workers/metrics/{owner}/{metric}"
     )
     HEADERS = {"accept": "*/*", "Content-Type": "application/json"}
     r = requests.get(url, headers=HEADERS)
@@ -816,46 +812,46 @@ def schema_wrapper(subject, context, function):
     if hasattr(function, "__input_param__"):
         (name, schema) = function.__input_param__
         if schema is not None and can_validate_input_output:
-            logger.debug("SCHEMA NAME: {}".format(name))
-            logger.debug("VALIDATING SUBJECT: \n{} \nSCHEMA: \n{}".format(subject, schema))
+            logger.debug(f"SCHEMA NAME: {name}")
+            logger.debug(f"VALIDATING SUBJECT: \n{subject} \nSCHEMA: \n{schema}")
             validate(subject, schema, validate_remote=True, client=DataHelper())
         kwargs[name] = subject
 
     app_params = context["app_params"] if context is not None and "app_params" in context else None
-    logger.debug("APP_PARAMS\n{}".format(app_params))
+    logger.debug(f"APP_PARAMS\n{app_params}")
     if hasattr(function, "__app_params__"):
-        logger.debug("__APP_PARAMS__\n{}".format(function.__app_params__))
+        logger.debug(f"__APP_PARAMS__\n{function.__app_params__}")
         for name in function.__app_params__:
             param = app_params[name] if app_params is not None and name in app_params else None
             schema = function.__app_params__[name]
             if schema is not None:
-                logger.debug("VALIDATING {}: PARAMS\n{} \nSCHEMA\n{}".format(name, param, schema))
+                logger.debug(f"VALIDATING {name}: PARAMS\n{param} \nSCHEMA\n{schema}")
                 validate(param, schema, validate_remote=True, client=DataHelper())
             kwargs[name] = param
 
     app_metrics = context["app_metrics"] if context is not None and "app_metrics" in context else None
-    logger.debug("APP_METRICS\n{}".format(app_metrics))
+    logger.debug(f"APP_METRICS\n{app_metrics}")
     if hasattr(function, "__app_metrics__"):
-        logger.debug("__APP_METRICS__\n{}".format(function.__app_metrics__))
+        logger.debug(f"__APP_METRICS__\n{function.__app_metrics__}")
         for name in function.__app_metrics__:
             metric = app_metrics[name] if app_metrics is not None and name in app_metrics else None
             schema = function.__app_metrics__[name]
             if schema is not None:
-                logger.debug("VALIDATING {}: METRIC\n{} \nSCHEMA\n{}".format(name, metric, schema))
+                logger.debug(f"VALIDATING {name}: METRIC\n{metric} \nSCHEMA\n{schema}")
                 validate(metric, schema, validate_remote=True, client=DataHelper())
             kwargs[name] = metric
 
-    logger.debug("FUNCTION KWARGS = {}".format(kwargs))
+    logger.debug(f"FUNCTION KWARGS = {kwargs}")
     f_output = function(subject) if 0 == len(kwargs) and subject is not None else function(**kwargs)
 
     if hasattr(function, "__output_param__") and can_validate_input_output:
         schema = function.__output_param__
         if type(f_output) == tuple:
-            logger.debug("VALIDATING OUTPUT_VALS: \n{} \nSCHEMA: \n{}".format(f_output[0], schema))
+            logger.debug(f"VALIDATING OUTPUT_VALS: \n{f_output[0]} \nSCHEMA: \n{schema}")
             validate(f_output[0], schema, validate_remote=True, client=DataHelper())
         else:
             validate(f_output, schema, validate_remote=True, client=DataHelper())
-            logger.debug("VALIDATING OUTPUT_VALS: \n{} \nSCHEMA: \n{}".format(f_output, schema))
+            logger.debug(f"VALIDATING OUTPUT_VALS: \n{f_output} \nSCHEMA: \n{schema}")
 
     return f_output
 
@@ -899,43 +895,43 @@ def workflow(suffix, prefix=None):
         schema = {}
         if hasattr(function, "__input_param__"):
             (_, schema["input"]) = function.__input_param__
-            logger.debug("SCHEMA INPUT\n{}".format(schema["input"]))
+            logger.debug(f"SCHEMA INPUT\n{schema['input']}")
 
         if hasattr(function, "__output_param__"):
             schema["output"] = function.__output_param__
-            logger.debug("SCHEMA OUTPUT\n{}".format(schema["output"]))
+            logger.debug(f"SCHEMA OUTPUT\n{schema['output']}")
 
         if hasattr(function, "__app_params__"):
             schema["app_params"] = function.__app_params__
-            logger.debug("APP PARAMS\n{}".format(schema["app_params"]))
+            logger.debug(f"APP PARAMS\n{schema['app_params']}")
 
             if hasattr(function, "__default_app_params__"):
                 schema["default_app_params"] = function.__default_app_params__
-                logger.debug("DEFAULT APP PARAMS\n{}".format(schema["default_app_params"]))
+                logger.debug(f"DEFAULT APP PARAMS\n{schema['default_app_params']}")
 
         if hasattr(function, "__app_metrics__"):
             schema["app_metrics"] = function.__app_metrics__
-            logger.debug("APP METRICS\n{}".format(schema["app_metrics"]))
+            logger.debug(f"APP METRICS\n{schema['app_metrics']}")
 
             if hasattr(function, "__default_app_metrics__"):
                 schema["default_app_metrics"] = function.__default_app_metrics__
-                logger.debug("DEFAULT APP METRICS\n{}".format(schema["default_app_metrics"]))
+                logger.debug(f"DEFAULT APP METRICS\n{schema['default_app_metrics']}")
 
         if hasattr(function, "__example_data__"):
             schema["example"] = function.__example_data__
-            logger.debug("EXAMPLE DATA\n{}".format(schema["example"]))
+            logger.debug(f"EXAMPLE DATA\n{schema['example']}")
 
         def function(subject, params, f=function):
-            logger.debug("FUNCTION_SUBJECT: {}".format(subject))
-            logger.debug("FUNCTION_PARAMS: {}".format(params))
-            logger.debug("FUNCTION_F: {}".format(f))
+            logger.debug(f"FUNCTION_SUBJECT: {subject}")
+            logger.debug(f"FUNCTION_PARAMS: {params}")
+            logger.debug(f"FUNCTION_F: {f}")
 
             return schema_wrapper(subject, params, f)
 
-        logger.debug("WORFLOW_function: {}".format(function))
-        logger.debug("WORFLOW_suffix: {}".format(suffix))
-        logger.debug("WORFLOW_schema: {}".format(schema))
-        logger.debug("WORFLOW_prefix: {}".format(prefix))
+        logger.debug(f"WORFLOW_function: {function}")
+        logger.debug(f"WORFLOW_suffix: {suffix}")
+        logger.debug(f"WORFLOW_schema: {schema}")
+        logger.debug(f"WORFLOW_prefix: {prefix}")
 
         serve_workflow(function=function, suffix=suffix, schema=schema, prefix=prefix)
         return wrapper
@@ -990,7 +986,7 @@ def input_schema(*args, **kwargs):
         if "name" in dargs and "schema" in dargs:
             function.__input_param__ = (dargs["name"], dargs["schema"])
 
-        logger.debug("INPUT DECORATOR: {}".format(function.__input_param__))
+        logger.debug(f"INPUT DECORATOR: {function.__input_param__}")
         return function
 
     return decorator
@@ -1008,7 +1004,7 @@ def output_schema(*args, **kwargs):
         dargs = _parse_args(*args, **kwargs)
 
         function.__output_param__ = dargs["schema"]
-        logger.debug("OUTPUT DECORATOR: {}".format(function.__output_param__))
+        logger.debug(f"OUTPUT DECORATOR: {function.__output_param__}")
 
         return function
 
@@ -1039,9 +1035,7 @@ def param_schema(*args, **kwargs):
 
                 function.__default_app_params__[dargs["name"]] = dargs["default"]
 
-        logger.debug(
-            "APP_PARAMS DECORATOR: {} (default: {})".format(function.__app_params__, function.__default_app_params__)
-        )
+        logger.debug(f"APP_PARAMS DECORATOR: {function.__app_params__} (default: {function.__default_app_params__})")
 
         return function
 
@@ -1064,7 +1058,7 @@ def metric_schema(*args, **kwargs):
 
                 function.__default_app_metrics__[dargs["name"]] = dargs["default"]
 
-            logger.debug("APP_METRICS DECORATOR: {}".format(function.__app_metrics__))
+            logger.debug(f"APP_METRICS DECORATOR: {function.__app_metrics__}")
 
         return function
 
@@ -1095,8 +1089,8 @@ def bill(amount):
 
 def export_data(json_output):
     os.makedirs(".canotic", exist_ok=True)
-    folder = ".canotic/{}".format(get_job_id())
-    filepath = "{}/{}.json".format(folder, get_job_id())
+    folder = f".canotic/{get_job_id()}"
+    filepath = f"{folder}/{get_job_id()}.json"
     os.makedirs(folder, exist_ok=True)
     json.dump(json_output, open(filepath, "w"))
     return folder
