@@ -25,7 +25,10 @@ default:
   s3_bucket: "superai-dataprogrammer-us-west-1"
   suffix: "<<<default>>>"
   dummy_app: "82f49a16-11b0-4840-b97f-bce2572b7613"
+  # Size of the `memoization` cache in bytes, if cache size exceeds this limit, the oldest entries will be evicted.
   cache_size_in_bytes: 1073741824
+  # Default port for the Data Program Server to listen on
+  schema_port: 8002
 
 local:
   name: "local"

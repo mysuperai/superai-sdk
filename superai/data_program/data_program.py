@@ -1,7 +1,8 @@
+import enum
 import inspect
 import json
 import os
-from typing import Callable, Dict, List, Optional, Type
+from typing import Callable, Dict, List, Optional, Type, Union
 
 from pydantic import ValidationError
 from superai_schema.generators import dynamic_generator
@@ -123,6 +124,10 @@ class DataProgram(DataProgramBase):
     def __str__(self):
         return f"DataProgram({self._name}, {self.description}, {self.template_name}, {self.metadata})"
 
+    class ServiceType(str, enum.Enum):
+        DATAPROGRAM = "data_program"
+        SCHEMA = "schema"
+
     @classmethod
     def create(
         cls,
@@ -131,10 +136,11 @@ class DataProgram(DataProgramBase):
         handler: Handler[Parameters],
         metadata: dict = None,
         auto_generate_metadata: bool = True,
+        name: Optional[str] = None,
     ) -> "DataProgram":
-        name = os.getenv("WF_PREFIX")
+        name = name or os.getenv("WF_PREFIX")
         if name is None:
-            raise Exception("Environment variable 'WF_PREFIX' is missing.")
+            raise Exception("Environment variable 'WF_PREFIX' or parameter `name` is missing.")
         training_dataprogram = os.getenv("TRAINING_DATAPROGRAM")
         is_training = training_dataprogram is not None and training_dataprogram != name
         dp = DataProgram(
@@ -152,9 +158,22 @@ class DataProgram(DataProgramBase):
         self,
         *,
         workflows: List[WorkflowConfig],
-        name: Optional[str] = os.getenv("WF_PREFIX"),
-        service: Optional[str] = os.getenv("SERVICE"),
+        service: Optional[Union[ServiceType, str]] = None,
+        **service_kwargs,
     ):
+        """
+        Start the executor service for the DataProgram locally (Blocking).
+        The service can be a DataProgram or a Schema.
+
+        DataProgram: This service is executing the workflow logic and communicating with the backend (only Qumes currently).
+        Schema: This service runs a local endpoint for schema validation and generation, as well as metric computation and post-processing.
+
+        Args:
+            workflows: List of workflows to be handled by the service.
+            service: DataProgram or Schema
+            **service_kwargs: Additional arguments for the service.
+
+        """
         if len(workflows) == 1 and (workflows[0].is_default != True or workflows[0].is_gold != True):
             log.info("WARNING: The only workflow should be default and gold")
             workflows[0].is_default = True
@@ -167,21 +186,20 @@ class DataProgram(DataProgramBase):
 
         params_cls = self.default_params.__class__
 
-        if name is None:
-            raise Exception("Environment variable 'WF_PREFIX' is missing.")
-
+        service = service or os.getenv("SERVICE")
         if service is None:
             log.warning(
                 """Environment variable 'SERVICE' is missing. Starting data_program by default
     If you are running data program with 'canotic deploy' command,
     make sure to pass `--serve-schema` in order to opt-in schema server."""
             )
-            service = "data_program"
+            service = DataProgram.ServiceType.DATAPROGRAM
 
-        if settings.backend != "qumes":
-            raise Exception("Non Qumes transport is not supported by this API.")
-
-        if service == "data_program":
+        service = DataProgram.ServiceType(service)
+        if service == DataProgram.ServiceType.DATAPROGRAM:
+            if settings.backend != "qumes":
+                # TODO: Support other backends
+                raise Exception("Non Qumes transport is not supported by this Service.")
             log.info("Starting data_program service...")
 
             log.info("Setting CANOTIC_AGENT=1 and IN_AGENT=YES")
@@ -196,20 +214,21 @@ class DataProgram(DataProgramBase):
             start_threading()
             return
 
-        if service == "schema":
-            dp_server_port = int(os.getenv("SUPERAI_SCHEMA_PORT"))
+        elif service == DataProgram.ServiceType.SCHEMA:
+            dp_server_port = settings.schema_port
             log.info(f"Starting schema service on port {dp_server_port}...")
             DPServer(
                 self.default_params,
                 self.handler,
-                name=name,
+                name=self._name,
                 workflows=workflows,
                 template_name=self.template_name,
                 port=dp_server_port,
+                **service_kwargs,
             ).run()
             return
-
-        raise Exception(f"{service} is invalid service. 'data_program' or 'schema' is available.")
+        else:
+            raise ValueError(f"{service} is invalid service. Pick one of {list(DataProgram.ServiceType)}")
 
     @staticmethod
     def run(
@@ -219,6 +238,8 @@ class DataProgram(DataProgramBase):
         workflows: List[WorkflowConfig],
         metadata: dict = None,
         auto_generate_metadata: bool = True,
+        name: Optional[str] = None,
+        service: Optional[Union[ServiceType, str]] = None,
     ):
         """
         [DEPRECATED]
@@ -237,7 +258,6 @@ class DataProgram(DataProgramBase):
         from canotic.hatchery import hatchery_config
         from canotic.qumes_transport import start_threads
 
-        name = os.getenv("WF_PREFIX")
         if len(workflows) == 1 and (workflows[0].is_default != True or workflows[0].is_gold != True):
             log.info("WARNING: The only workflow should be default and gold")
             workflows[0].is_default = True
@@ -247,15 +267,16 @@ class DataProgram(DataProgramBase):
             assert len(list(filter(lambda w: w.is_gold, workflows))) == 1, "There should be one gold workflow"
 
         # Setting the SERVICE env variable indicates that we are running the Data Program as a service
-        service = os.getenv("SERVICE")
+        service = os.getenv("SERVICE") or service
         params_cls = default_params.__class__
 
+        name = name or os.getenv("WF_PREFIX")
         if name is None:
-            raise Exception("Environment variable 'WF_PREFIX' is missing.")
+            raise Exception("Environment variable 'WF_PREFIX' is missing or `name` is not set.")
 
         if service is None:
             raise Exception(
-                """Environment variable 'SERVICE' is missing.
+                """Environment variable 'SERVICE' is missing or `service` not passed.
 If you are running data program with 'canotic deploy' command,
 make sure to pass `--serve-schema` in order to opt-in schema server."""
             )
@@ -263,7 +284,8 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         if hatchery_config.get_transport_backend_config() != "qumes":
             raise Exception("Non Qumes transport is not supported by this API.")
 
-        if service == "data_program":
+        service = DataProgram.ServiceType(service)
+        if service == DataProgram.ServiceType.DATAPROGRAM:
             log.info("Starting data_program service...")
 
             log.info("Setting CANOTIC_AGENT=1 and IN_AGENT=YES")
@@ -288,22 +310,16 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
 
             dp.__init_router()
             start_threads()
-            return
 
-        if service == "schema":
-            dp_server_port = int(os.getenv("SUPERAI_SCHEMA_PORT"))
+        elif service == DataProgram.ServiceType.SCHEMA:
+            dp_server_port = settings.schema_port
             log.info(f"Starting schema service on port {dp_server_port}...")
             DPServer(
-                default_params,
-                handler,
-                name=name,
-                workflows=workflows,
-                template_name="",  # Not run the ngrok proxy. Whole run method should be phased out.
-                port=dp_server_port,
+                default_params, handler, name=name, workflows=workflows, template_name="", port=dp_server_port
             ).run()
             return
-
-        raise Exception(f"{service} is invalid service. 'data_program' or 'schema' is available.")
+        else:
+            raise Exception(f"{service} is invalid service. 'data_program' or 'schema' is available.")
 
     @property
     def gold_workflow(self) -> str:

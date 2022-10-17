@@ -238,6 +238,7 @@ validators = [
     Validator("NAME", eq="local", env="local"),
     Validator("NAME", eq="sandbox", env="sandbox"),
     Validator("NAME", eq="prod", env="prod"),
+    Validator("SCHEMA_PORT", gt=0, lt=65535, is_type_of=int, default=8002),
 ]
 
 settings = Dynaconf(

@@ -48,10 +48,11 @@ def handler(params: Parameters):
 
 DPServer(
     params=Parameters(choices=["1", "2"]),
-    name="Test_Server",
     generate=handler,
+    name="Test_Server",
     workflows=[WorkflowConfig("top_heroes", is_default=True), WorkflowConfig("crowd_managers", is_gold=True)],
-    template_name="",  # template name should be empty, we don't want the reverse proxy
+    template_name="",
     port=8002,
     log_level="critical",
+    force_no_tunnel=True,
 ).run()

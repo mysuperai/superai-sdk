@@ -52,12 +52,26 @@ class DPServer:
         template_name: str,
         port: int,
         log_level: Literal["critical", "error", "warning", "info", "debug", "trace"] = "info",
+        force_no_tunnel: bool = False,
     ):
+        """
+
+        Args:
+            params: DP Handler parameters
+            generate: Handler instantiated with params
+            name: DP name (prefix)
+            workflows: List of workflows to handle
+            template_name: Full DP name (prefix + workflow suffix)
+            port: Port to run the server on
+            log_level: Log level
+            force_no_tunnel: Disables ngrok tunneling, in case you only want to run the server locally for testing
+        """
         self.name = name
         self.params = params
         self.params_schema = params.schema()
         self.generate = generate
         self.log_level = log_level
+        self.force_no_tunnel = force_no_tunnel
 
         handler_output = generate(self.params)
         self.input_model = handler_output.input_model
@@ -95,9 +109,9 @@ class DPServer:
         self.client.update_workflow(self.template_name, body={"endpoint": public_url})
 
     @contextlib.contextmanager
-    def ngrok_contextmanager(self, is_local=False):
+    def ngrok_contextmanager(self, needs_tunnel=False):
         # Boot up ngrok reverse proxy only in case of local deploy
-        if is_local and self.template_name:
+        if needs_tunnel and self.template_name:
             # ensure the connection gets closed properly
             try:
                 original_reverse_proxy_endpoint = self.get_reverse_proxy_endpoint()
@@ -188,7 +202,7 @@ class DPServer:
                 log.exception(e)
                 raise HTTPException(status_code=422, detail=str(e))
 
-        is_local = not (os.environ.get("ECS") or os.environ.get("JENKINS_URL"))
+        needs_tunnel = not (os.environ.get("ECS") or os.environ.get("JENKINS_URL") or self.force_no_tunnel)
 
-        with self.ngrok_contextmanager(is_local=is_local):
+        with self.ngrok_contextmanager(needs_tunnel=needs_tunnel):
             uvicorn.run(app, host="0.0.0.0", port=self.dp_server_port, log_level=self.log_level)
