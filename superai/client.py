@@ -19,8 +19,6 @@ from superai.exceptions import (
 from superai.log import logger
 from superai.utils import update_cognito_credentials
 
-BASE_URL = settings.get("base_url")
-
 # Set up logging
 logger = logger.get_logger(__name__)
 
@@ -40,10 +38,7 @@ class Client(
         self.api_key = api_key
         self.auth_token = auth_token
         self.id_token = id_token
-        if base_url is None:
-            self.base_url = BASE_URL
-        else:
-            self.base_url = base_url
+        self.base_url = base_url or settings.get("base_url")
 
     def request(
         self,
