@@ -21,7 +21,6 @@ from superai.client import Client
 from superai.config import get_config_dir, list_env_configs, set_env_config, settings
 from superai.exceptions import SuperAIAuthorizationError
 from superai.log import logger
-from superai.meta_ai.parameters import AiDeploymentParameters
 from superai.utils import (
     load_api_key,
     remove_aws_credentials,
@@ -1505,6 +1504,7 @@ def view_training_template(client, app_id, template_id):
 def deploy_ai(config_file, clean=True, push=False):
     from superai.meta_ai.ai import obtain_object_template_config
     from superai.meta_ai.deployed_predictors import DeployedPredictor
+    from superai.meta_ai.parameters import AiDeploymentParameters
 
     if clean:
         if os.path.exists(".AISave"):
