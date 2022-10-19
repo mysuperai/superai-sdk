@@ -3,6 +3,7 @@ import warnings
 from superai.config import (
     add_secret_settings,
     get_config_dir,
+    get_current_env,
     remove_secret_settings,
     settings,
 )
@@ -14,7 +15,7 @@ log = logger.get_logger(__name__)
 
 
 def _save_api_key_secrets(api_key: str, username: str = None):
-    env = settings.current_env
+    env = get_current_env()
     secret = {env: {"user": {"api_key": api_key, "username": username}}}
     add_secret_settings(secret)
     log.info(f"Api key added to env {env}")
@@ -35,7 +36,7 @@ def load_api_key() -> str:
 
 
 def remove_api_key():
-    env = settings.current_env
+    env = get_current_env()
     remove_secret_settings(f"{env}__user__api_key")
     remove_secret_settings(f"{env}__user__username")
     log.debug(f"Api key deleted from env {env}")

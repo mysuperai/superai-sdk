@@ -7,8 +7,8 @@ from superai.config import (
     add_secret_settings,
     ensure_path_exists,
     get_config_dir,
+    get_current_env,
     remove_secret_settings,
-    settings,
 )
 from superai.log import logger
 
@@ -63,7 +63,7 @@ def _aws_configure(aws_credentials):
 
 
 def _save_secrets(aws_credentials: dict):
-    env = settings.current_env
+    env = get_current_env()
     secret = {env: {"user": {"aws": aws_credentials}}}
     add_secret_settings(secret)
     log.info(f"AWS Credentials key added to env {env}")
@@ -76,6 +76,6 @@ def save_aws_credentials(aws_credentials: dict):
 
 
 def remove_aws_credentials():
-    env = settings.current_env
+    env = get_current_env()
     remove_secret_settings(f"{env}__user__aws")
     log.debug(f"AWS Credentials deleted from env {env}")

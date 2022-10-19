@@ -6,6 +6,7 @@ import boto3
 from superai.config import (
     add_secret_settings,
     get_config_dir,
+    get_current_env,
     remove_secret_settings,
     settings,
 )
@@ -18,14 +19,14 @@ COGNITO_REGION = settings.get("cognito", {}).get("region")
 log = logger.get_logger(__name__)
 
 
-def save_cognito_user(authenitcated_user: dict):
+def save_cognito_user(authenticated_user: dict):
     _save_cognito_credentials(
-        authenitcated_user.id_token, authenitcated_user.access_token, authenitcated_user.refresh_token
+        authenticated_user.id_token, authenticated_user.access_token, authenticated_user.refresh_token
     )
 
 
 def _save_cognito_credentials(id_token: str, access_token: str, refresh_token: str):
-    env = settings.current_env
+    env = get_current_env()
     cognito = {
         "id_token": id_token,
         "access_token": access_token,
@@ -64,7 +65,7 @@ def load_refresh_token() -> str:
 
 
 def remove_cognito_user():
-    env = settings.current_env
+    env = get_current_env()
     remove_secret_settings(f"{env}__user__cognito")
     log.debug(f"Cognito tokens deleted from env {env}")
 

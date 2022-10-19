@@ -13,7 +13,7 @@ import boto3  # type: ignore
 from docker import DockerClient
 from docker.errors import ImageNotFound
 
-from superai import settings
+from superai.config import get_current_env, settings
 from superai.log import logger
 from superai.meta_ai.ai_helper import create_model_entrypoint, create_model_handler
 from superai.meta_ai.dockerizer import aws_ecr_login, get_docker_client
@@ -427,7 +427,7 @@ class AiImageBuilder:
         else:
             base_image += "-cpu"
 
-        if settings.current_env == "dev" or use_internal:
+        if get_current_env() == "dev" or use_internal:
             base_image += "-internal"
 
         if lambda_mode:

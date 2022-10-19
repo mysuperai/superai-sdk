@@ -18,7 +18,7 @@ import requests
 from pydantic import ValidationError
 from rich.prompt import Confirm
 
-from superai import settings
+from superai.config import get_current_env
 from superai.log import logger
 from superai.meta_ai.ai_helper import (
     find_root_model,
@@ -706,7 +706,7 @@ class AI:
                 log.warning("Model already exists in the DB and overwrite is not set.")
                 return self.id
             else:
-                if settings.current_env == "prod":
+                if get_current_env() == "prod":
                     confirmed = Confirm.ask(
                         "Do you [bold]really[/bold] want to push weights for a [red]production[/red] AI? This can negatively impact Data Programs relying on the existing AI."
                     )
@@ -813,7 +813,7 @@ class AI:
 
         """
 
-        if redeploy and settings.current_env == "prod":
+        if redeploy and get_current_env() == "prod":
             confirmed = Confirm.ask(
                 "Do you [bold]really[/bold] want to redeploy a [red]production[/red] AI? "
                 "This can negatively impact Data Programs relying on the existing AI."

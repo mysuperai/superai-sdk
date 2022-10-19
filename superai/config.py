@@ -27,7 +27,7 @@ dynaconf_setting_files = [
 ]
 
 
-def _get_config_path(log: Logger = None):
+def _get_config_path(log: Logger = None) -> str:
     log = log or logger.get_logger(__name__)
     config_path = None
     for p in reversed(dynaconf_setting_files):
@@ -46,26 +46,24 @@ def _get_config_path(log: Logger = None):
     return config_path
 
 
-def get_config_dir():
+def get_config_dir() -> str:
     """Gets config root directory"""
     return __superai_root_dir
 
 
-def list_env_configs(printInConsole=True, log: Logger = None) -> Dict:
+def list_env_configs(verbose: bool = True, log: Logger = None) -> Dict:
     """List all available environments"""
     log = log or logger.get_logger(__name__)
 
-    import yaml
-
     __config_path__ = _get_config_path()
 
-    if printInConsole:
+    if verbose:
         print("Available envs:")
 
     with open(os.path.expanduser(f"{__config_path__}"), "r") as f:
         envs = yaml.safe_load(f)
         envs.pop("default") if envs.get("default") else None
-        if printInConsole:
+        if verbose:
             for config in list(envs):
                 # Default and testing environments are not relevant thus hidden from the output
                 if config not in ["testing"]:
@@ -74,12 +72,12 @@ def list_env_configs(printInConsole=True, log: Logger = None) -> Dict:
     return envs
 
 
-def set_env_config(name, root_dir: str = __superai_root_dir, log: Logger = None):
+def set_env_config(name: str, root_dir: str = __superai_root_dir, log: Logger = None):
     """Set the active cluster name"""
     # settings.setenv("other", silent=False)
     log = log or logger.get_logger(__name__)
 
-    env_config = list_env_configs(printInConsole=False)
+    env_config = list_env_configs(verbose=False)
     if name not in env_config:
         warnings.warn(f"Error loading env {name} choose one of {list(env_config.keys())}")
         raise ValueError(f"Env {name} doesn't exists")
@@ -92,9 +90,9 @@ def set_env_config(name, root_dir: str = __superai_root_dir, log: Logger = None)
             os.environ[__env_switcher] = name
 
 
-def ensure_path_exists(f_path: str, only_dir=False):
+def ensure_path_exists(f_path: str, only_dir=False) -> str:
     """
-    Give some path, this function makes sure that the file exists. It will also take care of creating all necessary
+    Given some path, this function makes sure that the file exists. It will also take care of creating all necessary
     folders. If `only_dir` is set to True then the file won't be created but all folders leading to the path will.
 
     :param f_path: File path
@@ -207,6 +205,11 @@ def init_config(
         warnings.warn(f"Defaults not found, available envs are: {envs.keys()}")
 
 
+def get_current_env() -> str:
+    """Gets the current configured environment"""
+    return settings.current_env.lower()
+
+
 init_config()
 
 validators = [
@@ -262,3 +265,6 @@ _log = logger.init(
     log_level=settings.get("log", {}).get("level"),
     log_format=settings.get("log", {}).get("format"),
 )
+
+# Convenience method for dynamically switching envs
+using_env = settings.using_env

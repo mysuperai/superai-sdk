@@ -18,7 +18,13 @@ from rich import print
 from superai import __version__
 from superai.apis.meta_ai.model import PredictionError
 from superai.client import Client
-from superai.config import get_config_dir, list_env_configs, set_env_config, settings
+from superai.config import (
+    get_config_dir,
+    get_current_env,
+    list_env_configs,
+    set_env_config,
+    settings,
+)
 from superai.exceptions import SuperAIAuthorizationError
 from superai.log import logger
 from superai.utils import (
@@ -57,10 +63,10 @@ def info(verbose):
     click.echo("=================")
     load_api_key()
     click.echo(f"VERSION: {__version__}")
-    click.echo(f"ENVIRONMENT: {settings.current_env}")
+    click.echo(f"ENVIRONMENT: {get_current_env()}")
     click.echo(f"USER: {settings.get('user',{}).get('username')}")
     if verbose:
-        click.echo(yaml.dump(settings.as_dict(env=settings.current_env), default_flow_style=False))
+        click.echo(yaml.dump(settings.as_dict(env=get_current_env()), default_flow_style=False))
 
 
 @cli.group()
@@ -79,7 +85,7 @@ def env_list(ctx):
     :param ctx:
     :return:
     """
-    list_env_configs(printInConsole=True)
+    list_env_configs(verbose=True)
 
 
 @env.command(name="set")

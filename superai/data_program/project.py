@@ -4,7 +4,7 @@ import webbrowser
 from typing import Dict, List, Union
 
 from superai.client import Client
-from superai.config import settings
+from superai.config import get_current_env
 from superai.log import logger
 from superai.utils import load_api_key, load_auth_token, load_id_token
 
@@ -214,7 +214,7 @@ class Project:
         # TODO: 1. The result of this API should be an http request that the sdk/use can call to get the answer. We
         #       already get the job_uuid we just need to be able to display it in dash. Q: How to differentiate if the
         #       job should be annotated or if we just should show the result
-        log.info(Fore.BLUE + f"Labeling {len(inputs)} jobs with Worker {worker}" + Style.RESET_ALL)
+        log.info(f"Labeling {len(inputs)} jobs with Worker {worker}")
         labels = []
         if len(inputs) > 20 and not force_single_submission:
             labels.append(self.client.create_jobs(app_id=self.project_uuid, inputs=inputs, worker=worker))
@@ -237,7 +237,7 @@ class Project:
         return labels
 
     def get_url(self):
-        current_env = settings.current_env
+        current_env = get_current_env()
         prefix = f"{current_env}." if current_env != "prod" else ""
         return f"https://{prefix}super.ai/dashboard/projects/{self.project_uuid}"
 
