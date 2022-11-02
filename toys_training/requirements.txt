@@ -1,0 +1,10 @@
+numpy
+pandas
+matplotlib
+opencv
+torch
+torchvision
+PIL
+sklearn
+tqdm
+torch-lr-finder
