@@ -109,23 +109,12 @@ class DeployConfig(BaseModel):
     build_all_layers: bool = False
     download_base: bool = False
 
-    push: bool = False
-    update_weights: bool = False
-    overwrite: bool = False
-
     @validator("orchestrator")
     def check_orchestrator(cls, v: str) -> str:
         from superai.meta_ai.image_builder import Orchestrator
 
         assert v in Orchestrator.__members__.values(), f"Should be in {Orchestrator.__members__.values()}"
         return v
-
-    @root_validator()
-    def check_push(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        if not values.get("push", False):
-            if values.get("update_weights", False) or values.get("overwrite", False):
-                logger.warning("`update_weights` and `overwrite` will be ignored as `push` is set to False")
-        return values
 
 
 def yml_config_setting(settings: BaseSettings) -> Dict[str, Any]:
