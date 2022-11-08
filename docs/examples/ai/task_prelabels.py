@@ -4,7 +4,7 @@ import superai_schema.universal_schema.data_types as dt
 import superai_schema.universal_schema.task_schema_functions as df
 from superai_schema.universal_schema.data_types import bundle as Schema
 
-from superai.data_program import DataProgram, Project, Task, Worker
+from superai.data_program import DataProgram, Project, Task, WorkerType
 from superai.meta_ai import AI
 
 # Defining the dataprogram interface
@@ -97,4 +97,4 @@ mnist_urls = [
 
 inputs = [{"mnist_image_url": url} for url in mnist_urls]
 
-labels = project.process(inputs=inputs, worker=Worker.me, open_browser=True)
+labels = project.process(inputs=inputs, worker=WorkerType.me, open_browser=True)

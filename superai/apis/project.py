@@ -4,9 +4,6 @@ import logging
 import re  # noqa: F401
 from abc import ABC, abstractmethod
 
-# python 2 and python 3 compatibility library
-import six
-
 from superai.log import logdecorator
 
 
@@ -43,7 +40,7 @@ class ProjectApiMixin(ABC):
         all_params.append("_request_timeout")
 
         params = locals()
-        for key, val in six.iteritems(params["kwargs"]):
+        for key, val in params["kwargs"].items():
             if key not in all_params:
                 raise TypeError(f"Got an unexpected keyword argument '{key}' to method get_template")
             params[key] = val
@@ -109,7 +106,7 @@ class ProjectApiMixin(ABC):
         all_params.append("_request_timeout")
 
         params = locals()
-        for key, val in six.iteritems(params["kwargs"]):
+        for key, val in params["kwargs"].items():
             if key not in all_params:
                 raise TypeError(f"Got an unexpected keyword argument '{key}' to method get_template")
             params[key] = val
@@ -193,7 +190,7 @@ class ProjectApiMixin(ABC):
         all_params.append("_request_timeout")
 
         params = locals()
-        for key, val in six.iteritems(params["kwargs"]):
+        for key, val in params["kwargs"].items():
             if key not in all_params:
                 raise TypeError(f"Got an unexpected keyword argument '{key}' to method list_templates")
             params[key] = val
@@ -277,7 +274,7 @@ class ProjectApiMixin(ABC):
         all_params.append("_request_timeout")
 
         params = locals()
-        for key, val in six.iteritems(params["kwargs"]):
+        for key, val in params["kwargs"].items():
             if key not in all_params:
                 raise TypeError(f"Got an unexpected keyword argument '{key}' to method update_template")
             params[key] = val
@@ -359,7 +356,7 @@ class ProjectApiMixin(ABC):
         if org:
             query_params["org"] = org
         del params["org"]
-        for key, val in six.iteritems(params["kwargs"]):
+        for key, val in params["kwargs"].items():
             if key not in all_params:
                 raise TypeError(f"Got an unexpected keyword argument '{key}' to method update_template")
             params[key] = val

@@ -2,7 +2,7 @@ import uuid
 
 import superai_schema.universal_schema.data_types as dt
 
-from superai.data_program import Project, Worker
+from superai.data_program import Project, WorkerType
 
 # Defining the dataprogram interface
 dp_definition = {
@@ -33,4 +33,4 @@ mnist_urls = [
 ]
 inputs = [{"mnist_image_url": url} for url in mnist_urls]
 
-labels = project.process(inputs=inputs, worker=Worker.me, open_browser=True)
+labels = project.process(inputs=inputs, worker=WorkerType.me, open_browser=True)

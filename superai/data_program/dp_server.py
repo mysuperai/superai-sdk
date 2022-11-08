@@ -12,20 +12,25 @@ from superai_schema.types import UiWidget
 from typing_extensions import Literal
 
 from superai.client import Client
-from superai.data_program.types import (
-    Handler,
-    MethodResponse,
+from superai.data_program.task.types import (
+    DPSuperTaskConfigs,
     Metric,
     MetricCalculateValueResponse,
     MetricRequestModel,
+    SuperTaskSchemaResponse,
+    TaskTemplate,
+)
+from superai.data_program.types import (
+    Handler,
+    MethodResponse,
     Output,
     Parameters,
     PostProcessContext,
     PostProcessRequestModel,
     SchemaServerResponse,
-    TaskTemplate,
-    WorkflowConfig,
 )
+from superai.data_program.utils import _call_handler
+from superai.data_program.workflow import WorkflowConfig
 from superai.log import logger
 from superai.utils import load_api_key, load_auth_token, load_id_token, retry
 
@@ -35,8 +40,9 @@ log = logger.get_logger(__name__)
 class DPServer:
     name: str
     params: Parameters
+    super_task_configs: DPSuperTaskConfigs
     params_schema: dict
-    generate: Handler[Parameters]
+    handler_fn: Handler[Parameters]
     log_level: Literal["critical", "error", "warning", "info", "debug", "trace"]
     post_process_fn: Optional[Callable[[Output, PostProcessContext], str]]
     task_templates_dict: Dict[str, TaskTemplate]
@@ -46,34 +52,36 @@ class DPServer:
     def __init__(
         self,
         params: Parameters,
-        generate: Handler[Parameters],
+        handler_fn: Handler[Parameters],
         name: str,
         workflows: List[WorkflowConfig],
         template_name: str,
         port: int,
         log_level: Literal["critical", "error", "warning", "info", "debug", "trace"] = "info",
         force_no_tunnel: bool = False,
+        super_task_params: DPSuperTaskConfigs = None,
     ):
         """
 
         Args:
             params: DP Handler parameters
-            generate: Handler instantiated with params
+            handler_fn: Handler instantiated with params
             name: DP name (prefix)
             workflows: List of workflows to handle
             template_name: Full DP name (prefix + workflow suffix)
             port: Port to run the server on
             log_level: Log level
             force_no_tunnel: Disables ngrok tunneling, in case you only want to run the server locally for testing
+            super_task_models: List of super task schemas
         """
         self.name = name
         self.params = params
         self.params_schema = params.schema()
-        self.generate = generate
+        self.handler_fn = handler_fn
         self.log_level = log_level
         self.force_no_tunnel = force_no_tunnel
-
-        handler_output = generate(self.params)
+        self.super_task_configs = super_task_params
+        handler_output = _call_handler(self.handler_fn, self.params, self.super_task_configs)
         self.input_model = handler_output.input_model
         self.output_model = handler_output.output_model
         self.post_process_fn = handler_output.post_process_fn
@@ -88,13 +96,15 @@ class DPServer:
             if method.is_gold:
                 self.workflows.append(MethodResponse(method_name=method_name, role="gold"))
 
-        assert len(handler_output.metrics) > 0, "At least one metric should be defined"
+        if not handler_output.metrics or len(handler_output.metrics) == 0:
+            logger.warning("At least one metric should be defined")
         self.metrics_dict = {metric.name: metric for metric in handler_output.metrics}
 
-        for task_template in handler_output.templates:
-            assert (
-                task_template.metrics_dict.keys() == self.metrics_dict.keys()
-            ), "The metric names in task template should be a same as in metrics"
+        # FIXME: This assertion assumes that we only have one task template which has the same metrics as the global metrics list
+        # for task_template in handler_output.templates:
+        #     assert (
+        #         task_template.metrics == self.metrics_dict.keys()
+        #     ), "The metric names in task template should be a same as in metrics"
         self.task_templates_dict = {task_template.name: task_template for task_template in handler_output.templates}
         self.dp_server_port = port
         self.client = Client(api_key=load_api_key(), auth_token=load_auth_token(), id_token=load_id_token())
@@ -133,11 +143,22 @@ class DPServer:
 
         class RequestModel(BaseModel):
             params: cls
+            # TODO: Turbine should pass those params
+            # super_task_params: Optional[Dict[str, SuperTaskParams]] = None
 
-        @app.post("/schema", response_model=SchemaServerResponse)
+        @app.post(
+            "/schema",
+            response_model=SchemaServerResponse,
+            response_model_exclude_none=True,
+            response_model_exclude_unset=True,
+        )
         def handle_post(app_params: RequestModel) -> SchemaServerResponse:
-            handler_output = self.generate(app_params.params)
+            # TODO: Turbine should pass those params
+            # super_task_params = app_params.super_task_params
+            # handler_output = _call_handler(self.handler_fn, app_params.parms, super_task_params)
+            handler_output = _call_handler(self.handler_fn, app_params.params, self.super_task_configs)
             input_model, output_model = handler_output.input_model, handler_output.output_model
+            # super_task_models = handler_output.super_tasks
 
             try:
                 # FastAPI's request body parser seems to ignore some directives
@@ -147,12 +168,30 @@ class DPServer:
                 log.exception(e)
                 raise HTTPException(status_code=422, detail=f"{e.message}")
 
-            return SchemaServerResponse(
-                inputSchema=input_model.schema(),
-                inputUiSchema=input_model.ui_schema() if issubclass(input_model, UiWidget) else {},
-                outputSchema=output_model.schema(),
-                outputUiSchema=output_model.ui_schema() if issubclass(output_model, UiWidget) else {},
+            # TODO: Use passed and validated super_task_params for generating response
+            # for st in super_task_models:
+            super_task_responses = []
+            if self.super_task_configs:
+                for name, st_config in self.super_task_configs.items():
+                    method_name = f"{self.name}.{name}"
+                    super_task_responses.append(
+                        SuperTaskSchemaResponse(
+                            super_task_workflow=method_name,
+                            parameters=st_config.params,
+                            workers=st_config.workers,
+                            workers_schema=st_config.get_workers_schema(),
+                            parameters_schema=st_config.params.schema(),
+                        )
+                    )
+
+            response = SchemaServerResponse(
+                input_schema=input_model.schema(),
+                input_ui_schema=input_model.ui_schema() if issubclass(input_model, UiWidget) else {},
+                output_schema=output_model.schema(),
+                output_ui_schema=output_model.ui_schema() if issubclass(output_model, UiWidget) else {},
+                super_tasks=super_task_responses or None,  # This hides the key when it's empty
             )
+            return response
 
         @app.get("/metrics", response_model=List[str])
         def get_metrics() -> List[str]:
@@ -201,6 +240,10 @@ class DPServer:
             except Exception as e:
                 log.exception(e)
                 raise HTTPException(status_code=422, detail=str(e))
+
+        @app.get("/health")
+        def health():
+            return "OK"
 
         needs_tunnel = not (os.environ.get("ECS") or os.environ.get("JENKINS_URL") or self.force_no_tunnel)
 

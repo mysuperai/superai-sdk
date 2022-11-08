@@ -2,22 +2,29 @@ import enum
 import inspect
 import json
 import os
-from typing import Callable, Dict, List, Optional, Type, Union
+import threading
+from typing import Callable, Dict, List, Optional, Union
 
+from attr import asdict
 from pydantic import ValidationError
 from superai_schema.generators import dynamic_generator
-from superai_schema.types import UiWidget
 from superai_schema.universal_schema import task_schema_functions as df
 
-from superai import Client, settings
-from superai.data_program import Task, Workflow
+from superai import Client, SuperAIError, settings
 from superai.data_program.base import DataProgramBase
 from superai.data_program.dp_server import DPServer
 from superai.data_program.Exceptions import UnknownTaskStatus
-from superai.data_program.protocol.task import start_threading
-from superai.data_program.protocol.task import task as task
+from superai.data_program.protocol.task import start_threading, task
 from superai.data_program.router import BasicRouter, Router
 from superai.data_program.router.training import Training
+from superai.data_program.task import SuperTaskWorkflow, Task
+from superai.data_program.task.types import (
+    DPSuperTaskConfigs,
+    SuperTaskConfig,
+    SuperTaskModel,
+    TaskResponse,
+    TaskTemplate,
+)
 from superai.data_program.types import (
     DataProgramDefinition,
     Handler,
@@ -26,13 +33,14 @@ from superai.data_program.types import (
     Output,
     Parameters,
     PostProcessContext,
-    TaskResponse,
-    TaskTemplate,
-    WorkflowConfig,
 )
-from superai.data_program.utils import model_to_task_io_payload, parse_dp_definition
+from superai.data_program.utils import _call_handler
 from superai.log import logger
 from superai.utils import load_api_key, load_auth_token, load_id_token
+
+from .task.basic import model_to_task_io_payload
+from .workflow import WorkflowConfig
+from .workflow.workflow import Workflow
 
 log = logger.get_logger(__name__)
 
@@ -51,15 +59,22 @@ class DataProgram(DataProgramBase):
         auto_generate_metadata: bool = True,
         dataprogram: str = None,
         dataprogram_suffix: str = "router",
+        default_super_task_configs: Optional[Dict[str, SuperTaskConfig]] = None,
         **kwargs,
     ):
         super().__init__(add_basic_workflow=add_basic_workflow)
+        self._supertasks = []
         self._default_params = default_params
-        self._handler = handler
-        definition = self._get_definition_for_params(default_params, handler)
+        if default_super_task_configs:
+            default_super_task_configs = DPSuperTaskConfigs.parse_obj(default_super_task_configs)
+        self._default_super_task_configs = default_super_task_configs
 
-        assert "input_schema" in definition
-        assert "output_schema" in definition
+        self._handler = handler
+        definition = DataProgramDefinition.from_handler(
+            default_params, handler, default_super_task_configs=default_super_task_configs
+        )
+        self._super_task_models = definition.supertask_models
+
         self.client = (
             client
             if client
@@ -70,22 +85,24 @@ class DataProgram(DataProgramBase):
             )
         )
         # FIXME: Needs to register default_workflow, and workflows... not the router
-        self.__dict__.update(definition)
+        self.__dict__.update(asdict(definition))
         self.dp_definition = definition
+        self.input_ui_schema = definition.input_ui_schema
+        self.output_ui_schema = definition.output_ui_schema
+        self.parameter_ui_schema = definition.parameter_ui_schema
+
+        # Some workflow validation and task creation logic relies on knowing if we use the new schema or not
+        self._uses_new_schema = any([self.input_ui_schema, self.output_ui_schema, self.parameter_ui_schema])
         (
             self.input_schema,
             self.output_schema,
             self.parameter_schema,
             self.default_parameter,
-            self.input_ui_schema,
-            self.output_ui_schema,
-            self.parameter_ui_schema,
-        ) = parse_dp_definition(definition)
+        ) = definition.parse_args(uses_new_schema=self._uses_new_schema)
 
         self._default_workflow: Optional[str] = None
         self._gold_workflow: Optional[str] = None
-        self._name = name
-        self.__validate_name()
+        self.name = name
 
         suffix = "router"
         self.is_training = False
@@ -137,20 +154,35 @@ class DataProgram(DataProgramBase):
         metadata: dict = None,
         auto_generate_metadata: bool = True,
         name: Optional[str] = None,
+        default_super_task_configs: Optional[Union[Dict[str, SuperTaskConfig], List[SuperTaskConfig]]] = None,
     ) -> "DataProgram":
+        """
+
+        Args:
+            default_params:
+            handler:
+            metadata:
+            auto_generate_metadata:
+            name: Name of the DataProgram. Is used as prefix for following full names.
+            default_super_task_configs:
+                List or dict of SuperTaskConfig. If list, the names of the SuperTasks need to be unique.
+
+        """
         name = name or os.getenv("WF_PREFIX")
         if name is None:
             raise Exception("Environment variable 'WF_PREFIX' or parameter `name` is missing.")
         training_dataprogram = os.getenv("TRAINING_DATAPROGRAM")
         is_training = training_dataprogram is not None and training_dataprogram != name
+
         dp = DataProgram(
             name=name,
             default_params=default_params,
             handler=handler,
-            metadata=metadata,
             add_basic_workflow=False,
+            metadata=metadata,
             auto_generate_metadata=auto_generate_metadata,
             dataprogram=training_dataprogram if is_training else None,
+            default_super_task_configs=default_super_task_configs,
         )
         return dp
 
@@ -174,19 +206,11 @@ class DataProgram(DataProgramBase):
             **service_kwargs: Additional arguments for the service.
 
         """
-        if len(workflows) == 1 and (workflows[0].is_default != True or workflows[0].is_gold != True):
-            log.info("WARNING: The only workflow should be default and gold")
-            workflows[0].is_default = True
-            workflows[0].is_gold = True
-        else:
-            assert len(list(filter(lambda w: w.is_default, workflows))) == 1, "There should be one default workflow"
-            assert len(list(filter(lambda w: w.is_gold, workflows))) == 1, "There should be one gold workflow"
+        _validate_necessary_workflows(workflows)
 
         # Setting the SERVICE env variable indicates that we are running the Data Program as a service
-
-        params_cls = self.default_params.__class__
-
         service = service or os.getenv("SERVICE")
+
         if service is None:
             log.warning(
                 """Environment variable 'SERVICE' is missing. Starting data_program by default
@@ -206,11 +230,16 @@ class DataProgram(DataProgramBase):
             os.environ["CANOTIC_AGENT"] = "1"
             os.environ["IN_AGENT"] = "YES"
 
+            # Workflow initialization
             self.check_workflow_deletion(workflows)
             for workflow_config in workflows:
-                self._add_workflow_by_config(workflow_config, params_cls, self.handler)
-
+                self._add_workflow_by_config(workflow_config)
             self.__init_router()
+            # Create SuperTask Workflows from SuperTask Schemas
+            for task_schema in self._super_task_models:
+                st = SuperTaskWorkflow(task_schema, prefix=self._name)
+                self._add_supertask(st)
+
             start_threading()
             return
 
@@ -218,17 +247,83 @@ class DataProgram(DataProgramBase):
             dp_server_port = settings.schema_port
             log.info(f"Starting schema service on port {dp_server_port}...")
             DPServer(
-                self.default_params,
-                self.handler,
+                params=self.default_params,
+                handler_fn=self.handler,
                 name=self._name,
                 workflows=workflows,
                 template_name=self.template_name,
                 port=dp_server_port,
+                super_task_params=self._default_super_task_configs,
                 **service_kwargs,
             ).run()
             return
         else:
             raise ValueError(f"{service} is invalid service. Pick one of {list(DataProgram.ServiceType)}")
+
+    def start_all_services(self, workflows: List[WorkflowConfig], wait=False, **service_kwargs):
+        """
+        Start all services for the DataProgram locally.
+        Args:
+            workflows:  List of workflows to be handled by the Data Program.
+            wait: If True, this call is blocking until all child threads are finished.
+            **service_kwargs: Additional arguments for the services.
+
+
+        """
+
+        def start_dp():
+            self.start_service(
+                workflows=workflows,
+                service=DataProgram.ServiceType.DATAPROGRAM,
+                **service_kwargs,
+            )
+
+        self._dp_thread = threading.Thread(target=start_dp, name="dp_starter")
+        self._dp_thread.start()
+
+        def start_dp_server():
+            self.start_service(
+                workflows=workflows,
+                service=DataProgram.ServiceType.SCHEMA,
+                **service_kwargs,
+            )
+
+        self._dp_schema_server_thread = threading.Thread(target=start_dp_server, name="dp_schema_server")
+        self._dp_schema_server_thread.start()
+
+        if wait:
+            self._dp_thread.join()
+            self._dp_schema_server_thread.join()
+
+    def schema_server_reachable(self):
+        """
+        Check if the DataProgram threads are running and the schema server is reachable.
+        This is a requirement before creating a project.
+
+        Example:
+
+        dp.start_all_services(workflows)
+
+        while not dp.schema_server_reachable():
+            time.sleep(1)
+            logging.info("Waiting for schema server to be reachable")
+
+        project = Project(dataprogram=dp, name="my_project", ...)
+
+
+        Returns:
+
+        """
+        if not self._dp_schema_server_thread or not self._dp_schema_server_thread.is_alive():
+            return False
+        # Ping the schema server
+        import requests
+
+        try:
+            requests.get(f"http://localhost:{settings.schema_port}/health")
+            return True
+        except requests.exceptions.ConnectionError:
+            return False
 
     @staticmethod
     def run(
@@ -258,17 +353,10 @@ class DataProgram(DataProgramBase):
         from canotic.hatchery import hatchery_config
         from canotic.qumes_transport import start_threads
 
-        if len(workflows) == 1 and (workflows[0].is_default != True or workflows[0].is_gold != True):
-            log.info("WARNING: The only workflow should be default and gold")
-            workflows[0].is_default = True
-            workflows[0].is_gold = True
-        else:
-            assert len(list(filter(lambda w: w.is_default, workflows))) == 1, "There should be one default workflow"
-            assert len(list(filter(lambda w: w.is_gold, workflows))) == 1, "There should be one gold workflow"
+        _validate_necessary_workflows(workflows)
 
         # Setting the SERVICE env variable indicates that we are running the Data Program as a service
         service = os.getenv("SERVICE") or service
-        params_cls = default_params.__class__
 
         name = name or os.getenv("WF_PREFIX")
         if name is None:
@@ -298,15 +386,15 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                 name=name,
                 default_params=default_params,
                 handler=handler,
-                metadata=metadata,
                 add_basic_workflow=False,
+                metadata=metadata,
                 auto_generate_metadata=auto_generate_metadata,
                 dataprogram=training_dataprogram if is_training else None,
             )
 
             dp.check_workflow_deletion(workflows)
             for workflow_config in workflows:
-                dp._add_workflow_by_config(workflow_config, params_cls, handler)
+                dp._add_workflow_by_config(workflow_config)
 
             dp.__init_router()
             start_threads()
@@ -377,11 +465,17 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
             assert updated_template.get("defaultWorkflow")
             self._default_workflow = updated_template.get("defaultWorkflow")
 
-    def __validate_name(self):
-        if not self._name:
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        if not value:
             raise ValueError("DataProgramTemplate.name can not be None")
-        if len(self._name.split(".")) > 1:
+        if len(value.split(".")) > 1:
             raise ValueError('DataProgramTemplate.name can not contain "." characters')
+        self._name = value
 
     def __load_default_workflow(self):
         default_workflow = None
@@ -444,6 +538,32 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         assert "uuid" in response
         return response
 
+    def _add_supertask(self, supertask: SuperTaskWorkflow) -> Optional[dict]:
+
+        self._register_supertask(supertask)
+        self._supertasks.append(supertask)
+        # Everything after this line can be ignored once the data program™ is already deployed
+        if os.environ.get("IN_AGENT"):
+            log.info(
+                f"[DataProgramTemplate.add_supertask] ignoring because IN_AGENT = " f"{os.environ.get('IN_AGENT')}"
+            )
+            return
+
+        supertask_dict = supertask.put()
+        assert supertask_dict.get("name") == supertask.qualified_name
+        return supertask_dict
+
+    @property
+    def supertasks(self) -> List[SuperTaskWorkflow]:
+        return self._supertasks
+
+    def get_supertask(self, name: str) -> SuperTaskWorkflow:
+        """Returns an active and registered supertask workflow by name"""
+        for supertask in self.supertasks:
+            if supertask.name == name:
+                return supertask
+        raise ValueError(f"Supertask {name} not found. Available supertasks: {[s.name for s in self.supertasks]}")
+
     def _add_workflow_obj(self, workflow: Workflow, default: bool = None, gold: bool = None) -> Optional[dict]:
         self.workflows.append(workflow)
 
@@ -500,8 +620,8 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
             gold = True
 
         workflow = Workflow(
-            prefix=self._name,
             workflow_fn=workflow,
+            prefix=self._name,
             name=name,
             description=description,
             dp_definition=self.dp_definition,
@@ -509,18 +629,17 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         )
         return self._add_workflow_obj(workflow=workflow, default=default, gold=gold)
 
-    def _add_workflow_by_config(
-        self,
-        workflow: WorkflowConfig,
-        params_cls: Type[Parameters],
-        handler: Handler[Parameters],
-    ):
+    def _add_workflow_by_config(self, workflow: WorkflowConfig):
         if self.is_training and not workflow.is_default:
             return
 
-        def workflow_fn(inp, params):
-            params_model = params_cls.parse_obj(params)
-            handler_output = handler(params_model)
+        def workflow_fn(inp, params, super_task_params=None):
+            params_model = self.default_params.__class__.parse_obj(params)
+
+            if super_task_params:
+                super_task_params = DPSuperTaskConfigs.from_schema_response(super_task_params, self._name)
+
+            handler_output = _call_handler(self.handler, params_model, super_task_configs=super_task_params)
             process_job = handler_output.process_fn
             post_process_job = handler_output.post_process_fn
 
@@ -529,56 +648,65 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
             job_input_model = job_input_model_cls.parse_obj(inp)
 
             if not (handler_output.templates or len(handler_output.templates) < 1):
+                raise NotImplementedError("Can't send a task with no templates defined")
 
-                def send_task(
-                    name: str,
-                    *,
-                    task_template: TaskTemplate,
-                    task_input: Input,
-                    task_output: Output,
-                    max_attempts: int,
-                    **kwargs,
-                ) -> None:
-                    raise NotImplementedError("Can't send a task with no templates defined")
+            def send_task(
+                name: str,
+                *,
+                task_template: TaskTemplate,
+                task_input: Input,
+                task_output: Output,
+                max_attempts: int,
+                **kwargs,
+            ) -> TaskResponse[Output]:
+                # checks task input type
+                if not isinstance(task_input, task_template.input):
+                    raise ValidationError("The input type is not the one in the task template")
 
-            else:
+                my_task = Task(name=name, max_attempts=max_attempts)
+                my_task.process(model_to_task_io_payload(task_input), model_to_task_io_payload(task_output), **kwargs)
+                raw_result = my_task.output["values"]["formData"]
+                output = task_output.parse_obj(raw_result)
 
-                def send_task(
-                    name: str,
-                    *,
-                    task_template: TaskTemplate,
-                    task_input: Input,
-                    task_output: Output,
-                    max_attempts: int,
-                    **kwargs,
-                ) -> Output:
-                    # checks task input type
-                    if not isinstance(task_input, task_template.input):
-                        raise ValidationError("The input type is not the one in the task template")
+                # check task output type
+                if not isinstance(output, task_template.output):
+                    raise ValidationError("The output type is not the one in the task template")
 
-                    my_task = Task(name=name, max_attempts=max_attempts)
-                    my_task.process(
-                        model_to_task_io_payload(task_input),
-                        model_to_task_io_payload(task_output),
-                        **kwargs,
-                    )
-                    raw_result = my_task.output["values"]["formData"]
-                    output = task_output.parse_obj(raw_result)
+                return TaskResponse[Output](
+                    task_output=output,
+                    hero_id=my_task.output["hero"]["workerId"],
+                )
 
-                    # check task output type
-                    if not isinstance(output, task_template.output):
-                        raise ValidationError("The output type is not the one in the task template")
+            def send_supertask(
+                name: Union[str, SuperTaskModel],
+                task_input: Input,
+                task_output: Output,
+            ) -> TaskResponse[Output]:
+                """
+                Provides interface in the job context to send out previously registered supertasks
 
-                    return TaskResponse[Output](
-                        task_output=output,
-                        hero_id=my_task.output["hero"]["workerId"],
-                    )
+                Returns:
+                    TaskResponse[Output]: The response from the supertask
+                """
+                # Allows passing name or SuperTask object
+                name = name if isinstance(name, str) else name.name
+
+                # Get Supertask from the DP context
+                supertask = self.get_supertask(name)
+
+                result = supertask.schedule(
+                    task_input,
+                    task_output,
+                    super_task_params=super_task_params[name],
+                )
+                return result
 
             job_context = JobContext[Output](
                 workflow,
                 send_task,
                 use_job_cache=bool(post_process_job),
                 is_training=self.is_training,
+                send_supertask=send_supertask,
             )
             job_output = process_job(job_input_model, job_context)
 
@@ -725,9 +853,9 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                 return output
 
             workflow = Workflow(
+                workflow_fn=_basic,
                 prefix=self._name,
                 name="_basic",
-                workflow_fn=_basic,
                 description="basic workflow",
                 dp_definition=self.dp_definition,
             )
@@ -758,21 +886,53 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
             updated_template = self.client.update_template(template_name=self.template_name, body=body)
             assert workflow.qualified_name in updated_template.get("dpWorkflows")
 
-    @staticmethod
-    def _get_definition_for_params(params: Parameters, handler: Handler[Parameters]) -> DataProgramDefinition:
-        param_schema = params.schema()
-        handler_output = handler(params)
-        input_model, output_model = (
-            handler_output.input_model,
-            handler_output.output_model,
-        )
+    def _register_supertask(self, supertask: SuperTaskWorkflow, force_update=True):
+        template = None
+        try:
+            template = self.client.get_supertask(task_template_name=supertask.qualified_name)
+        except SuperAIError as e:
+            if e.error_code != 404:
+                raise
 
-        return {
-            "parameter_schema": param_schema if param_schema else None,
-            "parameter_ui_schema": params.ui_schema() if isinstance(params, UiWidget) else {},
-            "input_schema": input_model.schema(),
-            "input_ui_schema": input_model.ui_schema() if issubclass(input_model, UiWidget) else {},
-            "output_schema": output_model.schema(),
-            "output_ui_schema": output_model.ui_schema() if issubclass(output_model, UiWidget) else {},
-            "default_parameter": json.loads(params.json(exclude_none=True)),
-        }
+        if template and not force_update:
+            return
+        else:
+            """
+            Body schema:
+            input_schema=input_schema,
+            input_ui_schema=input_ui_schema,
+            output_schema=output_schema,
+            output_ui_schema=output_ui_schema,
+            parameter_schema=parameter_schema,
+            parameter_ui_schema=parameter_ui_schema,
+            perf_params_schema=perf_params_schema,
+            example_data=example_data,
+            metadata=metadata,
+            max_active=max_active,
+            default_constraints=default_constraints,
+            default_workflow=default_workflow,
+            workflows=workflows,
+            default_app_params=default_app_params,
+            training_workflow=training_workflow,
+            default_workers=default_workers,
+            default_parameters=default_parameters,
+            """
+            body = {
+                "inputSchema": supertask.input_schema,
+                "outputSchema": supertask.output_schema,
+                "parameterSchema": supertask.parameter_schema,
+                # Use dict() before accessing workers, since its root type is a List
+                "default_workers": supertask._schema.config.dict()["workers"],
+                "default_parameters": supertask._schema.config.params.dict(),
+            }
+            updated_template = self.client.update_supertask(task_template_name=supertask.qualified_name, body=body)
+
+
+def _validate_necessary_workflows(workflows):
+    if len(workflows) == 1 and (workflows[0].is_default != True or workflows[0].is_gold != True):
+        log.info("WARNING: The only workflow should be default and gold")
+        workflows[0].is_default = True
+        workflows[0].is_gold = True
+    else:
+        assert len(list(filter(lambda w: w.is_default, workflows))) == 1, "There should be one default workflow"
+        assert len(list(filter(lambda w: w.is_gold, workflows))) == 1, "There should be one gold workflow"

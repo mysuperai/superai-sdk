@@ -8,14 +8,14 @@ import pytest
 import requests
 from superai_schema.types import BaseModel, Field, UiWidget
 
+from superai.data_program import Metric
 from superai.data_program.dp_server import DPServer
 from superai.data_program.types import (
     HandlerOutput,
-    Metric,
     PostProcessContext,
     PostProcessRequestModel,
-    WorkflowConfig,
 )
+from superai.data_program.workflow import WorkflowConfig
 
 
 def run_server():
@@ -58,11 +58,11 @@ def run_server():
 
     DPServer(
         params=Parameters(choices=["1", "2"]),
-        generate=handler,
+        handler_fn=handler,
         name="Test_Server",
         workflows=[WorkflowConfig("top_heroes", is_default=True), WorkflowConfig("crowd_managers", is_gold=True)],
-        port=8002,
         template_name="",
+        port=8002,
         log_level="critical",
         force_no_tunnel=True,
     ).run()
@@ -78,13 +78,30 @@ def local_port_open():
     return result_of_check == 0
 
 
+def server_ready(max_wait_secs=10) -> bool:
+    """
+    Wait until DP Server is ready
+    Saves a bit of time compared to a fixed sleep time.
+    """
+    start = time.time()
+    while time.time() - start < max_wait_secs:
+        try:
+            resp = requests.get("http://127.0.0.1:8002/health")
+            if resp.status_code == 200:
+                return True
+        except requests.exceptions.ConnectionError:
+            pass
+        time.sleep(0.2)
+    return False
+
+
 @pytest.fixture(scope="module")
 def server():
     if local_port_open():
         raise RuntimeError("Port 8002 is already in use. Is another process running on that port?")
     proc = Process(target=run_server, args=(), daemon=True)
     proc.start()
-    time.sleep(5)  # time for the server to start
+    server_ready(max_wait_secs=10)
     yield
     proc.terminate()
 

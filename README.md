@@ -143,7 +143,7 @@ import uuid
 
 import superai_schema.universal_schema.data_types as dt
 
-from superai.data_program import Project, Worker
+from superai.data_program import Project, WorkerType
 
 # 1) First we need to create the interface of our data program. We do this using schemas that define
 #    the input, output and parameter types. In this data program we are specifying that its input has
@@ -207,7 +207,7 @@ mnist_urls = [
 ]
 inputs = [{"mnist_image_url": url} for url in mnist_urls]
 
-labels = superAI.process(inputs=inputs, worker=Worker.me, open_browser=True)
+labels = superAI.process(inputs=inputs, worker=WorkerType.me, open_browser=True)
 ```
 
 You can find more examples in docs/examples

@@ -1,5 +1,4 @@
 import atexit
-import os
 import webbrowser
 from typing import Dict, List, Union
 
@@ -10,7 +9,7 @@ from superai.utils import load_api_key, load_auth_token, load_id_token
 
 from .base import DataProgramBase
 from .data_program import DataProgram
-from .task import Worker
+from .task.types import WorkerType
 from .utils import IgnoreInAgent
 
 log = logger.get_logger(__name__)
@@ -58,9 +57,11 @@ class Project:
             self.dataprogram.start()
 
         # Everything after this line can be ignored once the data program™ is already deployed
-        if os.environ.get("IN_AGENT"):
-            log.info(f"[Project.__create_project] ignoring because IN_AGENT = " f"{os.environ.get('IN_AGENT')}")
-            return
+        # FIXME: Is this necessary?
+        # Commenting this out  for making DP work
+        # if os.environ.get("IN_AGENT"):
+        #    log.info(f"[Project.__create_project] ignoring because IN_AGENT = " f"{os.environ.get('IN_AGENT')}")
+        #    return
 
         performance_dict = {"quality": quality, "cost": cost, "latency": latency}
         log.info("[Project.__init__] loading/creating instance")
@@ -203,7 +204,7 @@ class Project:
     def process(
         self,
         inputs: List[Dict],
-        worker: Worker = Worker.me,
+        worker: WorkerType = WorkerType.me,
         open_browser: bool = False,
         force_single_submission: bool = False,
     ) -> Dict:
@@ -214,13 +215,13 @@ class Project:
         # TODO: 1. The result of this API should be an http request that the sdk/use can call to get the answer. We
         #       already get the job_uuid we just need to be able to display it in dash. Q: How to differentiate if the
         #       job should be annotated or if we just should show the result
-        log.info(f"Labeling {len(inputs)} jobs with Worker {worker}")
+        log.info(f"Labeling {len(inputs)} jobs with WorkerType {worker}")
         labels = []
         if len(inputs) > 20 and not force_single_submission:
-            labels.append(self.client.create_jobs(app_id=self.project_uuid, inputs=inputs, worker=worker))
+            labels.append(self.client.create_jobs(app_id=self.project_uuid, inputs=inputs, worker=worker.value()))
         else:
             for input in inputs:
-                labels.append(self.client.create_jobs(app_id=self.project_uuid, inputs=[input], worker=worker))
+                labels.append(self.client.create_jobs(app_id=self.project_uuid, inputs=[input], worker=worker.value()))
         log.info(f"Labels response: {labels}")
 
         url = self.get_url()

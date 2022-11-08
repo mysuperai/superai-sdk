@@ -26,8 +26,6 @@ from superai.log import logger
 
 log = logger.get_logger(__name__)
 
-CM_OFFICE_METRIC = "crowd_manager_office"
-
 
 def resend_task(
     task_inputs,
@@ -75,78 +73,6 @@ def resend_task(
         else:
             raise UnknownTaskStatus(str(result.status()))
     raise TaskExpiredMaxRetries("No crowd hero responded to task after " + str(n_resend) + "retries.")
-
-
-def resend_task_prioritize_cm_office(
-    task_inputs,
-    task_outputs,
-    qualifications,
-    task_price,
-    task_expiry_time,
-    n_resend,
-    task_name,
-    excluded_ids=None,
-):
-    from canotic.hatchery import turbine_api as tb  # TODO: Remove dependency
-
-    cm_office_qualifications = [
-        {
-            "name": CM_OFFICE_METRIC,
-            "operator": "GREATER_THAN_OR_EQUALS_TO",
-            "value": 0.99,
-        }
-    ]
-
-    for n_tries in range(n_resend):
-        cm_office = tb.get_qualifieds_heroes(qualifications, active=True)
-        if len(cm_office) > 0:
-            result = task(
-                input=task_inputs,
-                output=task_outputs,
-                name=task_name + "-office",
-                price=task_price,
-                qualifications=cm_office_qualifications,
-                time_to_expire_secs=task_expiry_time,
-                excluded_ids=excluded_ids,
-            ).result()
-        else:
-            log.info("No Crowd Manager in Office are responding to the task, sending task to normal crowds")
-            result = task(
-                input=task_inputs,
-                output=task_outputs,
-                name=task_name,
-                price=task_price,
-                qualifications=qualifications,
-                time_to_expire_secs=task_expiry_time,
-                excluded_ids=excluded_ids,
-            ).result()
-        if result.status() == "COMPLETED":
-            log.info("task succeeded")
-            return result
-        elif result.status() == "EXPIRED":
-            log.info(f"resending task, trial no. {n_tries + 1}")
-            continue
-        else:
-            raise UnknownTaskStatus(str(result.status()))
-    raise TaskExpiredMaxRetries("No crowd hero responded to task after " + str(n_resend) + "retries.")
-
-
-def review_task(
-    task_inputs,
-    task_outputs,
-    qualifications_list,
-    task_price,
-    task_expiry_time,
-    n_resend,
-    task_name,
-    excluded_ids=None,
-):
-    assert len(qualifications_list) > 1, "At least 2 set of qualifications are needed for reviewing task"
-
-    for qualification in qualifications_list:
-        resp = resend_task(task_inputs, task_outputs, task_expiry_time, n_resend, task_name=task_name)
-
-    return
 
 
 def multiple_hero_task(num_heroes=1, agreement_score=True, **resend_task_kwargs):

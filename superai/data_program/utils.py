@@ -1,33 +1,15 @@
-import json
 import os
 from functools import wraps
 from inspect import getframeinfo, stack
-from typing import Callable
+from typing import Callable, Optional
 
 import requests
-from superai_schema.types import BaseModel, UiWidget
 
 from superai import Client
-from superai.data_program.protocol.task import _parse_args
-from superai.data_program.types import TaskIOPayload
+from superai.data_program.task.types import DPSuperTaskConfigs
+from superai.data_program.types import HandlerOutput, Parameters
 from superai.log import logger
 from superai.utils import load_api_key
-
-
-def parse_dp_definition(dp_definition):
-    input_schema = _parse_args(schema=dp_definition.get("input_schema")).get("schema")
-    output_schema = _parse_args(schema=dp_definition.get("output_schema")).get("schema")
-    parameter_schema = _parse_args(schema=dp_definition.get("parameter_schema")).get("schema")
-    default_parameter = dp_definition.get("default_parameter", None)
-    return (
-        input_schema,
-        output_schema,
-        parameter_schema,
-        default_parameter,
-        dp_definition.get("input_ui_schema"),
-        dp_definition.get("output_ui_schema"),
-        dp_definition.get("parameter_ui_schema"),
-    )
 
 
 def sign_url(url: str, client: Client = None):
@@ -92,9 +74,21 @@ def IgnoreInAgent(fn: Callable):
     return wrapper
 
 
-def model_to_task_io_payload(m: BaseModel) -> TaskIOPayload:
-    return {
-        "schema": m.schema(),
-        "uiSchema": m.ui_schema() if isinstance(m, UiWidget) else {},
-        "formData": json.loads(m.json(exclude_unset=True)),
-    }
+def _call_handler(
+    handler, params: Parameters, super_task_configs: Optional[DPSuperTaskConfigs] = None
+) -> HandlerOutput:
+    """
+    Call the handler with the given parameters and super task parameters.
+    Acts as a single point of entry for the handler call.
+    Is used for backwards compatibility with the old handler signature.
+    Args:
+        params:
+        super_task_configs:
+
+    Returns:
+
+    """
+    if super_task_configs is None:
+        return handler(params)
+    else:
+        return handler(params, super_task_configs)

@@ -3,13 +3,8 @@ from typing import List
 import pytest
 from superai_schema.types import BaseModel, Field
 
-from superai.data_program import (
-    DataProgram,
-    HandlerOutput,
-    JobContext,
-    Metric,
-    WorkflowConfig,
-)
+from superai.data_program import DataProgram, HandlerOutput, JobContext, Metric
+from superai.data_program.workflow import WorkflowConfig
 
 
 class ParameterModel(BaseModel):
@@ -77,11 +72,7 @@ def test_schema_port(monkeypatch):
 def test_data_program_creation(mock_apis, mocker):
     # Mock function create_template in apis/data_program.py
     default_params = ParameterModel(instructions="These are the DP default instructions.")
-    dp = DataProgram.create(
-        default_params=default_params,
-        name=DP_NAME,
-        handler=_dummy_handler,
-    )
+    dp = DataProgram.create(default_params=default_params, handler=_dummy_handler, name=DP_NAME)
     assert dp._name == DP_NAME
     assert dp._default_params == default_params
     assert dp._handler == _dummy_handler

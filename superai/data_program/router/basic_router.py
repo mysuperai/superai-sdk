@@ -53,6 +53,7 @@ class BasicRouter(Router):
 
         self.prefix = dataprogram._name
 
+        self._uses_new_schema = self.dataprogram._uses_new_schema
         self.input_schema = self.workflows[0].input_schema
         self.parameter_schema = self.workflows[0].parameter_schema
         self.default_parameter = self.workflows[0].default_parameter
@@ -65,12 +66,17 @@ class BasicRouter(Router):
         self.subscribe_wf()
 
     def subscribe_wf(self):
-        @workflow(self.name, self.prefix)
-        @input_schema(name="inp", schema=self.input_schema)
-        @param_schema(name="params", schema=self.parameter_schema, default=self.default_parameter)
-        @metric_schema(name="metric", schema=dt.bundle(), default={})
-        @output_schema(schema=self.output_schema)
-        def router(inp, metric, params):
+        @workflow(self.name, self.prefix, uses_new_schema=self._uses_new_schema)
+        @input_schema(name="inp", schema=self.input_schema, uses_new_schema=self._uses_new_schema)
+        @param_schema(
+            name="params",
+            schema=self.parameter_schema,
+            default=self.default_parameter,
+            uses_new_schema=self._uses_new_schema,
+        )
+        @metric_schema(name="metric", schema=dt.bundle(), default={}, uses_new_schema=self._uses_new_schema)
+        @output_schema(schema=self.output_schema, uses_new_schema=self._uses_new_schema)
+        def router(inp, metric, params, super_task_params=None):
             app_id = get_job_app()
             job_type = get_job_type()
             log.info(f"Routing {job_type} job")
@@ -82,6 +88,7 @@ class BasicRouter(Router):
                     params=params,
                     job_type=job_type,
                     app_uuid=app_id,
+                    super_task_params=super_task_params,
                 )
 
             elif job_type in ("DEFAULT", "ONBOARDING", "COLLABORATOR"):
@@ -95,6 +102,7 @@ class BasicRouter(Router):
                         params=params,
                         job_type=job_type,
                         app_uuid=app_id,
+                        super_task_params=super_task_params,
                     )
                     return job_response
 
@@ -106,6 +114,7 @@ class BasicRouter(Router):
                         params=params,
                         job_type=job_type,
                         app_uuid=app_id,
+                        super_task_params=super_task_params,
                     )
 
             elif job_type == "CALIBRATION":
@@ -116,13 +125,16 @@ class BasicRouter(Router):
                     params=params,
                     job_type=job_type,
                     app_uuid=app_id,
+                    super_task_params=super_task_params,
                 )
                 return job_response
             else:
                 raise JobTypeNotImplemented(f"Router does not support the given job type: {job_type}")
 
-        def send_workflow_job(workflow, input, params, job_type, app_uuid):
-            job = execute(workflow, params=input, app_params={"params": params}, tag=app_uuid)
+        def send_workflow_job(workflow, input, params, job_type, app_uuid, super_task_params):
+            job = execute(
+                workflow, params=input, app_params={"params": params}, tag=app_uuid, super_task_params=super_task_params
+            )
             result = job.result()
             status = result.status()
 

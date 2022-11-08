@@ -6,11 +6,12 @@ import json
 import logging
 import os
 import time
-import warnings
 from concurrent.futures import ALL_COMPLETED, FIRST_COMPLETED, wait
 from copy import deepcopy
+from enum import Enum
 from functools import wraps
 from random import randint
+from typing import Optional
 
 import requests
 import sentry_sdk
@@ -89,6 +90,7 @@ def task(
     time_to_expire_secs=None,
     show_reject=False,
     amount=None,
+    worker_type: Optional[str] = None,
 ) -> task_future:
     """Routing task for annotations to one or more supervision sources
     :param input: a list of input semantic items
@@ -113,6 +115,7 @@ def task(
     :param time_to_expire_secs: time in secs before the task will be expired (default: 0)
     :param show_reject: show reject button
     :param amount: price to pay crowd heroes
+    :param worker_type: worker type to be used for the task
     :return:
     """
     # TODO(veselin): the number of parameters passed to this function is getting too long, we should organize it into class or dictionary
@@ -141,6 +144,7 @@ def task(
             amount=amount,
             schema_version=get_current_version_id(),
             is_ai=ai,
+            worker_type=worker_type,
         )
     else:
         raise NotImplementedError("Little piggy not supported")
@@ -163,6 +167,7 @@ def execute(
     app_metrics=None,
     app_params=None,
     metadata=None,
+    super_task_params: Optional[dict] = None,
 ):
     """
     Create an instance of a workflow
@@ -186,6 +191,7 @@ def execute(
             app_metrics,
             app_params,
             metadata,
+            super_task_params=super_task_params,
         )
 
     return None
@@ -783,31 +789,28 @@ def task_from_semantic_ui(
     return r
 
 
-def get_all_metrics(metric, owner="1"):
-    """TODO(purna): this should be part of the canotic.metrics and implemented through a proper key value store API lookup"""
-    warnings.warn("this is either a workaround or hack")
-    url = (
-        "https://prometheus-nlb-prod-internal-b5f0c5af90c09892.elb.us-east-1.amazonaws.com"
-        + f"/resource/workers/metrics/{owner}/{metric}"
-    )
-    HEADERS = {"accept": "*/*", "Content-Type": "application/json"}
-    r = requests.get(url, headers=HEADERS)
-    return r.content
+class WorkflowType(str, Enum):
+    WORKFLOW = "workflows"
+    SUPER_TASK = "super-task-workflows"
 
 
-def serve_workflow(function, suffix=None, schema=None, prefix=None):
+def serve_workflow(
+    function, suffix=None, schema=None, prefix=None, workflow_type: Optional[WorkflowType] = WorkflowType.WORKFLOW
+):
     """Register func as workflow"""
     if "CANOTIC_AGENT" in os.environ:
-        subscribe_workflow(function=function, prefix=prefix, suffix=suffix, schema=schema)
+        if workflow_type is None:
+            workflow_type = WorkflowType.WORKFLOW
+        subscribe_workflow(function=function, prefix=prefix, suffix=suffix, schema=schema, workflow_type=workflow_type)
 
 
-def schema_wrapper(subject, context, function):
+def schema_wrapper(subject, context, function, uses_new_schema: Optional[bool] = None):
     kwargs = {}
 
     # Validation needs to be skipped if schema without version is being in use
     # because input/output schema depends on app params.
-    # In this case, DataProgram class is responsible of ensuring validity
-    can_validate_input_output = _is_using_versioned_schema()
+    # In this case, DataProgram class is responsible for ensuring validity
+    can_validate_input_output = _is_using_versioned_schema(uses_new_schema=uses_new_schema)
 
     if hasattr(function, "__input_param__"):
         (name, schema) = function.__input_param__
@@ -828,6 +831,14 @@ def schema_wrapper(subject, context, function):
                 logger.debug(f"VALIDATING {name}: PARAMS\n{param} \nSCHEMA\n{schema}")
                 validate(param, schema, validate_remote=True, client=DataHelper())
             kwargs[name] = param
+
+    # Passing down the super task params coming from the router job
+    # The params are not validated until the super task is scheduled
+    # The params will then be used as App Params and validated that way
+    super_task_params = context["super_tasks"] if context is not None and "super_tasks" in context else None
+    if super_task_params:
+        logger.debug(f"SUPER_TASK_PARAMS\n{super_task_params}")
+        kwargs["super_task_params"] = super_task_params
 
     app_metrics = context["app_metrics"] if context is not None and "app_metrics" in context else None
     logger.debug(f"APP_METRICS\n{app_metrics}")
@@ -866,7 +877,7 @@ def _init_workflow_decorator(function, suffix, prefix):
     function.get_example_data = lambda: function.__example_data__ if "__example_data__" in dir(function) else None
 
 
-def workflow(suffix, prefix=None):
+def workflow(suffix, prefix=None, workflow_type: Optional[WorkflowType] = None, uses_new_schema=None):
     def decorator(function):
         _init_workflow_decorator(function, suffix, prefix)
 
@@ -933,22 +944,26 @@ def workflow(suffix, prefix=None):
         logger.debug(f"WORFLOW_schema: {schema}")
         logger.debug(f"WORFLOW_prefix: {prefix}")
 
-        serve_workflow(function=function, suffix=suffix, schema=schema, prefix=prefix)
+        serve_workflow(function=function, suffix=suffix, schema=schema, prefix=prefix, workflow_type=workflow_type)
         return wrapper
 
     return decorator(suffix) if callable(suffix) else decorator
 
 
-def _is_using_versioned_schema() -> bool:
+def _is_using_versioned_schema(uses_new_schema: Optional[bool] = None) -> bool:
     # Not having SERVICE environment variable indicates that legacy versioned schema is in use
-    return os.getenv("SERVICE") is None
+    new_schema = uses_new_schema or os.getenv("SERVICE", False)
+    return not new_schema
 
 
-def _parse_args(*args, **kwargs):
+def _parse_args(*args, uses_new_schema: Optional[bool] = None, **kwargs):
     """
     f(name=asdfs)
     f(name=sdfs, schema=sdfs)
     f(name=sdfs, schema=sdfs, default=sdfs)
+
+    Args:
+        uses_new_schema: Signals whether the new schema is used or not. Controls injection of schema version for legacy schema.
     """
     if len(args) > 1:
         raise ValueError("Decorator takes max 1 positional argument")
@@ -965,14 +980,14 @@ def _parse_args(*args, **kwargs):
 
     f_args.update(kwargs)
 
-    if f_args["schema"] and _is_using_versioned_schema():
+    if f_args["schema"] and _is_using_versioned_schema(uses_new_schema=uses_new_schema):
         f_args["schema"] = list_to_schema(f_args["schema"])
         f_args["schema"]["$schema"] = get_current_version_id()
 
     return f_args
 
 
-def input_schema(*args, **kwargs):
+def input_schema(*args, uses_new_schema: Optional[bool] = None, **kwargs):
     """
     Supported inputs in the form of:
     @input_schema("param_name") -> func(param_name) with schema=None
@@ -981,7 +996,7 @@ def input_schema(*args, **kwargs):
     """
 
     def decorator(function):
-        dargs = _parse_args(*args, **kwargs)
+        dargs = _parse_args(*args, uses_new_schema=uses_new_schema, **kwargs)
 
         if "name" in dargs and "schema" in dargs:
             function.__input_param__ = (dargs["name"], dargs["schema"])
@@ -992,7 +1007,7 @@ def input_schema(*args, **kwargs):
     return decorator
 
 
-def output_schema(*args, **kwargs):
+def output_schema(*args, uses_new_schema: Optional[bool] = None, **kwargs):
     """
     TODO: Write appropriate docu
 
@@ -1001,7 +1016,7 @@ def output_schema(*args, **kwargs):
     """
 
     def decorator(function):
-        dargs = _parse_args(*args, **kwargs)
+        dargs = _parse_args(*args, uses_new_schema=uses_new_schema, **kwargs)
 
         function.__output_param__ = dargs["schema"]
         logger.debug(f"OUTPUT DECORATOR: {function.__output_param__}")
@@ -1019,9 +1034,9 @@ def example(data):
     return decorator
 
 
-def param_schema(*args, **kwargs):
+def param_schema(*args, uses_new_schema: Optional[bool] = None, **kwargs):
     def decorator(function):
-        dargs = _parse_args(*args, **kwargs)
+        dargs = _parse_args(*args, uses_new_schema=uses_new_schema, **kwargs)
 
         if "name" in dargs and "schema" in dargs:
             if not hasattr(function, "__app_params__"):
@@ -1042,9 +1057,9 @@ def param_schema(*args, **kwargs):
     return decorator
 
 
-def metric_schema(*args, **kwargs):
+def metric_schema(*args, uses_new_schema: Optional[bool] = None, **kwargs):
     def decorator(function):
-        dargs = _parse_args(*args, **kwargs)
+        dargs = _parse_args(*args, uses_new_schema=uses_new_schema, **kwargs)
 
         if "name" in dargs and "schema" in dargs:
             if not hasattr(function, "__app_metrics__"):

@@ -1,12 +1,10 @@
-from .task import Task, Worker  # noqa # isort: skip
-from .workflow import Workflow  # noqa # isort: skip
-from .data_program import (  # noqa # isort: skip
-    DataProgram,
-    JobContext,
-    PostProcessContext,
-    TaskTemplate,
-    WorkflowConfig,
+from .types import (  # noqa # isort: skip
+    HandlerOutput,
 )
 
+from .data_program import DataProgram, JobContext, PostProcessContext  # noqa # isort: skip
+from .task import Task
+from .task.types import Metric, Worker, WorkerType
+from .workflow import WorkflowConfig
+
 from .project import Project  # noqa # isort: skip
-from .types import HandlerOutput, Metric  # noqa # isort: skip

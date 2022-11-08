@@ -1,55 +1,62 @@
 from __future__ import absolute_import
 
 import logging
+import re  # noqa: F401
 from abc import ABC, abstractmethod
 
 from superai.log import logdecorator
 
 
-class WorkflowApiMixin(ABC):
+class SuperTaskApiMixin(ABC):
     @abstractmethod
     def request(self, uri, method, body_params=None, query_params=None, required_api_key=False):
         pass
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        "Workflow get {workflow_name:s}",
+        "TaskTemplate get {task_template_name:s}",
     )
     @logdecorator.log_on_end(
         logging.DEBUG,
-        "Workflow get {workflow_name:s} {result!s}",
+        "TaskTemplate get {task_template_name:s} {result!s}",
     )
-    @logdecorator.log_exception(
-        logging.ERROR,
-        "Error on Workflow get {workflow_name:s} {e!r}",
+    @logdecorator.log_on_error(
+        logging.WARNING,
+        "Error on TaskTemplate get {task_template_name:s} {e!r}",
         on_exceptions=Exception,
         reraise=True,
     )
-    def get_workflow(self, workflow_name, **kwargs):
+    def get_supertask(self, task_template_name, **kwargs):
         """Fetch a given resource
 
-        :param str workflow_name: The workflow identifier (required)
+        :param str task_template_name: The supertask identifier (required)
         :param str x_fields: An optional fields mask
         :return: DataProgram
         """
 
-        all_params = ["workflow_name", "x_fields", "_return_http_data_only", "_preload_content", "_request_timeout"]
+        all_params = [
+            "task_template_name",
+            "x_fields",
+            "_return_http_data_only",
+            "_preload_content",
+            "_request_timeout",
+        ]
 
         params = locals()
-        for key, val in params["kwargs"].items():
+        for key, val in params["kwargs"]:
             if key not in all_params:
-                raise TypeError(f"Got an unexpected keyword argument '{key}' to method get_template")
+                raise TypeError(f"Got an unexpected keyword argument '{key}' to method get_supertask")
             params[key] = val
         del params["kwargs"]
-        # verify the required parameter 'workflow_name' is set
-        if "workflow_name" not in params or params["workflow_name"] is None:
-            raise ValueError("Missing the required parameter `workflow_name` when calling `get_template`")
+        # verify the required parameter 'task_template_name' is set
+        if "task_template_name" not in params or params["task_template_name"] is None:
+            raise ValueError("Missing the required parameter `task_template_name` when calling `get_supertask`")
 
         collection_formats = {}
 
         path_params = {}
-        if "workflow_name" in params:
-            path_params["template_name"] = params["workflow_name"]
+        if "task_template_name" in params:
+            path_params["template_name"] = params["task_template_name"]
 
         query_params = []
 
@@ -66,7 +73,7 @@ class WorkflowApiMixin(ABC):
 
         # Authentication setting
         auth_settings = ["apiToken"]
-        uri = "templates/{template_name}".format(**path_params)
+        uri = "task-templates/{template_name}".format(**path_params)
         return self.request(
             endpoint=uri,
             method="GET",
@@ -77,19 +84,19 @@ class WorkflowApiMixin(ABC):
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        "List workflows",
+        "List supertasks",
     )
     @logdecorator.log_on_end(
         logging.DEBUG,
-        "List workflows response: {result!s}",
+        "List supertasks response: {result!s}",
     )
     @logdecorator.log_exception(
         logging.ERROR,
-        "Error on list workflow {e!r}",
+        "Error on list supertask {e!r}",
         on_exceptions=Exception,
         reraise=True,
     )
-    def list_workflows(self, **kwargs):
+    def list_supertasks(self, **kwargs):
         """List all templates (Tags param is mock)
 
         :param int page:
@@ -120,7 +127,7 @@ class WorkflowApiMixin(ABC):
         ]
 
         params = locals()
-        for key, val in params["kwargs"].items():
+        for key, val in params["kwargs"]:
             if key not in all_params:
                 raise TypeError(f"Got an unexpected keyword argument '{key}' to method list_templates")
             params[key] = val
@@ -166,7 +173,7 @@ class WorkflowApiMixin(ABC):
         auth_settings = ["apiToken"]
 
         return self.request(
-            endpoint="templates",
+            endpoint="task_templates",
             method="GET",
             query_params=query_params,
             body_params=body_params,
@@ -175,40 +182,41 @@ class WorkflowApiMixin(ABC):
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        "Workflow put {workflow_name:s} with body {body}",
+        "TaskTemplate put {task_template_name:s} with body {body}",
     )
     @logdecorator.log_on_end(
         logging.DEBUG,
-        "Workflow put {workflow_name:s} {result!s}",
+        "TaskTemplate put {task_template_name:s} {result!s}",
     )
     @logdecorator.log_exception(
         logging.ERROR,
-        "Error on Workflow put {workflow_name:s} {e!r}",
+        "Error on TaskTemplate put {task_template_name:s} {e!r}",
         on_exceptions=Exception,
         reraise=True,
     )
-    def put_workflow(self, workflow_name, body, **kwargs):
-        """Create or update a workflow given its full qualified name
+    def put_supertask(self, task_template_name, body, **kwargs):
+        """Create or update a supertask given its full qualified name
 
-        If the workflow already exists and it is owned by  somebody else then if will throw a 409
+        If the supertask already exists and it is owned by  somebody else then if will throw a 409
 
-        :param Workflow body: (required)
-        :param str workflow_name: The workflow identifier (required)
+        :param SuperTask body: (required)
+        :param str task_template_name: The supertask identifier (required)
         :param str x_fields: An optional fields mask
-        :return: Workflow
+        :return: SuperTask
         """
 
         all_params = [
             "body",
-            "workflow_name",
+            "task_template_name",
             "x_fields",
             "_return_http_data_only",
             "_preload_content",
             "_request_timeout",
         ]
 
+        body["type"] = "SUPER_TASK"
         params = locals()
-        for key, val in params["kwargs"].items():
+        for key, val in params["kwargs"]:
             if key not in all_params:
                 raise TypeError(f"Got an unexpected keyword argument '{key}' to method update_template")
             params[key] = val
@@ -216,15 +224,15 @@ class WorkflowApiMixin(ABC):
         # verify the required parameter 'body' is set
         if "body" not in params or params["body"] is None:
             raise ValueError("Missing the required parameter `body` when calling `update_template`")
-        # verify the required parameter 'workflow_name' is set
-        if "workflow_name" not in params or params["workflow_name"] is None:
-            raise ValueError("Missing the required parameter `workflow_name` when calling `update_template`")
+        # verify the required parameter 'task_template_name' is set
+        if "task_template_name" not in params or params["task_template_name"] is None:
+            raise ValueError("Missing the required parameter `task_template_name` when calling `update_template`")
 
         collection_formats = {}
 
         path_params = {}
-        if "workflow_name" in params:
-            path_params["template_name"] = params["workflow_name"]
+        if "task_template_name" in params:
+            path_params["template_name"] = params["task_template_name"]
 
         query_params = []
 
@@ -247,7 +255,7 @@ class WorkflowApiMixin(ABC):
         # Authentication setting
         auth_settings = ["apiToken"]
 
-        uri = "templates/{template_name}".format(**path_params)
+        uri = "task-templates/{template_name}".format(**path_params)
         response = self.request(
             endpoint=uri,
             method="PUT",
@@ -260,68 +268,68 @@ class WorkflowApiMixin(ABC):
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        "Workflow update {workflow_name:s} with body {body}",
+        "TaskTemplate update {task_template_name:s} with body {body}",
     )
     @logdecorator.log_on_end(
         logging.DEBUG,
-        "Workflow update {workflow_name:s} {result!s}",
+        "TaskTemplate update {task_template_name:s} {result!s}",
     )
     @logdecorator.log_exception(
         logging.ERROR,
-        "Error on Workflow update {workflow_name:s} {e!r}",
+        "Error on TaskTemplate update {task_template_name:s} {e!r}",
         on_exceptions=Exception,
         reraise=True,
     )
-    def update_workflow(self, workflow_name, body, **kwargs):
+    def update_supertask(self, task_template_name, body, **kwargs):
         """
-        This is a proxy method for put_workflow. See above
+        This is a proxy method for put_supertask. See above
 
-        :param Workflow body: (required)
-        :param str workflow_name: The workflow identifier (required)
+        :param SuperTask body: (required)
+        :param str task_template_name: The supertask identifier (required)
         :param str x_fields: An optional fields mask
-        :return: Workflow
+        :return: SuperTask
         """
-        return self.put_workflow(workflow_name, body)
+        return self.put_supertask(task_template_name, body)
 
     @logdecorator.log_on_start(
         logging.DEBUG,
-        "Workflow create {workflow_name:s} with body {body}",
+        "SuperTask create {supertask_name:s} with body {body}",
     )
     @logdecorator.log_on_end(
         logging.DEBUG,
-        "Workflow create {workflow_name:s} {result!s}",
+        "SuperTask create {supertask_name:s} {result!s}",
     )
     @logdecorator.log_exception(
         logging.ERROR,
-        "Error on Workflow create {workflow_name:s} {e!r}",
+        "Error on SuperTask create {supertask_name:s} {e!r}",
         on_exceptions=Exception,
         reraise=True,
     )
-    def create_workflow(self, workflow_name, body, **kwargs):
+    def create_supertask(self, supertask_name, body, **kwargs):
         """
-        This is a proxy method for put_workflow. See above
+        This is a proxy method for put_supertask. See above
 
-        :param Workflow body: (required)
-        :param str workflow_name: The workflow identifier (required)
+        :param SuperTask body: (required)
+        :param str supertask_name: The supertask identifier (required)
         :param str x_fields: An optional fields mask
-        :return: Workflow
+        :return: SuperTask
         """
-        return self.put_workflow(workflow_name, body)
+        return self.put_supertask(supertask_name, body)
 
-    def delete_workflow(self, dp_qualified_name, workflow_name):
+    def delete_supertask(self, dp_qualified_name, supertask_name):
         """
-        Workflow deletion
+        SuperTask deletion
 
-        :param str workflow_name: The workflow identifier (required)
-        :return: The new list of workflows
+        :param str supertask_name: The supertask identifier (required)
+        :return: The new list of supertasks
         """
-        template = self.get_workflow(dp_qualified_name)
-        workflow_list = template.get("dpWorkflows", []) or []
-        if workflow_name not in workflow_list:
-            raise ValueError("The workflow you want to delete is not present in the workflows of the DP you provided")
+        template = self.get_supertask(dp_qualified_name)
+        supertask_list = template.get("dpSuperTasks", []) or []
+        if supertask_name not in supertask_list:
+            raise ValueError("The supertask you want to delete is not present in the supertasks of the DP you provided")
 
-        workflow_list.remove(workflow_name)
-        body = {"workflows": workflow_list}
-        updated_template = self.update_workflow(workflow_name=dp_qualified_name, body=body)
-        assert workflow_name not in updated_template.get("dpWorkflows")
-        return workflow_list
+        supertask_list.remove(supertask_name)
+        body = {"supertasks": supertask_list}
+        updated_template = self.update_supertask(task_template_name=dp_qualified_name, body=body)
+        assert supertask_name not in updated_template.get("dpSuperTasks")
+        return supertask_list

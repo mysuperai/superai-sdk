@@ -5,7 +5,7 @@ import time
 import uuid
 
 from docs.examples.ai.utilities import MockedReturns
-from superai.data_program import Project, Worker
+from superai.data_program import Project, WorkerType
 from superai.meta_ai import AI
 from superai.meta_ai.ai import list_models
 from superai.meta_ai.ai_template import AITemplate
@@ -373,4 +373,4 @@ mnist_urls = [
 
 inputs = [{"mnist_image_url": url} for url in mnist_urls]
 
-labels = project.process(inputs=inputs, worker=Worker.ai, open_browser=False)
+labels = project.process(inputs=inputs, worker=WorkerType.ai, open_browser=False)

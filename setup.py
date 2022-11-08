@@ -31,6 +31,7 @@ except ImportError:
 # http://pypi.python.org/pypi/setuptools
 
 REQUIRES = [
+    "attrs>=22.1.0",
     "awesome-pattern-matching>=0.22.0",
     "boto3>=1.15",
     "click>=7.0",
@@ -52,7 +53,6 @@ REQUIRES = [
     "scikit-learn>=0.23.2",
     "sentry-sdk>=0.19.4",
     "sgqlc[websocket]>=16",
-    "six",
     "uvicorn>=0.15.0",
 ]
 

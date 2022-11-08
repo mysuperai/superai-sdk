@@ -66,7 +66,7 @@ class IntelImageClassification(BaseModel):
             images = []
             labels = []
 
-            print("Loading {}".format(dataset))
+            print(f"Loading {dataset}")
 
             # Iterate through each folder corresponding to a category
             for folder in os.listdir(dataset):

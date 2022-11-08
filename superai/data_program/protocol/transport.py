@@ -11,6 +11,7 @@ import signal
 import sys
 from logging import FATAL, WARN
 from threading import Lock, Thread, local
+from typing import Optional
 
 import jsonpickle
 import sentry_sdk
@@ -33,6 +34,11 @@ class OperationStatus(str, enum.Enum):
     NO_SUITABLE_COMBINER = "NO_SUITABLE_COMBINER"
     TASK_EXPIRED = "TASK_EXPIRED"
     JOB_EXPIRED = "JOB_EXPIRED"
+
+
+class WorkflowType(str, enum.Enum):
+    WORKFLOW = "workflows"
+    SUPER_TASK = "super-task-workflows"
 
 
 # A message to the agent
@@ -428,6 +434,7 @@ def schedule_workflow(
     app_metrics,
     app_params,
     metadata,
+    super_task_params: Optional[dict] = None,
 ):
     """Schedule task for execution by inserting it into the future table"""
     seq = _context.sequence
@@ -458,17 +465,21 @@ def schedule_workflow(
     if tag is not None:
         params["tag"] = tag
 
-    if app_params is not None or app_metrics is not None:
-        params["context"] = {}
-
-    if app_metrics is not None:
-        params["context"]["app_metrics"] = app_metrics
-
-    if app_params is not None:
-        params["context"]["app_params"] = app_params
-
     if metadata is not None:
         params["metadata"] = metadata
+
+    # Set context for the workflow
+    context = {}
+    if app_params is not None or app_metrics is not None:
+        context = {}
+    if app_metrics is not None:
+        context["app_metrics"] = app_metrics
+    if app_params is not None:
+        context["app_params"] = app_params
+    if super_task_params is not None:
+        context["super_tasks"] = super_task_params
+    if len(context) > 0:
+        params["context"] = context
 
     f = None
     with _task_futures_lock:
@@ -1148,8 +1159,10 @@ def run_model_predict(predict_func, port=8080, context=None):
         line = _in_pipe.readline()
 
 
-def subscribe_workflow(function, prefix, suffix, schema=None):
-    """Subscribe workflow"""
+def subscribe_workflow(function, prefix, suffix, schema=None, workflow_type: Optional[WorkflowType] = None):
+    """Subscribe workflow
+    TODO: Add workflow_type support for websocket
+    """
     if suffix is None:
         raise ValueError("Suffix is missing")
 
