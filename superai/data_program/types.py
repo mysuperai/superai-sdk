@@ -69,7 +69,7 @@ class HandlerOutput(BaseModel):
     post_process_fn: Optional[Callable[[Output, PostProcessContext], str]]
     templates: Optional[List[TaskTemplate]] = Field([])
     metrics: Optional[List[Metric]] = Field([], min_items=1)
-    super_tasks: Optional[DPSuperTasks]
+    super_tasks: Optional[DPSuperTasks] = Field([])
 
     class Config:
         arbitrary_types_allowed = True
@@ -117,7 +117,7 @@ class DataProgramDefinition:
     parameter_schema: Optional[dict] = {}
     parameter_ui_schema: Optional[dict] = {}
     default_parameter: Optional[dict] = None
-    supertask_models: Optional[DPSuperTasks] = None
+    supertask_models: Optional[DPSuperTasks] = []
 
     def parse_args(self, uses_new_schema=None) -> Tuple:
         from superai.data_program.protocol.task import _parse_args
