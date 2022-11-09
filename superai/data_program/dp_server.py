@@ -150,7 +150,7 @@ class DPServer:
             "/schema",
             response_model=SchemaServerResponse,
             response_model_exclude_none=True,
-            response_model_exclude_unset=True,
+            response_model_exclude_unset=False,
         )
         def handle_post(app_params: RequestModel) -> SchemaServerResponse:
             # TODO: Turbine should pass those params
