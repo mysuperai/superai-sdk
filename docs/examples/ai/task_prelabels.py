@@ -43,10 +43,10 @@ dp.add_task(t2)
 # Here we create our first workflow function
 # Not injecting AI list in V0
 def my_workflow(inputs, params, predictions, tasks, **kwargs):
-    """
-    Simple hello world MNIST workflow
-    :param inputs:
-    :return:
+    """Simple hello world MNIST workflow.
+
+    Args:
+        inputs:
     """
     print(f"{dp._name}.my_workflow: Arguments: inputs {inputs} params: {params}, **kwargs: {kwargs} ")
 

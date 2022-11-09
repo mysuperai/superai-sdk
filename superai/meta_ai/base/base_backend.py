@@ -2,8 +2,7 @@ from abc import ABCMeta, abstractmethod
 
 
 class BaseBackend(object):
-    """
-    Abstract class for Base Backend.
+    """Abstract class for Base Backend.
     This class defines the API interface for local model deployment of AIs.
     """
 
@@ -36,9 +35,8 @@ class BaseBackend(object):
         """
 
     def can_build_image(self):
-        """
-        Returns:
-            True if this backend has a `build_image` method defined for building a docker container capable of serving
-            the model. Otherwise, false.
+        """Returns:
+        True if this backend has a `build_image` method defined for building a docker container capable of serving
+        the model. Otherwise, false.
         """
         return callable(getattr(self.__class__, "build_image", None))

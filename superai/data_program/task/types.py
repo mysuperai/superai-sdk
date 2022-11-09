@@ -33,10 +33,7 @@ class Metric(BaseModel):
 
 
 class TaskTemplate(GenericModel, Generic[Input, Output]):
-    """
-    TaskTemplate is a generic class that can be used to define the input and output models for a task.
-
-    """
+    """TaskTemplate is a generic class that can be used to define the input and output models for a task."""
 
     name: str
     input: Type[Input]
@@ -50,18 +47,14 @@ class TaskTemplate(GenericModel, Generic[Input, Output]):
 
 
 class TaskResponse(GenericModel, Generic[Output]):
-    """
-    TaskResponse is a generic class to model the task response interface coming from the send_task functions.
-    """
+    """TaskResponse is a generic class to model the task response interface coming from the send_task functions."""
 
     task_output: Output
     hero_id: Optional[int]
 
 
 class SendTask(Protocol[Output]):
-    """
-    Signature of the method to send a task within job context
-    """
+    """Signature of the method to send a task within job context"""
 
     def __call__(
         self,
@@ -83,9 +76,7 @@ class TaskIOPayload(TypedDict):
 
 
 class WorkerType(str, enum.Enum):
-    """
-    WorkerType is an enum to define the type of worker that can be used to run a task.
-    """
+    """WorkerType is an enum to define the type of worker that can be used to run a task."""
 
     bots = "bots"
     me = "owner"
@@ -95,8 +86,7 @@ class WorkerType(str, enum.Enum):
 
 
 class OnTimeoutAction(str, enum.Enum):
-    """
-    Lists the action taken after the task of a worker times out.
+    """Lists the action taken after the task of a worker times out.
     Is used in the router and combiner functions.
     """
 
@@ -106,8 +96,7 @@ class OnTimeoutAction(str, enum.Enum):
 
 
 class OnTimeout(BaseModel):
-    """
-    Defines the strategy taken when a task times out or is cancelled.
+    """Defines the strategy taken when a task times out or is cancelled.
     Is used in the router and combiner functions.
 
     """
@@ -117,8 +106,7 @@ class OnTimeout(BaseModel):
 
 
 class MetricOperator(str, enum.Enum):
-    """
-    Defines the operator used to compare the metric values.
+    """Defines the operator used to compare the metric values.
 
     One example is to compare the confidence score of a task output with a predefined threshold.
     Or to compare the training score of a worker with a threshold.
@@ -135,8 +123,7 @@ class MetricOperator(str, enum.Enum):
 
 
 class TrainingConstraint(BaseModel):
-    """
-    Defines the training constraint for a worker.
+    """Defines the training constraint for a worker.
     A worker is either qualified and fulfils the constraint or not.
     """
 
@@ -149,9 +136,7 @@ class TrainingConstraint(BaseModel):
 
 
 class LogicalOperator(str, enum.Enum):
-    """
-    Enum to chain together multiple training constraints in a boolean expression.
-    """
+    """Enum to chain together multiple training constraints in a boolean expression."""
 
     AND = "_and"
     # TODO: Add OR operator in turbine
@@ -159,8 +144,7 @@ class LogicalOperator(str, enum.Enum):
 
 
 class TrainingConstraintSet(BaseModel):
-    """
-    Defines a set of training constraints.
+    """Defines a set of training constraints.
     We expect only workers which fulfil all the constraints to be qualified.
     """
 
@@ -175,8 +159,7 @@ class TrainingConstraintSet(BaseModel):
 
 
 class WorkerConstraint(BaseModel):
-    """
-    This models the selection criteria for a worker.
+    """This models the selection criteria for a worker.
     We can either include or exclude workers by IDs or email addresses or group membership.
     Or we define constraints based on training qualifications.
     """
@@ -189,8 +172,7 @@ class WorkerConstraint(BaseModel):
 
 
 class Worker(BaseModel):
-    """
-    The main model for a task worker.
+    """The main model for a task worker.
     It contains fields to select a worker and how to react on a response from a previously sent task.
     Additionally, it contains fields to shown in the UI for management (name, description).
 
@@ -214,8 +196,7 @@ class Worker(BaseModel):
 
 
 class TaskStrategy(str, enum.Enum):
-    """
-    A list of supported task combination strategies.
+    """A list of supported task combination strategies.
 
     TODO: add custom strategy
     """
@@ -226,8 +207,7 @@ class TaskStrategy(str, enum.Enum):
 
 
 class SuperTaskParameters(BaseModel):
-    """
-    Parameter model for one super task.
+    """Parameter model for one super task.
     Contains additional paramaters to control the SuperTask execution, excluding worker parameters.
     E.g. the task combination strategy.
 
@@ -238,8 +218,7 @@ class SuperTaskParameters(BaseModel):
 
 
 class SuperTaskWorkers(BaseModel):
-    """
-    Contains the model for the allowed workers for a SuperTask.
+    """Contains the model for the allowed workers for a SuperTask.
     Currently only contains a list of workers.
     Is necessary to create a correct JSONSchema.
     """
@@ -257,8 +236,7 @@ class SuperTaskWorkers(BaseModel):
 
 
 class SuperTaskConfig(BaseModel):
-    """
-    Configuration model for one super task.
+    """Configuration model for one super task.
     Contains the configuration how the task will get routed and to which workers.
 
     The parameters here are supposed to be editable by the app owner.
@@ -268,16 +246,14 @@ class SuperTaskConfig(BaseModel):
     params: SuperTaskParameters = Field(SuperTaskParameters())
 
     def get_workers_schema(self) -> dict:
-        """
-        Method to get the JSONSchema for the workers.
+        """Method to get the JSONSchema for the workers.
         Direct access to the workers is not possible, because the workers are wrapped in a list.
         """
         return self.__fields__["workers"].type_.schema()
 
 
 class SuperTaskModel(BaseModel):
-    """
-    A super task is a task that is composed of multiple subtasks.
+    """A super task is a task that is composed of multiple subtasks.
 
     The workers are the workers that are allowed to execute the subtasks.
     The subtasks are executed and aggregated determined by the strategy.
@@ -305,8 +281,7 @@ class SuperTaskModel(BaseModel):
             "DPSuperTaskConfigs",
         ],
     ) -> "SuperTaskModel":
-        """
-        Create a super task model from a name, input and output type and default params.
+        """Create a super task model from a name, input and output type and default params.
         Args:
             name: The name of the super task.
             input: Model of the input.
@@ -315,7 +290,6 @@ class SuperTaskModel(BaseModel):
                 Different to input/output, this is not a type but an instance of the params.
                 Is supposed to be passed in the `super_task_params` in the `handler()`.
                 Also allows passing the `DPSuperTaskConfigs` which contains all named parameters for a Data program.
-
 
         Returns:
             SuperTaskModel instance
@@ -340,9 +314,7 @@ class SuperTaskModel(BaseModel):
 
 
 class SendSuperTask(Protocol[Output]):
-    """
-    Signature of the method to send a super task within job context
-    """
+    """Signature of the method to send a super task within job context"""
 
     def __call__(
         self,
@@ -354,8 +326,7 @@ class SendSuperTask(Protocol[Output]):
 
 
 class DPSuperTaskConfigs(BaseModel):
-    """
-    Collects all the super task configs for a Dataprogram (as defaults) or concrete App
+    """Collects all the super task configs for a Dataprogram (as defaults) or concrete App
     Is extending a normal dict, where the keys are the unique super task names.
     Contains validation to make sure the super task names are the same as the keys.
     """
@@ -378,8 +349,7 @@ class DPSuperTaskConfigs(BaseModel):
 
     @classmethod
     def from_schema_response(cls, response: List[dict], dp_name: str) -> "DPSuperTaskConfigs":
-        """
-        Create a `DPSuperTaskConfigs` from the schema response of a Data Program.
+        """Create a `DPSuperTaskConfigs` from the schema response of a Data Program.
         Args:
             response: The schema SuperTaskSchemaResponse stored in the database.
             dp_name: The name of the Data Program.
@@ -394,8 +364,7 @@ class DPSuperTaskConfigs(BaseModel):
 
 
 class DPSuperTasks(BaseModel):
-    """
-    Collects all the super tasks models for a data program.
+    """Collects all the super tasks models for a data program.
     Is extending a normal dict, where the keys are the unique super task names.
     Contains validation to make sure the super task names are the same as the keys.
     """
@@ -424,9 +393,7 @@ class DPSuperTasks(BaseModel):
 
 
 class SuperTaskSchemaResponse(BaseModel):
-    """
-    Expected payload schema for backend retrieved in the DP Server.
-    """
+    """Expected payload schema for backend retrieved in the DP Server."""
 
     super_task_workflow: str
     workers: SuperTaskWorkers

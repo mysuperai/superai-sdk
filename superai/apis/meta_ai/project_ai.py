@@ -120,8 +120,7 @@ class ProjectAiApiMixin(ABC):
             log.info(f"No prediction instance found for prediction_id:{prediction_id} and instance_id:{instance_id}")
 
     def view_prediction(self, app_id: str, prediction_id: str):
-        """
-        View the prediction object, which acts as a container for potentially multiple concrete instances.
+        """View the prediction object, which acts as a container for potentially multiple concrete instances.
         Currently only returns the current state of the prediction.
         Args:
             app_id:
@@ -191,14 +190,15 @@ class ProjectAiApiMixin(ABC):
     def request_prediction_of_job(
         self, app_id: str, job_id: int, assignment: meta_ai_assignment_enum = "PRELABEL"
     ) -> List[str]:
-        """
-        Request to run predictions on the data contained in a job for all active models for a given `assignment`.
+        """Request to run predictions on the data contained in a job for all active models for a given `assignment`.
         Returns list of ids of prediction objects. Can be queried for completion status and output.
 
+        Args:
+            job_id
+            assignment
 
-        :param job_id:
-        :param assignment:
-        :rtype: str
+        Returns:
+            str
         """
         sess = MetaAISession(app_id=app_id)
         opq = Operation(query_root)
@@ -213,8 +213,7 @@ class ProjectAiApiMixin(ABC):
         return ids
 
     def resolve_data_reference(self, prediction_id: str, instance_id: int, reference: str) -> str:
-        """
-        Files in the output of models are referenced by a service specific URI and are not accessible directly.
+        """Files in the output of models are referenced by a service specific URI and are not accessible directly.
         This function resolves the reference to an accessible URL.
         Each referenced file is assigned to a specific prediction and instance.
 

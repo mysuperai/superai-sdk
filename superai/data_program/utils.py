@@ -13,13 +13,15 @@ from superai.utils import load_api_key
 
 
 def sign_url(url: str, client: Client = None):
-    """
-    Get signed url for a dataset given the resource URL. If the path is not a proper data path returns an unsigned URL
-    in the response object
+    """Gets signed URL for a dataset given the resource URL. If the path is not a proper data path, it returns an unsigned URL
+    in the response object.
 
-    :param url: Request URL
-    :param client: :class:`Client <superai.client.Client>`
-    :return: Signed url
+    Args:
+        url: Request URL
+        client: :class:`Client <superai.client.Client>`
+
+    Returns:
+        Signed URL.
     """
     if url.startswith("data://"):
         client = client if client else Client(api_key=load_api_key())
@@ -29,15 +31,17 @@ def sign_url(url: str, client: Client = None):
 
 
 def download_content(url: str, client: Client = None, timeout: int = 10):
-    """
-    Downloads data given a `"data://..."` or URL path.
+    """Downloads data given a `"data://..."` or URL path.
 
-    :param url: Dataset's path or URL. If the URL is a `data` path then a signed URL will be generated first. If a
+    Args:
+        url: Dataset's path or URL. If the URL is a `data` path then a signed URL will be generated first. If a
                     standard URL is passed then the `requests` library is used to load the URL and return the content
-                    using response.json()
-    :param client: :class:`Client <superai.client.Client>`
-    :param timeout: (optional) How many seconds to wait for the server to send data before giving up, as a float.
-    :return: URL content
+                    using response.json().
+        client: :class:`Client <superai.client.Client>`.
+        timeout: Optional; how many seconds to wait for the server to send data before giving up, as a float.
+
+    Returns:
+        URL content.
     """
     if url.startswith("data://"):
         client = client if client else Client(api_key=load_api_key())
@@ -77,8 +81,7 @@ def IgnoreInAgent(fn: Callable):
 def _call_handler(
     handler, params: Parameters, super_task_configs: Optional[DPSuperTaskConfigs] = None
 ) -> HandlerOutput:
-    """
-    Call the handler with the given parameters and super task parameters.
+    """Call the handler with the given parameters and super task parameters.
     Acts as a single point of entry for the handler call.
     Is used for backwards compatibility with the old handler signature.
     Args:

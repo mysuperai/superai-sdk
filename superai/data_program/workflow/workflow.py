@@ -28,22 +28,18 @@ class Workflow:
         use_new_schema: bool = False,
         **kwargs,
     ):
-        """
-
-        :param Callable workflow_fn:
-        :param string name:
-        :param string description:
-        :param dict dp_definition: A data class that can contain the following attributes:
-            'input_schema', 'output_schema', 'parameter_schema'
-
-        :param string prefix: Workflow name prefix which is the data program name
-        :param boolean measure: Should this workflow be measured # TODO: Do we want to expose this here?
-        :param boolean is_gold: Is this the gold workflow? DEFAULT false. If a data program has no gold
-            workflow specified then the _basic method is chosen as gold worfklow. If the _basic is not available then
-             a random workflow is chosen. # TODO: Do we want to expose this here?
-        :param boolean is_default: Is this the default method. DEFAULT: _basic method
-        :param use_new_schema: The workflow uses the new schema format
-
+        """Args:
+        workflow_fn:
+        name:
+        description:
+        dp_definition: A data class that can contain the following attributes: 'input_schema', 'output_schema', 'parameter_schema'.
+        prefix: Workflow name prefix which is the Data Program name.
+        measure: Should this workflow be measured # TODO: Do we want to expose this here?
+        is_gold: Is this the gold workflow? DEFAULT false. If a data program has no gold
+        workflow specified, then the _basic method is chosen as gold worfklow. If the _basic is not available, then
+         a random workflow is chosen. # TODO: Do we want to expose this here?
+        is_default: Is this the default method. DEFAULT: _basic method
+        use_new_schema: The workflow uses the new schema format
         """
         self._workflow_fn = workflow_fn
         self._name = name
@@ -142,11 +138,8 @@ class Workflow:
                 return self.workflow_fn(inp, params)
 
     def put(self) -> Dict:
-        """
-        Creates a new workflow entry in the database if the workflow didn't exist. If the workflow entry
+        """Creates a new workflow entry in the database when the workflow doesn't exist. If the workflow entry
         "<prefix>.<name>" exists, it will be replaced.
-
-        :return:
         """
 
         body = {

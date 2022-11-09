@@ -27,11 +27,14 @@ def _execute(cmd: str, env: dict = {}):
 
 
 def get_codeartifact_token(domain="superai", aws_profile="superai"):
-    """
-    Retrieving aws codearficat token
-    AWS_PROFILE=superai aws codeartifact get-authorization-token --domain {domain} --query authorizationToken --output text
-    :param domain:
-    :return:
+    """Retrieves AWS CodeArtifact token
+
+    Is  equivalent to running:
+        $ aws_profile=superai aws codeartifact get-authorization-token --domain {domain} --query authorizationToken --output text
+
+    Args:
+        domain: AWS CodeArtifact domain
+        aws_profile: AWS profile to use
     """
     boto3.setup_default_session(profile_name=aws_profile)
     client = boto3.client("codeartifact")

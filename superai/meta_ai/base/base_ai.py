@@ -94,7 +94,8 @@ class BaseModel(metaclass=ABCMeta):
 
     def load(self):
         """Seldon helper function to call the load_weights method. Seldon runs this method during the provision of
-        pod. The loading will be done with a default path, but we are passing some options to parametrize this"""
+        pod. The loading will be done with a default path, but we are passing some options to parametrize this
+        """
 
         if os.environ.get("WEIGHTS_PATH"):
             weights_path = os.environ.get("WEIGHTS_PATH")
@@ -160,7 +161,8 @@ class BaseModel(metaclass=ABCMeta):
             inputs: Model input
 
         Returns
-            Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list."""
+            Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
+        """
         return self.predict(inputs)
 
     def initialize(self, context: "BaseModelContext"):
@@ -215,8 +217,7 @@ class BaseModel(metaclass=ABCMeta):
         """
 
     def predict_batch(self, input_batch: List[Union[TaskInput, List[dict]]], context=None):
-        """
-        Generate model predictions for a batch of inputs.
+        """Generate model predictions for a batch of inputs.
         Can be overridden to support more efficient batch predictions inside the model.
 
         Args:
@@ -245,8 +246,7 @@ class BaseModel(metaclass=ABCMeta):
         callbacks=None,
         random_seed=default_random_seed,
     ) -> TrainerOutput:
-        """
-        Args:
+        """Args:
             random_seed:
             callbacks:
             decoder_trainable:
@@ -319,23 +319,22 @@ class BaseModelContext(object):
     """
 
     def __init__(self, artifacts):
-        """
-        Args:
-            artifacts: A dictionary of ``<name, artifact_path>`` entries, where ``artifact_path`` is an absolute
-            filesystem path to a given artifact.
+        """Args:
+        artifacts: A dictionary of ``<name, artifact_path>`` entries, where ``artifact_path`` is an absolute
+        filesystem path to a given artifact.
         """
         self._artifacts = artifacts
 
     @property
     def artifacts(self):
         """A dictionary containing ``<name, artifact_path>`` entries, where ``artifact_path`` is an absolute
-        filesystem path to the artifact."""
+        filesystem path to the artifact.
+        """
         return self._artifacts
 
 
 def add_default_tracking(training_method):
-    """
-    Decorator to add tracking to the training method which performs basic metrics tracking that are returned by the
+    """Decorator to add tracking to the training method which performs basic metrics tracking that are returned by the
     training function. Note that the metrics signature should match the arguments of the `tracking.log_metrics` method
 
     Args:

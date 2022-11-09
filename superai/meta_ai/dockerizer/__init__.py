@@ -76,11 +76,13 @@ standard_dockerfile_content = """FROM python:3.7.10-slim-stretch
 def update_docker_file(
     dockerfile: str = ".dockerizer/Dockerfile", command: str = "serve", has_requirements_file=False
 ) -> None:
-    """
-    Updates the input docker file to include certain sagemaker endpoint specific instructions.
-    :param dockerfile: Path to Dockerfile
-    :param command: Command to be passed to entrypoint
-    :param has_requirements_file: Does the parent folder have a requirements.txt file. If yes, then install the contents
+    """Updates the input docker file to include certain sagemaker endpoint specific instructions.
+
+    Args:
+        dockerfile: Path to Dockerfile
+        command: Command to be passed to entrypoint
+        has_requirements_file: Does the parent folder have a
+            requirements.txt file. If yes, then install the contents
     """
     with open(dockerfile, "r") as f:
         no_entrypoint = "ENTRYPOINT" in f.read()
@@ -132,9 +134,10 @@ def update_docker_file(
 
 
 def create_dockerfile(dockerfile_path: str = ".dockerizer/Dockerfile") -> None:
-    """
-    This method creates a template Dockerfile which has all basic functionality to run a sagemaker container
-    :param dockerfile_path: Path to docker file
+    """This method creates a template Dockerfile which has all basic functionality to run a sagemaker container
+
+    Args:
+        dockerfile_path: Path to docker file
     """
     with open(dockerfile_path, "w") as file:
         file.write(standard_dockerfile_content)
@@ -150,17 +153,22 @@ def build_image(
     entry_point_method="handle",
     use_shell=False,
 ) -> None:
-    """
-    Build a Sagemaker endpoint image
-    :param image_name: Name of the image
-    :param entry_point: Entrypoint to the image. Which script should be run in the container.
-    :param dockerfile: Path to Dockerfile
-    :param command: Command to be executed inside the server script.
-    :param worker_count: Number of workers on the instance
-    :param entry_point_method: Which method to run in the entry point script.
-                               This method is/calls the predict method based on context
-    :param use_shell: Use shell for execution.
-    :return:
+    """Build a Sagemaker endpoint image
+
+    Args:
+        image_name: Name of the image
+        entry_point: Entrypoint to the image. Which script should be run
+            in the container.
+        dockerfile: Path to Dockerfile
+        command: Command to be executed inside the server script.
+        worker_count: Number of workers on the instance
+        entry_point_method: Which method to run in the entry point
+            script. This method is/calls the predict method based on
+            context
+        use_shell: Use shell for execution.
+
+    Returns:
+
     """
     if os.path.exists(".dockerizer"):
         log.info("Removing existing `.dockerizer` folder...")
@@ -221,14 +229,15 @@ def push_image(
     show_progress: bool = True,
     verbose: bool = False,
 ) -> str:
-    """
-    Push container to ECR
-    :param image_name: Name of the locally built image
-    :param model_id: UUID of the model/AI (in `AI` given by `id` property)
-    :param version: Version string for docker container
-    :param region: AWS region
-    :param show_progress: Enable / disable progress bar
-    :param verbose: Whether to log the image push stream
+    """Push container to ECR
+
+    Args:
+        image_name: Name of the locally built image
+        model_id: UUID of the model/AI (in `AI` given by `id` property)
+        version: Version string for docker container
+        region: AWS region
+        show_progress: Enable / disable progress bar
+        verbose: Whether to log the image push stream
     """
     full_name, registry_prefix, repository_name = ecr_full_name(image_name, version, model_id, region)
     boto_session = get_boto_session(region_name=region)
@@ -357,9 +366,7 @@ def aws_ecr_login(region: str, registry_name: str) -> Optional[int]:
 
 
 def get_docker_client() -> DockerClient:
-    """
-    Returns a Docker client, raising a ModelDeploymentError if the Docker server is not accessible.
-    """
+    """Returns a Docker client, raising a ModelDeploymentError if the Docker server is not accessible."""
     try:
         client = docker.from_env(timeout=10)
         client.ping()
@@ -369,12 +376,15 @@ def get_docker_client() -> DockerClient:
 
 
 def get_boto_session(profile_name="default", region_name="us-east-1") -> Session:
-    """
-    Get a boto3 session with the given profile name. For the superai profile, an error message will be raised if
+    """Get a boto3 session with the given profile name. For the superai profile, an error message will be raised if
     credentials are expired
-    :param profile_name: Name of the profile
-    :param region_name: Name of the region
-    :return: Boto3 session
+
+    Args:
+        profile_name: Name of the profile
+        region_name: Name of the region
+
+    Returns:
+        Boto3 session
     """
     try:
         session = boto3.session.Session(region_name=region_name, profile_name=profile_name)

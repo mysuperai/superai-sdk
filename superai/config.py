@@ -47,12 +47,12 @@ def _get_config_path(log: Logger = None) -> str:
 
 
 def get_config_dir() -> str:
-    """Gets config root directory"""
+    """Gets config root directory."""
     return __superai_root_dir
 
 
 def list_env_configs(verbose: bool = True, log: Logger = None) -> Dict:
-    """List all available environments"""
+    """Lists all available environments.s"""
     log = log or logger.get_logger(__name__)
 
     __config_path__ = _get_config_path()
@@ -73,7 +73,7 @@ def list_env_configs(verbose: bool = True, log: Logger = None) -> Dict:
 
 
 def set_env_config(name: str, root_dir: str = __superai_root_dir, log: Logger = None):
-    """Set the active cluster name"""
+    """Sets the active cluster name."""
     # settings.setenv("other", silent=False)
     log = log or logger.get_logger(__name__)
 
@@ -91,13 +91,15 @@ def set_env_config(name: str, root_dir: str = __superai_root_dir, log: Logger = 
 
 
 def ensure_path_exists(f_path: str, only_dir=False) -> str:
-    """
-    Given some path, this function makes sure that the file exists. It will also take care of creating all necessary
+    """Given a path, this function makes sure that the file exists. It will also take care of creating all necessary
     folders. If `only_dir` is set to True then the file won't be created but all folders leading to the path will.
 
-    :param f_path: File path
-    :param only_dir: Only create directories leading to the path
-    :return: Created path
+    Args:
+        f_path: File path
+        only_dir: Only create directories leading to the path
+
+    Returns:
+        The created path.
     """
     f_path = os.path.expanduser(f_path)
     in_folder = os.path.dirname(f_path)
@@ -115,12 +117,14 @@ def ensure_path_exists(f_path: str, only_dir=False) -> str:
 
 
 def add_secret_settings(content: dict = None):
-    """
-    Add content to the secrets file. The content can be any arbitrary dictionary and will be merged to the original
-    file contents. If the secrets file doesn't exist, this method will create the necessary folders and path.
+    """Adds content to the secrets file. The content can be any arbitrary dictionary and will be merged to the original
+    file contents. If the secrets file doesn't exist, this method creates the necessary folders and path.
 
-    :param content: Content to merge
-    :return: None
+    Args:
+        content: Content to merge
+
+    Returns:
+        None.
     """
     content = content or {}
     secrets_path = os.path.expanduser(__secrets_path)
@@ -140,12 +144,14 @@ def add_secret_settings(content: dict = None):
 
 
 def remove_secret_settings(path_in_settings: str):
-    """
-    Given a path in the form <key>__<nested_key>.. this function sets the value of the path to "". Each __ is parsed
+    """Given a path in the form <key>__<nested_key>.., this function sets the value of the path to "". Each __ is parsed
     as a level traversing thought dict keys.
 
-    :param path_in_settings: Path with __ operator to traverse the nested structure
-    :return: None
+    Args:
+        path_in_settings: Path with __ operator to traverse the nested structure.
+
+    Returns:
+        None.
     """
     secrets_path = os.path.expanduser(__secrets_path)
     secrets_folder = os.path.dirname(__secrets_path)

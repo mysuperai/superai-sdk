@@ -137,8 +137,7 @@ class ModelApiMixin(ABC):
     def list_model_versions(
         self, model_id, to_json=False, verbose=False, sort_by_version=True, ascending=True
     ) -> List[Union[meta_ai_model, Dict]]:
-        """
-        List all versions of a model which share a common root model (given by the root_id).
+        """List all versions of a model which share a common root model (given by the root_id).
         Args:
             model_id: uuid
                 Does not need to be the id of the root model.
@@ -165,8 +164,7 @@ class ModelApiMixin(ABC):
         return self._output_formatter(models, to_json)
 
     def get_root_model(self, model_id, to_json=False, verbose=False) -> Optional[Union[meta_ai_model, Dict]]:
-        """
-        Get the root model,  i.e. the model that is the parent of all other models.
+        """Get the root model,  i.e. the model that is the parent of all other models.
         Currently, thats always the one with version=1.
 
         Args:
@@ -188,9 +186,7 @@ class ModelApiMixin(ABC):
         return self._output_formatter(models, to_json)
 
     def get_latest_model(self, model_id, to_json=False, verbose=False) -> Optional[Union[meta_ai_model, Dict]]:
-        """
-        Get the latest (highest) model version of a model.
-
+        """Get the latest (highest) model version of a model.
 
         Returns:
             meta_ai_model
@@ -217,8 +213,7 @@ class ModelApiMixin(ABC):
         image: str = None,
         deployment_parameters: Optional[Union[dict, "DeploymentParameters"]] = None,
     ) -> str:
-        """
-        Add a new model to the database.
+        """Add a new model to the database.
         Args:
             name:
                 Name of the model.
@@ -292,9 +287,10 @@ class ModelApiMixin(ABC):
         return (op + data).insert_meta_ai_model_one.id
 
     def update_model(self, model_id: str, **kwargs) -> str:
-        """
-        Update a model based with specified keyword arguments.
-        E.g. update_model(model_id, description="new_description")
+        """Update a model based with specified keyword arguments.
+
+        Examples:
+            >>> update_model(model_id, description="new_description")
 
         Args:
             model_id:
@@ -330,8 +326,7 @@ class ModelApiMixin(ABC):
         return (op + data).update_meta_ai_model_by_pk.id
 
     def update_model_by_name_version(self, name: str, version: int, **kwargs) -> str:
-        """
-        Update a model (identified by name and version) with specified keyword arguments
+        """Update a model (identified by name and version) with specified keyword arguments
         E.g. update_model_by_name_version(name="model123", version=1, description="new_description")
 
         Args:
@@ -589,8 +584,7 @@ class DeploymentApiMixin(ABC):
     def list_deployments(
         self, model_id: Optional[str] = None, status: Optional[meta_ai_deployment_status_enum] = None
     ) -> List[meta_ai_deployment]:
-        """
-        Retrieves list of deployments.
+        """Retrieves list of deployments.
         Allows filtering by model_id or status.
 
         Args:
@@ -648,8 +642,7 @@ class DeploymentApiMixin(ABC):
         app_id: str = None,
         timeout: int = 180,
     ):
-        """
-        Wait for a prediction to complete.
+        """Wait for a prediction to complete.
         Complete is either when the prediction is finished properly or it failed.
         Args:
             prediction_id: str
@@ -697,8 +690,7 @@ class DeploymentApiMixin(ABC):
 
     @staticmethod
     def get_prediction_with_data(prediction_id: str, app_id: str = None) -> Optional[meta_ai_prediction]:
-        """
-        Retrieve existing prediction with data from database.
+        """Retrieve existing prediction with data from database.
         Args:
             prediction_id: str
                 id of existing prediction
@@ -811,8 +803,7 @@ class TrainApiMixin(ABC):
     def create_training_template_entry(
         model_id: Union[uuid, str], properties: dict, app_id: uuid = None, description: Optional[str] = None
     ) -> Optional[meta_ai_training_template]:
-        """
-        Creates a new training template entry.
+        """Creates a new training template entry.
 
         Returns: the id of the created entry
 
@@ -854,8 +845,7 @@ class TrainApiMixin(ABC):
         properties: dict = None,
         description: str = None,
     ):
-        """
-        Update existing training template entry.
+        """Update existing training template entry.
 
         Returns: the id of the updated entry
 
@@ -890,8 +880,7 @@ class TrainApiMixin(ABC):
 
     @staticmethod
     def get_training_templates(model_id: Union[uuid, str], app_id: uuid = None) -> List[meta_ai_training_template]:
-        """
-        Finds training templates from the app id and model id keys.
+        """Finds training templates from the app id and model id keys.
 
         Returns: the training templates
 
@@ -925,8 +914,7 @@ class TrainApiMixin(ABC):
 
     @staticmethod
     def get_training_template(template_id: uuid, app_id: Optional[uuid]) -> Optional[meta_ai_training_template]:
-        """
-        Query single training template by id if it exists.
+        """Query single training template by id if it exists.
 
         Returns: the training template
 
@@ -958,8 +946,7 @@ class TrainApiMixin(ABC):
 
     @staticmethod
     def delete_training_template(id: uuid, app_id: uuid):
-        """
-        Deletes an existing template.
+        """Deletes an existing template.
 
         Returns: the id of the deleted entry
 
@@ -982,8 +969,7 @@ class TrainApiMixin(ABC):
         starting_state: Optional[str] = "STARTING",
         template_id: Optional[uuid] = None,
     ):
-        """
-        Insert a new training instance, triggering a new training run
+        """Insert a new training instance, triggering a new training run
 
         Returns: the id of the started training
 
@@ -1045,8 +1031,7 @@ class TrainApiMixin(ABC):
         state: str = "",
         limit=10,
     ) -> List[meta_ai_training_instance]:
-        """
-        Finds training instances from the app id and model id keys.
+        """Finds training instances from the app id and model id keys.
 
         Returns: the training runs
 
@@ -1084,8 +1069,7 @@ class TrainApiMixin(ABC):
 
     @staticmethod
     def delete_training(id: uuid, app_id: uuid):
-        """
-        Deletes an existing training run.
+        """Deletes an existing training run.
 
         Returns: the id of the deleted entry
 
@@ -1122,8 +1106,7 @@ class TrainApiMixin(ABC):
         current_properties: Optional[dict] = None,
         metadata: Optional[dict] = None,
     ) -> uuid:
-        """
-        Starts a training given the app_id, model_id, task_name, training_template_id. This automatically creates a
+        """Starts a training given the app_id, model_id, task_name, training_template_id. This automatically creates a
         dataset from the app, and starts training from the training_template_id.
 
         Args:
@@ -1159,8 +1142,7 @@ class TrainApiMixin(ABC):
     def get_artifact_download_url(
         model_id: Union[str, uuid], artifact_type: str, app_id: uuid = None, timeout: int = 360
     ) -> str:
-        """
-        Get the download url for an artifact.
+        """Get the download url for an artifact.
 
         Parameters
         ----------

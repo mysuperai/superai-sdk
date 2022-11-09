@@ -14,11 +14,11 @@ sentry_logging = LoggingIntegration(
 
 
 def before_send(event, hint):
-    """
-    Filter unnecessary events using the event info and hint
-    :param event:
-    :param hint:
-    :return:
+    """Filters unnecessary events using the event info and hint.
+
+    Args:
+        event:
+        hint:
     """
     return event
 

@@ -27,11 +27,14 @@ class ProjectApiMixin(ABC):
         reraise=True,
     )
     def get_project(self, uuid, **kwargs):
-        """Fetch a given resource
+        """Fetches a given resource.
 
-        :param str workflow_name: The superai identifier (required)
-        :param str x_fields: An optional fields mask
-        :return: A Superai
+        Args:
+            str workflow_name: The superai identifier (required)
+            str x_fields: An optional fields mask
+
+        Returns:
+            A Superai.
         """
 
         all_params = ["uuid", "x_fields"]
@@ -93,11 +96,14 @@ class ProjectApiMixin(ABC):
         reraise=True,
     )
     def get_selected_workflow(self, uuid, **kwargs):
-        """Fetch a given resource
+        """Fetches a given resource.
 
-        :param str uuid: The superai identifier (required)
-        :param str x_fields: An optional fields mask
-        :return: Qualified workflow name
+        Args:
+            str uuid: The superai identifier (required)
+            str x_fields: An optional fields mask
+
+        Returns:
+            Qualified workflow name.
         """
 
         all_params = ["uuid", "x_fields"]
@@ -160,18 +166,21 @@ class ProjectApiMixin(ABC):
         reraise=True,
     )
     def list_projects(self, **kwargs):
-        """List all superAIs (Tags param is mock)
+        """Lists all superAIs (Tags param is mock).
 
-        :param int page:
-        :param int size:
-        :param str sort_by:
-        :param str order_by:
-        :param bool only_owned_or_group:
-        :param list[str] input_types:
-        :param list[str] output_types:
-        :param list[str] tags:
-        :param str x_fields: An optional fields mask
-        :return: List of SuperAIs
+        Args:
+            int page:
+            int size:
+            str sort_by:
+            str order_by:
+            bool only_owned_or_group:
+            list[str] input_types:
+            list[str] output_types:
+            list[str] tags:
+            str x_fields: An optional fields mask
+
+        Returns:
+            List of SuperAIs.
         """
 
         all_params = [
@@ -258,14 +267,15 @@ class ProjectApiMixin(ABC):
         reraise=True,
     )
     def update_project(self, uuid, body, **kwargs):
-        """Update a superai given its full qualified name
+        """Updates a superai given its full qualified name. If the superai already exists and it is owned by somebody else then if will return a 409.
 
-        If the superai already exists and it is owned by  somebody else then if will throw a 409
+        Args:
+            body: (required)
+            uuid: The Project identifier (required)
+            x_fields: An optional fields mask
 
-        :param Project body: (required)
-        :param str uuid: The Project identifier (required)
-        :param str x_fields: An optional fields mask
-        :return: Project updated
+        Returns:
+            Project updated.
         """
 
         all_params = ["body", "uuid", "x_fields"]
@@ -337,13 +347,16 @@ class ProjectApiMixin(ABC):
         reraise=True,
     )
     def create_project(self, body, org=None, **kwargs):
-        """Update a superai given its uuid
+        """Updates a superai given its UUID.
 
-        If the dataprogram already exists and it is owned by  somebody else then if will throw a 409
+        If the Data Program already exists and it is owned by somebody else, then if will return a 409.
 
-        :param DataProgram body: (required)
-        :param str x_fields: An optional fields mask
-        :return: Project
+        Args:
+            DataProgram body: (required)
+            x_fields: An optional fields mask
+
+        Returns:
+            Project.
         """
 
         all_params = ["body", "x_fields"]

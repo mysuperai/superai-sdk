@@ -91,9 +91,7 @@ class HandlerOutput(BaseModel):
 
 
 class Handler(Protocol[Parameters]):
-    """
-    Signature of the data program's "main logic"
-    """
+    """Signature of the data program's main logic"""
 
     def __call__(self, params: Parameters, super_tasks: Optional[Parameters] = None) -> HandlerOutput:
         pass

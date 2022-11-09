@@ -1,4 +1,4 @@
-""" superAi library to send task to Human or AI """
+"""Super.AI library to send task to human or AI."""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import functools
@@ -92,31 +92,32 @@ def task(
     amount=None,
     worker_type: Optional[str] = None,
 ) -> task_future:
-    """Routing task for annotations to one or more supervision sources
-    :param input: a list of input semantic items
-    :param output: a list of output semantic items
-    :param humans: a list of crowd heroes email addresses
-    :param ai: bool, if True, the task will be sent to an AI
-    :param qualifications: list of required hero qualifications
-    :param name: task type
-    :param price: price tag to be associated with the task
-    :param title: task title
-    :param description: task description
-    :param paragraphs: task details
-    :param completed_tasks: a metadata placeholder to indicate the number of completed tasks
-    :param total_tasks: a metadata placeholder to indicate the number of total tasks
-    :param included_ids: a list of crowd hero ids to be included
-    :param excluded_ids: a list of crowd hero ids to be excluded
-    :param explicit_id: direct the task to specific hero id
-    :param groups: a list of groups
-    :param excluded_groups: a list of excluded groups
-    :param time_to_resolve_secs: time in secs before the task is resolved (default: 0)
-    :param time_to_update_secs: time in secs before the task is updated (default: 0)
-    :param time_to_expire_secs: time in secs before the task will be expired (default: 0)
-    :param show_reject: show reject button
-    :param amount: price to pay crowd heroes
-    :param worker_type: worker type to be used for the task
-    :return:
+    """Routes task for labeling to one or more supervision sources.
+
+    Args:
+        input: A list of input semantic items.
+        output: A list of output semantic items.
+        humans: a list of crowd heroes email addresses
+        ai: If True, the task will be sent to an AI. (superseded by worker_type)
+        qualifications: List of required hero qualifications.
+        name: Task type
+        price: Price tag to be associated with the task.
+        title: Task title.
+        description: Task description.
+        paragraphs: Task details.
+        completed_tasks: A metadata placeholder to indicate the number of completed tasks.
+        total_tasks: A metadata placeholder to indicate the number of total tasks.
+        included_ids: A list of crowd hero IDs to be included.
+        excluded_ids: A list of crowd hero IDs to be excluded.
+        explicit_id: Direct the task to a specific hero ID.
+        groups: A list of groups.
+        excluded_groups: A list of excluded groups.
+        time_to_resolve_secs: Time in seconds before the task is resolved (default: 0).
+        time_to_update_secs: Time in seconds before the task is updated (default: 0).
+        time_to_expire_secs: Time in seconds before the task will be expired (default: 0).
+        show_reject: Show reject button.
+        amount: Price to pay crowd heroes.
+        worker_type: worker type to be used for the task
     """
     # TODO(veselin): the number of parameters passed to this function is getting too long, we should organize it into class or dictionary
     if "CANOTIC_AGENT" in os.environ:
@@ -169,15 +170,15 @@ def execute(
     metadata=None,
     super_task_params: Optional[dict] = None,
 ):
-    """
-    Create an instance of a workflow
-    :param name: name of the workflow to create the instance
-    :param params: parameters as dictionary to the workflow instance
-    :param constraints: a set of execution constraints such as a list of emails, ids, or groups to send task to
-    :param data_folder: a data folder to be uploaded and accessed from the instance through canotic.request.data()
-    :param tag: workflow auxiliary tag
-    :param time_to_expire_secs: an expiration time in secs
-    :return:
+    """Creates an instance of a workflow.
+
+    Args:
+        name: Name of the workflow from which to create the instance.
+        params: Parameters as a dictionary to the workflow instance.
+        constraints: A set of execution constraints to which you want to send the task, such as a list of emails, IDs, or groups
+        data_folder: A data folder to be uploaded and accessed from the instance through canotic.request.data().
+        tag: Workflow auxiliary tag.
+        time_to_expire_secs: An expiration time in seconds.
     """
     if "CANOTIC_AGENT" in os.environ:
         return schedule_workflow(
@@ -198,8 +199,8 @@ def execute(
 
 
 def get_job_id():
-    """
-    :return: job id of current job, for little piggy, it always returns little piggy
+    """Returns:
+    Job ID of current job. For little piggy, it always returns little piggy.
     """
     if "CANOTIC_AGENT" in os.environ:
         return get_context_id()
@@ -208,9 +209,7 @@ def get_job_id():
 
 
 def get_job_priority(api_key=None):
-    """
-    return job priority
-    """
+    """Returns job priority."""
     if "CANOTIC_AGENT" in os.environ:
         priority = job_priority()
         if priority:
@@ -223,8 +222,8 @@ def get_job_priority(api_key=None):
 
 
 def get_job_app():
-    """
-    :return: app id of current job, for little piggy, it always returns little piggy
+    """Returns:
+    The app ID of the current job. For little piggy, it always returns little piggy.
     """
     if "CANOTIC_AGENT" in os.environ:
         return get_context_app_id()
@@ -233,8 +232,8 @@ def get_job_app():
 
 
 def get_job_project():
-    """
-    :return: project id of current job, for little piggy, it always returns little piggy
+    """Returns:
+    The project ID of current job. For little piggy, it always returns little piggy.
     """
     if "CANOTIC_AGENT" in os.environ:
         return get_context_project_id()
@@ -243,15 +242,14 @@ def get_job_project():
 
 
 def retry(exceptions, tries=5, delay=1, backoff=2, logger=logging):
-    """
-    Retry calling the decorated function using an exponential backoff.
+    """Retries calling the decorated function using an exponential backoff.
 
     Args:
         exceptions: The exception to check. may be a tuple of
             exceptions to check.
         tries: Number of times to try (not retry) before giving up.
         delay: Initial delay between retries in seconds.
-        backoff: Backoff multiplier (e.g. value of 2 will double the delay
+        backoff: Backoff multiplier (e.g., value of 2 will double the delay
             each retry).
         logger: Logger to use. If None, print.
     """
@@ -282,10 +280,13 @@ def retry(exceptions, tries=5, delay=1, backoff=2, logger=logging):
 
 @retry(Exception)
 def get_project_name(ID, endpoint_api_key=None, endpoint=None):
-    """
-    Get the unique project name given the project id
-    :param ID: project id
-    :return: project name
+    """Gets the unique project name given the project ID.
+
+    Args:
+        ID: The project ID
+
+    Returns:
+        The project name.
     """
     url_format = "{}/admin/projects/{}"
     headers = {"x-api-key": endpoint_api_key}
@@ -300,12 +301,12 @@ def get_project_name(ID, endpoint_api_key=None, endpoint=None):
 
 @retry(Exception)
 def get_job_by_id(id, active=True, api_key=None, use_memo=False, endpoint_api_key=None, endpoint=None):
-    """
-    Get job by id
-    :param id:
-    :param active: default is True # TODO: need to revisit @purnawirman
-    :param api_key: default is root api key # TODO: need to revisit @purnawirman
-    :return:
+    """Gets a job by ID.
+
+    Args:
+        id:
+        active: Default is True. # TODO: need to revisit @purnawirman
+        api_key: Default is root API key # TODO: need to revisit @purnawirman
     """
     logger.warning("DEPRECATED: Will be removed in next version")
 
@@ -332,8 +333,8 @@ def get_job_by_id(id, active=True, api_key=None, use_memo=False, endpoint_api_ke
 
 
 def get_job_project_name():
-    """
-    :return: project id of current job, for little piggy, it always returns little piggy
+    """Returns:
+    The project ID of the current job. For little piggy, it always returns little piggy.
     """
     if "CANOTIC_AGENT" in os.environ:
         pid = get_context_project_id()
@@ -343,18 +344,16 @@ def get_job_project_name():
 
 
 def get_job_tag(api_key: str = None):
-    """
-
-    :return: current job tag #
+    """Returns:
+    The current job tag number.
     """
     api_key = api_key or load_api_key()
     raise NotImplementedError("Fetching job tag is not supported")
 
 
 def get_job_simple_id(api_key=None):
-    """
-
-    :return: current job id #
+    """Returns:
+    The current job ID.
     """
     if "CANOTIC_AGENT" in os.environ:
         job_id = get_context_simple_id()
@@ -368,24 +367,24 @@ def get_job_simple_id(api_key=None):
 
 
 def get_metadata():
-    """
-    :return: Job Metadata
+    """Returns:
+    The job metadata.
     """
     if "CANOTIC_AGENT" in os.environ:
         return get_context_metadata()
 
 
 def get_job_type():
-    """
-    :return: Job Type
+    """Returns:
+    The job type.
     """
     if "CANOTIC_AGENT" in os.environ:
         return get_context_job_type()
 
 
 def is_job_child():
-    """
-    :return: if current job is child, for little piggy, it always returns False
+    """Returns:
+    Whether the current job is a child job. For little piggy, it always returns False.
     """
     if "CANOTIC_AGENT" in os.environ:
         return get_context_is_child()
@@ -394,8 +393,8 @@ def is_job_child():
 
 
 def get_workflow_prefix():
-    """
-    :return: project id of current job, for little piggy, it always returns little piggy
+    """Returns:
+    The project ID of the current job. For little piggy, it always returns little piggy.
     """
     if "WF_PREFIX" in os.environ:
         return os.environ["WF_PREFIX"]
@@ -464,20 +463,23 @@ def update_performance_database(performance):
 
 
 def is_task_skipped(wf_task):
-    """
-    Check if the task is rejected/skipped by labellers.
-    :param wf_task: task, class Future
-    :return:
+    """Checks if the task is rejected or skipped by labellers.
+
+    Args:
+        wf_task: Task, class Future.
     """
     return "values" not in wf_task.result()
 
 
 def get_task_value(resp, idx=0):
-    """
-    Get value of a responded task
-    :param resp: response of a task
-    :param idx: index of the response value
-    :return: response value of a task
+    """Gets the value of a responded task.
+
+    Args:
+        resp: Response of a task.
+        idx: Index of the response value.
+
+    Returns:
+        Response value of a task.
     """
     if "values" in resp:
         try:
@@ -491,11 +493,14 @@ def get_task_value(resp, idx=0):
 
 
 def get_task_type(resp, idx=0):
-    """
-    Get type of a responded task
-    :param resp: response of a task
-    :param idx: index of the response value
-    :return: response type of a task
+    """Gets type of a responded task.
+
+    Args:
+        resp: response of a task
+        idx: index of the response value.
+
+    Returns:
+        The response type of a task.
     """
     if "values" in resp:
         try:
@@ -509,11 +514,14 @@ def get_task_type(resp, idx=0):
 
 
 def wait_tasks_OR(tasks, timeout=None):
-    """
-    Wait for list of tasks until one of the tasks is completed, idempotency safe.
-    :param tasks: list of tasks to be wait
-    :param timeout: maximum wait time
-    :return: results contain done and not done tasks
+    """Waits for a list of tasks until one of the tasks is completed. Idempotency safe.
+
+    Args:
+        tasks: A list of tasks to be waited for.
+        timeout: The maximum wait time.
+
+    Returns:
+        Results contain done and not done tasks.
     """
     results = wait(tasks, timeout=timeout, return_when=FIRST_COMPLETED)
 
@@ -536,20 +544,26 @@ def wait_tasks_OR(tasks, timeout=None):
 
 
 def wait_tasks_AND(tasks, timeout=None):
-    """
-    Wait for list of tasks until all of the tasks are completed, idempotency safe.
-    :param tasks: list of tasks to be wait
-    :param timeout: maximum wait time
-    :return: results contain done and not done tasks
+    """Waits for list of tasks until all of the tasks are completed. Idempotency safe.
+
+    Args:
+        tasks: A list of tasks to be waited for.
+        timeout: The maximum wait time.
+
+    Returns:
+        Results contain done and not done tasks.
     """
     return wait(tasks, timeout=timeout, return_when=ALL_COMPLETED)
 
 
 def join_futures_array(array):
-    """
-    Combine all futures into one future
-    :param array: list of futures
-    :return: combined future
+    """Combines all futures into one future.
+
+    Args:
+        array: A list of futures.
+
+    Returns:
+        The combined future.
     """
     f = array.pop()
     while array:
@@ -564,7 +578,7 @@ def join_futures(*args):
 
 
 def send_response(response=None, data_folder=None, bill=None):
-    """Post response as a result of a job completion"""
+    """Posts the response as a result of a job completion."""
     if "CANOTIC_AGENT" in os.environ:
         resolve_job(response, data_folder, bill)
     else:
@@ -572,7 +586,7 @@ def send_response(response=None, data_folder=None, bill=None):
 
 
 def qualify(hero_item, metric, value=None):
-    """Store hero metric"""
+    """Stores hero metric."""
     if "CANOTIC_AGENT" in os.environ:
         save_hero_qualification(hero_item, metric, value)
     else:
@@ -580,9 +594,7 @@ def qualify(hero_item, metric, value=None):
 
 
 def qualify_canotic(hero_id, metric, value=None):
-    """
-    Create a qualification for canotic hero, of id `hero_id`, and metric name of `metric`. The value is float number.
-    """
+    """Creates a qualification for canotic hero, of id `hero_id`, and metric name of `metric`. The value is float number."""
     qualify({"platform": "CANOTIC", "workerId": hero_id}, metric, value)
 
 
@@ -598,7 +610,7 @@ def qualify_mturk(
     endpoint: str = None,
 ):
     # qualify({"platform": "MTURK", "workerId": hero_id}, metric, value)
-    """ """
+    """"""
     assert isinstance(value, int), "Qualify MTURK only accept integer values"
 
     def func():
@@ -644,7 +656,7 @@ def qualify_mturk(
 
 
 def disqualify(hero_id, metric):
-    """Delete hero metric"""
+    """Deletes a hero metric."""
     if "CANOTIC_AGENT" in os.environ:
         remove_hero_qualification(hero_id, metric)
     else:
@@ -652,9 +664,9 @@ def disqualify(hero_id, metric):
 
 
 def serve_predict(predict_func, port=8080, context=None, use_sagemaker=True):
-    """Register the predict_func as the prediction handler and start prediction service by listening to the port
+    """Registers the predict_func as the prediction handler and starts the prediction service by listening to the port.
 
-    If use_sagemaker flag is set, create prediction endpoint on sagemaker fabric.
+    If use_sagemaker flag is set, it creates a prediction endpoint on SageMaker fabric.
     """
     if use_sagemaker:
         # sm.serve_predict(predict_func, context, port=port)
@@ -664,20 +676,21 @@ def serve_predict(predict_func, port=8080, context=None, use_sagemaker=True):
 
 
 def tasks_parallel(records, task_fn, concurrency=1, task_callback=None):
-    """Execute tasks in parallel from the given input `records`.
+    """Executes tasks in parallel from the given input `records`.
 
-    Input `records` format is unknown to this executor, and the executor main responsibility is limited to scheduling
+    Input `records` format is unknown to this executor, and the executor's main responsibility is limited to scheduling
     the records by executing the `task_fn` callback defined as follows:
 
         task_fn(record, completed, total_tasks, price_tag='default', task_name=None, time_to_update_secs=None)
 
-    where,
-      `record`             : a record that contains information needed to execute a task
-      `completed`          : the number of tasks completed so far
-      `total_tasks`        : total number of tasks to be completed
-      `price_tag`          : price tag
-      `task_name`          : name of the task
-      `time_to_update_secs`: number of seconds the tasks in PENDING state before it gets RESOLVED.
+    where:
+
+      `record`             : A record that contains information needed to execute a task.
+      `completed`          : The number of tasks completed so far.
+      `total_tasks`        : The total number of tasks to be completed.
+      `price_tag`          : The price tag.
+      `task_name`          : The name of the task.
+      `time_to_update_secs`: The number of seconds the task is in the PENDING state before it gets RESOLVED.
     """
     tasks = []
     total_tasks = len(records)
@@ -706,19 +719,19 @@ def tasks_parallel(records, task_fn, concurrency=1, task_callback=None):
 
 
 def execute_parallel(records, method_fn, concurrency=10, callback=None):
-    """Execute a method that return future in parallel
+    """Executes a method that return future in parallel.
 
-    Input `records` format is unknown to this executor, and the executor main responsibility is limited to scheduling
-    the records by executing the `method_fn` callback defined as follows:
+    Input `records` format is unknown to this executor, and the executor's main responsibility is limited to scheduling
+    the records by executing the `method_fn` callback, which is defined as follows:
 
         method_fn(record) -> return future
 
-    The execution is concurrent with size 'concurrency'
+    The execution is concurrent with size 'concurrency'.
 
-    After execution, `callback` is invoked with the signature as follow:
+    After execution, `callback` is invoked with the signature as follows:
         callback(sequence, t.result())
     where sequence is the sequence of the task being created,
-    and t.result() is the result of the future invoked by method_fn
+    and t.result() is the result of the future invoked by method_fn.
     """
     import time
 
@@ -762,7 +775,7 @@ def task_from_semantic_ui(
     ai_input=None,
     time_to_update_secs=None,
 ):
-    """Dispatch a task from Semantic UI record
+    """Dispatches a task from Semantic UI record.
     {
         "name": [...],
         "input": [...],
@@ -797,7 +810,7 @@ class WorkflowType(str, Enum):
 def serve_workflow(
     function, suffix=None, schema=None, prefix=None, workflow_type: Optional[WorkflowType] = WorkflowType.WORKFLOW
 ):
-    """Register func as workflow"""
+    """Register func as workflow."""
     if "CANOTIC_AGENT" in os.environ:
         if workflow_type is None:
             workflow_type = WorkflowType.WORKFLOW
@@ -957,8 +970,7 @@ def _is_using_versioned_schema(uses_new_schema: Optional[bool] = None) -> bool:
 
 
 def _parse_args(*args, uses_new_schema: Optional[bool] = None, **kwargs):
-    """
-    f(name=asdfs)
+    """f(name=asdfs)
     f(name=sdfs, schema=sdfs)
     f(name=sdfs, schema=sdfs, default=sdfs)
 
@@ -988,8 +1000,7 @@ def _parse_args(*args, uses_new_schema: Optional[bool] = None, **kwargs):
 
 
 def input_schema(*args, uses_new_schema: Optional[bool] = None, **kwargs):
-    """
-    Supported inputs in the form of:
+    """Supported inputs in the form of:
     @input_schema("param_name") -> func(param_name) with schema=None
     @input_schema(name="param_name") -> same as last example
     @input_schema(name="param_name", schema=bundle(product=data_type.STRING)) -> func(param_name) with schema=bundle(product=data_type.STRING))
@@ -1008,11 +1019,13 @@ def input_schema(*args, uses_new_schema: Optional[bool] = None, **kwargs):
 
 
 def output_schema(*args, uses_new_schema: Optional[bool] = None, **kwargs):
-    """
-    TODO: Write appropriate docu
+    """TODO: Write appropriate docu
 
-    :param kwargs:
-    :return:
+    Args:
+        **kwargs
+
+    Returns:
+
     """
 
     def decorator(function):
@@ -1125,20 +1138,21 @@ def mtask(
     timeToResolveSec=None,
     timeToExpireSec=None,
 ):
-    """Routing task for annotations to one or more supervision sources
-    :param input: a list of input semantic items
-    :param output: a list of output semantic items
-    :param name: task type
-    :param price: price tag to be associated with the task
-    :param title: task title
-    :param description: task description
-    :param paragraphs: task details
-    :param show_reject: show reject button
-    :param amount: price to pay crowd heroes
-    :param sandbox: send to sandbox for debug
-    :param timeToResolveSec: time in second for mturk to resolve the task once they accept it
-    :param timeToExpireSec: time in second for the task to expire from its creation
-    :return:
+    """Routes a task for labeling to one or more supervision sources.
+
+    Args:
+        input: A list of input semantic items.
+        output: A list of output semantic items.
+        name: Task type.
+        price: Price tag to be associated with the task.
+        title: Task title.
+        description: Task description.
+        paragraphs: Task details.
+        show_reject: Show reject button.
+        amount: Price to pay crowd heroes.
+        sandbox: Send to sandbox for debug.
+        timeToResolveSec: Time in seconds for MTurk to resolve the task once they accept it.
+        timeToExpireSec: Time in seconds for the task to expire after creation.
     """
     if "CANOTIC_AGENT" in os.environ:
         return schedule_mtask(

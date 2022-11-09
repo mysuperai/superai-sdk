@@ -1,5 +1,4 @@
-"""
-An example DataProgram that uses a SuperTask to process a single job.
+"""An example DataProgram that uses a SuperTask to process a single job.
 SuperTasks are an abstraction of a single atomic task that can be used to create dynamically parameterized tasks based on App settings.
 A SuperTask can contain multiple tasks with different Workers.
 Additionally, a SuperTask has a strategy to aggregate the results of the tasks. (Still WIP)

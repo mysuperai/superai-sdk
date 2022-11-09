@@ -27,16 +27,19 @@ class DataApiMixin(ABC):
         page: int = None,
         size: int = None,
     ) -> dict:
-        """
-        Get a paginated list of datasets, that can be filtered using an array of ids xor and array of paths
-        :param data_ids: Array of data ids
-        :param paths: Array of paths
-        :param recursive: Get all datasets from recursive path (only takes first path of array)
-        :param signedUrl: Get signed url for each dataset
-        :param secondsTtl: Time to live for signed url
-        :param page: Page number [0..N]
-        :param size: Size of page
-        :return: Paginated list of datasets dicts
+        """Gets a paginated list of datasets that can be filtered using an array of IDs or an array of paths.
+
+        Args:
+            data_ids: Array of data IDs.
+            paths: Array of paths.
+            recursive: Get all datasets from recursive path (only takes first path of array).
+            signedUrl: Get signed URL for each dataset.
+            secondsTtl: Time to live for signed URL.
+            page: Page number [0..N].
+            size: Size of page.
+
+        Returns:
+            Paginated list of datasets dicts.
         """
         query_params = {}
         if data_ids is not None:
@@ -66,14 +69,17 @@ class DataApiMixin(ABC):
         signedUrl: bool = False,
         secondsTtl: int = 600,
     ) -> Generator[dict, None, None]:
-        """
-        Generator that retrieves all data filtered using an array of ids xor and array of paths
-        :param data_ids: Array of data ids
-        :param paths: Array of paths
-        :param recursive: Get all datasets from recursive path (only takes first path of array)
-        :param signedUrl: Get signed url for each dataset
-        :param secondsTtl: Time to live for signed url
-        :return: Generator that yields complete list of dicts with data objects
+        """Generator that retrieves all data filtered using an array of IDs or an array of paths.
+
+        Args:
+            data_ids: Array of data IDs.
+            paths: Array of paths.
+            recursive: Get all datasets from recursive path (only takes first path of array).
+            signedUrl: Get signed URL for each dataset.
+            secondsTtl: Time to live for signed URL.
+
+        Returns:
+            Generator that yields complete list of dicts with data objects.
         """
         page = 0
         paginated_data = {"last": False}
@@ -92,16 +98,18 @@ class DataApiMixin(ABC):
             page = page + 1
 
     def get_signed_url(self, path: str, secondsTtl: int = 600) -> dict:
-        """
-        Get signed url for a dataset given its path.
+        """Gets signed URL for a dataset given its path.
 
-        :param path: Dataset's path e.g. `"data://.."`
-        :param secondsTtl: Time to live for signed url. Max is restricted to 7 days
-        :return: Dictionary in the form {
-                    "ownerId": int # The data owner
-                    "path": str # The data path
-                    "signedUrl": str # Signed url
-                }
+        Args:
+            path: Dataset's path e.g., `"data://.."`.
+            secondsTtl: Time to live for signed URL. Maximum is 7 days.
+
+        Returns:
+            Dictionary in the form {
+                        ownerId": int # The data owner.
+                      "path": str # The data path.
+                       "signedUrl": str # Signed URL.
+                   }
         """
         uri = f"{self.resource}/url"
         return self.request(
@@ -109,11 +117,13 @@ class DataApiMixin(ABC):
         )
 
     def download_data(self, path: str, timeout: int = 5):
-        """
-        Downloads data given a `"data://..."` or URL path.
+        """Downloads data given a `"data://..."` or URL path.
 
-        :param path: Dataset's path
-        :return: URL content
+        Args:
+        path: Dataset's path.
+
+        Returns:
+            URL content.
         """
         signed_url = self.get_signed_url(path)
         res = requests.get(signed_url.get("signedUrl"), timeout=timeout)
@@ -124,21 +134,27 @@ class DataApiMixin(ABC):
             raise Exception(res.reason)
 
     def delete_data(self, path: str) -> dict:
-        """
-        Delete dataset given its path
-        :param path: Dataset's path
-        :return: Dict with details of deleted dataset
+        """Deletes a dataset given its path.
+
+        Args:
+            path: Dataset's path.
+
+        Returns:
+            Dict with details of deleted dataset.
         """
         return self.request(self.resource, method="DELETE", query_params={"path": path}, required_api_key=True)
 
     def upload_data(self, path: str, description: str, mimeType: str, file: BinaryIO) -> dict:
-        """
-        Create/update a dataset given its path using file and mimeType
-        :param path: Path of dataset
-        :param description: Description of dataset
-        :param mimeType: Type of file
-        :param file: Binary File value
-        :return: Dataset created/updated
+        """Creates or updates a dataset given its path using file and mimeType.
+
+        Args:
+            path: Path of dataset.
+            description: Description of dataset.
+            mimeType: Type of file.
+            file: Binary File value.
+
+        Returns:
+            The dataset created or updated.
         """
         dataset = self.request(
             self.resource,

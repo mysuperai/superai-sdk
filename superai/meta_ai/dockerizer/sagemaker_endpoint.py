@@ -22,16 +22,20 @@ def create_endpoint(
     instance_type: str = "ml.m5.large",
     mode: str = "SingleModel",
 ):
-    """
-    Create endpoint on AWS Sagemaker
-    :param image_name: Base image name which is already pushed on ECR
-    :param model_url: S3 URI of location where the model weights and params are placed.
-                      for :param mode="MultiModel" this is a folder location and
-                      for :param mode="SingleModel" this should be a location to a `tar.gz` file
-    :param initial_instance_count: Number of instances to serve on the endpoint
-    :param instance_type: Type of AWS instance to be used in the endpoint. Note that you cannot use GPU instances for
-                          :param mode="MultiModel"
-    :param mode: "SingleModel" or "MultiModel" type of instance to use
+    """Create endpoint on AWS Sagemaker
+
+    Args:
+        image_name: Base image name which is already pushed on ECR
+        model_url: S3 URI of location where the model weights and params
+            are placed. for :param mode="MultiModel" this is a folder
+            location and for :param mode="SingleModel" this should be a
+            location to a `tar.gz` file
+        initial_instance_count: Number of instances to serve on the
+            endpoint
+        instance_type: Type of AWS instance to be used in the endpoint.
+            Note that you cannot use GPU instances for :param
+            mode="MultiModel"
+        mode: "SingleModel" or "MultiModel" type of instance to use
     """
     sm_client = boto3.client(service_name="sagemaker")
     if arn_role is not None:
@@ -122,11 +126,12 @@ def create_endpoint(
 
 
 def upload_model_to_s3(bucket: str, prefix: str, model: str):
-    """
-    Upload model file to s3, model file should end with .tar.gz
-    :param bucket: Bucket name in s3
-    :param prefix: Prefix name
-    :param model: Path to model file
+    """Upload model file to s3, model file should end with .tar.gz
+
+    Args:
+        bucket: Bucket name in s3
+        prefix: Prefix name
+        model: Path to model file
     """
     assert model.endswith(".tar.gz"), "Model path should point to a tar.gz file"
     s3 = boto3.resource("s3")
@@ -142,10 +147,11 @@ def upload_model_to_s3(bucket: str, prefix: str, model: str):
 
 
 def invoke_local(mime: str, body: str):
-    """
-    Send a post request to the locally deployed docker container
-    :param mime: MIME type
-    :param body: Body or path to file to be passed as payload
+    """Send a post request to the locally deployed docker container
+
+    Args:
+        mime: MIME type
+        body: Body or path to file to be passed as payload
     """
     url = f"http://localhost/model/predict"
     headers = {"Content-Type": mime}

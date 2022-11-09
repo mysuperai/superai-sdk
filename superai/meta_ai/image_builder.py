@@ -57,8 +57,7 @@ def reset_workdir(function):
 
 
 class AiImageBuilder:
-    """
-    Responsible for building the image.
+    """Responsible for building the image.
     Inputs are mainly parameters for different orchestrator types and image name.
 
     Under the hood we built on top of a base image and adding AI source code with S2I.
@@ -103,8 +102,7 @@ class AiImageBuilder:
         self.deployment_parameters = deployment_parameters or AiDeploymentParameters()
 
     def _check_orchestrator(self) -> None:
-        """
-        Check if the orchestrator is valid for the current builder class.
+        """Check if the orchestrator is valid for the current builder class.
         Subclasses should overwrite `ALLOWED_ORCHESTRATOR`.
         """
         if not isinstance(self.orchestrator, self.ALLOWED_ORCHESTRATOR):
@@ -113,10 +111,7 @@ class AiImageBuilder:
             )
 
     def prepare_entrypoint(self) -> None:
-        """
-        Prepare entrypoints and environment variables for the image.
-
-        """
+        """Prepare entrypoints and environment variables for the image."""
         if self.orchestrator in [
             Orchestrator.LOCAL_DOCKER,
             Orchestrator.AWS_SAGEMAKER,
@@ -159,8 +154,7 @@ class AiImageBuilder:
         download_base: bool = False,
         use_internal: bool = False,
     ) -> str:
-        """
-        Build the image and return the image name.
+        """Build the image and return the image name.
         Args:
             cuda_devel
             enable_eia:
@@ -254,8 +248,7 @@ class AiImageBuilder:
         always_download=False,
         use_internal=False,
     ) -> str:
-        """
-        Build the image using s2i
+        """Build the image using s2i
 
         Args:
             image_name: Name of the image to be built
@@ -338,8 +331,7 @@ class AiImageBuilder:
         return full_image_name
 
     def _create_prediction_image_s2i(self, base_image_tag, image_tag, lambda_mode=False, k8s_mode=False):
-        """
-        Extracted method which creates the prediction image
+        """Extracted method which creates the prediction image
 
         Args:
             base_image_tag: Identifier of the base image name for building image
@@ -366,8 +358,7 @@ class AiImageBuilder:
         return system(command)
 
     def _download_base_image(self, base_image: str, client: DockerClient) -> None:
-        """
-        Download the base image from ECR
+        """Download the base image from ECR
         Args:
             base_image: Name of the base image
             client: Docker client

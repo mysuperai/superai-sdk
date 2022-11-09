@@ -59,8 +59,7 @@ class SchemaParameters:
 
 
 class EasyPredictions:
-    """
-    --- DEPRECATED ---: use `TaskPredictionInstance` directly instead.
+    """--- DEPRECATED ---: use `TaskPredictionInstance` directly instead.
 
     A prediction object which verifies the predictions obtained from the model.
 

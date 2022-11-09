@@ -1,4 +1,4 @@
-""" Common utility for building image """
+"""Common utility for building image."""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import logging
@@ -214,7 +214,7 @@ def create_agent_run_command(
     websocket: str = settings.agent.websocket,
     api_key: str = None,
 ):
-    """Generate piggy command line to execute target script"""
+    """Generates piggy command line to execute target script."""
     api_key = api_key or load_api_key()
     piggy_agent_path = Path(settings.agent.file)
     if not piggy_agent_path.is_file():

@@ -1,5 +1,4 @@
-"""
-Training on the Intel Image Classification Dataset
+"""Training on the Intel Image Classification Dataset
 (https://www.kaggle.com/datasets/puneet6060/intel-image-classification)
 
 The adaptation of the model is done from https://www.kaggle.com/code/vincee/intel-image-classification-cnn-keras

@@ -27,11 +27,14 @@ class DataProgramApiMixin(WorkflowApiMixin):
         reraise=True,
     )
     def get_template(self, template_name, **kwargs):
-        """Fetch a data program dataprogram
+        """Fetches a Data Program's dataprogram.
 
-        :param str template_name: The data program dataprogram name (required)
-        :param str x_fields: An optional fields mask
-        :return: DataProgram
+        Args:
+            template_name: The Data Program dataprogram name (required)
+            x_fields: An optional fields mask
+
+        Returns:
+            DataProgram
         """
 
         return self.get_workflow(template_name, **kwargs)
@@ -47,18 +50,21 @@ class DataProgramApiMixin(WorkflowApiMixin):
         reraise=True,
     )
     def list_templates(self, **kwargs):
-        """List all templates (Tags param is mock)
+        """Lists all templates (Tags param is mock).
 
-        :param int page:
-        :param int size:
-        :param str sort_by:
-        :param str order_by:
-        :param bool only_owned_or_group:
-        :param list[str] input_types:
-        :param list[str] output_types:
-        :param list[str] tags:
-        :param str x_fields: An optional fields mask
-        :return: TemplatesList
+        Args:
+            page:
+            size:
+            sort_by:
+            order_by:
+            only_owned_or_group:
+            input_types:
+            output_types:
+            tags:
+            x_fields: An optional fields mask.
+
+        Returns:
+            TemplatesList.
         """
         # TODO: Filter all router workflows
         return self.list_workflows()
@@ -75,14 +81,15 @@ class DataProgramApiMixin(WorkflowApiMixin):
         reraise=True,
     )
     def update_template(self, template_name, body, **kwargs):
-        """Create or update a dataprogram given its full qualified name
+        """Creates or updates a Data Program given its full qualified name. If the Data Program already exists and it is owned by somebody else, then if will return a 409.
 
-        If the dataprogram already exists and it is owned by  somebody else then if will throw a 409
+        Args:
+            DataProgram body: (required)
+            template_name: The Data Program identifier (required).
+            x_fields: An optional fields mask.
 
-        :param DataProgram body: (required)
-        :param str template_name: The dataprogram identifier (required)
-        :param str x_fields: An optional fields mask
-        :return: DataProgram
+        Returns:
+            DataProgram.
         """
         return self.update_workflow(workflow_name=template_name, body=body, **kwargs)
 
@@ -98,14 +105,15 @@ class DataProgramApiMixin(WorkflowApiMixin):
         reraise=True,
     )
     def create_template(self, body, template_name, **kwargs):
-        """Create or update a dataprogram given its full qualified name
+        """Creates or updates a Data Program given its full qualified name. If the Data Program already exists and it is owned by somebody else, then if will return a 409.
 
-        If the dataprogram already exists and it is owned by  somebody else then if will throw a 409
+        Args:
+            body: (required)
+            template_name: The Data Program identifier (required).
+            x_fields: An optional fields mask.
 
-        :param DataProgram body: (required)
-        :param str template_name: The dataprogram identifier (required)
-        :param str x_fields: An optional fields mask
-        :return: DataProgram
+        Returns:
+            DataProgram.
         """
         template_name = f"{template_name}.router" if not "." in template_name else template_name
         return self.create_workflow(workflow_name=template_name, body=body, **kwargs)

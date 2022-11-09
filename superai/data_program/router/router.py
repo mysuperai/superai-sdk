@@ -20,11 +20,11 @@ class Router(ABC):
         **kwargs,
     ):
         """
-
-        :param workflows:
-        :param metrics:
-        :param prefix:
-        :param name:
+        Args:
+            workflows:
+            metrics:
+            prefix:
+            name:
         """
         if name != "router" and name != "training":
             raise AttributeError("Router name is constraint to 'router' or 'training'")

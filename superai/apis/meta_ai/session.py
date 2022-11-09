@@ -16,8 +16,7 @@ class GraphQlException(Exception):
 
 
 class MetaAISession(RequestsEndpoint):
-    """
-    Session class for requests based connections to the MetaAI backend.
+    """Session class for requests based connections to the MetaAI backend.
     Allows querying and mutation via the GraphQL API.
     """
 
@@ -43,8 +42,7 @@ class MetaAISession(RequestsEndpoint):
 
 
 class MetaAIWebsocketSession(WebSocketEndpoint):
-    """
-    Session class for websocket connection to MetaAI backend.
+    """Session class for websocket connection to MetaAI backend.
     Allows GraphQL subscriptions over open websocket connection.
     """
 
@@ -61,8 +59,7 @@ class MetaAIWebsocketSession(WebSocketEndpoint):
         errors: Optional[dict]
 
     def perform_op(self, op: Operation) -> Generator[ReturnDict, None, None]:
-        """
-        Performs an operation and yields the result to enable streaming of events in the websocket.
+        """Performs an operation and yields the result to enable streaming of events in the websocket.
 
         Args:
             op:

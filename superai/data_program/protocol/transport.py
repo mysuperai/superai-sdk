@@ -1,4 +1,4 @@
-""" A transport layer for communicating with the Agent """
+"""A transport layer for communicating with the Agent"""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import concurrent
@@ -325,7 +325,7 @@ def schedule_task(
     schema_version=None,
     is_ai=None,
 ) -> task_future:
-    """Schedule task for execution by inserting it into the future table"""
+    """Schedules a task for execution by inserting it into the future table."""
     seq = _context.sequence
     _context.sequence += 1
 
@@ -436,7 +436,7 @@ def schedule_workflow(
     metadata,
     super_task_params: Optional[dict] = None,
 ):
-    """Schedule task for execution by inserting it into the future table"""
+    """Schedules a task for execution by inserting it into the future table."""
     seq = _context.sequence
     _context.sequence += 1
 
@@ -498,7 +498,7 @@ def schedule_workflow(
 
 @terminate_guard
 def resolve_job(response, data_folder, bill):
-    """Resolve a job and persist the response"""
+    """Resolves a job and persist the response."""
     seq = _context.sequence
     _context.sequence += 1
 
@@ -535,7 +535,7 @@ def resolve_job(response, data_folder, bill):
 
 @terminate_guard
 def suspend_job_for_no_combiner():
-    """Suspend a job"""
+    """Suspends a job."""
     seq = _context.sequence
     _context.sequence += 1
 
@@ -558,7 +558,7 @@ def suspend_job_for_no_combiner():
 
 @terminate_guard
 def fail_job(error):
-    """Fail a job"""
+    """Fails a job."""
     print(error)
     seq = _context.sequence
     _context.sequence += 1
@@ -587,7 +587,7 @@ def fail_job(error):
 
 @terminate_guard
 def internal_error(error):
-    """Fail a job"""
+    """Fails a job."""
     print(error)
     seq = _context.sequence
     _context.sequence += 1
@@ -616,7 +616,7 @@ def internal_error(error):
 
 @terminate_guard
 def expire_job(error):
-    """Expire a job"""
+    """Expires a job."""
     print(error)
     seq = _context.sequence
     _context.sequence += 1
@@ -830,7 +830,7 @@ def _worklow_thread(id, suffix, response):
 
 
 def _task_pump():
-    """This method waits for incoming response and resolves the corresponding task future"""
+    """This method waits for incoming response and resolves the corresponding task future."""
     while True:
         line = _in_pipe.readline().rstrip("\n")
         response = json.loads(line)
@@ -1001,7 +1001,7 @@ def get_job_data():
 
 @terminate_guard
 def save_hero_qualification(hero, qualification, value):
-    """Perist hero metric"""
+    """Persists hero metric."""
 
     params = {
         "type": "STORE_METRIC",
@@ -1160,7 +1160,7 @@ def run_model_predict(predict_func, port=8080, context=None):
 
 
 def subscribe_workflow(function, prefix, suffix, schema=None, workflow_type: Optional[WorkflowType] = None):
-    """Subscribe workflow
+    """Subscribes a workflow.
     TODO: Add workflow_type support for websocket
     """
     if suffix is None:
@@ -1290,7 +1290,7 @@ def schedule_mtask(
     timeToExpireSec=None,
     qualifications=None,
 ):
-    """Schedule task for execution by inserting it into the future table"""
+    """Schedules a task for execution by inserting it into the future table."""
     seq = _context.sequence
     _context.sequence += 1
 

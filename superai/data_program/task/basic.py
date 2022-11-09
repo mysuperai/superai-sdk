@@ -36,21 +36,20 @@ class Task:
     def __call__(self, task_inputs=None, task_outputs=None, quality=None, cost=None, latency=None, **kwargs):
         """
         Submit a task
-        :param task_inputs: Inputs to the task
-        :param task_outputs: Output expected from the task
-        :param quality: Quality expected from the task
-        :param cost: Cost expected from the task
-        :param latency: Latency expected from the task
-        :param worker_type: Type of worker to be used for the task
 
-        # Hidden kwargs: (To show autofill arguments in Pycharm)
-        :param price: Price of task to be sent Eg. "EASY"
-        :param time_to_expire_secs: Time to expire of the task
-        :param qualifications: Qualification
-        :param groups: Groups
-        :param excluded_ids: Excluded Ids of heroes
-        :param show_reject: Show rejection
-        :return:
+        Args:
+            task_inputs: Inputs to the task
+            task_outputs: Output expected from the task
+            quality: Quality expected from the task
+            cost: Cost expected from the task
+            latency: Latency expected from the task
+            worker_type: Type of worker to be used for the task
+            price: Price of task to be sent Eg. "EASY"
+            time_to_expire_secs: Time to expire of the task
+            qualifications: Qualification
+            groups: Groups
+            excluded_ids: Excluded Ids of heroes
+            show_reject: Show rejection
         """
         self.process(task_inputs, task_outputs, cost=None, **kwargs)
 

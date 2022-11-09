@@ -1,4 +1,4 @@
-""" Shell common utility """
+"""Shell common utility"""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import logging
@@ -8,7 +8,7 @@ import time
 
 
 def execute_verbose(command):
-    """Execute shell command and print stdout/err to the console"""
+    """Executes shell command and prints stdout/err to the console."""
     start = time.time()
     os.system(command)
     end = time.time()
@@ -16,7 +16,7 @@ def execute_verbose(command):
 
 
 def execute(command):
-    """Execute shell command with Popen"""
+    """Executes shell command with Popen."""
     start = time.time()
     FNULL = open(os.devnull, "w")
     res = subprocess.Popen(command.split(), stdout=subprocess.PIPE, stderr=FNULL)
@@ -27,7 +27,7 @@ def execute(command):
 
 
 def get_directory_size(path="."):
-    """Get directory size
+    """Gets directory size.
 
     Implementation suggested from S.O.
     https://stackoverflow.com/questions/12480367/how-to-generate-directory-size-recursively-in-python-like-du-does
@@ -52,12 +52,12 @@ def get_directory_size(path="."):
 
 
 def create_python_command(args):
-    """Create python shell command with args"""
+    """Creates Python shell command with args."""
     return f"python {' '.join(args)}"
 
 
 def which(program):
-    """Test if program is installed on local machine"""
+    """Tests if program is installed on local machine."""
 
     def is_exe(fpath):
         return os.path.isfile(fpath) and os.access(fpath, os.X_OK)

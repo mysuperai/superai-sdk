@@ -25,11 +25,14 @@ base_dir = Path(get_config_dir()).expanduser()
 
 
 def _mv_file(src: Path, dst: Path = None) -> Optional[Path]:
-    """
-    Moves a file from the src path to dst path. If dst path already exists this method will raise an exception
-    :param src: Source path
-    :param dst: Destination path
-    :return: New file path (dst path)
+    """Moves a file from the src path to dst path. If dst path already exists this method will raise an exception.
+
+    Args:
+        src: Source path
+        dst: Destination path
+
+    Returns:
+        New file path (dst path).
     """
     # Nothing to do
     if not src:
@@ -52,10 +55,13 @@ def _mv_file(src: Path, dst: Path = None) -> Optional[Path]:
 
 
 def create_tmp_file(file_path: Path) -> Path:
-    """
-    Makes a tmp file of the path in the file_path argument.
-    :param file_path: File path to create a tmp file
-    :return: Tmp file path
+    """Makes a tmp file of the path in the file_path argument.
+
+    Args:
+        file_path: File path to create a tmp file.
+
+    Returns:
+        Tmp file path.
     """
     makedirs(base_dir.absolute(), exist_ok=True)
     f_path = Path(file_path).expanduser().absolute()
@@ -80,11 +86,11 @@ def cleanup_tmp(tmp: Path, ppath: Path):
 
 @pytest.fixture()
 def with_tmp_secrets_file():
-    """
-    Moves {settings_folder}/.secrets.yaml file if exists to a tmp location and puts them back once the test using this
-    fixture are run
+    """Moves the `{settings_folder}/.secrets.yaml` file, if it exists, to a tmp location and puts it back once the test using this
+    fixture has run.
 
-    :return: None
+    Returns:
+        None
     """
     s_path = Path(__secrets_path).expanduser().absolute()
     tmp = create_tmp_file(s_path)
@@ -94,11 +100,11 @@ def with_tmp_secrets_file():
 
 @pytest.fixture()
 def with_tmp_settings_file():
-    """
-    Moves {settings_folder}/settings.yaml file if exists to a tmp location and puts them back once the test using this
-    fixture are run
+    """Moves the `{settings_folder}/settings.yaml` file, if exists, to a tmp location and puts it back once the test using this
+    fixture has run.
 
-    :return: None
+    Returns:
+        None
     """
     s_path = Path(__settings_path).expanduser().absolute()
     tmp = create_tmp_file(s_path)
@@ -108,11 +114,11 @@ def with_tmp_settings_file():
 
 @pytest.fixture()
 def with_tmp_dotenv_file():
-    """
-    Moves {settings_folder}/.env file if exists to a tmp location and puts them back once the test using this
-    fixture are run
+    """Moves the `{settings_folder}/.env` file, if exists, to a tmp location and puts it back once the test using this
+    fixture has run.
 
-    :return: None
+    Returns:
+        None
     """
     dot_env_path = base_dir / ".env"
     s_path = Path(dot_env_path).expanduser().absolute()
@@ -128,9 +134,7 @@ def with_tmp_dotenv_file():
 
 
 def test_root_dir_created():
-    """
-    If the init method is run, then the base folder should exist
-    """
+    """If the init method is run, then the base folder should exist."""
     assert base_dir.absolute().exists()
 
 
@@ -185,7 +189,8 @@ def test_list_envs_ignores(capsys):
 
 def test_set_env_success(with_tmp_dotenv_file):
     """
-    :param with_tmp_dotenv_file: Required to create tmp .env file and cleanup after tests are run
+    Args:
+        with_tmp_dotenv_file: Required to create tmp .env file and cleanup after tests are run.
     """
     dot_env_path = Path(base_dir / ".env").expanduser().absolute()
     set_env_config("testing")

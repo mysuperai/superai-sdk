@@ -54,8 +54,7 @@ class Dataset(BaseModel):
         return cls(X_train=input)
 
     def __str__(self) -> str:
-        """
-        Represent dataset by length of its arrays.
+        """Represent dataset by length of its arrays.
         Returns:
 
         """
@@ -67,8 +66,7 @@ class Dataset(BaseModel):
 
 
 def _is_batch(input_object: object) -> bool:
-    """
-    Checks if the input object is a batch.
+    """Checks if the input object is a batch.
     A batch is an Iterable[Iterable[...]]
     Args:
         input_object: object
@@ -87,8 +85,7 @@ def _is_batch(input_object: object) -> bool:
 
 
 def _is_single_input(input_object: object) -> bool:
-    """
-    Checks if the input object is a single input.
+    """Checks if the input object is a single input.
     A single input is a list of dicts
     Args:
         input_object: object

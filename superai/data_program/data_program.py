@@ -492,11 +492,12 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                         b) if the templat exists, check that the input and output schema are the same and if so then
                         simply return the existing dataprogram. If the input or output schema are different, create a new
                         dataprogram with and increase the version
-        Create a data program dataprogram
-        :param input_schema:
-        :param output_schema:
-        :param parameter_schema:
-        :return:
+        Creates a Data Program, `dataprogram`.
+
+        Args:
+            input_schema:
+            output_schema:
+            parameter_schema:
         """
         body_json = {
             "input_schema": self.input_schema,
@@ -604,12 +605,12 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         default: bool = False,
         gold: bool = False,
     ) -> Dict:
-        """
-        Assuming that if the _basic workflow is not deployed then the first workflow added will be the default and gold workflow
-        :param workflow:
-        :param name:
-        :param description:
-        :return:
+        """Adds a workflow. Assuming that the _basic workflow is not deployed, then the first workflow added will be the default, gold workflow.
+
+        Args:
+            workflow:
+            name:
+            description:
         """
         # TODO: Check that the workflow function can take inputs and params arguments
         #          inspect.getfullargspec(workflow).args is one option

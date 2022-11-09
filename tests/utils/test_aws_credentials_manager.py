@@ -31,7 +31,8 @@ def with_empty_credentials_file():
 @pytest.fixture()
 def with_fake_credentials():
     """
-    :return: Credentials payload
+    Returns:
+        Credentials payload.
     """
     yield '{"AccessKeyId": "FAKE_ACCESS_KEY_ID", "SecretKey": "FAKE_SECRET_KEY", "SessionToken": "FAKE_SESSION_TOKEN","Expiration": "2021-02-02 15:41:11+01:00"}'
 

@@ -34,8 +34,7 @@ class SuperTaskJobInput(GenericModel, Generic[Input, Output]):
 
 class SuperTaskWorkflow(Workflow):
     def __init__(self, schema: SuperTaskModel, prefix: str):
-        """
-        Initialize a SuperTaskWorkflow in the DP context.
+        """Initialize a SuperTaskWorkflow in the DP context.
         It contains the (meta) schema of the task, and the workers that will be used to execute the task.
 
         A SuperTaskWorkflow(-workflow) is a global object.
@@ -43,7 +42,6 @@ class SuperTaskWorkflow(Workflow):
 
         During dataprogram execution, a super task is instantiated through the normal schedule_workflow() call.
         The Dataprogram will pick up a new SuperTaskWorkflow-Job and execute its workflow, defined in _execute()..
-
 
         Args:
             schema: The schema of the super task.
@@ -79,16 +77,14 @@ class SuperTaskWorkflow(Workflow):
         return self._schema
 
     def _register(self):
-        """
-        # TODO
+        """# TODO
         Register Task schema in the backend (Schema service).
         """
 
     def schedule(
         self, task_input: Input, task_output: Output, super_task_params: SuperTaskConfig
     ) -> TaskResponse[Output]:
-        """
-        Function responsible for scheduling a new child job (which will run `execute`), waiting and returning the result.
+        """Function responsible for scheduling a new child job (which will run `execute`), waiting and returning the result.
 
         The parameters for the super tasks get passed down from the router job and tha used for the job creation.
 
@@ -129,8 +125,7 @@ class SuperTaskWorkflow(Workflow):
         configs: Union[dict, SuperTaskConfig],
         **kwargs,
     ) -> dict:
-        """
-        Main workflow function of the SuperTaskWorkflow.
+        """Main workflow function of the SuperTaskWorkflow.
         Runs inside the child job.
         Is containing the logic to create actual Tasks and aggregate the results based on the parameters.
 
@@ -160,9 +155,7 @@ class SuperTaskWorkflow(Workflow):
 
 
 class TaskRouter:
-    """
-    Wrapper class around creating, mapping and aggregating tasks according to the Worker Parameters in SuperTask.
-    """
+    """Wrapper class around creating, mapping and aggregating tasks according to the Worker Parameters in SuperTask."""
 
     def __init__(
         self,

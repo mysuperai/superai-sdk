@@ -22,8 +22,7 @@ from superai.utils import log
 
 
 class DeployedPredictor(metaclass=ABCMeta):
-    """
-    Class to collect logic to handle managing deployments.
+    """Class to collect logic to handle managing deployments.
     Deployments are physical instances of AI models deployed on a cloud provider or locally.
     They provide endpoints to make predictions.
 
@@ -228,8 +227,7 @@ class RemotePredictor(DeployedPredictor):
         self.client = self.ai.client
 
     def deploy(self, redeploy=False) -> str:
-        """
-        Deploy the image to the remote orchestrator.
+        """Deploy the image to the remote orchestrator.
         Args:
             redeploy:
             orchestrator: Orchestrator to deploy to.

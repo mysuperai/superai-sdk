@@ -198,14 +198,13 @@ def forget_memo(filename, folder=None, prefix: str = None):
 
 
 def delete_all_objects(Bucket, Prefix, MaxKeys=50, KeyMarker=None):
-    """
-    TODO: Doesn't support pagination in case that a lot of keys need to be removed.
+    """TODO: Doesn't support pagination in case that a lot of keys need to be removed.
 
-    :param Bucket: Bucket name
-    :param Prefix: Key prefix
-    :param MaxKeys: Max number of keys to return
-    :param KeyMarker:AWS KeyMarker
-    :return:
+    Args:
+        Bucket: Bucket name
+        Prefix: Key prefix
+        MaxKeys: Max number of keys to return
+        KeyMarker: AWS KeyMarker
     """
     client = boto3.client("s3")
 

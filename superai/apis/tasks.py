@@ -27,15 +27,19 @@ class TasksApiMixin(ABC):
         completedEndDate: datetime = None,
         statusIn: List[str] = None,
     ) -> dict:
-        """
-        Trigger download of tasks data that can be retrieved using task operation id.
-        :param app_id: Application id
-        :param createdStartDate: Filter by created start date of tasks
-        :param createdEndDate: Filter by created end date of tasks
-        :param completedStartDate: Filter by completed start date of tasks
-        :param completedEndDate: Filter by completed end date of tasks
-        :param statusIn: Filter by status of tasks
-        :return: Dict with task operationId key to track status
+        """Trigger download of tasks data that can be retrieved using task operation id.
+
+        Args:
+          app_id: Application id
+          createdStartDate: Filter by created start date of tasks
+          createdEndDate: Filter by created end date of tasks
+          completedStartDate: Filter by completed start date of tasks
+          completedEndDate: Filter by completed end date of tasks
+          statusIn: Filter by status of tasks
+
+        Returns:
+          Dict with task operationId key to track status
+
         """
         uri = f"apps/{app_id}/tasks-download"
         query_params = {}
@@ -52,23 +56,33 @@ class TasksApiMixin(ABC):
         return self.request(uri, method="POST", query_params=query_params, required_api_key=True)
 
     def get_tasks_operation(self, app_id: str, operation_id: int):
-        """
-        Fetch status of task operation given application id and operation id
-        :param app_id: Application id
-        :param operation_id: operation_id
-        :return: Dict with operation information (id, status, and other fields)
+        """Fetch status of task operation given application id and operation id
+
+        Args:
+          app_id: Application id
+          operation_id: operation_id
+
+
+        Returns:
+          Dict with operation information (id, status, and other fields)
+
         """
         uri = f"task-operations/{app_id}/{operation_id}"
         return self.request(uri, method="GET", required_api_key=True)
 
     def generates_downloaded_tasks_url(self, app_id: str, operation_id: int, secondsTtl: int = None):
-        """
-        Generates url to retrieve downloaded zip tasks given application id and
+        """Generates url to retrieve downloaded zip tasks given application id and
         operation id
-        :param app_id: Application id
-        :param operation_id: operation_id
-        :param seconds_ttl: Seconds ttl for generated url. Default 60
-        :return: Dict with field downloadUrl
+
+        Args:
+          app_id: Application id
+          operation_id: operation_id
+          seconds_ttl: Seconds ttl for generated url. Default 60
+
+
+        Returns:
+          Dict with field downloadUrl
+
         """
         uri = f"task-operations/{app_id}/{operation_id}/download-url"
         query_params = {}
@@ -87,18 +101,22 @@ class TasksApiMixin(ABC):
         timeout: int = 120,
         poll_interval: int = 3,
     ) -> Optional[List[dict]]:
-        """
-        Trigger download of tasks and polls every poll_interval seconds until it
+        """Trigger download of tasks and polls every poll_interval seconds until it
         returns the list of tasks or None in case of timeout
-        :param app_id: Application id
-        :param createdStartDate: Filter by created start date of tasks
-        :param createdEndDate: Filter by created end date of tasks
-        :param completedStartDate: Filter by completed start date of tasks
-        :param completedEndDate: Filter by completed end date of tasks
-        :param statusIn: Filter by status of tasks
-        :param timeout: Timeout in seconds
-        :param poll_interval: Poll interval in seconds
-        :return: List of dict of tasks
+
+        Args:
+          app_id: Application id
+          createdStartDate: Filter by created start date of tasks
+          createdEndDate: Filter by created end date of tasks
+          completedStartDate: Filter by completed start date of tasks
+          completedEndDate: Filter by completed end date of tasks
+          statusIn: Filter by status of tasks
+          timeout: Timeout in seconds
+          poll_interval: Poll interval in seconds
+
+        Returns:
+          List of dict of tasks
+
         """
         operation_id = self.download_tasks(
             app_id, createdStartDate, createdEndDate, completedStartDate, completedEndDate, statusIn

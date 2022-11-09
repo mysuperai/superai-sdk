@@ -29,9 +29,13 @@ class SuperTaskApiMixin(ABC):
     def get_supertask(self, task_template_name, **kwargs):
         """Fetch a given resource
 
-        :param str task_template_name: The supertask identifier (required)
-        :param str x_fields: An optional fields mask
-        :return: DataProgram
+        Args:
+            task_template_name (str): The supertask identifier
+                (required)
+            x_fields (str): An optional fields mask
+
+        Returns:
+            DataProgram
         """
 
         all_params = [
@@ -99,16 +103,19 @@ class SuperTaskApiMixin(ABC):
     def list_supertasks(self, **kwargs):
         """List all templates (Tags param is mock)
 
-        :param int page:
-        :param int size:
-        :param str sort_by:
-        :param str order_by:
-        :param bool only_owned_or_group:
-        :param list[str] input_types:
-        :param list[str] output_types:
-        :param list[str] tags:
-        :param str x_fields: An optional fields mask
-        :return: TemplatesList
+        Args:
+            page (int)
+            size (int)
+            sort_by (str)
+            order_by (str)
+            only_owned_or_group (bool)
+            input_types (list[str])
+            output_types (list[str])
+            tags (list[str])
+            x_fields (str): An optional fields mask
+
+        Returns:
+            TemplatesList
         """
 
         all_params = [
@@ -199,10 +206,14 @@ class SuperTaskApiMixin(ABC):
 
         If the supertask already exists and it is owned by  somebody else then if will throw a 409
 
-        :param SuperTask body: (required)
-        :param str task_template_name: The supertask identifier (required)
-        :param str x_fields: An optional fields mask
-        :return: SuperTask
+        Args:
+            body (SuperTask): (required)
+            task_template_name (str): The supertask identifier
+                (required)
+            x_fields (str): An optional fields mask
+
+        Returns:
+            SuperTask
         """
 
         all_params = [
@@ -281,13 +292,16 @@ class SuperTaskApiMixin(ABC):
         reraise=True,
     )
     def update_supertask(self, task_template_name, body, **kwargs):
-        """
-        This is a proxy method for put_supertask. See above
+        """This is a proxy method for put_supertask. See above
 
-        :param SuperTask body: (required)
-        :param str task_template_name: The supertask identifier (required)
-        :param str x_fields: An optional fields mask
-        :return: SuperTask
+        Args:
+            body (SuperTask): (required)
+            task_template_name (str): The supertask identifier
+                (required)
+            x_fields (str): An optional fields mask
+
+        Returns:
+            SuperTask
         """
         return self.put_supertask(task_template_name, body)
 
@@ -306,22 +320,26 @@ class SuperTaskApiMixin(ABC):
         reraise=True,
     )
     def create_supertask(self, supertask_name, body, **kwargs):
-        """
-        This is a proxy method for put_supertask. See above
+        """This is a proxy method for put_supertask. See above
 
-        :param SuperTask body: (required)
-        :param str supertask_name: The supertask identifier (required)
-        :param str x_fields: An optional fields mask
-        :return: SuperTask
+        Args:
+            body (SuperTask): (required)
+            supertask_name (str): The supertask identifier (required)
+            x_fields (str): An optional fields mask
+
+        Returns:
+            SuperTask
         """
         return self.put_supertask(supertask_name, body)
 
     def delete_supertask(self, dp_qualified_name, supertask_name):
-        """
-        SuperTask deletion
+        """SuperTask deletion
 
-        :param str supertask_name: The supertask identifier (required)
-        :return: The new list of supertasks
+        Args:
+            supertask_name (str): The supertask identifier (required)
+
+        Returns:
+            The new list of supertasks
         """
         template = self.get_supertask(dp_qualified_name)
         supertask_list = template.get("dpSuperTasks", []) or []

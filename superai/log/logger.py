@@ -1,4 +1,4 @@
-""" Log initializer """
+"""Log initializer."""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import itertools
@@ -32,7 +32,7 @@ def create_file_handler(
     max_bytes=5000000,
     backup_count=25,
 ):
-    """Create rotating file handler"""
+    """Creates a rotating file handler."""
     formatter = CustomFormatter(fmt=log_format, datefmt=_date_format, style=_style)
     handler = RotatingFileHandler(log_filename, maxBytes=max_bytes, backupCount=backup_count)
     handler.setFormatter(formatter)
@@ -40,7 +40,7 @@ def create_file_handler(
 
 
 def create_non_cli_handler(log_format=_log_format, stream=sys.stdout):
-    """Create logging to non-CLI console (like ECS)"""
+    """Creates logging to non-CLI console (like ECS)."""
     formatter = CustomFormatter(fmt=log_format, datefmt=_date_format)
     console_handler = logging.StreamHandler(stream)
     console_handler.setFormatter(formatter)
@@ -48,13 +48,13 @@ def create_non_cli_handler(log_format=_log_format, stream=sys.stdout):
 
 
 def create_cli_handler():
-    """Create logging handler for CLI with rich structured output"""
+    """Creates logging handler for CLI with rich structured output."""
     rich_handler = RichHandler(rich_tracebacks=True)
     return rich_handler
 
 
 def get_logger(name=None, propagate=True):
-    """Get logger object"""
+    """Gets logger object."""
     logger = logging.getLogger(name)
     logger.propagate = propagate
     loggers.append(logger)
@@ -62,17 +62,17 @@ def get_logger(name=None, propagate=True):
 
 
 def exception(line):
-    """Log exception"""
+    """Logs exception."""
     return logging.exception(line)
 
 
 def debug(line):
-    """Log debug"""
+    """Logs debug."""
     return logging.debug(line)
 
 
 def warn(line):
-    """Log warning"""
+    """Log warning."""
     warnings.warn("The 'warn' function is deprecated, use 'warning' instead")
     return logging.warning(line)
 
@@ -83,17 +83,17 @@ def warning(line):
 
 
 def error(line):
-    """Log error"""
+    """Logs error."""
     return logging.error(line)
 
 
 def info(line):
-    """Log info"""
+    """Logs info."""
     return logging.info(line)
 
 
 def init(filename=None, console=True, log_level=INFO, log_format=_log_format):
-    """Initialize logging setup"""
+    """Initializes logging setup."""
     if not log_format:
         log_format = _log_format
 
@@ -124,7 +124,8 @@ def init(filename=None, console=True, log_level=INFO, log_format=_log_format):
 
 
 class CustomFormatter(logging.Formatter):
-    """Custom Formatter does these 2 things:
+    """Does these 2 things:
+
     1. Overrides 'funcName' with the value of 'func_name_override', if it exists.
     2. Overrides 'filename' with the value of 'file_name_override', if it exists.
     """

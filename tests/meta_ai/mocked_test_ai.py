@@ -1,5 +1,4 @@
-"""
-These tests need tensorflow==2.1.0 and opencv-python-headless to run. That is why they are excluded from normal tests.
+"""These tests need tensorflow==2.1.0 and opencv-python-headless to run. That is why they are excluded from normal tests.
 """
 
 import logging

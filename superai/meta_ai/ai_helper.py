@@ -128,8 +128,7 @@ def find_root_model(name, client) -> Optional[str]:
 
 
 def upload_dir(local_dir: Union[Path, str], aws_root_dir: Union[Path, str], bucket_name: str, prefix: str = "/"):
-    """
-    from current working directory, upload a 'local_dir' with all its subcontents (files and subdirectories...)
+    """from current working directory, upload a 'local_dir' with all its subcontents (files and subdirectories...)
     to a aws bucket
     Parameters
     ----------
@@ -167,8 +166,7 @@ def load_and_predict(
     json_input: Optional[str] = None,
     metrics_output_dir: Path = None,
 ):
-    """
-    Loads a model and makes a prediction on the data.
+    """Loads a model and makes a prediction on the data.
     Supports json string input or json file input.
 
     Parameters
@@ -183,7 +181,6 @@ def load_and_predict(
         JSON string input.
     metrics_output_dir : Path, optional
         Path to the directory where metrics will be saved.
-
 
     """
     if json_input is None and data_path is None:
@@ -233,8 +230,7 @@ def load_and_predict(
 def store_prediction_metrics(
     metrics_output_dir: Union[Path, str], metrics: dict, filename: str = PREDICTION_METRICS_JSON
 ) -> Path:
-    """
-    Method to store prediction metrics in a json file.
+    """Method to store prediction metrics in a json file.
     Args:
         metrics_output_dir: Path to the directory where metrics will be saved.
         metrics: dict

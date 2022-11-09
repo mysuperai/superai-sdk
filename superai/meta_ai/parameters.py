@@ -396,9 +396,7 @@ class AiDeploymentParameters(BaseModel):
     # Validate that memory is using correct format
     @validator("target_memory_requirement", "target_memory_limit")
     def validate_memory_requirement(cls, v):
-        """
-        Allowed is Mi and Gi, e.g. 512Mi or 4Gi
-        """
+        """Allowed is Mi and Gi, e.g. 512Mi or 4Gi"""
         if v is None:
             return v
         if not v.endswith("Mi") and not v.endswith("Gi"):
@@ -406,15 +404,11 @@ class AiDeploymentParameters(BaseModel):
         return v
 
     def dict_for_db(self) -> dict:
-        """
-        Method wrapping pydantics dict() method to only contain set fields.
-        """
+        """Method wrapping pydantics dict() method to only contain set fields."""
         return self.dict(exclude_unset=True, by_alias=True, exclude_defaults=True)
 
     def json_for_db(self) -> str:
-        """
-        Method dumping dict_for_db() method to JSON.
-        """
+        """Method dumping dict_for_db() method to JSON."""
         return json.dumps(self.dict_for_db())
 
     @classmethod
@@ -430,9 +424,7 @@ class AiDeploymentParameters(BaseModel):
         return deployment_parameters
 
     def merge(self, other: AiDeploymentParameters):
-        """
-        Merge two DeploymentParameters objects.
-        """
+        """Merge two DeploymentParameters objects."""
         for k, v in other.dict().items():
             if k in self.dict():
                 self.dict()[k] = v

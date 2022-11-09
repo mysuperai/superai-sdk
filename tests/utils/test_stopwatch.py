@@ -1,4 +1,4 @@
-""" Tests for superai.utils.stopwatch """
+"""Tests for superai.utils.stopwatch."""
 
 import logging
 
@@ -7,7 +7,7 @@ from superai.utils import stopwatch
 
 @stopwatch
 def fibonacci(n):
-    """Fibonacci series
+    """Fibonacci sequence.
 
     0, 1, 1, 2, 3, 5, 8, 13, ...
     """
@@ -24,7 +24,7 @@ def fibonacci(n):
 
 
 def test_stopwatch(caplog):
-    """Basic stopwatch test"""
+    """Basic stopwatch test."""
     func = fibonacci
     with caplog.at_level(logging.DEBUG):
         func(100)

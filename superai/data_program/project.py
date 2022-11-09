@@ -105,13 +105,13 @@ class Project:
         uuid: str = None,
         organisation: str = None,
     ) -> Dict:
-        """
-        Create a data program instance.
-        :param parameters:
-        :param performance:
-        :param name:
-        :param description:
-        :return:
+        """Creates a Data Program instance.
+
+        Args:
+            parameters:
+            performance:
+            name:
+            description:
         """
         if template_uuid is not None:
             raise NotImplementedError(
@@ -158,9 +158,7 @@ class Project:
 
     # TODO: Implementation
     def _sanitize_params(self, parameters):
-        """
-
-        Given the following json-schema object:
+        """Given the following json-schema object:
         {
            "params": {
              "type": "object",
@@ -209,8 +207,8 @@ class Project:
         force_single_submission: bool = False,
     ) -> Dict:
         """
-        :param inputs:
-        :return:
+        Args:
+            inputs:
         """
         # TODO: 1. The result of this API should be an http request that the sdk/use can call to get the answer. We
         #       already get the job_uuid we just need to be able to display it in dash. Q: How to differentiate if the
@@ -243,11 +241,10 @@ class Project:
         return f"https://{prefix}super.ai/dashboard/projects/{self.project_uuid}"
 
     def add_ai(self, ai, active_learning: bool = False):
-        """
-        Add an AI to the project. This adds the capabilities to use AI as a worker, or use for active_learning
+        """Adds an AI to the project. You can use AI as a worker or for `active_learning`.
 
-        :param ai: an object of "superai.meta_ai.AI" class
-        :param active_learning: If active_learning is to be used.
-        :return:
+        Args:
+            ai: an object of "superai.meta_ai.AI" class
+            active_learning: If active_learning is to be used.
         """
         self.ai = ai

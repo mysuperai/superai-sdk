@@ -20,10 +20,10 @@ dp = DataProgram(name=DP_NAME, definition=dp_definition, add_basic_workflow=Fals
 
 # Here we create our first workflow function
 def my_workflow(inputs, params, **kwargs):
-    """
-    Simple hello world MNIST workflow
-    :param inputs:
-    :return:
+    """Simple hello world MNIST workflow
+
+    Args:
+        inputs:
     """
     print(f"{dp._name}.my_workflow: Arguments: inputs {inputs} params: {params}, **kwargs: {kwargs} ")
 

@@ -19,19 +19,18 @@ START_SH = "start.sh"
 
 @stopwatch
 def run(build_cfg: dict, runtime_cfg: dict, filepath=None):
-    """Run user program in a container with several modes:
+    """Runs a Data Program in a container with several modes:
 
     local, container, remote:
     ----------------
-    local: program runs in local
-    container: program runs in a docker container
-    remote: program runs in remote docker container
+    local: Data Program runs in local.
+    container: Data Program runs in a docker container.
+    remote: Data Program runs in remote docker container.
 
     concurrency:
     ------------
-    Number of concurrent jobs can be run by the same agent. For GPU machine, default set to 1 due to default exclusive
-    usage of GPU device by a data program.
-
+    Multiple concurrent jobs can be run by the same agent. For a GPU machine, the default is set to 1 due to default exclusive
+    usage of GPU device by a Data Program.
     cpu:
     ----
     Specify the CPU unit reservation. 1024 cpu unit ~ 1 core. Default: 1024.
@@ -43,7 +42,7 @@ def run(build_cfg: dict, runtime_cfg: dict, filepath=None):
 
     build:
     ---------
-    If whether to build docker images or not.
+    Whether to build docker images or not.
     """
     if filepath:
         filepath = Path(filepath)

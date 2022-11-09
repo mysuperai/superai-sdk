@@ -57,7 +57,7 @@ def cli():
 @cli.command()
 @click.option("--verbose/--no-verbose", "-vvv", help="Verbose output", default=False)
 def info(verbose):
-    """Print CLI Configuration"""
+    """Prints CLI configuration."""
     click.echo("=================")
     click.echo("Super.AI CLI Info:")
     click.echo("=================")
@@ -72,18 +72,14 @@ def info(verbose):
 @cli.group()
 @click.pass_context
 def env(ctx):
-    """
-    super.AI Config operations
-    """
+    """Super.AI config operations"""
 
 
 @env.command(name="list")
 @click.pass_context
 def env_list(ctx):
-    """
-
-    :param ctx:
-    :return:
+    """Args:
+    ctx:
     """
     list_env_configs(verbose=True)
 
@@ -93,9 +89,7 @@ def env_list(ctx):
 @click.option("--environment", "-e", help="Set environment", required=False)
 @click.pass_context
 def env_set(ctx, api_key, environment):
-    """
-    Set configuration
-    """
+    """Sets configuration."""
     if environment:
         set_env_config(name=environment)
     if api_key:
@@ -105,9 +99,7 @@ def env_set(ctx, api_key, environment):
 @cli.group()
 @click.pass_context
 def client(ctx):
-    """
-    super.AI API operations
-    """
+    """Super.AI API operations."""
     api_key = ""
     try:
         api_key = load_api_key()
@@ -133,9 +125,7 @@ pass_client = click.make_pass_decorator(Client, ensure=True)
 @click.option("--inputs_file", "-if", help="URL pointing to JSON file")
 @click.pass_context
 def create_jobs(ctx, app_id: str, callback_url: str, inputs: str, inputs_file: str):
-    """
-    Submit jobs
-    """
+    """Submits jobs"""
     client = ctx.obj["client"]
     print("Submitting jobs")
     json_inputs = None
@@ -152,9 +142,7 @@ def create_jobs(ctx, app_id: str, callback_url: str, inputs: str, inputs_file: s
 @click.option("--job_id", "-j", help="Job id", required=True)
 @click.pass_context
 def fetch_job(ctx, job_id: str):
-    """
-    Get Job given job id
-    """
+    """Gets job given job ID."""
     client = ctx.obj["client"]
     print(f"Fetching job {job_id}")
     print(client.fetch_job(job_id))
@@ -164,9 +152,7 @@ def fetch_job(ctx, job_id: str):
 @click.option("--app_id", "-a", help="App id", required=True)
 @click.pass_context
 def fetch_batches_job(ctx, app_id: str):
-    """
-    Get not processed Batches given app id
-    """
+    """Gets unprocessed batches given app ID"""
     client = ctx.obj["client"]
     print(f"Fetching batches {app_id}")
     print(client.fetch_batches_job(app_id))
@@ -177,9 +163,7 @@ def fetch_batches_job(ctx, app_id: str):
 @click.option("--batch_id", "-b", help="Batch id", required=True)
 @click.pass_context
 def fetch_batch_job(ctx, app_id: str, batch_id: str):
-    """
-    Get Batch given app id and batch id
-    """
+    """Gets batch given app ID and batch ID."""
     client = ctx.obj["client"]
     print(f"Fetching batch {app_id} {batch_id}")
     print(client.fetch_batch_job(app_id, batch_id))
@@ -189,9 +173,7 @@ def fetch_batch_job(ctx, app_id: str, batch_id: str):
 @click.option("--job_id", "-j", help="Job id", required=True)
 @click.pass_context
 def get_job_response(ctx, job_id: str):
-    """
-    Get Job response given job id
-    """
+    """Gets job response given job ID."""
     client = ctx.obj["client"]
     print(f"Getting job response {job_id}")
     print(client.get_job_response(job_id))
@@ -201,9 +183,7 @@ def get_job_response(ctx, job_id: str):
 @click.option("--job_id", "-j", help="Job id", required=True)
 @click.pass_context
 def cancel_job(ctx, job_id: str):
-    """
-    Cancel a job given job id. Only for jobs in SCHEDULED, IN_PROGRESS or SUSPENDED state.
-    """
+    """Cancels a job given job ID. Only for jobs in SCHEDULED, IN_PROGRESS, or SUSPENDED state."""
     client = ctx.obj["client"]
     print(f"Cancelling job {job_id}")
     print(client.cancel_job(job_id))
@@ -267,9 +247,7 @@ def list_jobs(
     completed_end_date: datetime,
     status_in: List[str] = None,
 ):
-    """
-    Get a paginated list of jobs (without response) given an application id
-    """
+    """Gets a paginated list of jobs (without response) given an application ID."""
     client = ctx.obj["client"]
     print(f"Fetching jobs per application {app_id}")
     if len(status_in) == 0:
@@ -347,9 +325,7 @@ def download_jobs(
     status_in: List[str] = None,
     with_history: bool = None,
 ):
-    """
-    Trigger processing of job responses that is sent to customer email (default) once is finished.
-    """
+    """Triggers processing of job responses that is sent to customer email (default) once is finished."""
     client = ctx.obj["client"]
     print(f"Triggering job responses processing per application {app_id}")
     if len(status_in) == 0:
@@ -377,9 +353,7 @@ def get_jobs_operation(
     app_id: str,
     operation_id: str,
 ):
-    """
-    Fetch jobs operation given application id and operation id
-    """
+    """Fetch jobs operation given application id and operation id"""
     client = ctx.obj["client"]
     print(f"Fetching jobs operation per application {app_id} operation {operation_id}")
     print(client.get_jobs_operation(app_id, operation_id))
@@ -396,9 +370,7 @@ def downloaded_jobs_url(
     operation_id: str,
     seconds_ttl: int,
 ):
-    """
-    Generates downloaded jobs url given application id and operation id
-    """
+    """Generates downloaded jobs url given application id and operation id"""
     client = ctx.obj["client"]
     print(f"Generating downloaded jobs url per application {app_id} operation {operation_id}")
     print(client.generates_downloaded_jobs_url(app_id, operation_id, seconds_ttl))
@@ -447,9 +419,7 @@ def download_tasks(
     completed_end_date: datetime,
     status_in: List[str] = None,
 ):
-    """
-    Trigger download of tasks data that can be retrieved using task operation id.
-    """
+    """Trigger download of tasks data that can be retrieved using task operation id."""
     client = ctx.obj["client"]
     print(f"Triggering task download processing per application {app_id}")
     if len(status_in) == 0:
@@ -475,9 +445,7 @@ def get_tasks_operation(
     app_id: str,
     operation_id: str,
 ):
-    """
-    Fetch tasks operation given application id and operation id
-    """
+    """Fetch tasks operation given application id and operation id"""
     client = ctx.obj["client"]
     print(f"Fetching tasks operation per application {app_id} operation {operation_id}")
     print(client.get_tasks_operation(app_id, operation_id))
@@ -494,9 +462,7 @@ def downloaded_tasks_url(
     operation_id: str,
     seconds_ttl: int,
 ):
-    """
-    Generates downloaded tasks url given application id and operation id
-    """
+    """Generates downloaded tasks url given application id and operation id"""
     client = ctx.obj["client"]
     print(f"Generating downloaded tasks url per application {app_id} operation {operation_id}")
     print(client.generates_downloaded_tasks_url(app_id, operation_id, seconds_ttl))
@@ -512,9 +478,7 @@ def downloaded_tasks_url(
 def create_ground_truth(
     ctx, app_id: str, input_json: str = None, label: str = None, tag: str = None, metadata: str = None
 ):
-    """
-    Submit fresh ground truth data
-    """
+    """Submits fresh ground truth data."""
     client = ctx.obj["client"]
     print("Submitting fresh ground truth data")
     input_dict = None
@@ -551,9 +515,7 @@ def create_ground_truth(
 def update_ground_truth(
     ctx, ground_truth_data_id: str, input_json: str = None, label: str = None, tag: str = None, metadata: str = None
 ):
-    """
-    Update (patch) ground truth data
-    """
+    """Updates (PATCH) ground truth data."""
     client = ctx.obj["client"]
     print(f"Updating ground truth data {ground_truth_data_id}")
     input_dict = None
@@ -586,9 +548,7 @@ def update_ground_truth(
 @click.option("--size", "-s", help="Size of page", type=int)
 @click.pass_context
 def list_ground_truth_data(ctx, app_id: str, page: int, size: int):
-    """
-    List all ground truth data for an application
-    """
+    """Lists all ground truth data for an application."""
     client = ctx.obj["client"]
     print(f"Fetching ground truth data per application {app_id}")
     print(client.list_ground_truth_data(app_id, page, size))
@@ -598,9 +558,7 @@ def list_ground_truth_data(ctx, app_id: str, page: int, size: int):
 @click.option("--ground_truth_data_id", "-g", help="Ground truth data id", required=True)
 @click.pass_context
 def get_ground_truth_data(ctx, ground_truth_data_id: str):
-    """
-    Fetch single ground truth data object
-    """
+    """Fetches single ground truth data object."""
     client = ctx.obj["client"]
     print(f"Fetching ground truth data {ground_truth_data_id}")
     print(client.get_ground_truth_data(ground_truth_data_id))
@@ -610,9 +568,7 @@ def get_ground_truth_data(ctx, ground_truth_data_id: str):
 @click.option("--ground_truth_data_id", "-g", help="Ground truth data id", required=True)
 @click.pass_context
 def delete_ground_truth_data(ctx, ground_truth_data_id: str):
-    """
-    Mark ground truth data as deleted
-    """
+    """Marks ground truth data as deleted."""
     client = ctx.obj["client"]
     print(f"Deleting ground truth data {ground_truth_data_id}")
     print(client.delete_ground_truth_data(ground_truth_data_id))
@@ -635,9 +591,7 @@ def create_ground_truth_from_job(ctx, app_id: str, job_id: str):
 @click.option("workflow_name", "-w", help="The name of the workflow", required=True)
 @click.pass_context
 def delete_workflow(ctx, dp_qualified_name, workflow_name):
-    """
-    Delete an existing workflow
-    """
+    """Delete an existing workflow"""
     client = ctx.obj["client"]
     new_workflows = client.delete_workflow(dp_qualified_name, workflow_name)
     logger.info(
@@ -648,9 +602,7 @@ def delete_workflow(ctx, dp_qualified_name, workflow_name):
 @cli.command()
 @click.option("--api-key", help="Your super.AI API KEY", required=True)
 def config(api_key):
-    """
-    Set api key.
-    """
+    """Sets API key."""
     save_api_key(api_key)
 
 
@@ -665,9 +617,7 @@ def config(api_key):
     show_default=True,
 )
 def login(username, password, show_pip):
-    """
-    Use username and password to get super.AI api key.
-    """
+    """Uses username and password to get super.AI API key."""
     user = Cognito(
         access_key="AKIAIOSFODNN7EXAMPLE",
         secret_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
@@ -713,9 +663,7 @@ def login(username, password, show_pip):
 
 @cli.command()
 def logout():
-    """
-    Remove stored api key
-    """
+    """Removes stored API key."""
     save_api_key("")
     print("Stored api key was removed")
 
@@ -1066,8 +1014,7 @@ def stop_deployment(client, id: str, wait: int):
 )
 @pass_client
 def predict(client, id: str, data: str, parameters: str, timeout: int):
-    """
-    Predict using a deployed model
+    """Predict using a deployed model
 
     `DATA` is the input to be used for prediction. Expected as JSON encoded dictionary.
 
@@ -1280,9 +1227,7 @@ def training():
 )
 @pass_client
 def list_trainings(client, app_id, model_id, state, limit):
-    """
-    List trainings. Allows filtering by state and application id.
-    """
+    """List trainings. Allows filtering by state and application id."""
     trainings = client.get_trainings(app_id, model_id, state=state, limit=limit)
     if trainings:
         print(trainings)
@@ -1299,9 +1244,7 @@ def list_trainings(client, app_id, model_id, state, limit):
 )
 @pass_client
 def start_training(client, app_id, model_id, properties: str):
-    """
-    Start a new training
-    """
+    """Start a new training"""
     json_inputs = None
     if properties:
         try:
@@ -1417,8 +1360,7 @@ def template():
 )
 @pass_client
 def create_template(client, app_id, model_id, properties: str):
-    """
-    Create a template for trainings.
+    """Create a template for trainings.
     The template is used to instantiate new training instances.
     """
     json_inputs = None
@@ -1451,8 +1393,7 @@ def create_template(client, app_id, model_id, properties: str):
 )
 @pass_client
 def update_template(client, app_id, model_id, properties: str, description: str):
-    """
-    Update an exising template for trainings.
+    """Update an exising template for trainings.
     The template is used to instantiate new training instances.
     """
     if properties:
@@ -1475,9 +1416,7 @@ def update_template(client, app_id, model_id, properties: str, description: str)
 @click.option("--model_id", "-m", help="Model id", required=True)
 @pass_client
 def list_training_templates(client, app_id, model_id):
-    """
-    List existing training templates.
-    """
+    """List existing training templates."""
     templates = client.get_training_templates(model_id, app_id)
     if templates:
         print(templates)
@@ -1488,9 +1427,7 @@ def list_training_templates(client, app_id, model_id):
 @click.option("--template_id", "-t", help="Template id", required=True)
 @pass_client
 def view_training_template(client, app_id, template_id):
-    """
-    List existing training templates.
-    """
+    """List existing training templates."""
     template = client.get_training_template(template_id, app_id)
     if template:
         print(template)

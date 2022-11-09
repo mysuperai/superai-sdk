@@ -145,8 +145,7 @@ class AI:
         self.served_by: Optional[str] = None
 
     def _init_model_class(self, load_weights=True, force_reload=False):
-        """
-        Initializes the BaseModel class.
+        """Initializes the BaseModel class.
 
         Args:
             load_weights: bool
@@ -239,8 +238,7 @@ class AI:
 
     @classmethod
     def load_by_name_version(cls, name, version: int = None, stage: str = None) -> "AI":
-        """
-        Loads an AI by name. If the version or stage are specified that specific version will be loaded.
+        """Loads an AI by name. If the version or stage are specified that specific version will be loaded.
 
         Args:
             name: AI name.
@@ -530,8 +528,7 @@ class AI:
         ai_class: Optional[str] = None,
         ai_class_path: str = ".",
     ):
-        """
-        Updates the AI.
+        """Updates the AI.
 
         Args:
             version: New AI version number. If the version number already exists, this method will fail.
@@ -796,8 +793,7 @@ class AI:
         download_base: bool = False,
         use_internal: bool = False,
     ) -> "DeployedPredictor":
-        """
-        Deploys the model to the specified orchestrator.
+        """Deploys the model to the specified orchestrator.
 
         Args:
             orchestrator: Which orchestrator to be used to deploy.
@@ -860,8 +856,7 @@ class AI:
         return predictor_obj
 
     def _merge_deployment_parameters(self, properties: Union[dict, AiDeploymentParameters], enable_cuda):
-        """
-        Merges deployment parameters from the AI template and the user-provided deployment parameters.
+        """Merges deployment parameters from the AI template and the user-provided deployment parameters.
         Precedence is given to the user-provided deployment parameters.
 
         Args:
@@ -893,8 +888,7 @@ class AI:
         build_all_layers=False,
         download_base=False,
     ) -> Tuple[str, str]:
-        """
-        Build the image and return the image name.
+        """Build the image and return the image name.
         Args:
             orchestrator:
             deployment_parameters: Optional deployment parameters to override the default deployment parameters.
@@ -1166,15 +1160,12 @@ class AI:
     def _prepare_training(
         self, orchestrator, deployment_parameters, training_parameters, skip_build, use_internal, **kwargs
     ) -> dict:
-        """
-        Prepares image and parameters for training
+        """Prepares image and parameters for training
 
         1. Builds the model if not skipped
         2. Uploads the model to ECR
         3. Queries the default training parameters and merges with the provided ones
         4. Add the deployment parameters to the training parameters (contain hardware requirements)
-
-
 
         Args:
             orchestrator: The orchestrator to use for training (currently only AWS EKS is supported)
@@ -1230,8 +1221,7 @@ class AI:
         use_internal: bool = False,
         **kwargs,
     ):
-        """
-        (Deprecated) Start a training from an app. This method is deprecated and will be removed in future versions.
+        """(Deprecated) Start a training from an app. This method is deprecated and will be removed in future versions.
         Use training_deploy(app_id=..., task_name=...) instead.
         """
         # TODO: remove this method in future versions
@@ -1267,8 +1257,7 @@ class AI:
 
 
 def obtain_object_template_config(config_file: Union[Path, str]) -> Tuple[AI, AITemplate, AIConfig]:
-    """
-    From the config file, obtain the AITemplate, AI instance and the config
+    """From the config file, obtain the AITemplate, AI instance and the config
     Args:
         config_file: Path to config file
     Returns:

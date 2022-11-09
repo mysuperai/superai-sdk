@@ -71,12 +71,13 @@ def remove_cognito_user():
 
 
 def update_cognito_credentials() -> Tuple[str, str]:
-    """
-    Update cognito credentials with the following tokens:
+    """Update cognito credentials with the following tokens:
     - access token
     - id token
     - refresh token
-    :return: Tuple[str, str] Tuple with id_token and access_token
+
+    Returns:
+        Tuple[str, str] Tuple with id_token and access_token
     """
     # Create the boto client as the pycognito library doesn't allow to update
     # credentials.
