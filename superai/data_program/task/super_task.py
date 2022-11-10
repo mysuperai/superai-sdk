@@ -233,6 +233,6 @@ class TaskRouter:
             constraints["emails"] = w.worker_constraints.email
             constraints["groups"] = w.worker_constraints.groups
             constraints["excluded_groups"] = w.worker_constraints.excluded_groups
-            if w.worker_constraints.trainings:
+            if "trainings" in w.worker_constraints:
                 constraints["qualifications"] = w.worker_constraints.trainings.get_metrics_list()
         return constraints

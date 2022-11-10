@@ -76,7 +76,7 @@ class TaskIOPayload(TypedDict):
 
 
 class WorkerType(str, enum.Enum):
-    """WorkerType is an enum to define the type of worker that can be used to run a task."""
+    """The type of worker that is allowed to complete a task."""
 
     bots = "bots"
     me = "owner"
@@ -98,16 +98,18 @@ class OnTimeoutAction(str, enum.Enum):
 class OnTimeout(BaseModel):
     """Defines the strategy taken when a task times out or is cancelled.
     Is used in the router and combiner functions.
-
     """
 
-    action: OnTimeoutAction = Field(default=OnTimeoutAction.retry)
-    max_retries: int = Field(3, ge=0)
+    action: OnTimeoutAction = Field(
+        default=OnTimeoutAction.retry, description="Action to take when a task does not get completed in time."
+    )
+    max_retries: Optional[int] = Field(
+        None, ge=1, description="If action is set to retry or reassign, specifies the number of attempts."
+    )
 
 
 class MetricOperator(str, enum.Enum):
     """Defines the operator used to compare the metric values.
-
     One example is to compare the confidence score of a task output with a predefined threshold.
     Or to compare the training score of a worker with a threshold.
     """
@@ -127,8 +129,8 @@ class TrainingConstraint(BaseModel):
     A worker is either qualified and fulfils the constraint or not.
     """
 
-    name: str
-    value: Optional[float] = Field(gt=0, le=1)
+    name: str = Field(description="Name of the training constraint.")
+    value: Optional[float] = Field(gt=0, le=1, description="The threshold value for the metric.")
     operator: MetricOperator = Field(MetricOperator.EXISTS)
 
     class Config:
@@ -149,8 +151,10 @@ class TrainingConstraintSet(BaseModel):
     """
 
     # TODO: Add support in turbine for operator
-    logical_operator: LogicalOperator = Field(LogicalOperator.AND)
-    training_constraints: List[TrainingConstraint] = Field(min_items=1)
+    logical_operator: LogicalOperator = Field(
+        LogicalOperator.AND, description="Logical operator to chain multiple training constraints."
+    )
+    training_constraints: List[TrainingConstraint] = Field(description="List of training constraints.")
 
     def get_metrics_list(self) -> List[str]:
         """Exports this model as a list of metrics backend can understand"""
@@ -164,31 +168,53 @@ class WorkerConstraint(BaseModel):
     Or we define constraints based on training qualifications.
     """
 
-    worker_id: Optional[List[int]] = Field(None, min_items=1)
-    email: Optional[List[str]] = Field(None, min_items=1)
-    trainings: Optional[TrainingConstraintSet] = Field(None)
-    groups: Optional[List[str]] = Field(None, min_items=1)
-    excluded_groups: Optional[List[str]] = Field(None, min_items=1)
+    worker_id: Optional[List[int]] = Field(
+        None, min_items=1, description="Filter workers by their IDs.", title="Worker IDs"
+    )
+    email: Optional[List[str]] = Field(None, description="Filter workers by their email addresses.", title="Emails")
+    # TODO: Enable this once UI is ready in next Version
+    # trainings: Optional[TrainingConstraintSet] = Field(
+    #    None, description="Filter workers by their training qualifications."
+    # )
+    groups: Optional[List[str]] = Field(
+        None,
+        description="Filter workers by their group membership.",
+    )
+    excluded_groups: Optional[List[str]] = Field(None, description="Exclude workers by their group membership.")
 
 
 class Worker(BaseModel):
     """The main model for a task worker.
     It contains fields to select a worker and how to react on a response from a previously sent task.
     Additionally, it contains fields to shown in the UI for management (name, description).
-
     """
 
-    name: str = Field("TaskWorker", min_length=1)
-    description: Optional[str]
+    name: str = Field("TaskWorker", min_length=1, description="Name of the worker.")
+    description: Optional[str] = Field(
+        None, description="Description of this worker entry. Used for organization and documentation."
+    )
     type: WorkerType
-    num_tasks: int = Field(1, ge=1)
-    timeout: int = Field(600, ge=1)
-    on_timeout: Optional[OnTimeout] = Field(OnTimeout(action=OnTimeoutAction.retry, max_retries=3))
-    # distinct: Optional[bool] = False
-    worker_constraints: Optional[WorkerConstraint] = Field(None)
-    active: Optional[bool] = True
-    confidence_threshold: Optional[float] = Field(0.0, ge=0.0, le=1.0)
-    field_mappings: Optional[Dict[str, str]]
+    num_tasks: int = Field(
+        1,
+        ge=1,
+        description="Number of tasks to send to this worker entry. In conjunction with `distinct` allows to send multiple tasks to the same/different worker.",
+        title="Number of tasks",
+    )
+    timeout: int = Field(600, ge=1, description="Time in seconds for the worker to complete the task.")
+    on_timeout: Optional[OnTimeout] = Field(
+        OnTimeout(action=OnTimeoutAction.retry, max_retries=3), title="Timeout action"
+    )
+    distinct: Optional[bool] = Field(
+        None, description="Ensures that the same worker does not receive the same task twice in case of recreation."
+    )
+    worker_constraints: Optional[WorkerConstraint] = Field(None, title="Worker Constraints")
+    active: Optional[bool] = Field(True, description="If set to false, the worker entry is ignored.")
+    confidence_threshold: Optional[float] = Field(
+        0.0, ge=0.0, le=1.0, description="Allows rejecting task results with a confidence score below the threshold."
+    )
+    field_mappings: Optional[Dict[str, str]] = Field(
+        None, description="Allows mapping the task output to a specific field in the job input."
+    )
 
     class Config:
         extra = Extra.forbid
@@ -196,10 +222,9 @@ class Worker(BaseModel):
 
 
 class TaskStrategy(str, enum.Enum):
-    """A list of supported task combination strategies.
+    """A list of supported task combination strategies."""
 
-    TODO: add custom strategy
-    """
+    # TODO: add custom strategy
 
     FIRST_COMPLETED = "FIRST_COMPLETED"
     # BEST = "BEST"
@@ -210,7 +235,6 @@ class SuperTaskParameters(BaseModel):
     """Parameter model for one super task.
     Contains additional paramaters to control the SuperTask execution, excluding worker parameters.
     E.g. the task combination strategy.
-
     The parameters here are supposed to be editable by the app owner.
     """
 
