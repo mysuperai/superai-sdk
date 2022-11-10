@@ -99,11 +99,16 @@ def server_ready(max_wait_secs=10) -> bool:
 def server():
     if local_port_open():
         raise RuntimeError("Port 8002 is already in use. Is another process running on that port?")
+    assert not server_ready()
+
     proc = Process(target=run_server, args=(), daemon=True)
     proc.start()
     server_ready(max_wait_secs=10)
+
     yield
+
     proc.terminate()
+    proc.join(timeout=5)
 
 
 def test_serve_schema_ok(server):

@@ -151,12 +151,17 @@ def test_task_router(monkeypatch):
     assert result == result
 
 
-def test_super_task_workflow(monkeypatch):
+def test_super_task_workflow(monkeypatch, mocker):
     class TestInput(BaseModel):
         url: str
 
     class TestOutput(BaseModel):
         annotation: str
+
+    # Disable transport calls
+    mocker.patch("superai.data_program.protocol.task.start_threading")
+    mocker.patch("superai.data_program.protocol.task.serve_workflow")
+    mocker.patch("superai.data_program.protocol.transport.subscribe_workflow")
 
     params = SuperTaskConfig(workers=[Worker(type=WorkerType.collaborators)], strategy=TaskStrategy.FIRST_COMPLETED)
     model = SuperTaskModel.create(name="test", config=params, input=TestInput, output=TestOutput)
