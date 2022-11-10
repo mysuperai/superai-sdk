@@ -166,8 +166,7 @@ class AI:
             self.model_class.update_parameters(self.input_params, self.output_params)
 
             if load_weights and (not self.is_weights_loaded or force_reload):
-                if self.weights_path is not None:
-                    self.model_class.load_weights(self.weights_path)
+                self.model_class.load_weights(self.weights_path)
                 self.is_weights_loaded = True
 
     @property
