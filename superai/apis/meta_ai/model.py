@@ -3,6 +3,7 @@ import time
 from abc import ABC
 from typing import Dict, List, Optional, Union
 
+import sgqlc
 from rich import box
 from rich.console import Console
 from rich.live import Live
@@ -23,6 +24,7 @@ from superai.apis.meta_ai.meta_ai_graphql_schema import (
     meta_ai_deployment_status_enum_comparison_exp,
     meta_ai_deployment_type_enum,
     meta_ai_model,
+    meta_ai_model_bool_exp,
     meta_ai_model_insert_input,
     meta_ai_model_pk_columns_input,
     meta_ai_model_set_input,
@@ -77,15 +79,15 @@ class ModelApiMixin(ABC):
         self.sess = MetaAISession()
 
     @property
-    def resource(self):
+    def resource(self) -> str:
         return self._resource
 
     @staticmethod
-    def _fields(verbose):
+    def _fields(verbose: bool) -> List[str]:
         return BASE_FIELDS + EXTRA_FIELDS if verbose else BASE_FIELDS
 
     @staticmethod
-    def _output_formatter(entries, to_json):
+    def _output_formatter(entries: List[sgqlc.types.Type], to_json: bool) -> Union[List[sgqlc.types.Type], List[Dict]]:
         if not to_json:
             return entries
         elif isinstance(entries, (list, tuple)):
@@ -93,13 +95,13 @@ class ModelApiMixin(ABC):
         else:
             return entries.__json_data__  # single instance
 
-    def get_all_models(self, to_json=False, verbose=False) -> List[Union[meta_ai_model, Dict]]:
+    def get_all_models(self, to_json: bool = False, verbose: bool = False) -> List[Union[meta_ai_model, Dict]]:
         op = Operation(query_root)
         op.meta_ai_model().__fields__(*self._fields(verbose))
         data = self.sess.perform_op(op)
         return self._output_formatter((op + data).meta_ai_model, to_json)
 
-    def get_model(self, model_id, to_json=False) -> Optional[Union[meta_ai_model, Dict]]:
+    def get_model(self, model_id: str, to_json: bool = False) -> Optional[Union[meta_ai_model, Dict]]:
         op = Operation(query_root)
         op.meta_ai_model_by_pk(id=model_id).__fields__(
             "name",
@@ -120,14 +122,16 @@ class ModelApiMixin(ABC):
         data = self.sess.perform_op(op)
         return self._output_formatter((op + data).meta_ai_model_by_pk, to_json)
 
-    def get_model_by_name(self, name, to_json=False, verbose=False) -> List[Union[meta_ai_model, Dict]]:
+    def get_model_by_name(
+        self, name: str, to_json: bool = False, verbose: bool = False
+    ) -> List[Union[meta_ai_model, Dict]]:
         op = Operation(query_root)
         op.meta_ai_model(where={"name": {"_eq": name}}).__fields__(*self._fields(verbose))
         data = self.sess.perform_op(op)
         return self._output_formatter((op + data).meta_ai_model, to_json)
 
     def get_model_by_name_version(
-        self, name, version, to_json=False, verbose=False
+        self, name: str, version: int, to_json: bool = False, verbose: bool = False
     ) -> List[Union[meta_ai_model, Dict]]:
         op = Operation(query_root)
         op.meta_ai_model(where={"name": {"_eq": name}, "version": {"_eq": version}}).__fields__(*self._fields(verbose))
@@ -135,7 +139,12 @@ class ModelApiMixin(ABC):
         return self._output_formatter((op + data).meta_ai_model, to_json)
 
     def list_model_versions(
-        self, model_id, to_json=False, verbose=False, sort_by_version=True, ascending=True
+        self,
+        model_id,
+        to_json: bool = False,
+        verbose: bool = False,
+        sort_by_version: bool = True,
+        ascending: bool = True,
     ) -> List[Union[meta_ai_model, Dict]]:
         """List all versions of a model which share a common root model (given by the root_id).
         Args:
@@ -163,7 +172,9 @@ class ModelApiMixin(ABC):
             models = sorted(models, key=lambda x: x.version, reverse=not ascending)
         return self._output_formatter(models, to_json)
 
-    def get_root_model(self, model_id, to_json=False, verbose=False) -> Optional[Union[meta_ai_model, Dict]]:
+    def get_root_model(
+        self, model_id: str, to_json: bool = False, verbose: bool = False
+    ) -> Optional[Union[meta_ai_model, Dict]]:
         """Get the root model,  i.e. the model that is the parent of all other models.
         Currently, thats always the one with version=1.
 
@@ -185,7 +196,9 @@ class ModelApiMixin(ABC):
         models = (op + data).meta_ai_model_by_pk.root_model
         return self._output_formatter(models, to_json)
 
-    def get_latest_model(self, model_id, to_json=False, verbose=False) -> Optional[Union[meta_ai_model, Dict]]:
+    def get_latest_model(
+        self, model_id: str, to_json: bool = False, verbose: bool = False
+    ) -> Optional[Union[meta_ai_model, Dict]]:
         """Get the latest (highest) model version of a model.
 
         Returns:
@@ -582,13 +595,17 @@ class DeploymentApiMixin(ABC):
         return res
 
     def list_deployments(
-        self, model_id: Optional[str] = None, status: Optional[meta_ai_deployment_status_enum] = None
+        self,
+        model_id: Optional[str] = None,
+        model_name: Optional[str] = None,
+        status: Optional[meta_ai_deployment_status_enum] = None,
     ) -> List[meta_ai_deployment]:
         """Retrieves list of deployments.
-        Allows filtering by model_id or status.
+        Allows filtering by model_id, model_name or status.
 
         Args:
             model_id: str
+            model_name: str
             status: meta_ai_deployment_status_enum
                 One of "FAILED", "MAINTENANCE", "OFFLINE", "ONLINE", "PAUSED", "STARTING", "UNKNOWN"
 
@@ -597,6 +614,8 @@ class DeploymentApiMixin(ABC):
         filter = {}
         if model_id:
             filter["model_id"] = uuid_comparison_exp(_eq=model_id)
+        if model_name:
+            filter["model"] = meta_ai_model_bool_exp({"name": {"_eq": model_name}})
         if status:
             filter["status"] = meta_ai_deployment_status_enum_comparison_exp(_eq=status)
         deployments = opq.meta_ai_deployment(where=meta_ai_deployment_bool_exp(**filter))

@@ -922,20 +922,28 @@ def deployment():
     "--model_id",
     type=str,
     default=None,
-    help="Filter deployments by model id. If not provided, all deployments will be listed",
+    help="Filter deployments by model id. If provided, only deployments matching this model id will be listed",
+)
+@click.option(
+    "--model_name",
+    type=str,
+    default=None,
+    help="Filter deployments by model name. If provided, only deployments matching this model name will be listed",
 )
 @click.option(
     "--status",
     type=str,
     default=None,
     help="Filter deployments by status. "
-    "If not provided, all deployments will be listed. "
+    "If provided, only deployments matching this status will be listed. "
     "Must be one of the values "
     '"FAILED", "MAINTENANCE", "OFFLINE", "ONLINE", "PAUSED", "STARTING", "UNKNOWN"',
 )
-def list_deployments(client, model_id: Optional[str] = None, status: Optional[str] = None):
+def list_deployments(
+    client, model_id: Optional[str] = None, model_name: Optional[str] = None, status: Optional[str] = None
+):
     """List all deployments"""
-    d = client.list_deployments(model_id=model_id, status=status)
+    d = client.list_deployments(model_id=model_id, model_name=model_name, status=status)
     for deployment in d:
         print(f"[b][u]Model: {deployment.model.name}[/b][/u]")
         print(f"{deployment}\n")

@@ -38,9 +38,8 @@ from superai.data_program.utils import _call_handler
 from superai.log import logger
 from superai.utils import load_api_key, load_auth_token, load_id_token
 
-from .task.basic import model_to_task_io_payload
-from .workflow import WorkflowConfig
-from .workflow.workflow import Workflow
+from .task import model_to_task_io_payload
+from .workflow import Workflow, WorkflowConfig
 
 log = logger.get_logger(__name__)
 
