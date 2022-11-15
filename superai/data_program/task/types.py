@@ -101,7 +101,7 @@ class OnTimeout(BaseModel):
     """
 
     action: OnTimeoutAction = Field(
-        default=OnTimeoutAction.retry, description="Action to take when a task does not get completed in time."
+        default=OnTimeoutAction.retry.value, description="Action to take when a task does not get completed in time."
     )
     max_retries: Optional[int] = Field(
         None, ge=1, description="If action is set to retry or reassign, specifies the number of attempts."
@@ -132,9 +132,6 @@ class TrainingConstraint(BaseModel):
     name: str = Field(description="Name of the training constraint.")
     value: Optional[float] = Field(gt=0, le=1, description="The threshold value for the metric.")
     operator: MetricOperator = Field(MetricOperator.EXISTS)
-
-    class Config:
-        use_enum_values = True
 
 
 class LogicalOperator(str, enum.Enum):
@@ -218,7 +215,6 @@ class Worker(BaseModel):
 
     class Config:
         extra = Extra.forbid
-        use_enum_values = True
 
 
 class TaskStrategy(str, enum.Enum):
