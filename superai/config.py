@@ -21,7 +21,9 @@ __local_secrets_path: str = os.path.expanduser(f"{local}/.secrets.yaml")
 
 dynaconf_setting_files = [
     __local_settings_path,
+    __local_secrets_path,
     __settings_path,
+    __secrets_path,
 ]
 
 
@@ -253,7 +255,6 @@ settings = Dynaconf(
     env_switcher=__env_switcher,
     settings_files=dynaconf_setting_files,
     environments=True,
-    secrets=[__local_secrets_path, __secrets_path],
     includes=[
         # If any .secrets.yaml exits, will have higher priority than the previously
         # loaded config files
