@@ -115,5 +115,5 @@ class DataProgramApiMixin(WorkflowApiMixin):
         Returns:
             DataProgram.
         """
-        template_name = f"{template_name}.router" if not "." in template_name else template_name
+        template_name = f"{template_name}.router" if "." not in template_name else template_name
         return self.create_workflow(workflow_name=template_name, body=body, **kwargs)

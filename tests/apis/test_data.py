@@ -36,7 +36,7 @@ def client():
 
 
 def test_list_data_unsigned(client: Client):
-    data = client.list_data(signedUrl=False, page=1, size=1)
+    data = client.list_data(signed_url=False, page=1, size=1)
     assert len(data.get("content", [])) == 1
     entity = data.get("content", []).pop()
     assert entity.get("path") is not None
@@ -44,7 +44,7 @@ def test_list_data_unsigned(client: Client):
 
 
 def test_list_data_signed(client: Client):
-    data = client.list_data(signedUrl=True, page=1, size=1)
+    data = client.list_data(signed_url=True, page=1, size=1)
     assert len(data.get("content", [])) == 1
     entity = data.get("content", []).pop()
     assert entity.get("path") is not None
@@ -73,7 +73,7 @@ def test_download_data_with_full_path(client: Client):
 def test_download_data_public(client: Client):
     with pytest.raises(Exception) as excinfo:
         downloaded = client.download_data(path="https://filesamples.com/samples/code/json/sample1.json")
-    assert str(excinfo.value) == "Forbidden"
+    assert "Forbidden" in str(excinfo.value)
 
 
 def test_delete_data(client: Client):

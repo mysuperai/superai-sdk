@@ -22,9 +22,9 @@ class JobsApiMixin(ABC):
     def create_jobs(
         self,
         app_id: str,
-        callbackUrl: str = None,
+        callback_url: str = None,
         inputs: List[dict] = None,
-        inputsFileUrl: str = None,
+        inputs_file_url: str = None,
         metadata: dict = None,
         worker: str = None,
         parked: bool = None,
@@ -35,19 +35,20 @@ class JobsApiMixin(ABC):
             app_id: Application ID
             callback_url: A URL that should be sent a POST request once the job is completed for the response data.
             inputs: A list of objects that represent the input of the job (based on the particular app type).
-            inputsFileUrl: A URL of a JSON file containing list of input objects.
+            inputs_file_url: A URL of a JSON file containing list of input objects.
             metadata: Object you can attach to job.
+            worker:
             parked: Whether the job should be created in the parked (pending) state
         Returns:
             Confirmation message of submission, batch ID of submission, UUID of job if len(input) == 1.
         """
         body_json = {}
-        if callbackUrl is not None:
-            body_json["callbackUrl"] = callbackUrl
+        if callback_url is not None:
+            body_json["callbackUrl"] = callback_url
         if inputs is not None:
             body_json["inputs"] = inputs
-        if inputsFileUrl is not None:
-            body_json["inputsFileUrl"] = inputsFileUrl
+        if inputs_file_url is not None:
+            body_json["inputsFileUrl"] = inputs_file_url
         if metadata is not None:
             body_json["metadata"] = metadata
         if worker is not None:
@@ -124,13 +125,13 @@ class JobsApiMixin(ABC):
         app_id: str,
         page: int = None,
         size: int = None,
-        sortBy: str = "id",
-        orderBy: str = "asc",
-        createdStartDate: datetime = None,
-        createdEndDate: datetime = None,
-        completedStartDate: datetime = None,
-        completedEndDate: datetime = None,
-        statusIn: List[str] = None,
+        sort_by: str = "id",
+        order_by: str = "asc",
+        created_start_date: datetime = None,
+        created_end_date: datetime = None,
+        completed_start_date: datetime = None,
+        completed_end_date: datetime = None,
+        status_in: List[str] = None,
     ) -> dict:
         """Gets a paginated list of jobs (without job responses) given an application ID.
 
@@ -138,13 +139,13 @@ class JobsApiMixin(ABC):
             app_id: Application ID.
             page: Page number [0..N].
             size: Size of page.
-            sortBy: Job field to sort by.
-            orderBy: Sort direction (asc or desc).
-            createdStartDate: Created start date.
-            createdEndDate: Created end date.
-            completedStartDate: Completed start date.
-            completedEndDate: Completed end date.
-            statusIn: Status of jobs.
+            sort_by: Job field to sort by.
+            order_by: Sort direction (asc or desc).
+            created_start_date: Created start date.
+            created_end_date: Created end date.
+            completed_start_date: Completed start date.
+            completed_end_date: Completed end date.
+            status_in: Status of jobs.
 
         Returns:
             Paginated list of dicts with jobs data.
@@ -155,90 +156,90 @@ class JobsApiMixin(ABC):
             query_params["page"] = page
         if size is not None:
             query_params["size"] = size
-        if sortBy is not None:
-            query_params["sortBy"] = sortBy
-        if orderBy is not None:
-            query_params["orderBy"] = orderBy
-        if createdStartDate is not None:
-            query_params["createdStartDate"] = createdStartDate.strftime("%Y-%m-%dT%H:%M:%SZ")
-        if createdEndDate is not None:
-            query_params["createdEndDate"] = createdEndDate.strftime("%Y-%m-%dT%H:%M:%SZ")
-        if completedStartDate is not None:
-            query_params["completedStartDate"] = completedStartDate.strftime("%Y-%m-%dT%H:%M:%SZ")
-        if completedEndDate is not None:
-            query_params["completedEndDate"] = completedEndDate.strftime("%Y-%m-%dT%H:%M:%SZ")
-        if statusIn is not None:
-            query_params["statusIn"] = statusIn
+        if sort_by is not None:
+            query_params["sortBy"] = sort_by
+        if order_by is not None:
+            query_params["orderBy"] = order_by
+        if created_start_date is not None:
+            query_params["createdStartDate"] = created_start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if created_end_date is not None:
+            query_params["createdEndDate"] = created_end_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if completed_start_date is not None:
+            query_params["completedStartDate"] = completed_start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if completed_end_date is not None:
+            query_params["completedEndDate"] = completed_end_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if status_in is not None:
+            query_params["statusIn"] = status_in
         return self.request(uri, method="GET", query_params=query_params, required_api_key=True)
 
     def download_jobs(
         self,
         app_id: str,
-        createdStartDate: datetime = None,
-        createdEndDate: datetime = None,
-        completedStartDate: datetime = None,
-        completedEndDate: datetime = None,
-        statusIn: List[str] = None,
-        sendEmail: bool = None,
-        withHistory: bool = None,
+        created_start_date: datetime = None,
+        created_end_date: datetime = None,
+        completed_start_date: datetime = None,
+        completed_end_date: datetime = None,
+        status_in: List[str] = None,
+        send_email: bool = None,
+        with_history: bool = None,
     ) -> dict:
         """
         Trigger processing of jobs responses that are sent to customer email (default) once is finished.
 
         Args:
             app_id: Application ID.
-            createdStartDate: Created start date.
-            createdEndDate: Created end date.
-            completedStartDate: Completed start date.
-            completedEndDate: Completed end date.
-            statusIn: Status of jobs.
-            sendEmail: Email not send if False.
-            withHistory: Adds job history to downloaded data.
+            created_start_date: Created start date.
+            created_end_date: Created end date.
+            completed_start_date: Completed start date.
+            completed_end_date: Completed end date.
+            status_in: Status of jobs.
+            send_email: Whether to send an email.
+            with_history: Adds job history to downloaded data.
 
         Returns:
             Dict with operationId key to track status
         """
         uri = f"apps/{app_id}/job_responses"
         query_params = {}
-        if createdStartDate is not None:
-            query_params["createdStartDate"] = createdStartDate.strftime("%Y-%m-%dT%H:%M:%SZ")
-        if createdEndDate is not None:
-            query_params["createdEndDate"] = createdEndDate.strftime("%Y-%m-%dT%H:%M:%SZ")
-        if completedStartDate is not None:
-            query_params["completedStartDate"] = completedStartDate.strftime("%Y-%m-%dT%H:%M:%SZ")
-        if completedEndDate is not None:
-            query_params["completedEndDate"] = completedEndDate.strftime("%Y-%m-%dT%H:%M:%SZ")
-        if statusIn is not None:
-            query_params["statusIn"] = statusIn
-        if sendEmail is not None:
-            query_params["sendEmail"] = sendEmail
-        if withHistory is not None:
-            query_params["withHistory"] = withHistory
+        if created_start_date is not None:
+            query_params["createdStartDate"] = created_start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if created_end_date is not None:
+            query_params["createdEndDate"] = created_end_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if completed_start_date is not None:
+            query_params["completedStartDate"] = completed_start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if completed_end_date is not None:
+            query_params["completedEndDate"] = completed_end_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if status_in is not None:
+            query_params["statusIn"] = status_in
+        if send_email is not None:
+            query_params["sendEmail"] = send_email
+        if with_history is not None:
+            query_params["withHistory"] = with_history
         return self.request(uri, method="POST", query_params=query_params, required_api_key=True)
 
     def get_all_jobs(
         self,
         app_id: str,
-        sortBy: str = "id",
-        orderBy: str = "asc",
-        createdStartDate: datetime = None,
-        createdEndDate: datetime = None,
-        completedStartDate: datetime = None,
-        completedEndDate: datetime = None,
-        statusIn: List[str] = None,
+        sort_by: str = "id",
+        order_by: str = "asc",
+        created_start_date: datetime = None,
+        created_end_date: datetime = None,
+        completed_start_date: datetime = None,
+        completed_end_date: datetime = None,
+        status_in: List[str] = None,
     ) -> Generator[dict, None, None]:
         """Generator that retrieves all jobs (without job responses) given an application ID.
 
         Args:
 
             app_id: Application ID.
-            sortBy: Job field to sort by.
-            orderBy: Sort direction (asc or desc).
-            createdStartDate: Created start date.
-            createdEndDate: Created end date.
-            completedStartDate: Completed start date.
-            completedEndDate: Completed end date.
-            statusIn: Status of jobs.
+            sort_by: Job field to sort by.
+            order_by: Sort direction (asc or desc).
+            created_start_date: Created start date.
+            created_end_date: Created end date.
+            completed_start_date: Completed start date.
+            completed_end_date: Completed end date.
+            status_in: Status of jobs.
 
         Returns:
             Generator that yields complete list of dicts with jobs data.
@@ -250,13 +251,13 @@ class JobsApiMixin(ABC):
                 app_id,
                 page=page,
                 size=500,
-                sortBy=sortBy,
-                orderBy=orderBy,
-                createdStartDate=createdStartDate,
-                createdEndDate=createdEndDate,
-                completedStartDate=completedStartDate,
-                completedEndDate=completedEndDate,
-                statusIn=statusIn,
+                sort_by=sort_by,
+                order_by=order_by,
+                created_start_date=created_start_date,
+                created_end_date=created_end_date,
+                completed_start_date=completed_start_date,
+                completed_end_date=completed_end_date,
+                status_in=status_in,
             )
             for job in paginated_jobs["jobs"]:
                 yield job
@@ -297,11 +298,11 @@ class JobsApiMixin(ABC):
     def download_jobs_full_flow(
         self,
         app_id: str,
-        createdStartDate: datetime = None,
-        createdEndDate: datetime = None,
-        completedStartDate: datetime = None,
-        completedEndDate: datetime = None,
-        statusIn: List[str] = None,
+        created_start_date: datetime = None,
+        created_end_date: datetime = None,
+        completed_start_date: datetime = None,
+        completed_end_date: datetime = None,
+        status_in: List[str] = None,
         timeout: int = 120,
         poll_interval: int = 3,
     ) -> Optional[List[dict]]:
@@ -310,11 +311,11 @@ class JobsApiMixin(ABC):
 
         Args:
           app_id: Application id
-          createdStartDate: Filter by created start date of jobs
-          createdEndDate: Filter by created end date of jobs
-          completedStartDate: Filter by completed start date of jobs
-          completedEndDate: Filter by completed end date of jobs
-          statusIn: Filter by status of jobs
+          created_start_date: Filter by created start date of jobs
+          created_end_date: Filter by created end date of jobs
+          completed_start_date: Filter by completed start date of jobs
+          completed_end_date: Filter by completed end date of jobs
+          status_in: Filter by status of jobs
           timeout: Timeout in seconds
           poll_interval: Poll interval in seconds
 
@@ -324,7 +325,7 @@ class JobsApiMixin(ABC):
         """
         console = Console()
         operation_id = self.download_jobs(
-            app_id, createdStartDate, createdEndDate, completedStartDate, completedEndDate, statusIn, False
+            app_id, created_start_date, created_end_date, completed_start_date, completed_end_date, status_in, False
         )["operationId"]
         operation_completed = False
         last_operation_status = None

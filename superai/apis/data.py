@@ -22,8 +22,8 @@ class DataApiMixin(ABC):
         data_ids: List[str] = None,
         paths: List[str] = None,
         recursive: bool = False,
-        signedUrl: bool = False,
-        secondsTtl: int = 600,
+        signed_url: bool = False,
+        seconds_ttl: int = 600,
         page: int = None,
         size: int = None,
     ) -> dict:
@@ -33,8 +33,8 @@ class DataApiMixin(ABC):
             data_ids: Array of data IDs.
             paths: Array of paths.
             recursive: Get all datasets from recursive path (only takes first path of array).
-            signedUrl: Get signed URL for each dataset.
-            secondsTtl: Time to live for signed URL.
+            signed_url: Get signed URL for each dataset.
+            seconds_ttl: Time to live for signed URL.
             page: Page number [0..N].
             size: Size of page.
 
@@ -47,9 +47,9 @@ class DataApiMixin(ABC):
         elif paths is not None:
             query_params["path"] = paths
             query_params["recursive"] = recursive
-        if signedUrl:
-            query_params["signedUrl"] = signedUrl
-            query_params["secondsTtl"] = secondsTtl
+        if signed_url:
+            query_params["signedUrl"] = signed_url
+            query_params["secondsTtl"] = seconds_ttl
         if page is not None:
             query_params["page"] = page
         if size is not None:
@@ -66,8 +66,8 @@ class DataApiMixin(ABC):
         data_ids: List[str] = None,
         paths: List[str] = None,
         recursive: bool = False,
-        signedUrl: bool = False,
-        secondsTtl: int = 600,
+        signed_url: bool = False,
+        seconds_ttl: int = 600,
     ) -> Generator[dict, None, None]:
         """Generator that retrieves all data filtered using an array of IDs or an array of paths.
 
@@ -75,8 +75,8 @@ class DataApiMixin(ABC):
             data_ids: Array of data IDs.
             paths: Array of paths.
             recursive: Get all datasets from recursive path (only takes first path of array).
-            signedUrl: Get signed URL for each dataset.
-            secondsTtl: Time to live for signed URL.
+            signed_url: Get signed URL for each dataset.
+            seconds_ttl: Time to live for signed URL.
 
         Returns:
             Generator that yields complete list of dicts with data objects.
@@ -88,8 +88,8 @@ class DataApiMixin(ABC):
                 data_ids=data_ids,
                 paths=paths,
                 recursive=recursive,
-                signedUrl=signedUrl,
-                secondsTtl=secondsTtl,
+                signed_url=signed_url,
+                seconds_ttl=seconds_ttl,
                 page=page,
                 size=500,
             )
@@ -97,12 +97,12 @@ class DataApiMixin(ABC):
                 yield d
             page = page + 1
 
-    def get_signed_url(self, path: str, secondsTtl: int = 600) -> dict:
+    def get_signed_url(self, path: str, seconds_ttl: int = 600) -> dict:
         """Gets signed URL for a dataset given its path.
 
         Args:
             path: Dataset's path e.g., `"data://.."`.
-            secondsTtl: Time to live for signed URL. Maximum is 7 days.
+            seconds_ttl: Time to live for signed URL. Maximum is 7 days.
 
         Returns:
             Dictionary in the form {
@@ -113,7 +113,7 @@ class DataApiMixin(ABC):
         """
         uri = f"{self.resource}/url"
         return self.request(
-            uri, method="GET", query_params={"path": path, "secondsTtl": secondsTtl}, required_api_key=True
+            uri, method="GET", query_params={"path": path, "secondsTtl": seconds_ttl}, required_api_key=True
         )
 
     def download_data(self, path: str, timeout: int = 5):
@@ -131,7 +131,7 @@ class DataApiMixin(ABC):
         if res.status_code == 200:
             return res.json()
         else:
-            raise Exception(res.reason)
+            raise SuperAIStorageError(res.reason)
 
     def delete_data(self, path: str) -> dict:
         """Deletes a dataset given its path.
@@ -144,13 +144,13 @@ class DataApiMixin(ABC):
         """
         return self.request(self.resource, method="DELETE", query_params={"path": path}, required_api_key=True)
 
-    def upload_data(self, path: str, description: str, mimeType: str, file: BinaryIO) -> dict:
+    def upload_data(self, path: str, description: str, mime_type: str, file: BinaryIO) -> dict:
         """Creates or updates a dataset given its path using file and mimeType.
 
         Args:
             path: Path of dataset.
             description: Description of dataset.
-            mimeType: Type of file.
+            mime_type: Type of file.
             file: Binary File value.
 
         Returns:
@@ -159,11 +159,11 @@ class DataApiMixin(ABC):
         dataset = self.request(
             self.resource,
             method="POST",
-            query_params={"path": path, "description": description, "mimeType": mimeType, "uploadUrl": True},
+            query_params={"path": path, "description": description, "mimeType": mime_type, "uploadUrl": True},
             required_api_key=True,
         )
         try:
-            resp = requests.put(dataset.pop("uploadUrl"), data=file.read(), headers={"Content-Type": mimeType})
+            resp = requests.put(dataset.pop("uploadUrl"), data=file.read(), headers={"Content-Type": mime_type})
             if resp.status_code == 200 or resp.status_code == 201:
                 return dataset
             else:

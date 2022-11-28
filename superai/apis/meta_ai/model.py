@@ -611,14 +611,14 @@ class DeploymentApiMixin(ABC):
 
         """
         opq = Operation(query_root)
-        filter = {}
+        filters = {}
         if model_id:
-            filter["model_id"] = uuid_comparison_exp(_eq=model_id)
+            filters["model_id"] = uuid_comparison_exp(_eq=model_id)
         if model_name:
-            filter["model"] = meta_ai_model_bool_exp({"name": {"_eq": model_name}})
+            filters["model"] = meta_ai_model_bool_exp({"name": {"_eq": model_name}})
         if status:
-            filter["status"] = meta_ai_deployment_status_enum_comparison_exp(_eq=status)
-        deployments = opq.meta_ai_deployment(where=meta_ai_deployment_bool_exp(**filter))
+            filters["status"] = meta_ai_deployment_status_enum_comparison_exp(_eq=status)
+        deployments = opq.meta_ai_deployment(where=meta_ai_deployment_bool_exp(**filters))
         models = deployments.model()
         models.__fields__("name", "id")
         deployments.__fields__(
@@ -639,10 +639,7 @@ class DeploymentApiMixin(ABC):
     def check_endpoint_is_available(self, deployment_id) -> bool:
         """Query to check if there is an active deployment"""
         deployment = self.get_deployment(deployment_id)
-        if deployment is not None:
-            if deployment["status"] == "ONLINE":
-                return True
-        return False
+        return deployment is not None and deployment["status"] == "ONLINE"
 
     def get_prediction_error(self, prediction_id: str):
         op = Operation(query_root)
@@ -915,13 +912,13 @@ class TrainApiMixin(ABC):
         log.info(
             f"Getting training templates indexed by root_model_id={root_model_id} inferred from model_id={model_id}"
         )
-        filter = {"model_id": {"_eq": root_model_id}}
+        filters = {"model_id": {"_eq": root_model_id}}
         if app_id_str:
-            filter["app_id"] = {"_eq": app_id_str}
+            filters["app_id"] = {"_eq": app_id_str}
         else:
-            filter["app_id"] = {"_is_null": True}
+            filters["app_id"] = {"_is_null": True}
 
-        op.meta_ai_training_template(where=filter).__fields__("id", "name", "properties", "created_at", "description")
+        op.meta_ai_training_template(where=filters).__fields__("id", "name", "properties", "created_at", "description")
         instance_data = sess.perform_op(op)
         try:
             q_out = (op + instance_data).meta_ai_training_template
@@ -1065,15 +1062,15 @@ class TrainApiMixin(ABC):
         sess = MetaAISession(app_id=app_id_str)
         op = Operation(query_root)
 
-        filter = {}
+        filters = {}
         if state:
-            filter["state"] = {"_eq": state}
+            filters["state"] = {"_eq": state}
         if model_id:
-            filter["model_id"] = {"_eq": model_id}
+            filters["model_id"] = {"_eq": model_id}
         if app_id:
-            filter["training_template"] = {}
-            filter["training_template"]["app_id"] = {"_eq": app_id}
-        instance_query = dict(where=filter, limit=limit)
+            filters["training_template"] = {}
+            filters["training_template"]["app_id"] = {"_eq": app_id}
+        instance_query = dict(where=filters, limit=limit)
         log.warning("Without providing an app_id, only trainings without associated apps will be shown.")
         op.meta_ai_training_instance(**instance_query).__fields__(
             "state", "id", "created_at", "artifacts", "model_id", "training_template_id", "updated_at"
@@ -1186,7 +1183,7 @@ class TrainApiMixin(ABC):
         op.download_artifact_async(artifact_type=artifact_type, model_id=model_id)
 
         data = next(sess.perform_op(op))
-        id = (op + data).download_artifact_async
+        download_id = (op + data).download_artifact_async
 
         # Query id for results until ready
         start = time.time()
@@ -1194,7 +1191,7 @@ class TrainApiMixin(ABC):
         with console.status(f"Waiting for artifact preparation to complete for model_id={model_id}") as status:
             while time.time() - start < timeout:
                 os = Operation(subscription_root)
-                result = os.download_artifact_async(id=id)
+                result = os.download_artifact_async(id=download_id)
                 result.__fields__("id", "errors")
                 result.output.__fields__("url")
                 data = next(sess.perform_op(os))

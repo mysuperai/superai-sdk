@@ -48,7 +48,7 @@ class TaskInstance(DataProgramBase):
         if performance is not None:
             body_json["performance"] = performance
         if name is None:
-            body_json["name"] = f"TaskName-{uuid.uuid5()}"
+            body_json["name"] = f"TaskName-{uuid.uuid4()}"
         if description is not None:
             body_json["description"] = description
         uri = f"task_template/{task_template_id}/instance"
