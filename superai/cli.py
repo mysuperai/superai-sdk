@@ -25,7 +25,7 @@ from superai.config import (
     set_env_config,
     settings,
 )
-from superai.exceptions import SuperAIAuthorizationError
+from superai.exceptions import SuperAIAuthorizationError, SuperAIStorageError
 from superai.log import logger
 from superai.utils import (
     load_api_key,
@@ -466,6 +466,33 @@ def downloaded_tasks_url(
     client = ctx.obj["client"]
     print(f"Generating downloaded tasks url per application {app_id} operation {operation_id}")
     print(client.generates_downloaded_tasks_url(app_id, operation_id, seconds_ttl))
+
+
+@client.command(name="download_data")
+@click.argument("data_url", type=str)
+@click.option(
+    "--path",
+    required=False,
+    help="Path to download artifact. Default is current working directory.",
+    type=click.Path(exists=True, writable=True, dir_okay=True),
+    default=os.getcwd(),
+)
+@click.pass_context
+def download_data(ctx, data_url: str, path: str):
+    """Downloads from Super.AI Data Storage to a local file."""
+    client = ctx.obj["client"]
+    response = client.get_signed_url(data_url)
+    signed_url = response["signedUrl"]
+
+    parsed = urlparse(data_url)
+    url_path = pathlib.Path(parsed.path)
+    filename = url_path.name
+
+    logger.info(f"Downloading {filename} to {path}")
+    try:
+        download_file_to_directory(url=signed_url, filename=filename, path=path)
+    except RuntimeError as e:
+        raise SuperAIStorageError(str(e))
 
 
 @client.command(name="create_ground_truth")

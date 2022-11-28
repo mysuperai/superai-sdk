@@ -16,7 +16,7 @@ from typing import Optional
 import requests
 import sentry_sdk
 from genson import SchemaBuilder
-from superai_dataclient.data_helper import DataHelper
+from superai_dataclient import DataHelper
 from superai_schema.universal_schema.data_types import (
     get_current_version_id,
     list_to_schema,

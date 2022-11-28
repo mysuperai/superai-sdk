@@ -1,3 +1,5 @@
+import unicodedata
+import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Union
@@ -46,12 +48,18 @@ def download_file_to_directory(url: str, filename: str, path: Union[Path, str]) 
         TimeRemainingColumn(),
     )
 
-    t = progress.add_task("Downloading", filename=filename, start=False)
+    normalized_filename = unicodedata.normalize("NFC", filename)
+    t = progress.add_task("Downloading", filename=normalized_filename, start=False)
 
     def update(blocknum, bs, size):
         progress.update(t, completed=blocknum * bs, total=size)
 
-    with progress:
-        progress.start_task(t)
-        urllib.request.urlretrieve(url, destination, update)
+    try:
+        with progress:
+            progress.start_task(t)
+            urllib.request.urlretrieve(url, destination, update)
+    except urllib.error.HTTPError as e:
+        destination.unlink()
+        raise RuntimeError(f"Could not download file. Status code {e.code}.")
+
     return str(destination)
