@@ -21,7 +21,7 @@ if os.path.exists(".AISave"):
 
 # TODO: revert back to outside the function
 # Register an AI. Similar to a Data Program, an AI specifies the schema that all the models are subject to. In this
-# step we only define the AI schema, version and metadata, so far we haven't register an AIModel
+# step we only define the AI schema, version and metadata, so far we haven't registered an AIModel
 ai_definition = {
     "input_schema": Schema(my_image=dt.IMAGE),
     "output_schema": Schema(mnist_class=dt.EXCLUSIVE_CHOICE),

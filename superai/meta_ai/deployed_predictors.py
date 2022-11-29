@@ -17,7 +17,7 @@ from superai import Client
 from superai.meta_ai.dockerizer import get_docker_client
 from superai.meta_ai.image_builder import Orchestrator
 from superai.meta_ai.parameters import AiDeploymentParameters
-from superai.meta_ai.schema import EasyPredictions
+from superai.meta_ai.schema import TaskPredictionInstance
 from superai.utils import log
 
 
@@ -148,7 +148,7 @@ class LocalPredictor(DeployedPredictor):
                 payload = input
             res = requests.post(url, data=payload, headers=headers)
         if res.status_code == 200:
-            result = EasyPredictions(res.json()).value
+            result = TaskPredictionInstance.validate_prediction(res.json())
             return result
         else:
             message = f"Error, received error code {res.status_code}: {res.text}"
@@ -277,7 +277,7 @@ class RemotePredictor(DeployedPredictor):
             result = self.client.predict_from_endpoint(
                 deployment_id=self.id, input_data=input_data, parameters=parameters
             )
-            output = EasyPredictions(result).value
+            output = TaskPredictionInstance.validate_prediction(result)
             return output
         else:
             log.error("Prediction failed as endpoint does not seem to exist, please redeploy.")

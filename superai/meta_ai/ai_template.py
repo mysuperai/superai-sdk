@@ -327,8 +327,8 @@ class AITemplate:
                 if cwd == path_object:
                     log.warning(
                         "code_path or model_class_path is pointing to the current working directory."
-                        "This can be the case when `./` or `.` is used in the code_path or model_class_path."
-                        "  This is not recommended since all project files will be copied."
+                        " This can be the case when `./` or `.` is used in the code_path or model_class_path."
+                        " This is not recommended since all project files will be copied."
                         " We recommend putting source files in sub-directories."
                     )
 

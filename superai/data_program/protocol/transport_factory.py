@@ -35,7 +35,7 @@ try:
                 task_future,
                 task_result,
                 start_threads,
-            )  # noqa # nosort
+            )  # noqa # isort:skip
         except ImportError:
             from superai_transport.transport.transport import (
                 schedule_task,
@@ -64,7 +64,7 @@ try:
                 task_future,
                 task_result,
                 start_threads,
-            )  # noqa # nosort
+            )  # noqa # isort:skip
     else:
         from .transport import (
             attach_bill,
@@ -93,8 +93,7 @@ try:
             task_future,
             task_result,
             start_threads,
-        )  # noqa # nosort
+        )  # noqa # isort:skip
 
-        # isort: off
 except ImportError as e:
     logger.exception(e)

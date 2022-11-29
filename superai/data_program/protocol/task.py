@@ -28,7 +28,7 @@ from superai.data_program.experimental import memo
 from superai.log import logger
 from superai.utils import load_api_key, sentry_helper
 
-from .transport_factory import (  # noqa # nosort
+from .transport_factory import (  # noqa # isort:skip
     attach_bill,
     decline_result,
     get_context_app_id,
@@ -56,8 +56,6 @@ from .transport_factory import (  # noqa # nosort
     task_future,
     task_result,
 )
-
-# isort: off
 
 logger = logger.get_logger(__name__)
 

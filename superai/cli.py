@@ -1572,10 +1572,13 @@ def predictor_test(
         click.echo(predicted_output)
         if expected_output is not None:
             assert predicted_output == expected_output, "Expected output should be same as predicted output"
+            expected_output = json.loads(expected_output)
+            assert predicted_output.dict() == expected_output, "Expected output should be same as predicted output"
         if expected_output_file is not None:
             with open(expected_output_file, "r") as output_file_stream:
                 expected_output = json.load(output_file_stream)
                 assert predicted_output == expected_output, "Expected output should be same as predicted output"
+                assert predicted_output.dict() == expected_output, "Expected output should be same as predicted output"
     else:
         raise Exception(f"Predictor config does not exist at {config_path}")
 
