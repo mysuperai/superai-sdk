@@ -1,9 +1,10 @@
 import enum
 from abc import ABC, abstractmethod
-from typing import ClassVar, Dict, List, Literal, Optional
+from typing import ClassVar, Dict, List, Optional
 
 from pydantic import Extra, Field
 from superai_schema.types import BaseModel
+from typing_extensions import Literal
 
 
 class WorkerType(str, enum.Enum):
