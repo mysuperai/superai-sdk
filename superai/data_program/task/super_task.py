@@ -21,8 +21,8 @@ from .types import (
     SuperTaskModel,
     TaskResponse,
     TaskStrategy,
-    Worker,
 )
+from .workers import Worker
 
 log = logger.get_logger(__name__)
 

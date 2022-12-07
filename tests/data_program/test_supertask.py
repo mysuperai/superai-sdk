@@ -4,18 +4,22 @@ import pytest
 from pydantic import ValidationError
 from superai_schema.types import BaseModel
 
+from superai.data_program import CollaboratorWorker, CrowdWorker
+
 # import superai
-from superai.data_program import Worker, WorkerType
 from superai.data_program.task.super_task import (
     SuperTaskJobInput,
     SuperTaskWorkflow,
     TaskRouter,
 )
 from superai.data_program.task.types import (
-    MetricOperator,
     SuperTaskConfig,
     SuperTaskModel,
     TaskStrategy,
+)
+from superai.data_program.task.workers import (
+    HumanWorkerConstraint,
+    MetricOperator,
     TrainingConstraint,
     TrainingConstraintSet,
     Worker,
@@ -24,28 +28,32 @@ from superai.data_program.task.types import (
 
 
 def test_worker_schema():
-    worker = Worker(type=WorkerType.collaborators)
+    worker = CollaboratorWorker()
     assert worker
     assert worker.schema()
     assert worker.dict()
 
 
 def test__map_worker_constraints():
-    worker = Worker(
-        type=WorkerType.collaborators, worker_constraints=WorkerConstraint(email=["test@test.com"], worker_id=[1])
-    )
+    worker = CollaboratorWorker(worker_constraints=HumanWorkerConstraint(email=["test@test.com"], worker_id=[1]))
     constraints = TaskRouter._map_worker_constraints(worker)
     assert "emails" in constraints
     assert "included_ids" in constraints
+    print(constraints)
     assert constraints["emails"][0] == "test@test.com"
     assert constraints["included_ids"][0] == 1
+
+
+def test_abstract_worker_instance():
+    """Worker should not be instantiated directly"""
+    with pytest.raises(TypeError):
+        Worker()
 
 
 def test_worker_min_items():
     """Test that the min_item constraint is acting as expected"""
     # Unset worker_id sholud not trigger validation error
-    worker_without_id = Worker(
-        type=WorkerType.collaborators,
+    worker_without_id = CrowdWorker(
         worker_constraints=WorkerConstraint(
             email=["test@test.com"],
         ),
@@ -54,8 +62,7 @@ def test_worker_min_items():
 
     # Test that empty list of worker_id raises validation error
     with pytest.raises(ValidationError):
-        worker_with_empty_id_list = Worker(
-            type=WorkerType.collaborators,
+        worker_with_empty_id_list = CrowdWorker(
             worker_constraints=WorkerConstraint(
                 worker_id=[],
             ),
@@ -65,8 +72,7 @@ def test_worker_min_items():
 
 @pytest.mark.skip(reason="Disabled until UI can interpret training constraints")
 def test_worker_training_constraint():
-    worker = Worker(
-        type=WorkerType.collaborators,
+    worker = CrowdWorker(
         worker_constraints=WorkerConstraint(
             trainings=TrainingConstraintSet(
                 training_constraints=[TrainingConstraint(name="test", value=0.5, operator=MetricOperator.GREATER_THAN)]
@@ -107,7 +113,7 @@ def test_task_router(monkeypatch):
     test_future = Future()
     monkeypatch.setattr("superai.data_program.task.basic.Task._create_task_future", lambda *args, **kwargs: test_future)
 
-    params = SuperTaskConfig(workers=[Worker(type=WorkerType.collaborators)], strategy=TaskStrategy.FIRST_COMPLETED)
+    params = SuperTaskConfig(workers=[CollaboratorWorker()], strategy=TaskStrategy.FIRST_COMPLETED)
 
     class TestInput(BaseModel):
         url: str
@@ -144,7 +150,7 @@ def test_super_task_workflow(monkeypatch, mocker):
     mocker.patch("superai.data_program.protocol.task.serve_workflow")
     mocker.patch("superai.data_program.protocol.transport.subscribe_workflow")
 
-    params = SuperTaskConfig(workers=[Worker(type=WorkerType.collaborators)], strategy=TaskStrategy.FIRST_COMPLETED)
+    params = SuperTaskConfig(workers=[CollaboratorWorker()], strategy=TaskStrategy.FIRST_COMPLETED)
     model = SuperTaskModel.create(name="test", config=params, input=TestInput, output=TestOutput)
     workflow = SuperTaskWorkflow(model, prefix="test_dp")
 

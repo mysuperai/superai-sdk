@@ -10,15 +10,20 @@ from typing import Optional
 
 from superai_schema.types import BaseModel, Field
 
-from superai.data_program import DataProgram, HandlerOutput, JobContext, Project
+from superai.data_program import (
+    BotWorker,
+    CollaboratorWorker,
+    DataProgram,
+    HandlerOutput,
+    JobContext,
+    Project,
+)
 from superai.data_program.task.types import (
     DPSuperTaskConfigs,
     SuperTaskConfig,
     SuperTaskModel,
     SuperTaskParameters,
     TaskStrategy,
-    Worker,
-    WorkerType,
 )
 from superai.data_program.workflow import WorkflowConfig
 
@@ -94,7 +99,7 @@ if __name__ == "__main__":
         # This is mandatory if you want to use SuperTasks in your DataProgram
         default_super_task_configs={
             "test_task": SuperTaskConfig(
-                workers=[Worker(type=WorkerType.collaborators), Worker(type=WorkerType.bots)],
+                workers=[CollaboratorWorker(), BotWorker()],
                 params=SuperTaskParameters(strategy=TaskStrategy.FIRST_COMPLETED),
             ),
         },

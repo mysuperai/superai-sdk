@@ -7,9 +7,9 @@ from superai.config import get_current_env
 from superai.log import logger
 from superai.utils import load_api_key, load_auth_token, load_id_token
 
+from . import WorkerType
 from .base import DataProgramBase
 from .data_program import DataProgram
-from .task.types import WorkerType
 from .utils import IgnoreInAgent
 
 log = logger.get_logger(__name__)

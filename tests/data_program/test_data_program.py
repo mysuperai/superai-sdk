@@ -7,15 +7,20 @@ import vcr
 from superai_schema.types import BaseModel, Field
 
 from superai.config import get_current_env, settings
-from superai.data_program import DataProgram, HandlerOutput, JobContext, Metric
+from superai.data_program import (
+    BotWorker,
+    CollaboratorWorker,
+    DataProgram,
+    HandlerOutput,
+    JobContext,
+    Metric,
+)
 from superai.data_program.task.types import (
     DPSuperTaskConfigs,
     SuperTaskConfig,
     SuperTaskModel,
     SuperTaskParameters,
     TaskStrategy,
-    Worker,
-    WorkerType,
 )
 from superai.data_program.workflow import WorkflowConfig
 
@@ -149,7 +154,7 @@ def test_data_program_creation(mocker, set_qumes_active, use_dev_env_for_vcr, ha
     if handler == _dummy_handler_supertask:
         default_super_task_configs = {
             "test_task": SuperTaskConfig(
-                workers=[Worker(type=WorkerType.collaborators), Worker(type=WorkerType.bots)],
+                workers=[CollaboratorWorker(), BotWorker()],
                 params=SuperTaskParameters(strategy=TaskStrategy.FIRST_COMPLETED),
             ),
         }

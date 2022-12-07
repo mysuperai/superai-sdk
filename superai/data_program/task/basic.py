@@ -9,7 +9,8 @@ from superai.data_program.protocol.task import task
 from superai.data_program.protocol.transport import task_future
 from superai.log import logger
 
-from .types import TaskIOPayload, WorkerType
+from .types import TaskIOPayload
+from .workers import WorkerType
 
 log = logger.get_logger(__name__)
 
