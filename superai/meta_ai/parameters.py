@@ -371,7 +371,7 @@ class AiDeploymentParameters(BaseModel):
     model_timeout_seconds: Optional[int] = Field(
         20,
         gt=0,
-        le=60,
+        le=180,
         description="""The expected time of the model to complete one average prediction.
         Will be used to cancel waiting for overwhelmed models to complete."
         The upper bound is a hard limit given by backend constraints.
