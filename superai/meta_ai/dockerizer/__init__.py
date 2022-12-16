@@ -375,19 +375,18 @@ def get_docker_client() -> DockerClient:
     return client
 
 
-def get_boto_session(profile_name="default", region_name="us-east-1") -> Session:
-    """Get a boto3 session with the given profile name. For the superai profile, an error message will be raised if
+def get_boto_session(region_name="us-east-1") -> Session:
+    """Get a boto3 session. For the superai profile, an error message will be raised if
     credentials are expired
 
     Args:
-        profile_name: Name of the profile
         region_name: Name of the region
 
     Returns:
         Boto3 session
     """
     try:
-        session = boto3.session.Session(region_name=region_name, profile_name=profile_name)
+        session = boto3.session.Session(region_name=region_name)
         _ = session.client("sts").get_caller_identity()["Account"]
         return session
     except ClientError as client_error:
