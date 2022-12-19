@@ -347,11 +347,17 @@ class AiImageBuilder:
             self.environs.add_or_update("PERSISTENCE=0")
             self.environs.add_or_update("API_TYPE=REST")
             self.environs.add_or_update("SELDON_MODE=true")
-        command = (
-            f"s2i build -E {self.environs.location} "
+        build_envs = [
             f"-v {os.path.join(os.path.expanduser('~'), '.aws')}:/root/.aws "
             f"-v {os.path.join(os.path.expanduser('~'), '.superai')}:/root/.superai "
             f"-v {os.path.join(os.path.expanduser('~'), '.canotic')}:/root/.canotic "
+        ]
+        if os.getenv("AWS_PROFILE"):
+            build_envs.append(f"-e AWS_PROFILE={os.getenv('AWS_PROFILE')}")
+
+        command = (
+            f"s2i build -E {self.environs.location} "
+            f"{' '.join(build_envs)} "
             f"--incremental=True . "
             f"{base_image_tag} {image_tag}"
         )
