@@ -1,6 +1,6 @@
 import enum
-from abc import ABC, abstractmethod
-from typing import ClassVar, Dict, List, Optional
+from abc import ABC
+from typing import Dict, List, Optional
 
 from pydantic import Extra, Field
 from superai_schema.types import BaseModel
@@ -151,11 +151,9 @@ class Worker(BaseModel, ABC):
     confidence_threshold: Optional[float] = Field(
         0.0, ge=0.0, le=1.0, description="Allows rejecting task results with a confidence score below the threshold."
     )
-
-    @property
-    @abstractmethod
-    def type(self) -> WorkerType:
-        """Returns the type of the worker"""
+    type: Literal[WorkerType.crowd, WorkerType.collaborators, WorkerType.bots, WorkerType.ai] = Field(
+        ..., description="Type of the worker."
+    )
 
     class Config:
         extra = Extra.forbid
@@ -167,7 +165,7 @@ class CrowdWorker(Worker):
     """
 
     worker_constraints: Optional[HumanWorkerConstraint] = Field(None, title="Worker Constraints")
-    type: ClassVar[WorkerType] = WorkerType.crowd
+    type: Literal[WorkerType.crowd] = WorkerType.crowd
 
 
 class CollaboratorWorker(Worker):
@@ -176,7 +174,7 @@ class CollaboratorWorker(Worker):
     """
 
     worker_constraints: Optional[HumanWorkerConstraint] = Field(None, title="Worker Constraints")
-    type: ClassVar[WorkerType] = WorkerType.collaborators
+    type: Literal[WorkerType.collaborators] = WorkerType.collaborators
 
 
 class AIWorker(Worker):
@@ -184,7 +182,7 @@ class AIWorker(Worker):
     It is a subclass of the Worker class and adds a field for the UI to show.
     """
 
-    type: ClassVar[WorkerType] = WorkerType.ai
+    type: Literal[WorkerType.ai] = WorkerType.ai
     field_mappings: Optional[Dict[str, str]] = Field(
         None, description="Allows mapping the task output to a specific field in the job input."
     )
@@ -196,4 +194,4 @@ class BotWorker(Worker):
     """
 
     worker_constraints: BotWorkerConstraint = Field(BotWorkerConstraint(), title="Worker Constraints")
-    type: ClassVar[WorkerType] = WorkerType.bots
+    type: Literal[WorkerType.bots] = WorkerType.bots

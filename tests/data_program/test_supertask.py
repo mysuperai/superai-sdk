@@ -24,6 +24,7 @@ from superai.data_program.task.workers import (
     TrainingConstraintSet,
     Worker,
     WorkerConstraint,
+    WorkerType,
 )
 
 
@@ -44,10 +45,17 @@ def test__map_worker_constraints():
     assert constraints["included_ids"][0] == 1
 
 
-def test_abstract_worker_instance():
-    """Worker should not be instantiated directly"""
-    with pytest.raises(TypeError):
+def test_worker_instance():
+    """Worker should not be instantiated without type"""
+    with pytest.raises(ValidationError):
         Worker()
+
+
+def test_worker_type_in_worker():
+    """Ensure that the `type` key is part of the dict when using pydantic's dict() method"""
+    worker = CollaboratorWorker()
+    worker_dict = worker.dict()
+    assert worker_dict["type"] == WorkerType.collaborators
 
 
 def test_worker_min_items():
