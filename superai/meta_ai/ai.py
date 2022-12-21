@@ -886,6 +886,7 @@ class AI:
         use_internal=False,
         build_all_layers=False,
         download_base=False,
+        **kwargs,
     ) -> Tuple[str, str]:
         """Build the image and return the image name.
         Args:
