@@ -225,14 +225,19 @@ class TaskRouter:
         return task_future
 
     @staticmethod
-    def _map_worker_constraints(w) -> dict:
+    def _map_worker_constraints(w: Worker) -> dict:
         """Map constraints from the worker model to the task constraints understandable by the backend."""
         constraints = {}
         if w.worker_constraints:
-            constraints["included_ids"] = w.worker_constraints.worker_id
-            constraints["emails"] = w.worker_constraints.email
-            constraints["groups"] = w.worker_constraints.groups
-            constraints["excluded_groups"] = w.worker_constraints.excluded_groups
-            if "trainings" in w.worker_constraints:
+            constraint_dict = w.worker_constraints.dict()
+            if "workerId" in constraint_dict:
+                constraints["included_ids"] = w.worker_constraints.worker_id
+            if "email" in constraint_dict:
+                constraints["email"] = w.worker_constraints.email
+            if "groups" in constraint_dict:
+                constraints["groups"] = w.worker_constraints.groups
+            if "excludedGroups" in constraint_dict:
+                constraints["excluded_groups"] = w.worker_constraints.excluded_groups
+            if "trainings" in constraint_dict:
                 constraints["qualifications"] = w.worker_constraints.trainings.get_metrics_list()
         return constraints

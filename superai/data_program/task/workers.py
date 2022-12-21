@@ -117,7 +117,7 @@ class HumanWorkerConstraint(WorkerConstraint):
     excluded_groups: Optional[List[str]] = Field(None, description="Exclude workers by their group membership.")
 
 
-class BotWorkerConstraint(BaseModel):
+class BotWorkerConstraint(WorkerConstraint):
     """Force a task to be completed by a bot worker. Identified by literal 'BOTS' group."""
 
     groups: List[Literal["BOTS"]] = Field(["BOTS"], description="Force a task to be completed by a bot worker.")
@@ -151,9 +151,7 @@ class Worker(BaseModel, ABC):
     confidence_threshold: Optional[float] = Field(
         0.0, ge=0.0, le=1.0, description="Allows rejecting task results with a confidence score below the threshold."
     )
-    type: Literal[WorkerType.crowd, WorkerType.collaborators, WorkerType.bots, WorkerType.ai] = Field(
-        ..., description="Type of the worker."
-    )
+    type: Literal["crowd", "bots", "collaborators", "ai"] = Field(..., description="Type of the worker.")
 
     class Config:
         extra = Extra.forbid
@@ -165,7 +163,7 @@ class CrowdWorker(Worker):
     """
 
     worker_constraints: Optional[HumanWorkerConstraint] = Field(None, title="Worker Constraints")
-    type: Literal[WorkerType.crowd] = WorkerType.crowd
+    type: Literal["crowd"] = WorkerType.crowd.value
 
 
 class CollaboratorWorker(Worker):
@@ -174,7 +172,7 @@ class CollaboratorWorker(Worker):
     """
 
     worker_constraints: Optional[HumanWorkerConstraint] = Field(None, title="Worker Constraints")
-    type: Literal[WorkerType.collaborators] = WorkerType.collaborators
+    type: Literal["collaborators"] = WorkerType.collaborators.value
 
 
 class AIWorker(Worker):
@@ -182,7 +180,7 @@ class AIWorker(Worker):
     It is a subclass of the Worker class and adds a field for the UI to show.
     """
 
-    type: Literal[WorkerType.ai] = WorkerType.ai
+    type: Literal["ai"] = WorkerType.ai.value
     field_mappings: Optional[Dict[str, str]] = Field(
         None, description="Allows mapping the task output to a specific field in the job input."
     )
@@ -194,4 +192,4 @@ class BotWorker(Worker):
     """
 
     worker_constraints: BotWorkerConstraint = Field(BotWorkerConstraint(), title="Worker Constraints")
-    type: Literal[WorkerType.bots] = WorkerType.bots
+    type: Literal["bots"] = WorkerType.bots.value

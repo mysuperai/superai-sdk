@@ -18,6 +18,7 @@ from superai.data_program.task.types import (
     TaskStrategy,
 )
 from superai.data_program.task.workers import (
+    BotWorker,
     HumanWorkerConstraint,
     MetricOperator,
     TrainingConstraint,
@@ -37,11 +38,13 @@ def test_worker_schema():
 
 def test__map_worker_constraints():
     worker = CollaboratorWorker(worker_constraints=HumanWorkerConstraint(email=["test@test.com"], worker_id=[1]))
+    print(worker.dict())
     constraints = TaskRouter._map_worker_constraints(worker)
-    assert "emails" in constraints
+    print(constraints)
+    assert "email" in constraints
     assert "included_ids" in constraints
     print(constraints)
-    assert constraints["emails"][0] == "test@test.com"
+    assert constraints["email"][0] == "test@test.com"
     assert constraints["included_ids"][0] == 1
 
 
@@ -55,7 +58,16 @@ def test_worker_type_in_worker():
     """Ensure that the `type` key is part of the dict when using pydantic's dict() method"""
     worker = CollaboratorWorker()
     worker_dict = worker.dict()
-    assert worker_dict["type"] == WorkerType.collaborators
+    assert str(worker_dict["type"]) == WorkerType.collaborators.value
+
+
+def test_bot_worker():
+    bot = BotWorker()
+    assert str(bot.type) == "bots"
+    dict = bot.dict()
+    assert "workerConstraints" in dict
+    assert "groups" in dict["workerConstraints"]
+    assert dict["workerConstraints"]["groups"][0] == "BOTS"
 
 
 def test_worker_min_items():
@@ -121,7 +133,7 @@ def test_task_router(monkeypatch):
     test_future = Future()
     monkeypatch.setattr("superai.data_program.task.basic.Task._create_task_future", lambda *args, **kwargs: test_future)
 
-    params = SuperTaskConfig(workers=[CollaboratorWorker()], strategy=TaskStrategy.FIRST_COMPLETED)
+    params = SuperTaskConfig(workers=[CollaboratorWorker(), BotWorker()], strategy=TaskStrategy.FIRST_COMPLETED)
 
     class TestInput(BaseModel):
         url: str
