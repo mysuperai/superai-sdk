@@ -354,6 +354,12 @@ class AiImageBuilder:
         ]
         if os.getenv("AWS_PROFILE"):
             build_envs.append(f"-e AWS_PROFILE={os.getenv('AWS_PROFILE')}")
+        if os.getenv("AWS_ACCESS_KEY_ID"):
+            build_envs.append(f"-e AWS_ACCESS_KEY_ID={os.getenv('AWS_ACCESS_KEY_ID')}")
+        if os.getenv("AWS_SECRET_ACCESS_KEY"):
+            build_envs.append(f"-e AWS_SECRET_ACCESS_KEY={os.getenv('AWS_SECRET_ACCESS_KEY')}")
+        if os.getenv("AWS_SESSION_TOKEN"):
+            build_envs.append(f"-e AWS_SESSION_TOKEN={os.getenv('AWS_SESSION_TOKEN')}")
 
         command = (
             f"s2i build -E {self.environs.location} "
