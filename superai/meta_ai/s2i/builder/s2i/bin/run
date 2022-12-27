@@ -1,6 +1,12 @@
 #!/bin/bash -e
 set -x
 
+echo "Unsetting all build env variables"
+unset AWS_PROFILE
+unset AWS_ACCESS_KEY_ID
+unset AWS_SECRET_ACCESS_KEY
+unset AWS_SESSION_TOKEN
+
 function _get_conda_envs() {
   # Printed value will be list of Conda envs
   /opt/conda/bin/conda env list | tail -n +3 | head -n -1 | cut -d' ' -f1
@@ -15,6 +21,7 @@ function _is_env_present() {
   echo "$_conda_envs" | grep -qw "$1"
   return $?
 }
+
 
 #check environment vars
 if [[ -z "$MODEL_NAME" ]]; then
