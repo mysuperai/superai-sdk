@@ -157,7 +157,7 @@ class DPServer:
             # super_task_params = app_params.super_task_params
             # handler_output = _call_handler(self.handler_fn, app_params.parms, super_task_params)
             handler_output = _call_handler(self.handler_fn, app_params.params, self.super_task_configs)
-            input_model, output_model = handler_output.input_model, handler_output.output_model
+            self.input_model, self.output_model = handler_output.input_model, handler_output.output_model
             # super_task_models = handler_output.super_tasks
 
             try:
@@ -185,10 +185,10 @@ class DPServer:
                     )
 
             response = SchemaServerResponse(
-                input_schema=input_model.schema(),
-                input_ui_schema=input_model.ui_schema() if issubclass(input_model, UiWidget) else {},
-                output_schema=output_model.schema(),
-                output_ui_schema=output_model.ui_schema() if issubclass(output_model, UiWidget) else {},
+                input_schema=self.input_model.schema(),
+                input_ui_schema=self.input_model.ui_schema() if issubclass(self.input_model, UiWidget) else {},
+                output_schema=self.output_model.schema(),
+                output_ui_schema=self.output_model.ui_schema() if issubclass(self.output_model, UiWidget) else {},
                 super_tasks=super_task_responses or None,  # This hides the key when it's empty
             )
             return response
