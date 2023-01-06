@@ -352,7 +352,26 @@ class AI:
         log.info(f"Downloading and unpacking AI object from bucket `{bucket_name}` and path `{path_to_object}`")
         s3.download_file(bucket_name, path_to_object, os.path.join(download_folder, "AISavedModel.tar.gz"))
         with tarfile.open(os.path.join(download_folder, "AISavedModel.tar.gz")) as tar:
-            tar.extractall(path=os.path.join(download_folder, "AISavedModel"))
+            def is_within_directory(directory, target):
+                
+                abs_directory = os.path.abspath(directory)
+                abs_target = os.path.abspath(target)
+            
+                prefix = os.path.commonprefix([abs_directory, abs_target])
+                
+                return prefix == abs_directory
+            
+            def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+            
+                for member in tar.getmembers():
+                    member_path = os.path.join(path, member.name)
+                    if not is_within_directory(path, member_path):
+                        raise Exception("Attempted Path Traversal in Tar File")
+            
+                tar.extractall(path, members, numeric_owner) 
+                
+            
+            safe_extract(tar, path=os.path.join(download_folder,"AISavedModel"))
         return cls.load_local(
             load_path=os.path.join(download_folder, "AISavedModel", "ai"),
             weights_path=weights_path,
