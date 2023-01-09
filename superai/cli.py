@@ -36,6 +36,7 @@ from superai.utils import (
 )
 from superai.utils.files import download_file_to_directory
 from superai.utils.pip_config import pip_configure
+from superai.utils.sso_login import sso_login
 
 BASE_FOLDER = get_config_dir()
 COGNITO_USERPOOL_ID = settings.get("cognito", {}).get("userpool_id")
@@ -631,6 +632,15 @@ def delete_workflow(ctx, dp_qualified_name, workflow_name):
 def config(api_key):
     """Sets API key."""
     save_api_key(api_key)
+
+
+@cli.command()
+@click.option("--account-name", "-a", help="A valid account name", default="superai", show_default=True)
+@click.option("--role-name", "-r", help="A valid role name", default="SuperAIDeveloper", show_default=True)
+@click.option("--start-url", help="SSO start URL", default="https://superai.awsapps.com/start", show_default=True)
+@click.option("--region", help="AWS region", default="us-east-1", show_default=True)
+def login_sso(account_name, role_name, start_url, region):
+    sso_login(account_name, role_name, start_url, region)
 
 
 @cli.command()

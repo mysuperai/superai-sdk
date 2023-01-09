@@ -84,7 +84,7 @@ def update_cognito_credentials() -> Tuple[str, str]:
     cog_client = boto3.client("cognito-idp", COGNITO_REGION)
 
     refresh_token = load_refresh_token()
-    # Initate authentication with the refresh token.
+    # Initiate authentication with the refresh token.
     resp_auth = cog_client.initiate_auth(
         ClientId=COGNITO_CLIENT_ID, AuthFlow="REFRESH_TOKEN_AUTH", AuthParameters={"REFRESH_TOKEN": refresh_token}
     )
