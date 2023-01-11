@@ -61,11 +61,14 @@ def create_endpoint(
 
     container = f"{account_id}.dkr.ecr.{region}.amazonaws.com/{image_name}:{version}"
     model_name = f"DEMO-{image_name.replace('_', '-')}-{version}-" + time.strftime("%Y-%m-%d-%H-%M-%S", time.gmtime())
-    log.info("Container image: " + container)
-    log.info("Model name: " + model_name)
-    log.info("Model data Url: " + model_url)
+    log.info(f"Container image: {container}")
+    log.info(f"Model name: {model_name}")
+    log.info(f"Model data Url: {model_url}")
 
-    assert mode in ["SingleModel", "MultiModel"], "Mode should be one of ['SingleModel', 'MultiModel']"
+    assert mode in {
+        "SingleModel",
+        "MultiModel",
+    }, "Mode should be one of ['SingleModel', 'MultiModel']"
     container = {"Image": container, "ModelDataUrl": model_url, "Mode": mode}
 
     try:
@@ -83,7 +86,7 @@ def create_endpoint(
     endpoint_config_name = f"Deploy-{image_name.replace('_', '-')}-{version}-" + time.strftime(
         "%Y-%m-%d-%H-%M-%S", time.gmtime()
     )
-    log.info("Endpoint config name: " + endpoint_config_name)
+    log.info(f"Endpoint config name: {endpoint_config_name}")
 
     create_endpoint_config_response = sm_client.create_endpoint_config(
         EndpointConfigName=endpoint_config_name,
@@ -101,7 +104,7 @@ def create_endpoint(
     log.info("Endpoint config Arn: " + create_endpoint_config_response["EndpointConfigArn"])
 
     endpoint_name = f"DEMO-{image_name.replace('_', '-')}-{version}"
-    log.info("Endpoint name: " + endpoint_name)
+    log.info(f"Endpoint name: {endpoint_name}")
     try:
         create_endpoint_response = sm_client.create_endpoint(
             EndpointName=endpoint_name, EndpointConfigName=endpoint_config_name
@@ -117,7 +120,7 @@ def create_endpoint(
 
     resp = sm_client.describe_endpoint(EndpointName=endpoint_name)
     status = resp["EndpointStatus"]
-    log.info("Endpoint Status: " + status)
+    log.info(f"Endpoint Status: {status}")
 
     log.info(f"Waiting for {endpoint_name} endpoint to be in service...")
     waiter = sm_client.get_waiter("endpoint_in_service")
@@ -141,7 +144,7 @@ def upload_model_to_s3(bucket: str, prefix: str, model: str):
         s3.create_bucket(Bucket=bucket, CreateBucketConfiguration={"LocationConstraint": boto3.Session().region_name})
 
     key = os.path.join(prefix, model)
-    with open("data/" + model, "rb") as file_obj:
+    with open(f"data/{model}", "rb") as file_obj:
         s3.Bucket(bucket).Object(key).upload_fileobj(file_obj)
         log.info(f"Loaded model to bucket: {bucket}, prefix: {prefix}, with path: {model}")
 
@@ -153,7 +156,7 @@ def invoke_local(mime: str, body: str):
         mime: MIME type
         body: Body or path to file to be passed as payload
     """
-    url = f"http://localhost/model/predict"
+    url = "http://localhost/model/predict"
     headers = {"Content-Type": mime}
     if mime.endswith("json"):
         res = requests.post(url, json=body, headers=headers)
@@ -210,10 +213,9 @@ def invoke_sagemaker_endpoint(
     if runtime_sm_client is None:
         runtime_sm_client = get_sagemaker_runtime_client(mode=mode, target_model=target_model, arn_role=arn_role)
     body = payload
-    if not mime.endswith("json"):
-        if os.path.exists(payload):
-            with open(payload, "rb") as f:
-                body = f.read()
+    if not mime.endswith("json") and os.path.exists(payload):
+        with open(payload, "rb") as f:
+            body = f.read()
     if mode == "SingleModel":
         response = runtime_sm_client.invoke_endpoint(EndpointName=endpoint, ContentType=mime, Body=body)
     else:

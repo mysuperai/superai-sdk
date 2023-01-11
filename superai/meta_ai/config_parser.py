@@ -35,22 +35,20 @@ class TemplateConfig(BaseModel):
 
     @validator("requirements")
     def check_requirements(cls, v: Optional[Union[str, List[str]]]) -> Optional[Union[str, List[str]]]:
-        if v is not None:
-            if isinstance(v, str):
-                requirements_file_path = Path(v)
-                assert requirements_file_path.exists(), "Should exist"
-                assert requirements_file_path.is_file(), "Should point to a valid requirements file"
-                assert ".txt" in os.path.splitext(v), "Should be a text file"
+        if v is not None and isinstance(v, str):
+            requirements_file_path = Path(v)
+            assert requirements_file_path.exists(), "Should exist"
+            assert requirements_file_path.is_file(), "Should point to a valid requirements file"
+            assert ".txt" in os.path.splitext(v), "Should be a text file"
         return v
 
     @validator("conda_env")
     def check_conda_env(cls, v: Optional[Union[str, dict]]) -> Optional[Union[str, dict]]:
-        if v is not None:
-            if isinstance(v, str):
-                conda_env_path = Path(v)
-                assert conda_env_path.exists(), "Should exist"
-                assert conda_env_path.is_file(), "Should point to a valid conda env file"
-                assert ".yml" in os.path.splitext(v) or ".yaml" in os.path.splitext(v), "Should be a YAML file"
+        if v is not None and isinstance(v, str):
+            conda_env_path = Path(v)
+            assert conda_env_path.exists(), "Should exist"
+            assert conda_env_path.is_file(), "Should point to a valid conda env file"
+            assert ".yml" in os.path.splitext(v) or ".yaml" in os.path.splitext(v), "Should be a YAML file"
         return v
 
     @validator("model_class_path")
@@ -157,9 +155,8 @@ class TrainingDeployConfig(BaseModel):
 
     @root_validator()
     def check_push(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        if not values.get("push", False):
-            if values.get("update_weights", False) or values.get("overwrite", False):
-                logger.warning("`update_weights` and `overwrite` will be ignored as `push` is set to False")
+        if not values.get("push", False) and (values.get("update_weights", False) or values.get("overwrite", False)):
+            logger.warning("`update_weights` and `overwrite` will be ignored as `push` is set to False")
         return values
 
 
@@ -180,9 +177,8 @@ class TrainingDeploymentFromApp(BaseModel):
 
     @root_validator()
     def check_push(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        if not values.get("push", False):
-            if values.get("update_weights", False) or values.get("overwrite", False):
-                logger.warning("`update_weights` and `overwrite` will be ignored as `push` is set to False")
+        if not values.get("push", False) and (values.get("update_weights", False) or values.get("overwrite", False)):
+            logger.warning("`update_weights` and `overwrite` will be ignored as `push` is set to False")
         return values
 
 

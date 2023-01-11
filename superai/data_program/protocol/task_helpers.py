@@ -63,22 +63,19 @@ def resend_task(
             getter = getattr(result.response(), "get", None)
             if callable(getter) and len(getter("values", [])) > 0:
                 return result
-            else:
-                log.warning("completed task, but empty task response.")
-                log.info(f"resending task, trial no. {n_tries + 1}")
-                continue
+            log.warning("completed task, but empty task response.")
+            log.info(f"resending task, trial no. {n_tries + 1}")
         elif result.status() in ["EXPIRED", "REJECTED"]:
             log.info(f"resending task, trial no. {n_tries + 1}")
-            continue
         else:
             raise UnknownTaskStatus(str(result.status()))
-    raise TaskExpiredMaxRetries("No crowd hero responded to task after " + str(n_resend) + "retries.")
+    raise TaskExpiredMaxRetries(f"No crowd hero responded to task after {str(n_resend)} retries.")
 
 
 def multiple_hero_task(num_heroes=1, agreement_score=True, **resend_task_kwargs):
     sent_heroes = []
     responses = []
-    for i in range(num_heroes):
+    for _ in range(num_heroes):
         result = resend_task(excluded_ids=sent_heroes, **resend_task_kwargs)
         responses.append(result.response())
         sent_heroes.append(result.hero())
@@ -125,7 +122,4 @@ def task_combiner(responses, agreement_score=True):
             ]
         responses_out.append(majority_vote_result)
         scores.append(score)
-    if agreement_score:
-        return responses_out, scores
-    else:
-        return responses_out
+    return (responses_out, scores) if agreement_score else responses_out

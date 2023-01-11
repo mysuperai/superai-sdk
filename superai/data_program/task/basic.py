@@ -18,7 +18,7 @@ log = logger.get_logger(__name__)
 class Task:
     def __init__(self, name: str = None, max_attempts: int = 1):
         self.name = name or f"TaskName-{uuid.uuid4()}"
-        self.max_attempts = 1 if not max_attempts else max_attempts
+        self.max_attempts = max_attempts or 1
         self._task_future = None
         self._task_future_result = None
 
@@ -152,16 +152,14 @@ class Task:
                 log.info("task succeeded")
                 if len(self._task_future_result.response()) > 0:
                     return self._task_future_result
-                else:
-                    log.warning("completed task, but empty task response.")
-                    log.info(f"resending task, trial no. {n_tries + 1}")
-                    continue
+                log.warning("completed task, but empty task response.")
+                log.info(f"resending task, trial no. {n_tries + 1}")
             elif self._task_future_result.status() in ["EXPIRED", "REJECTED"]:
                 log.info(f"resending task, trial no. {n_tries + 1}")
                 continue
             else:
                 raise UnknownTaskStatus(str(self._task_future_result.status()))
-        raise TaskExpired("No crowd hero responded to task after " + str(self.max_attempts) + "retries.")
+        raise TaskExpired(f"No crowd hero responded to task after {str(self.max_attempts)} retries.")
 
 
 def model_to_task_io_payload(m: BaseModel) -> TaskIOPayload:

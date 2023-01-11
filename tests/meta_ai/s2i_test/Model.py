@@ -37,6 +37,7 @@ class Model(BaseModel):
         model_parameters: ModelParameters = None,
         callbacks=None,
         random_seed=default_random_seed,
+        **kwargs,
     ):
         pass
 

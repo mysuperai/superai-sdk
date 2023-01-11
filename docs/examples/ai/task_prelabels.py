@@ -15,7 +15,7 @@ dp_definition = {
 }
 
 # Using uuid.getnode() to get a unique name for your first dataprogram
-DP_NAME = "MyFirstWorkflow" + str(uuid.getnode())
+DP_NAME = f"MyFirstWorkflow {str(uuid.getnode())}"
 
 # Creating a dataprogram object
 dp = DataProgram(name=DP_NAME, definition=dp_definition, add_basic_workflow=False)
@@ -59,17 +59,16 @@ def my_workflow(inputs, params, predictions, tasks, **kwargs):
     task1.process(task_inputs=task1_inputs, task_outputs=task1_outputs)
     task1_response = task1.output.get("values", [])[0].get("schema_instance")
 
-    if task1_response.get("selection", {}).get("value") == "yes":
-        task2 = tasks.get("choose_number")
-        task2_inputs = [
-            df.text("Choose the correct number"),
-            df.image(inputs.get("mnist_image_url")),
-        ]
-        task2_outputs = [df.exclusive_choice(choices=params.get("choices", []))]
-        task2(task_inputs=task2_inputs, task_outputs=task2_outputs)
-    else:
+    if task1_response.get("selection", {}).get("value") != "yes":
         return {"mnist_class": {"choices": df.build_choices(params.get("choices", []))}}
 
+    task2 = tasks.get("choose_number")
+    task2_inputs = [
+        df.text("Choose the correct number"),
+        df.image(inputs.get("mnist_image_url")),
+    ]
+    task2_outputs = [df.exclusive_choice(choices=params.get("choices", []))]
+    task2(task_inputs=task2_inputs, task_outputs=task2_outputs)
     return {"mnist_class": task2.output.get("values", [])[0].get("schema_instance")}
 
 

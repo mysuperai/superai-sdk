@@ -107,7 +107,7 @@ class AiImageBuilder:
         """
         if not isinstance(self.orchestrator, self.ALLOWED_ORCHESTRATOR):
             raise ValueError(
-                f"Invalid Orchestrator={type(self.orchestrator)}, should be one of {[e for e in self.ALLOWED_ORCHESTRATOR]}"
+                f"Invalid Orchestrator={type(self.orchestrator)}, should be one of {list(self.ALLOWED_ORCHESTRATOR)}"
             )
 
     def prepare_entrypoint(self) -> None:
@@ -171,8 +171,10 @@ class AiImageBuilder:
             self.environs.add_or_update(key, value)
 
         self.prepare()
-        if not skip_build:
-            image_name = self.build_image_s2i(
+        return (
+            self.full_image_name(self.name, self.version)
+            if skip_build
+            else self.build_image_s2i(
                 self.name,
                 self.version,
                 enable_cuda=self.deployment_parameters.enable_cuda,
@@ -182,9 +184,7 @@ class AiImageBuilder:
                 always_download=download_base,
                 use_internal=use_internal,
             )
-        else:
-            image_name = self.full_image_name(self.name, self.version)
-        return image_name
+        )
 
     def _track_changes(
         self,
@@ -198,9 +198,8 @@ class AiImageBuilder:
             files.append("requirements.txt")
         if self.conda_env:
             files.append("environment.yml")
-        if self.artifacts:
-            if "run" in self.artifacts:
-                files.append("setup.sh")
+        if self.artifacts and "run" in self.artifacts:
+            files.append("setup.sh")
         changes_in_build = False
         cache_folder = os.path.join(cache_root, self.name, self.version)
         os.makedirs(cache_folder, exist_ok=True)
@@ -327,8 +326,7 @@ class AiImageBuilder:
         return full_image_name
 
     def full_image_name(self, image_name, version_tag):
-        full_image_name = f"{image_name}:{version_tag}"
-        return full_image_name
+        return f"{image_name}:{version_tag}"
 
     def _create_prediction_image_s2i(self, base_image_tag, image_tag, lambda_mode=False, k8s_mode=False):
         """Extracted method which creates the prediction image
@@ -389,8 +387,7 @@ class AiImageBuilder:
 
     def _get_docker_registry(self, region: str) -> str:
         account_id = boto3.client("sts").get_caller_identity()["Account"]
-        registry_name = f"{account_id}.dkr.ecr.{region}.amazonaws.com"
-        return registry_name
+        return f"{account_id}.dkr.ecr.{region}.amazonaws.com"
 
     @staticmethod
     def _get_base_name(
@@ -442,8 +439,8 @@ class AiImageBuilder:
 
 
 def kwargs_warning(allowed_kwargs: List[str], **kwargs: Dict[str, Any]) -> None:
-    if any([k not in allowed_kwargs for k in kwargs.keys()]):
+    if any(k not in allowed_kwargs for k in kwargs):
         log.warning(
-            f"Keyword arguments {[k for k in kwargs.keys() if k not in allowed_kwargs]} "
-            f"unknown, make sure you are passing the right keyword arguments"
+            f"Keyword arguments {[k for k in kwargs if k not in allowed_kwargs]} unknown, make sure you are "
+            f"passing the right keyword arguments"
         )

@@ -39,8 +39,10 @@ class Project:
         self.__dict__.update(kwargs)
         self.dataprogram: DataProgram = dataprogram
         self.dp_name = dp_name
-        self.client = (
-            client if client else Client(api_key=load_api_key(), auth_token=load_auth_token(), id_token=load_id_token())
+        self.client = client or Client(
+            api_key=load_api_key(),
+            auth_token=load_auth_token(),
+            id_token=load_id_token(),
         )
         # If the dp_name is not specified we assume that the data programmer's intention is to create a basic data
         # program dataprogram in order to quickly check how the data annotation works. Therefore we create a dataprogram from
@@ -218,8 +220,9 @@ class Project:
         if len(inputs) > 20 and not force_single_submission:
             labels.append(self.client.create_jobs(app_id=self.project_uuid, inputs=inputs, worker=worker.value()))
         else:
-            for input in inputs:
-                labels.append(self.client.create_jobs(app_id=self.project_uuid, inputs=[input], worker=worker.value()))
+            labels.extend(
+                self.client.create_jobs(app_id=self.project_uuid, inputs=[inp], worker=worker.value()) for inp in inputs
+            )
         log.info(f"Labels response: {labels}")
 
         url = self.get_url()

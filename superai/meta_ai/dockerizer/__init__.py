@@ -2,7 +2,7 @@ import os
 import shutil
 import subprocess
 import time
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import boto3  # type: ignore
 import docker  # type: ignore
@@ -17,7 +17,7 @@ from rich.progress import BarColumn, DownloadColumn, Progress, Task, Text
 from superai.log import logger
 
 from ... import config
-from ..exceptions import ModelDeploymentError
+from ..exceptions import ExpiredTokenException, ModelDeploymentError
 from .sagemaker_endpoint import (
     create_endpoint,
     invoke_local,
@@ -98,17 +98,13 @@ def update_docker_file(
         "RUN chmod +x /usr/local/bin/dockerd-entrypoint.py",
         "RUN pip --no-cache-dir install multi-model-server sagemaker-inference retrying awscli~=1.18.195",
         "RUN mkdir -p /home/model-server/",
-        f"COPY model_server/ /home/model-server/",
+        "COPY model_server/ /home/model-server/",
+        "ARG AWS_DEFAULT_REGION=us-east-1",
+        "RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true,uid=1000,gid=1000 "
+        "--mount=type=cache,target=/root/.cache/pip "
+        "aws codeartifact login --tool pip --domain superai --repository pypi-superai",
+        "RUN pip install superai_schema",
     ]
-    lines.extend(
-        [
-            "ARG AWS_DEFAULT_REGION=us-east-1",
-            f"RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true,uid=1000,gid=1000 "
-            f"--mount=type=cache,target=/root/.cache/pip "
-            f"aws codeartifact login --tool pip --domain superai --repository pypi-superai",
-            "RUN pip install superai_schema",
-        ]
-    )
     if has_requirements_file:
         log.info("Adding requirements.txt...")
         lines.extend(
@@ -185,7 +181,7 @@ def build_image(
         )
         file_str = template.render(args)
         ep_file.write(file_str)
-    log.info(f"Created server script and copied to -> `.dockerizer/dockerd-entrypoint.py`")
+    log.info("Created server script and copied to -> `.dockerizer/dockerd-entrypoint.py`")
 
     # Process Dockerfile
     if not os.path.exists(dockerfile):
@@ -218,7 +214,7 @@ def build_image(
         build = docker_client.images.build(path=".dockerizer", tag=image_name)
         log.info(f"Docker_api build : {build}")
     end = time.time()
-    log.info(f"Image `{image_name}:latest`" f" was built successfully. Elapsed time: {end - start:.3f} secs.")
+    log.info(f"Image `{image_name}:latest` was built successfully. Elapsed time: {end - start:.3f} secs.")
 
 
 def push_image(
@@ -313,13 +309,13 @@ def ecr_full_name(image_name, version, model_id, region: str = "us-east-1") -> T
     return full_name, registry_prefix, repository_name
 
 
-def ecr_registry_suffix(image_name: str, model_id: str, tag: str) -> Tuple[str, str]:
+def ecr_registry_suffix(image_name: str, model_id: str, tag: Union[str, int]) -> Tuple[str, str]:
     env = config.settings.get("name")
     full_suffix = f"{ECR_MODEL_ROOT_PREFIX}/{env}/{model_id}/{image_name}"
     if len(full_suffix + str(tag)) > 255:
         # AWS allows 256 characters for the name
         logger.warning("Image name is too long. Truncating to 255 characters...")
-        full_suffix = full_suffix[: 255 - len(str(tag))]
+        full_suffix = full_suffix[: 255 - len(tag)]
     full_suffix_with_version = f"{full_suffix}:{tag}"
     return full_suffix_with_version, full_suffix
 
@@ -371,7 +367,7 @@ def get_docker_client() -> DockerClient:
         client = docker.from_env(timeout=10)
         client.ping()
     except (DockerException, requests.ConnectionError) as e:
-        raise ModelDeploymentError("Could not find a running Docker daemon. Is Docker running?")
+        raise ModelDeploymentError("Could not find a running Docker daemon. Is Docker running?") from e
     return client
 
 
@@ -392,7 +388,9 @@ def get_boto_session(region_name="us-east-1") -> Session:
     except ClientError as client_error:
         if "ExpiredToken" in str(client_error):
             log.error(f"Obtained error : {client_error}")
-            raise Exception("Please log in to superai by performing 'superai login -u <username>'")
+            raise ExpiredTokenException(
+                "Please log in to superai by performing 'superai login -u <username>'"
+            ) from client_error
         else:
             log.error(f"Unexpected Exception: {client_error}")
             raise client_error

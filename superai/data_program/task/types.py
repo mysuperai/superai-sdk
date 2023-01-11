@@ -185,12 +185,11 @@ class SuperTaskModel(BaseModel):
             input=input,
             output=output,
         )
-        model = SuperTaskModel(
+        return SuperTaskModel(
             name=name,
             template=template,
             config=config,
         )
-        return model
 
 
 class SendSuperTask(Protocol[Output]):
@@ -237,7 +236,7 @@ class DPSuperTaskConfigs(BaseModel):
         """Turbines schema is a bit different from the SDK schema"""
         super_task_params_list = [SuperTaskSchemaResponse.parse_obj(stp) for stp in response]
         super_task_params_dict = {
-            stp.super_task_workflow.split(dp_name + ".")[1]: SuperTaskConfig.parse_obj(stp)
+            stp.super_task_workflow.split(f"{dp_name}.")[1]: SuperTaskConfig.parse_obj(stp)
             for stp in super_task_params_list
         }
         return cls.parse_obj(super_task_params_dict)

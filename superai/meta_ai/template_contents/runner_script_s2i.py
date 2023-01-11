@@ -49,14 +49,11 @@ class ModelService:
     def predict(self, context, data):
         data = json.loads(data[0]["body"].decode("utf-8"))
         if hasattr(self.user_object, "predict"):
-            result = self.user_object.predict(data)
-            return result
+            return self.user_object.predict(data)
         else:
             raise AttributeError(f"Missing `predict` method in user_object `{self.model_name}`")
 
     def handle(self, data, context):
         if not self.initialized:
             self.initialize()
-        if not data:
-            return None
-        return self.predict(context, data)
+        return self.predict(context, data) if data else None

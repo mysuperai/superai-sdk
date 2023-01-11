@@ -12,7 +12,7 @@ dp_definition = {
 }
 
 # Using uuid.getnode() to get a unique name for your first dataprogram
-DP_NAME = "MyFirstDataProgram" + str(uuid.getnode())
+DP_NAME = f"MyFirstDataProgram {str(uuid.getnode())}"
 
 # Creating a Project.
 project = Project(

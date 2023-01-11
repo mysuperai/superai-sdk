@@ -1,3 +1,4 @@
+import contextlib
 import json
 import os
 import pathlib
@@ -5,7 +6,7 @@ import shutil
 import signal
 import sys
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Union
 from urllib.parse import urlparse
 
 import click
@@ -45,6 +46,8 @@ COGNITO_REGION = settings.get("cognito", {}).get("region")
 
 log = logger.get_logger(__name__)
 
+save_file = ".AISave"
+
 
 def _signal_handler(s, f):
     sys.exit(1)
@@ -65,7 +68,7 @@ def info(verbose):
     load_api_key()
     click.echo(f"VERSION: {__version__}")
     click.echo(f"ENVIRONMENT: {get_current_env()}")
-    click.echo(f"USER: {settings.get('user',{}).get('username')}")
+    click.echo(f"USER: {settings.get('user', {}).get('username')}")
     if verbose:
         click.echo(yaml.dump(settings.as_dict(env=get_current_env()), default_flow_style=False))
 
@@ -102,17 +105,14 @@ def env_set(ctx, api_key, environment):
 def client(ctx):
     """Super.AI API operations."""
     api_key = ""
-    try:
+    with contextlib.suppress(Exception):
         api_key = load_api_key()
-    except Exception:
-        pass
     if len(api_key) == 0:
         print("User needs to login or set api key")
         exit()
-    ctx.obj = {}
-    ctx.obj["client"] = Client(
-        api_key=api_key, auth_token=settings.get("user", {}).get("cognito", {}).get("access_token")
-    )
+    ctx.obj = {
+        "client": Client(api_key=api_key, auth_token=settings.get("user", {}).get("cognito", {}).get("access_token"))
+    }
 
 
 # Create decorator to pass client object when needed
@@ -133,7 +133,7 @@ def create_jobs(ctx, app_id: str, callback_url: str, inputs: str, inputs_file: s
     if inputs is not None:
         try:
             json_inputs = json.loads(inputs)
-        except:
+        except Exception:
             print("Couldn't read json inputs")
             exit()
     print(client.create_jobs(app_id, callback_url, json_inputs, inputs_file))
@@ -251,7 +251,7 @@ def list_jobs(
     """Gets a paginated list of jobs (without response) given an application ID."""
     client = ctx.obj["client"]
     print(f"Fetching jobs per application {app_id}")
-    if len(status_in) == 0:
+    if not status_in:
         status_in = None
     print(
         client.list_jobs(
@@ -329,7 +329,7 @@ def download_jobs(
     """Triggers processing of job responses that is sent to customer email (default) once is finished."""
     client = ctx.obj["client"]
     print(f"Triggering job responses processing per application {app_id}")
-    if len(status_in) == 0:
+    if not status_in:
         status_in = None
     print(
         client.download_jobs(
@@ -423,7 +423,7 @@ def download_tasks(
     """Trigger download of tasks data that can be retrieved using task operation id."""
     client = ctx.obj["client"]
     print(f"Triggering task download processing per application {app_id}")
-    if len(status_in) == 0:
+    if not status_in:
         status_in = None
     print(
         client.download_tasks(
@@ -493,7 +493,7 @@ def download_data(ctx, data_url: str, path: str):
     try:
         download_file_to_directory(url=signed_url, filename=filename, path=path)
     except RuntimeError as e:
-        raise SuperAIStorageError(str(e))
+        raise SuperAIStorageError(str(e)) from e
 
 
 @client.command(name="create_ground_truth")
@@ -515,19 +515,19 @@ def create_ground_truth(
     if input_json is not None:
         try:
             input_dict = json.loads(input_json)
-        except:
+        except Exception:
             print("Couldn't load input json of ground truth")
             exit()
     if metadata is not None:
         try:
             metadata_dict = json.loads(metadata)
-        except:
+        except Exception:
             print("Couldn't load metadata json of ground truth")
             exit()
     if label is not None:
         try:
             label_dict = json.loads(label)
-        except:
+        except Exception:
             print("Couldn't load label json of ground truth")
             exit()
     print(client.create_ground_truth(app_id, input_dict, label_dict, tag, metadata_dict))
@@ -552,19 +552,19 @@ def update_ground_truth(
     if input_json is not None:
         try:
             input_dict = json.loads(input_json)
-        except:
+        except Exception:
             print("Couldn't load input json of ground truth")
             exit()
     if metadata is not None:
         try:
             metadata_dict = json.loads(metadata)
-        except:
+        except Exception:
             print("Couldn't load metadata json of ground truth")
             exit()
     if label is not None:
         try:
             label_dict = json.loads(label)
-        except:
+        except Exception:
             print("Couldn't load label json of ground truth")
             exit()
     print(client.update_ground_truth(ground_truth_data_id, input_dict, label_dict, tag, metadata_dict))
@@ -607,6 +607,7 @@ def delete_ground_truth_data(ctx, ground_truth_data_id: str):
 @click.option("-job_id", "-j", help="Job id", required=True)
 @click.pass_context
 def create_ground_truth_from_job(ctx, app_id: str, job_id: str):
+    """Create ground truth from job"""
     client = ctx.obj["client"]
     print(f"Converting job {job_id} to ground truth data")
     print(client.create_ground_truth_from_job(app_id, job_id))
@@ -640,6 +641,7 @@ def config(api_key):
 @click.option("--start-url", help="SSO start URL", default="https://superai.awsapps.com/start", show_default=True)
 @click.option("--region", help="AWS region", default="us-east-1", show_default=True)
 def login_sso(account_name, role_name, start_url, region):
+    """Login to SSO and add temporary key to the AWS credentials file"""
     sso_login(account_name, role_name, start_url, region)
 
 
@@ -666,16 +668,14 @@ def login(username, password, show_pip):
     try:
         user.authenticate(password)
     except ClientError as e:
-        if (
-            e.response["Error"]["Code"] == "UserNotFoundException"
-            or e.response["Error"]["Code"] == "NotAuthorizedException"
-        ):
+        if e.response["Error"]["Code"] in [
+            "UserNotFoundException",
+            "NotAuthorizedException",
+        ]:
             print("Incorrect username or password")
-            return
         else:
             print(f"Unexpected error: {e}")
-            return
-
+        return
     client = Client(auth_token=user.access_token, id_token=user.id_token)
     api_keys = client.get_apikeys()
     if len(api_keys) > 0:
@@ -714,7 +714,7 @@ def ai():
 @click.option("--name", required=False, help="Filter by model name.")
 @click.option("--version", required=False, help="Filter by model version.")
 @pass_client
-def list_ai(client, name: str, version: str):
+def list_ai(client, name: Union[click.UUID, str], version: Union[int, str]):
     """List available models"""
     if name is None:
         print(client.get_all_models())
@@ -727,7 +727,7 @@ def list_ai(client, name: str, version: str):
 @ai.command("view")
 @click.argument("id", type=click.UUID)
 @pass_client
-def get_ai(client, id: str):
+def get_ai(client, id: Union[click.UUID, str]):
     """View model parameters"""
     print(client.get_model(str(id)))
 
@@ -744,7 +744,7 @@ def get_ai(client, id: str):
     show_choices=True,
 )
 @pass_client
-def update_ai(client, id: str, name: str, description: str, visibility: str):
+def update_ai(client, id: Union[click.UUID, str], name: str, description: str, visibility: str):
     """Update model parameters"""
     params = {}
     if name is not None:
@@ -770,10 +770,15 @@ def update_ai(client, id: str, name: str, description: str, visibility: str):
 )
 @click.option("--timeout", required=False, help="Timeout in seconds", type=int, default=360)
 @pass_client
-def download_artifact(client, id: str, artifact_type: str, app_id: str, path: str, timeout: int):
+def download_artifact(
+    client, id: Union[str, click.UUID], artifact_type: str, app_id: Union[str, click.UUID], path: str, timeout: int
+):
     """Download model artifact"""
     url = client.get_artifact_download_url(
-        model_id=str(id), artifact_type=artifact_type, app_id=app_id, timeout=timeout
+        model_id=str(id),
+        artifact_type=artifact_type,
+        app_id=str(app_id),
+        timeout=timeout,
     )
 
     parsed = urlparse(url)
@@ -879,6 +884,7 @@ def train(
     callbacks,
     train_logger,
 ):
+    """Start training locally"""
     from superai.meta_ai.ai import AI
     from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters
 
@@ -936,6 +942,7 @@ def train(
     type=click.Path(file_okay=False, path_type=pathlib.Path),
 )
 def predict(path, json_input=None, data_path: str = None, weights_path=None, metrics_output_dir=None):
+    """Load a model and predict"""
     from superai.meta_ai.ai_helper import load_and_predict
 
     result = load_and_predict(
@@ -950,7 +957,7 @@ def predict(path, json_input=None, data_path: str = None, weights_path=None, met
 
 @ai.group(help="Deployed models running in our infrastructure")
 def deployment():
-    pass
+    """Deployment CLI group"""
 
 
 @deployment.command("list")
@@ -989,7 +996,7 @@ def list_deployments(
 @deployment.command("view")
 @click.argument("id", type=click.UUID)
 @pass_client
-def view_deployment(client, id: str):
+def view_deployment(client, id: Union[str, click.UUID]):
     """View deployment parameters"""
     print(client.get_deployment(str(id)))
 
@@ -1004,7 +1011,7 @@ def view_deployment(client, id: str):
     show_default=True,
 )
 @pass_client
-def start_deployment(client, id: str, wait: int):
+def start_deployment(client, id: Union[str, click.UUID], wait: int):
     """Create a deployment for the model."""
     print("Starting deployment...")
     if wait:
@@ -1026,7 +1033,7 @@ def start_deployment(client, id: str, wait: int):
     show_default=True,
 )
 @pass_client
-def stop_deployment(client, id: str, wait: int):
+def stop_deployment(client, id: Union[str, click.UUID], wait: int):
     """Stop and tear-down a model deployment."""
     print("Tearing down model deployment...")
     if wait:
@@ -1058,7 +1065,7 @@ def stop_deployment(client, id: str, wait: int):
     show_default=True,
 )
 @pass_client
-def predict(client, id: str, data: str, parameters: str, timeout: int):
+def predict(client, id: Union[str, click.UUID], data: str, parameters: str, timeout: int):
     """Predict using a deployed model
 
     `DATA` is the input to be used for prediction. Expected as JSON encoded dictionary.
@@ -1087,7 +1094,7 @@ def prediction():
 @prediction.command("view")
 @click.argument("id", required=True, type=click.UUID)
 @pass_client
-def view_prediction(client, id):
+def view_prediction(client, id: Union[str, click.UUID]):
     """View prediction object"""
     p = client.get_prediction_with_data(str(id))
     print(p.__json_data__)
@@ -1117,8 +1124,9 @@ def view_prediction(client, id):
     show_default=True,
 )
 @pass_client
-def scaling(client, id: str, min_instances: int, scale_in_timeout: int):
-    current = client.get_deployment(str(id))
+def scaling(client, id: Union[str, click.UUID], min_instances: int, scale_in_timeout: int):
+    """Control scaling of deployed models"""
+    current = client.get_deployment(id)
     print(
         f"Current settings:"
         f"\n\tmin_instances: {current['min_instances']}"
@@ -1181,7 +1189,7 @@ def build_docker_image(image_name, entry_point, dockerfile, command, worker_coun
     "--image-name", "-i", required=True, help="Name of the image to be pushed. You can get this from `docker image ls`"
 )
 @click.option("--region", "-r", help="AWS region", default="us-east-1", show_default=True)
-def push_docker_image(model_id, image_name, region):
+def push_docker_image(model_id: Union[str, click.UUID], image_name: str, region: str):
     """Push the docker image built by `superai model docker-build` to ECR.
 
     ID is the UUID of the AI model.
@@ -1218,7 +1226,8 @@ def push_docker_image(model_id, image_name, region):
     "and nvidia-container-runtime installed",
     show_default=True,
 )
-def docker_run_local(image_name, model_path, gpu):
+def docker_run_local(image_name: str, model_path: str, gpu: bool):
+    """Run model on local docker"""
     options = [f"-v {os.path.abspath(model_path)}:/opt/ml/model/", "-p 80:8080", "-p 8081:8081 "]
     if gpu:
         options.append("--rm --gpus all")
@@ -1245,6 +1254,7 @@ def docker_run_local(image_name, model_path, gpu):
     "--body", "-b", required=True, help="Body of payload to be sent to the invocation. Can be a path to a file as well."
 )
 def docker_invoke_local(mime, body):
+    """Docker invoke with a prediction input"""
     from superai.meta_ai.dockerizer.sagemaker_endpoint import invoke_local
 
     invoke_local(mime, body)
@@ -1271,9 +1281,9 @@ def training():
     "--limit", "-l", help="Limit the number of returned rows", required=False, default=10, show_default=True, type=int
 )
 @pass_client
-def list_trainings(client, app_id, model_id, state, limit):
+def list_trainings(client, app_id: Union[str, click.UUID], model_id: Union[str, click.UUID], state: str, limit: int):
     """List trainings. Allows filtering by state and application id."""
-    trainings = client.get_trainings(app_id, model_id, state=state, limit=limit)
+    trainings = client.get_trainings(str(app_id), str(model_id), state=state, limit=limit)
     if trainings:
         print(trainings)
 
@@ -1288,19 +1298,19 @@ def list_trainings(client, app_id, model_id, state, limit):
     required=True,
 )
 @pass_client
-def start_training(client, app_id, model_id, properties: str):
+def start_training(client, app_id: Union[str, click.UUID], model_id: Union[str, click.UUID], properties: str):
     """Start a new training"""
     json_inputs = None
     if properties:
         try:
             json_inputs = json.loads(properties)
-        except:
+        except Exception:
             print("Couldn't read json inputs")
             exit()
 
-    id = client.create_training_entry(model_id, app_id, json_inputs)
-    if id:
-        print(f"Started a new training with ID {id}")
+    idx = client.create_training_entry(str(model_id), str(app_id), json_inputs)
+    if idx:
+        print(f"Started a new training with ID {idx}")
 
 
 @training.command(name="trigger-template")
@@ -1311,26 +1321,35 @@ def start_training(client, app_id, model_id, properties: str):
 @click.option("--properties", "-p", help="Custom properties", required=False, type=dict)
 @click.option("--metadata", "-md", help="Metadata", required=False, type=dict)
 @pass_client
-def trigger_template_training(client, app_id, model_id, training_template_id, task_name, properties, metadata):
+def trigger_template_training(
+    client,
+    app_id: Union[str, click.UUID],
+    model_id: Union[str, click.UUID],
+    training_template_id: Union[str, click.UUID],
+    task_name: str,
+    properties: dict,
+    metadata: dict,
+):
+    """Start a new training from template"""
     try:
         if properties:
             properties = json.loads(properties)
         if metadata:
             metadata = json.loads(metadata)
-    except:
+    except Exception:
         print("Could process JSON properties or metadata")
         exit()
 
-    id = client.start_training_from_app_model_template(
-        app_id=app_id,
-        model_id=model_id,
+    idx = client.start_training_from_app_model_template(
+        app_id=str(app_id),
+        model_id=str(model_id),
         task_name=task_name,
-        training_template_id=training_template_id,
+        training_template_id=str(training_template_id),
         current_properties=properties,
         metadata=metadata,
     )
-    if id:
-        print(f"Started new training with ID {id}")
+    if idx:
+        print(f"Started new training with ID {idx}")
 
 
 @training.command("deploy", help="Deploy a AI from its config file")
@@ -1345,11 +1364,11 @@ def trigger_template_training(client, app_id, model_id, training_template_id, ta
     "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
 )
 def training_deploy(config_file, push=True, clean=True):
+    """Deploy a training from config"""
     from superai.meta_ai.ai import obtain_object_template_config
 
-    if clean:
-        if os.path.exists(".AISave"):
-            shutil.rmtree(".AISave")
+    if clean and os.path.exists(save_file):
+        shutil.rmtree(save_file)
     ai_object, ai_template_object, config_data = obtain_object_template_config(config_file)
 
     if config_data.training_deploy is not None:
@@ -1404,7 +1423,7 @@ def template():
     required=True,
 )
 @pass_client
-def create_template(client, app_id, model_id, properties: str):
+def create_template(client, app_id: Union[str, click.UUID], model_id: Union[str, click.UUID], properties: str):
     """Create a template for trainings.
     The template is used to instantiate new training instances.
     """
@@ -1412,13 +1431,13 @@ def create_template(client, app_id, model_id, properties: str):
     if properties:
         try:
             json_inputs = json.loads(properties)
-        except:
+        except Exception:
             print("Couldn't read json inputs")
             exit()
 
-    id = client.create_training_template_entry(model_id=model_id, properties=json_inputs, app_id=app_id)
-    if id:
-        print(f"Created new training with ID {id}")
+    idx = client.create_training_template_entry(model_id=str(model_id), properties=json_inputs, app_id=str(app_id))
+    if idx:
+        print(f"Created new training with ID {idx}")
 
 
 @template.command(name="update")
@@ -1437,32 +1456,34 @@ def create_template(client, app_id, model_id, properties: str):
     required=False,
 )
 @pass_client
-def update_template(client, app_id, model_id, properties: str, description: str):
+def update_template(
+    client, app_id: Union[str, click.UUID], model_id: Union[str, click.UUID], properties: str, description: str
+):
     """Update an exising template for trainings.
     The template is used to instantiate new training instances.
     """
     if properties:
         try:
             json_inputs = json.loads(properties)
-        except:
+        except Exception:
             print("Couldn't read json inputs")
             exit()
     else:
         json_inputs = None
-    id = client.update_training_template(
-        model_id=model_id, app_id=app_id, properties=json_inputs, description=description
+    idx = client.update_training_template(
+        model_id=str(model_id), app_id=str(app_id), properties=json_inputs, description=description
     )
-    if id:
-        print(f"Updated training template with id={id}")
+    if idx:
+        print(f"Updated training template with id={idx}")
 
 
 @template.command(name="list")
 @click.option("--app_id", "-a", help="Application id", required=False, default=None)
 @click.option("--model_id", "-m", help="Model id", required=True)
 @pass_client
-def list_training_templates(client, app_id, model_id):
+def list_training_templates(client, app_id: Union[str, click.UUID], model_id: Union[str, click.UUID]):
     """List existing training templates."""
-    templates = client.get_training_templates(model_id, app_id)
+    templates = client.get_training_templates(str(model_id), str(app_id))
     if templates:
         print(templates)
 
@@ -1471,9 +1492,9 @@ def list_training_templates(client, app_id, model_id):
 @click.option("--app_id", "-a", help="Application id", required=False, default=None)
 @click.option("--template_id", "-t", help="Template id", required=True)
 @pass_client
-def view_training_template(client, app_id, template_id):
+def view_training_template(client, app_id: Union[str, click.UUID], template_id: Union[str, click.UUID]):
     """List existing training templates."""
-    template = client.get_training_template(template_id, app_id)
+    template = client.get_training_template(str(template_id), str(app_id))
     if template:
         print(template)
 
@@ -1490,13 +1511,13 @@ def view_training_template(client, app_id, template_id):
 )
 @click.option("--push/--no-push", "-p/-np", help="Push to create a model entry", default=False)
 def deploy_ai(config_file, clean=True, push=False):
+    """Deploy a model from config"""
     from superai.meta_ai.ai import obtain_object_template_config
     from superai.meta_ai.deployed_predictors import DeployedPredictor
     from superai.meta_ai.parameters import AiDeploymentParameters
 
-    if clean:
-        if os.path.exists(".AISave"):
-            shutil.rmtree(".AISave")
+    if clean and os.path.exists(save_file):
+        shutil.rmtree(save_file)
 
     ai_object, ai_template_object, config_data = obtain_object_template_config(config_file=config_file)
     print(f"Configuration : {config_data}")
@@ -1509,10 +1530,10 @@ def deploy_ai(config_file, clean=True, push=False):
     else:
         properties = AiDeploymentParameters()
 
-    if push or config_data.deploy.push:
+    if push:
         ai_object.push(
-            update_weights=config_data.deploy.update_weights,
-            overwrite=config_data.deploy.overwrite,
+            update_weights=True,
+            overwrite=True,
             weights_path=config_data.instance.weights_path,
         )
     predictor: DeployedPredictor = ai_object.deploy(
@@ -1560,6 +1581,7 @@ def deploy_ai(config_file, clean=True, push=False):
 def predictor_test(
     client, config_file, predict_input=None, predict_input_file=None, expected_output=None, expected_output_file=None
 ):
+    """Deploy and test a predictor from config file"""
     from superai.meta_ai.ai import obtain_object_template_config
     from superai.meta_ai.deployed_predictors import DeployedPredictor
 
@@ -1567,30 +1589,30 @@ def predictor_test(
     config_path = os.path.join(
         settings.path_for(), "cache", ai_object.name, str(ai_object.version), ".predictor_config.json"
     )
-    if os.path.exists(config_path):
-        with open(config_path, "r") as predictor_config:
-            predictor_dictionary = json.load(predictor_config)
-        predictor: DeployedPredictor = DeployedPredictor.from_dict(predictor_dictionary, client)
-        if predict_input is not None:
-            predict_input = json.loads(predict_input)
-        elif predict_input_file is not None:
-            with open(predict_input_file, "r") as predict_file_stream:
-                predict_input = json.load(predict_file_stream)
-        else:
-            raise ValueError("One of --predict-input or --predict-input-file should be passed")
-        predicted_output = predictor.predict(predict_input)
-        click.echo(predicted_output)
-        if expected_output is not None:
-            assert predicted_output == expected_output, "Expected output should be same as predicted output"
-            expected_output = json.loads(expected_output)
-            assert predicted_output.dict() == expected_output, "Expected output should be same as predicted output"
-        if expected_output_file is not None:
-            with open(expected_output_file, "r") as output_file_stream:
-                expected_output = json.load(output_file_stream)
-                assert predicted_output == expected_output, "Expected output should be same as predicted output"
-                assert predicted_output.dict() == expected_output, "Expected output should be same as predicted output"
+    if not os.path.exists(config_path):
+        raise click.ClickException(f"Predictor config does not exist at {config_path}")
+    with open(config_path, "r") as predictor_config:
+        predictor_dictionary = json.load(predictor_config)
+    predictor: DeployedPredictor = DeployedPredictor.from_dict(predictor_dictionary, client)
+    if predict_input is not None:
+        predict_input = json.loads(predict_input)
+    elif predict_input_file is not None:
+        with open(predict_input_file, "r") as predict_file_stream:
+            predict_input = json.load(predict_file_stream)
     else:
-        raise Exception(f"Predictor config does not exist at {config_path}")
+        raise ValueError("One of --predict-input or --predict-input-file should be passed")
+    predicted_output = predictor.predict(predict_input)
+    click.echo(predicted_output)
+    expected_message = "Expected output should be same as predicted output"
+    if expected_output is not None:
+        assert predicted_output == expected_output, expected_message
+        expected_output = json.loads(expected_output)
+        assert predicted_output.dict() == expected_output, expected_message
+    if expected_output_file is not None:
+        with open(expected_output_file, "r") as output_file_stream:
+            expected_output = json.load(output_file_stream)
+            assert predicted_output == expected_output, expected_message
+            assert predicted_output.dict() == expected_output, expected_message
 
 
 @ai.command("predictor-teardown", help="Teardown the predictor in context")
@@ -1602,6 +1624,7 @@ def predictor_test(
 )
 @pass_client
 def predictor_teardown(client, config_file):
+    """Remove a deployed predictor from config file"""
     from superai.meta_ai.ai import obtain_object_template_config
     from superai.meta_ai.deployed_predictors import DeployedPredictor
 
@@ -1617,10 +1640,11 @@ def predictor_teardown(client, config_file):
         logger.info(f"Removing predictor config at {config_path}")
         os.remove(config_path)
     else:
-        raise Exception(f"Predictor config did not exist at {config_path}")
+        raise click.ClickException(f"Predictor config did not exist at {config_path}")
 
 
 def main():
+    """Entrypoint"""
     signal.signal(signal.SIGINT, _signal_handler)
     sys.exit(cli())
 

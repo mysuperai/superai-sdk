@@ -9,8 +9,7 @@ LOCATION = "."
 
 @pytest.fixture()
 def environs():
-    env = EnvironmentFileProcessor(location=LOCATION)
-    yield env
+    yield EnvironmentFileProcessor(location=LOCATION)
 
 
 @pytest.fixture()

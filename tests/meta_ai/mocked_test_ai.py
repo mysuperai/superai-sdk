@@ -10,9 +10,9 @@ import pytest
 
 import superai
 from superai.apis.meta_ai import DeploymentApiMixin
-from superai.meta_ai.ai import AI, DeployedPredictor, LocalPredictor
+from superai.meta_ai.ai import AI, DeployedPredictor
 from superai.meta_ai.ai_template import AITemplate
-from superai.meta_ai.deployed_predictors import RemotePredictor
+from superai.meta_ai.deployed_predictors import LocalPredictor, RemotePredictor
 from superai.meta_ai.image_builder import Orchestrator
 from superai.meta_ai.parameters import Config
 from superai.meta_ai.schema import Schema
@@ -222,7 +222,7 @@ def test_train_and_predict(cleanup):
     ai = AI(
         ai_template=template,
         input_params=template.input_schema.parameters(),
-        output_params=template.output_schema.parameters(choices=map(str, range(0, 10))),
+        output_params=template.output_schema.parameters(choices=map(str, range(10))),
         name="my_mnist_model",
         version=1,
     )
@@ -234,7 +234,7 @@ def test_train_and_predict(cleanup):
     my_ai = AI(
         ai_template=template,
         input_params=template.input_schema.parameters(),
-        output_params=template.output_schema.parameters(choices=map(str, range(0, 10))),
+        output_params=template.output_schema.parameters(choices=map(str, range(10))),
         name=model_name,
         version=2,
         weights_path=model_weights_path,
@@ -266,7 +266,7 @@ def test_build_image():
     ai = AI(
         ai_template=template,
         input_params=template.input_schema.parameters(),
-        output_params=template.output_schema.parameters(choices=map(str, range(0, 10))),
+        output_params=template.output_schema.parameters(choices=map(str, range(10))),
         name="my_mnist_model",
         version=1,
         weights_path=os.path.join(os.path.dirname(__file__), "../experiments/my_model"),

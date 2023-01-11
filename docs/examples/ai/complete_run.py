@@ -1,4 +1,5 @@
 #%%
+import contextlib
 import os
 import shutil
 import time
@@ -9,7 +10,7 @@ from superai.data_program import Project, WorkerType
 from superai.meta_ai import AI
 from superai.meta_ai.ai import list_models
 from superai.meta_ai.ai_template import AITemplate
-from superai.meta_ai.deployed_predictors import LocalPredictor
+from superai.meta_ai.deployed_predictors import DeployedPredictor, LocalPredictor
 from superai.meta_ai.image_builder import Orchestrator
 from superai.meta_ai.parameters import Config, HyperParameterSpec, String
 from superai.meta_ai.schema import Image, Schema, SingleChoice
@@ -101,7 +102,7 @@ ai = AI(
 #%%
 ai.push(update_weights=True, overwrite=True)
 #%%
-predictor: RemotePredictor = ai.deploy(
+predictor: DeployedPredictor = ai.deploy(
     orchestrator=Orchestrator.AWS_EKS,
     enable_cuda=True,
     redeploy=True,
@@ -272,17 +273,14 @@ log.info(f"Local predictions: {predictor.predict(input=inputs)}")
 predictor.container.stop()
 
 with m.push as p, m.sage_check(True) as sc, m.sage_pred as sp:
-    predictor: RemotePredictor = my_ai.deploy(orchestrator=Orchestrator.AWS_SAGEMAKER)
+    predictor: DeployedPredictor = my_ai.deploy(orchestrator=Orchestrator.AWS_SAGEMAKER)
     log.info(f"AWS Predictions: {predictor.predict(input=inputs)}")
 
 # might not be required for lambdas
-with m.sage_check(False) as sch, m.undep as ud:
+with (m.sage_check(False) as sch, m.undep as ud):
     my_ai.undeploy()
-    try:
+    with contextlib.suppress(LookupError):
         log.info(f"AWS Predictions: { predictor.predict(input=inputs)}")
-    except LookupError:
-        pass
-
 ###########################################################################
 # Train
 ###########################################################################
@@ -319,7 +317,7 @@ with m.train as t:
 ###########################################################################
 
 # list all models
-log.info(f"All models with name {model_name}\n" + list_models(model_name))
+log.info(f"All models with name {model_name}\n{list_models(model_name)}")
 
 # another_ai = AI(
 #     ai_definition=ai_definition,
@@ -350,7 +348,7 @@ my_ai.update(version=5, stage="PROD", weights_path="./new_path", ai_class="MyTra
 # ADDING TO PROJECT
 #######################################################################################
 
-DP_NAME = "MyFirstAI" + str(uuid.getnode())
+DP_NAME = f"MyFirstAI {str(uuid.getnode())}"
 dp_definition = None
 # Creating a Project.
 project = Project(

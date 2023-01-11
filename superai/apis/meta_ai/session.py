@@ -29,16 +29,15 @@ class MetaAISession(RequestsEndpoint):
     @retry(TimeoutError)
     def perform_op(self, op: Operation, timeout: int = 60):
         data = self(op, timeout=timeout)
-        if data.get("errors", False):
-            error = data["errors"][0]
-            if "Endpoint request timed out" in str(error):
-                raise TimeoutError()
-            elif "Authentication hook unauthorized" in str(error):
-                raise SuperAIAuthorizationError(error, error_code=401, endpoint=self.base_url)
-            else:
-                raise GraphQlException(data)
-        else:
+        if not data.get("errors", False):
             return data
+        error = data["errors"][0]
+        if "Endpoint request timed out" in str(error):
+            raise TimeoutError()
+        elif "Authentication hook unauthorized" in str(error):
+            raise SuperAIAuthorizationError(error, error_code=401, endpoint=self.base_url)
+        else:
+            raise GraphQlException(data)
 
 
 class MetaAIWebsocketSession(WebSocketEndpoint):

@@ -46,13 +46,12 @@ def _get_host_port_for_container(container_name: str, container_port: int = "808
 
     client = docker.from_env()
     containers = client.containers.list(filters={"name": container_name}, limit=2)
-    if len(containers) == 1:
-        # get port
-        hasura = containers[0]
-        port = hasura.attrs["NetworkSettings"]["Ports"][f"{container_port}/tcp"][0]["HostPort"]
-        return int(port)
-    else:
+    if len(containers) != 1:
         raise Exception(f"Multiple containers with name {container_name} found")
+    # get port
+    hasura = containers[0]
+    port = hasura.attrs["NetworkSettings"]["Ports"][f"{container_port}/tcp"][0]["HostPort"]
+    return int(port)
 
 
 @pytest.fixture(scope="session")

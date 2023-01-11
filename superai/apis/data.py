@@ -93,8 +93,7 @@ class DataApiMixin(ABC):
                 page=page,
                 size=500,
             )
-            for d in paginated_data["content"]:
-                yield d
+            yield from paginated_data["content"]
             page = page + 1
 
     def get_signed_url(self, path: str, seconds_ttl: int = 600) -> dict:
@@ -164,7 +163,7 @@ class DataApiMixin(ABC):
         )
         try:
             resp = requests.put(dataset.pop("uploadUrl"), data=file.read(), headers={"Content-Type": mime_type})
-            if resp.status_code == 200 or resp.status_code == 201:
+            if resp.status_code in [200, 201]:
                 return dataset
             else:
                 raise SuperAIStorageError(

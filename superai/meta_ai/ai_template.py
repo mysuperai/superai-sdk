@@ -129,14 +129,10 @@ class AITemplate:
         self.code_path = code_path or []
         self.conda_env = conda_env
         self.artifacts = artifacts
-        self.client = (
-            client
-            if client
-            else Client(
-                api_key=load_api_key(),
-                auth_token=load_auth_token(),
-                id_token=load_id_token(),
-            )
+        self.client = client or Client(
+            api_key=load_api_key(),
+            auth_token=load_auth_token(),
+            id_token=load_id_token(),
         )
         self.bucket_name = bucket_name or settings["meta_ai_bucket"]
         self.parameters = parameters

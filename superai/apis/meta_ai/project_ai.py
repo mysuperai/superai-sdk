@@ -48,8 +48,7 @@ class ProjectAiApiMixin(ABC):
         models.name()
         data = sess.perform_op(op)
         try:
-            output = (op + data).meta_ai_app
-            return output
+            return (op + data).meta_ai_app
         except AttributeError:
             log.info(f"No models for project with id: {app_id} and assignment type {assignment}")
 
@@ -89,8 +88,7 @@ class ProjectAiApiMixin(ABC):
         predictions.instances().id()
         data = sess.perform_op(op)
         try:
-            output = (op + data).meta_ai_app_by_pk.model.predictions
-            return output
+            return (op + data).meta_ai_app_by_pk.model.predictions
         except AttributeError:
             log.info(f"No predictions for project with id: {app_id} and model_id:{model_id}")
 
@@ -100,8 +98,7 @@ class ProjectAiApiMixin(ABC):
         instance = op.meta_ai_prediction_by_pk(id=prediction_id).instances.id()
         data = sess.perform_op(op)
         try:
-            output = (op + data).meta_ai_prediction_by_pk.instances
-            return output
+            return (op + data).meta_ai_prediction_by_pk.instances
         except AttributeError:
             log.info(f"No prediction instances found for prediction_id:{prediction_id}.")
 
@@ -134,8 +131,7 @@ class ProjectAiApiMixin(ABC):
         op.meta_ai_prediction_by_pk(id=prediction_id).__fields__("id", "state")
         data = sess.perform_op(op)
         try:
-            output = (op + data).meta_ai_prediction_by_pk
-            return output
+            return (op + data).meta_ai_prediction_by_pk
         except AttributeError:
             log.info(f"No prediction found for prediction_id:{prediction_id}.")
 

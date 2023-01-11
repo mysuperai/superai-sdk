@@ -58,7 +58,7 @@ class Training(Router):
         # self.update_wf(api_key=api_key)
 
     def subscribe_wf(self):
-        @workflow(self.name + "", self.prefix)
+        @workflow(f"{self.name}", self.prefix)
         @input_schema(name="inp", schema=self.input_schema)
         @param_schema(name="params", schema=self.parameter_schema)
         @output_schema(schema=self.output_schema)

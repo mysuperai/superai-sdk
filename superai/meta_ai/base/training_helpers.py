@@ -81,6 +81,4 @@ class DefaultCallbackFactory(object):
 
 
 def get_tensorboard_tracking_path():
-    # tracking path helpers
-    superai_tensorboard_path = tracking.get_tensorboard_path()
-    return superai_tensorboard_path
+    return tracking.get_tensorboard_path()

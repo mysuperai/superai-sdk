@@ -98,8 +98,7 @@ class GroundTruthApiMixin(ABC):
         paginated_ground_truth = {"last": False}
         while not paginated_ground_truth["last"]:
             paginated_ground_truth = self.list_ground_truth_data(app_id, page=page, size=500)
-            for gtd in paginated_ground_truth["content"]:
-                yield gtd
+            yield from paginated_ground_truth["content"]
             page = page + 1
 
     def get_ground_truth_data(self, ground_truth_data_id: str) -> dict:

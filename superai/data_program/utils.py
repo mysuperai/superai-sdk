@@ -24,7 +24,7 @@ def sign_url(url: str, client: Client = None):
         Signed URL.
     """
     if url.startswith("data://"):
-        client = client if client else Client(api_key=load_api_key())
+        client = client or Client(api_key=load_api_key())
         return client.get_signed_url(path=url).get("signedUrl")
 
     return url
@@ -44,7 +44,7 @@ def download_content(url: str, client: Client = None, timeout: int = 10):
         URL content.
     """
     if url.startswith("data://"):
-        client = client if client else Client(api_key=load_api_key())
+        client = client or Client(api_key=load_api_key())
         return client.download_data(url, timeout=timeout)
 
     res = requests.get(url, timeout=timeout)

@@ -52,7 +52,7 @@ def existing_app_id():
 
 @pytest.fixture(scope="function")
 def model(ai_client):
-    a = ai_client.add_model(f"TestModel")
+    a = ai_client.add_model("TestModel")
     assert a is not None
     yield a
     c = ai_client.delete_model(a)
@@ -90,9 +90,9 @@ def prediction_id(ai_client, existing_app_id, model):
 
 
 def test_view_prediction(ai_client, existing_app_id, prediction_id):
-    object: meta_ai_prediction = ai_client.view_prediction(app_id=existing_app_id, prediction_id=prediction_id)
-    assert "id" in object
-    assert "state" in object
+    obj: meta_ai_prediction = ai_client.view_prediction(app_id=existing_app_id, prediction_id=prediction_id)
+    assert "id" in obj
+    assert "state" in obj
 
 
 def test_get_prediction(ai_client: Client, prediction_id):
@@ -104,11 +104,11 @@ def test_get_prediction(ai_client: Client, prediction_id):
 
 def test_request_prediction_of_job(ai_client, existing_app_id):
     with pytest.raises(Exception):
-        ids = ai_client.request_prediction_of_job(app_id=existing_app_id, job_id=1, assignment="PRELABEL")
+        ai_client.request_prediction_of_job(app_id=existing_app_id, job_id=1, assignment="PRELABEL")
 
 
 def test_update_model_by_name_version(ai_client):
-    a = ai_client.add_model(f"TestModel2", version=1)
+    a = ai_client.add_model("TestModel2", version=1)
     assert a is not None
     ai_client.update_model_by_name_version("TestModel2", version=1, description="TestModel_Something")
     c = ai_client.get_model(a)

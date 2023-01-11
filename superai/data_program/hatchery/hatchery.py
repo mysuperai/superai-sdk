@@ -53,8 +53,7 @@ def run(build_cfg: dict, runtime_cfg: dict, filepath=None):
 
     if not template_name:
         log.warning(
-            f"template_name not defined in build_config. Using python script name as template name. "
-            f"This might throw some errors."
+            "template_name not defined in build_config. Using python script name as template name. This might throw some errors."
         )
 
     if runtime_cfg["simulation"]:

@@ -6,6 +6,10 @@ ifndef PYTHON_VERSION
 endif
 IMAGE_PYTHON_VERSION=$(shell echo -n $(PYTHON_VERSION) | sed 's/\.//g')
 
+ifndef AWS_PROFILE
+	AWS_PROFILE=default
+endif
+
 ifndef mode
 	mode=cpu
 endif
@@ -120,6 +124,7 @@ build-seldon: permissions superai-wheel
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
 		--build-arg PIP_REPO=${PIP_REPO} \
 		--build-arg SUPERAI_WHL=$(shell ls -t -U ./.dist/ | grep -m 1 'superai') \
+		--build-arg AWS_PROFILE=${AWS_PROFILE} \
 		-t ${IMAGE_NAME}-seldon:${IMAGE_VERSION} \
 		--secret id=aws,src=${AWS_CREDENTIAL_FILE} \
 		.

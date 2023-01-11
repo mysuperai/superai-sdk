@@ -229,10 +229,10 @@ class child_result:
 
     @terminate_guard
     def __getitem__(self, key):
-        if "timestamp" == key:
+        if key == "timestamp":
             return self._timestamp
 
-        raise ValueError("Expected 'timestamp' key, got " + key)
+        raise ValueError(f"Expected 'timestamp' key, got {key}")
 
 
 class child_job_future(future):
@@ -478,7 +478,7 @@ def schedule_workflow(
         context["app_params"] = app_params
     if super_task_params is not None:
         context["super_tasks"] = super_task_params
-    if len(context) > 0:
+    if context:
         params["context"] = context
 
     f = None
@@ -653,7 +653,7 @@ def _worklow_thread(id, suffix, response):
     _context.sequence = 0
     _context.bill = None
     _context.metadata = response.get("metadata")
-    _context.job_type = response.get("jobType") if response.get("jobType") else None
+    _context.job_type = response.get("jobType") or None
     _context.priority = response.get("priority")
 
     with _task_futures_lock:
@@ -676,63 +676,36 @@ def _worklow_thread(id, suffix, response):
         function = None
         with _workflow_functions_lock:
             if suffix not in _workflow_functions:
-                raise ValueError("Unexpected suffix: " + suffix)
+                raise ValueError(f"Unexpected suffix: {suffix}")
             function = _workflow_functions[suffix]
         result = function(subject, context)
         resolve_job(*result) if type(result) == tuple else resolve_job(result, None, None)
     except ValidationError as error:
         internal_error(f"\nSchema validation error: {error}")
         with sentry_sdk.push_scope() as scope:
-            scope.set_tag("job_id", id)
-            scope.set_tag("job_uuid", _context.uuid)
-            scope.set_tag("app_id", response.get("appId"))
-            scope.set_tag("is_child", _context.is_child)
-            scope.set_tag(
-                "job_type",
-                _context.job_type if _context.job_type else response.get("jobType"),
-            )
-            scope.set_level(FATAL)
-            sentry_sdk.capture_exception(error)
+            sentry_capture_fatal_exception(scope, id, response, error)
         logger.exception("ValidationError encountered in _workflow_thread")
     except concurrent.futures._base.CancelledError as error:
         logger.info(
-            "Job #{} of type {} cancelled or expired for app_id {}. error {}".format(
-                _context.uuid, _context.job_type, _context.app_id, str(error)
-            )
+            f"Job #{_context.uuid} of type {_context.job_type} cancelled or expired for app_id {_context.app_id}. error {str(error)}"
         )
     except CancelledError as error:
         logger.info(
-            "Job #{} of type {} cancelled or expired for app_id {}. error {}".format(
-                _context.uuid, _context.job_type, _context.app_id, str(error)
-            )
+            f"Job #{_context.uuid} of type {_context.job_type} cancelled or expired for app_id {_context.app_id}. error {str(error)}"
         )
     except ChildJobFailed as error:
         fail_job(f"FAIL_JOB: Job {_context.uuid} child failed")
         with sentry_sdk.push_scope() as scope:
-            scope.set_tag("job_id", id)
-            scope.set_tag("job_uuid", _context.uuid)
-            scope.set_tag("app_id", response.get("appId"))
-            scope.set_tag("is_child", _context.is_child)
-            scope.set_tag(
-                "job_type",
-                _context.job_type if _context.job_type else response.get("jobType"),
-            )
-            scope.set_level(FATAL)
-            sentry_sdk.capture_exception(error)
+            sentry_capture_fatal_exception(scope, id, response, error)
         logger.exception(
-            "Job #{} of type {} throw child job failed {}. "
-            "error {}".format(_context.uuid, _context.job_type, _context.app_id, str(error))
+            f"Job #{_context.uuid} of type {_context.job_type} throw child job failed {_context.app_id}. error {str(error)}"
         )
     except QualifierTaskExpired as error:
         fail_job(f"FAIL_JOB :: {type(error)}: {error}")
-        logger.info(
-            "Qualifier task expired for Job #{} of type {}. "
-            "error {}".format(_context.uuid, _context.job_type, str(error))
-        )
+        logger.info(f"Qualifier task expired for Job #{_context.uuid} of type {_context.job_type}. error {str(error)}")
     except TaskExpiredMaxRetries as error:
         logger.info(
-            "Task expired after maximum number of retries for Job #{} of type {}. "
-            "error {}".format(_context.uuid, _context.job_type, str(error))
+            f"Task expired after maximum number of retries for Job #{_context.uuid} of type {_context.job_type}. error {str(error)}"
         )
         if (_context.job_type and _context.job_type == "COLLABORATOR") or response.get("jobType") == "COLLABORATOR":
             expire_job(f"\nEXPIRE_JOB :: {type(error)}: {error}")
@@ -745,42 +718,20 @@ def _worklow_thread(id, suffix, response):
             scope.set_tag("job_uuid", _context.uuid)
             scope.set_tag("app_id", _context.app_id)
             scope.set_tag("is_child", _context.is_child)
-            scope.set_tag(
-                "job_type",
-                _context.job_type if _context.job_type else response.get("jobType"),
-            )
+            scope.set_tag("job_type", _context.job_type or response.get("jobType"))
             scope.set_level(scope_level)
             sentry_sdk.capture_exception(error)
     except ChildJobInternalError as error:
         internal_error(f"INTERNAL_ERROR: Job {_context.uuid} child threw internal error")
         with sentry_sdk.push_scope() as scope:
-            scope.set_tag("job_id", id)
-            scope.set_tag("job_uuid", _context.uuid)
-            scope.set_tag("app_id", response.get("appId"))
-            scope.set_tag("is_child", _context.is_child)
-            scope.set_tag(
-                "job_type",
-                _context.job_type if _context.job_type else response.get("jobType"),
-            )
-            scope.set_level(FATAL)
-            sentry_sdk.capture_exception(error)
+            sentry_capture_fatal_exception(scope, id, response, error)
         logger.exception(
-            "Job #{} of type {} throw child job internal error {}. "
-            "error {}".format(_context.uuid, _context.job_type, _context.app_id, str(error))
+            f"Job #{_context.uuid} of type {_context.job_type} throw child job internal error {_context.app_id}. error {str(error)}"
         )
     except EmptyPerformanceError as error:
         internal_error(f"\n INTERNAL_ERROR :: {type(error)}: {error}")
         with sentry_sdk.push_scope() as scope:
-            scope.set_tag("job_id", id)
-            scope.set_tag("job_uuid", _context.uuid)
-            scope.set_tag("app_id", response.get("appId"))
-            scope.set_tag("is_child", _context.is_child)
-            scope.set_tag(
-                "job_type",
-                _context.job_type if _context.job_type else response.get("jobType"),
-            )
-            scope.set_level(FATAL)
-            sentry_sdk.capture_exception(error)
+            sentry_capture_fatal_exception(scope, id, response, error)
         logger.error("Performance not found exception")
     except UnsatisfiedMetricsError as error:
         suspend_job_for_no_combiner()
@@ -789,10 +740,7 @@ def _worklow_thread(id, suffix, response):
             scope.set_tag("job_uuid", _context.uuid)
             scope.set_tag("app_id", _context.app_id)
             scope.set_tag("is_child", _context.is_child)
-            scope.set_tag(
-                "job_type",
-                _context.job_type if _context.job_type else response.get("jobType"),
-            )
+            scope.set_tag("job_type", _context.job_type or response.get("jobType"))
             scope.set_level(WARN)
             sentry_sdk.capture_exception(error)
         logger.error(f"Unsatisfied metrics for job: #{_context.id}")
@@ -803,10 +751,7 @@ def _worklow_thread(id, suffix, response):
             scope.set_tag("job_uuid", _context.uuid)
             scope.set_tag("app_id", _context.app_id)
             scope.set_tag("is_child", _context.is_child)
-            scope.set_tag(
-                "job_type",
-                _context.job_type if _context.job_type else response.get("jobType"),
-            )
+            scope.set_tag("job_type", _context.job_type or response.get("jobType"))
             scope.set_level(FATAL)
             sentry_sdk.capture_exception(ex)
         logger.exception("Exception encountered in _workflow_thread")
@@ -829,6 +774,17 @@ def _worklow_thread(id, suffix, response):
         del _context.bill
 
 
+def sentry_capture_fatal_exception(scope, id, response, error):
+    """Capture a fatal exception in sentry"""
+    scope.set_tag("job_id", id)
+    scope.set_tag("job_uuid", _context.uuid)
+    scope.set_tag("app_id", response.get("appId"))
+    scope.set_tag("is_child", _context.is_child)
+    scope.set_tag("job_type", _context.job_type or response.get("jobType"))
+    scope.set_level(FATAL)
+    sentry_sdk.capture_exception(error)
+
+
 def _task_pump():
     """This method waits for incoming response and resolves the corresponding task future."""
     while True:
@@ -842,18 +798,9 @@ def _task_pump():
 
         id = response["id"]
 
-        if "ERROR" == response["type"]:
-            if "error" not in response:
-                raise ValueError("Response `type` `ERROR` expects `error` property")
-
-            sys.stderr.write("Traceback (most recent call last):\n")
-            sys.stderr.write(response["error"])
-            sys.stderr.write("\n")
-            sys.stderr.flush()
-
-            os.kill(os.getpid(), signal.SIGTERM)
-
-        elif "JOB_PARAMS" == response["type"]:
+        if response["type"] == "ERROR":
+            kill_missing_error(response)
+        elif response["type"] == "JOB_PARAMS":
             if "sequence" in response:
                 raise ValueError("JOB_PARAMS come out of bound and don't expect to contain 'sequence'")
 
@@ -863,7 +810,7 @@ def _task_pump():
 
             job_input.set_result(response)
 
-        elif "JOB_DATA" == response["type"]:
+        elif response["type"] == "JOB_DATA":
             if "sequence" in response:
                 raise ValueError("JOB_DATA come out of bound and don't expect to contain 'sequence'")
 
@@ -873,7 +820,7 @@ def _task_pump():
 
             job_input_data.set_result(response["data"] if "data" in response else None)
 
-        elif "SNAPSHOT" == response["type"]:
+        elif response["type"] == "SNAPSHOT":
             snapshot = None
             with _snapshot_lock:
                 snapshot = _snapshot[id]
@@ -883,7 +830,7 @@ def _task_pump():
             if "sequence" in response:
                 _context.sequence = response["sequence"]
 
-        elif "SNAPSHOT_DATA" == response["type"]:
+        elif response["type"] == "SNAPSHOT_DATA":
             if "sequence" in response:
                 raise ValueError("SNAPSHOT_DATA come out of bound and don't expect to contain 'sequence'")
 
@@ -892,7 +839,7 @@ def _task_pump():
 
             snapshot.set_result(response["data"] if "data" in response else None)
 
-        elif "CHILD_JOB_DATA" == response["type"]:
+        elif response["type"] == "CHILD_JOB_DATA":
             if "sequence" in response:
                 raise ValueError("CHILD_JOB_DATA come out of bound and don't expect to contain 'sequence'")
 
@@ -902,7 +849,7 @@ def _task_pump():
 
             child_job.set_result(response["data"] if "data" in response else None)
 
-        elif "EXECUTE" == response["type"]:
+        elif response["type"] == "EXECUTE":
             if "suffix" not in response:
                 raise ValueError("Response `type` `EXECUTE` expects `suffix` property")
 
@@ -916,7 +863,7 @@ def _task_pump():
             thread.daemon = True
             thread.start()
 
-        elif "CANCEL" == response["type"] or "SUSPEND" == response["type"]:
+        elif response["type"] in ["CANCEL", "SUSPEND"]:
             with _terminate_flag_lock:
                 _terminate_flag[id] = True
             with _task_futures_lock:
@@ -935,12 +882,10 @@ def _task_pump():
                     if _snapshot_data[id] is not None:
                         _snapshot_data[id].cancel()
             with _child_job_lock:
-                if id in _child_job:
-                    if _child_job[id] is not None:
-                        _child_job[id].cancel()
+                if id in _child_job and _child_job[id] is not None:
+                    _child_job[id].cancel()
             if response["type"] == "SUSPEND":
                 job_uuid = response["uuid"]
-                response["appId"]
                 forget_memo(None, prefix=f"{job_uuid}/")
 
         else:
@@ -952,7 +897,7 @@ def _task_pump():
             with _task_futures_lock:
                 if id in _task_futures:
                     if seq not in _task_futures[id]:
-                        if "CHILD_RESPONSE" == response["type"]:
+                        if response["type"] == "CHILD_RESPONSE":
                             logger.warning(f"CHILD_RESPONSE:missing_child_job_future id {id} seq {seq}")
                             _task_futures[id][seq] = child_job_future()
                         else:
@@ -967,6 +912,19 @@ def _task_pump():
                 f.set_result(response)
 
 
+def kill_missing_error(response):
+    """Kill a thread which does not have error in response"""
+    if "error" not in response:
+        raise ValueError("Response `type` `ERROR` expects `error` property")
+
+    sys.stderr.write("Traceback (most recent call last):\n")
+    sys.stderr.write(response["error"])
+    sys.stderr.write("\n")
+    sys.stderr.flush()
+
+    os.kill(os.getpid(), signal.SIGTERM)
+
+
 if "CANOTIC_AGENT" in os.environ:
     _task_thread = Thread(target=_task_pump, name="pump")
     _task_thread.daemon = "CANOTIC_SERVE" not in os.environ
@@ -975,6 +933,7 @@ if "CANOTIC_AGENT" in os.environ:
 
 @terminate_guard
 def get_job_data():
+    """Get job data"""
     global _job_input_data
     global _job_input_lock
 
@@ -1139,7 +1098,7 @@ def run_model_predict(predict_func, port=8080, context=None):
         if "type" not in request:
             raise ValueError("Message \`type\` is missing in request")
 
-        if "PREDICT" != request["type"]:
+        if request["type"] != "PREDICT":
             raise ValueError("Only message \`type\` 'PREDICT' is expected in serve_predict mode")
 
         if "sequence" not in request:
@@ -1236,18 +1195,12 @@ def get_job_id():
 
 @terminate_guard
 def get_root_app_uuid():
-    if hasattr(_context, "root_app_uuid"):
-        return _context.root_app_uuid
-    else:
-        return None
+    return _context.root_app_uuid if hasattr(_context, "root_app_uuid") else None
 
 
 @terminate_guard
 def get_job_priority():
-    if hasattr(_context, "priority"):
-        return _context.priority
-    else:
-        return None
+    return _context.priority if hasattr(_context, "priority") else None
 
 
 @terminate_guard

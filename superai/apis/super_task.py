@@ -241,10 +241,7 @@ class SuperTaskApiMixin(ABC):
 
         collection_formats = {}
 
-        path_params = {}
-        if "task_template_name" in params:
-            path_params["template_name"] = params["task_template_name"]
-
+        path_params = {"template_name": params["task_template_name"]}
         query_params = []
 
         header_params = {}
@@ -267,7 +264,7 @@ class SuperTaskApiMixin(ABC):
         auth_settings = ["apiToken"]
 
         uri = "task-templates/{template_name}".format(**path_params)
-        response = self.request(
+        return self.request(
             endpoint=uri,
             method="PUT",
             query_params=query_params,
@@ -275,7 +272,6 @@ class SuperTaskApiMixin(ABC):
             required_api_key=True,
             required_auth_token=True,
         )
-        return response
 
     @logdecorator.log_on_start(
         logging.DEBUG,

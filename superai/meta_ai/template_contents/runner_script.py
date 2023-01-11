@@ -20,6 +20,4 @@ class ModelService:
     def handle(self, data, context):
         if not self.initialized:
             self.initialize()
-        if not data:
-            return None
-        return self.predict(context, data)
+        return self.predict(context, data) if data else None

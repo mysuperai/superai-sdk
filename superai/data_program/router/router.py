@@ -26,12 +26,14 @@ class Router(ABC):
             prefix:
             name:
         """
-        if name != "router" and name != "training":
+        if name not in ["router", "training"]:
             raise AttributeError("Router name is constraint to 'router' or 'training'")
 
         self.name = name
-        self.client = (
-            client if client else Client(api_key=load_api_key(), auth_token=load_auth_token(), id_token=load_id_token())
+        self.client = client or Client(
+            api_key=load_api_key(),
+            auth_token=load_auth_token(),
+            id_token=load_id_token(),
         )
         self.dataprogram = dataprogram
         self.workflows = dataprogram.workflows

@@ -33,10 +33,13 @@ class OnTimeout(BaseModel):
     """
 
     action: OnTimeoutAction = Field(
-        default=OnTimeoutAction.retry.value, description="Action to take when a task does not get completed in time."
+        default=OnTimeoutAction.retry.value,
+        description="Action to take when a task does not get completed in time.",
     )
     max_retries: Optional[int] = Field(
-        None, ge=1, description="If action is set to retry or reassign, specifies the number of attempts."
+        None,
+        ge=1,
+        description="If action is set to retry or reassign, specifies the number of attempts.",
     )
 
 
@@ -81,21 +84,25 @@ class TrainingConstraintSet(BaseModel):
 
     # TODO: Add support in turbine for operator
     logical_operator: LogicalOperator = Field(
-        LogicalOperator.AND, description="Logical operator to chain multiple training constraints."
+        LogicalOperator.AND,
+        description="Logical operator to chain multiple training constraints.",
     )
     training_constraints: List[TrainingConstraint] = Field(description="List of training constraints.")
 
     def get_metrics_list(self) -> List[str]:
         """Exports this model as a list of metrics backend can understand"""
-        dict = self.dict(include={"training_constraints": True}, by_alias=False)
-        return dict["training_constraints"]
+        dictionary = self.dict(include={"training_constraints": True}, by_alias=False)
+        return dictionary["training_constraints"]
 
 
 class WorkerConstraint(BaseModel):
     """This models the selection criteria for a general worker."""
 
     worker_id: Optional[List[int]] = Field(
-        None, min_items=1, description="Filter workers by their IDs.", title="Worker IDs"
+        None,
+        min_items=1,
+        description="Filter workers by their IDs.",
+        title="Worker IDs",
     )
 
 
@@ -131,12 +138,14 @@ class Worker(BaseModel, ABC):
 
     name: str = Field("TaskWorker", min_length=1, description="Name of the worker.")
     description: Optional[str] = Field(
-        None, description="Description of this worker entry. Used for organization and documentation."
+        None,
+        description="Description of this worker entry. Used for organization and documentation.",
     )
     num_tasks: int = Field(
         1,
         ge=1,
-        description="Number of tasks to send to this worker entry. In conjunction with `distinct` allows to send multiple tasks to the same/different worker.",
+        description="Number of tasks to send to this worker entry. In conjunction with `distinct` allows to send "
+        "multiple tasks to the same/different worker.",
         title="Number of tasks",
     )
     timeout: int = Field(600, ge=1, description="Time in seconds for the worker to complete the task.")
@@ -144,12 +153,16 @@ class Worker(BaseModel, ABC):
         OnTimeout(action=OnTimeoutAction.retry, max_retries=3), title="Timeout action"
     )
     distinct: Optional[bool] = Field(
-        None, description="Ensures that the same worker does not receive the same task twice in case of recreation."
+        None,
+        description="Ensures that the same worker does not receive the same task twice in case of recreation.",
     )
     worker_constraints: Optional[WorkerConstraint] = Field(None, title="Worker Constraints")
     active: Optional[bool] = Field(True, description="If set to false, the worker entry is ignored.")
     confidence_threshold: Optional[float] = Field(
-        0.0, ge=0.0, le=1.0, description="Allows rejecting task results with a confidence score below the threshold."
+        0.0,
+        ge=0.0,
+        le=1.0,
+        description="Allows rejecting task results with a confidence score below the threshold.",
     )
     type: Literal["crowd", "bots", "collaborators", "ai"] = Field(..., description="Type of the worker.")
 
@@ -182,7 +195,8 @@ class AIWorker(Worker):
 
     type: Literal["ai"] = WorkerType.ai.value
     field_mappings: Optional[Dict[str, str]] = Field(
-        None, description="Allows mapping the task output to a specific field in the job input."
+        None,
+        description="Allows mapping the task output to a specific field in the job input.",
     )
 
 

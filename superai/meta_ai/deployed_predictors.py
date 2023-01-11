@@ -132,11 +132,11 @@ class LocalPredictor(DeployedPredictor):
             self.container: Container = self.client.containers.get(self.container_name)
 
         if self.lambda_mode:
-            url = f"http://localhost:9000/2015-03-31/functions/function/invocations"
+            url = "http://localhost:9000/2015-03-31/functions/function/invocations"
         elif self.k8s_mode:
             url = "http://localhost:9000/api/v1.0/predictions"
         else:
-            url = f"http://localhost/invocations"
+            url = "http://localhost/invocations"
         headers = {"Content-Type": mime}
         if mime.endswith("json"):
             res = requests.post(url, json=input, headers=headers)
@@ -148,11 +148,9 @@ class LocalPredictor(DeployedPredictor):
                 payload = input
             res = requests.post(url, data=payload, headers=headers)
         if res.status_code == 200:
-            result = TaskPredictionInstance.validate_prediction(res.json())
-            return result
-        else:
-            message = f"Error, received error code {res.status_code}: {res.text}"
-            log.error(message)
+            return TaskPredictionInstance.validate_prediction(res.json())
+        message = f"Error, received error code {res.status_code}: {res.text}"
+        log.error(message)
 
     def log(self):
         if self.container is None:
@@ -193,21 +191,23 @@ class LocalPredictor(DeployedPredictor):
             return {8080: 80, 8081: 8081}
 
     def _get_volumes(self, weights_volume: str):
-        volumes = {}
-        if self.weights_path is not None:
-            volumes = {
+        return (
+            {
                 os.path.abspath(self.weights_path): {
                     "bind": weights_volume,
                     "mode": "rw",
                 }
             }
-        return volumes
+            if self.weights_path is not None
+            else {}
+        )
 
     def _get_device_requests(self):
-        device_requests = None
-        if self.enable_cuda and shutil.which("nvidia-container-runtime") is not None:
-            device_requests = [docker.types.DeviceRequest(count=-1, capabilities=[["gpu"]])]
-        return device_requests
+        return (
+            [docker.types.DeviceRequest(count=-1, capabilities=[["gpu"]])]
+            if self.enable_cuda and shutil.which("nvidia-container-runtime") is not None
+            else None
+        )
 
     def to_dict(self) -> dict:
         dictionary = {"deploy_properties": self.deploy_properties.dict_for_db()}
@@ -245,7 +245,7 @@ class RemotePredictor(DeployedPredictor):
         self.ai.served_by = self.ai.served_by or self.ai.client.get_model(self.ai.id)["served_by"]
         existing_deployment = self.ai.client.get_deployment(self.ai.served_by) if self.ai.served_by else None
 
-        deployment_exists = not (existing_deployment is None or "status" not in existing_deployment)
+        deployment_exists = existing_deployment is not None and "status" in existing_deployment
 
         if deployment_exists and not redeploy:
             raise Exception("Deployment with this version already exists. Try undeploy first or set `redeploy=True`.")
@@ -277,8 +277,7 @@ class RemotePredictor(DeployedPredictor):
             result = self.client.predict_from_endpoint(
                 deployment_id=self.id, input_data=input_data, parameters=parameters
             )
-            output = TaskPredictionInstance.validate_prediction(result)
-            return output
+            return TaskPredictionInstance.validate_prediction(result)
         else:
             log.error("Prediction failed as endpoint does not seem to exist, please redeploy.")
             raise LookupError("Endpoint does not exist, redeploy")

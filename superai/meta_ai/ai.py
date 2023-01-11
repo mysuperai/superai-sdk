@@ -31,7 +31,12 @@ from superai.meta_ai.config_parser import AIConfig, InstanceConfig
 from superai.meta_ai.deployed_predictors import DeployedPredictor, PredictorFactory
 from superai.meta_ai.dockerizer import ecr_full_name, push_image
 from superai.meta_ai.environment_file import EnvironmentFileProcessor
-from superai.meta_ai.exceptions import ModelDeploymentError, ModelNotFoundError
+from superai.meta_ai.exceptions import (
+    ModelAlreadyExistsError,
+    ModelDeploymentError,
+    ModelNotFoundError,
+    ModelUploadError,
+)
 from superai.meta_ai.image_builder import (
     AiImageBuilder,
     BaseAIOrchestrator,
@@ -226,14 +231,13 @@ class AI:
 
     def update_version_by_availability(self, loaded=False):
         existing_models = self.ai_template.client.get_model_by_name(self.name)
-        if len(existing_models) and not loaded:
-            if self.version in [x["version"] for x in existing_models]:
-                latest_version: int = self.ai_template.client.get_latest_version_of_model_by_name(self.name)
-                self.version = latest_version + 1
-                log.info(
-                    f"Found an existing model with name {self.name} in the database, "
-                    f"incrementing version from the latest found version: {latest_version} -> {self.version}"
-                )
+        if len(existing_models) and not loaded and self.version in [x["version"] for x in existing_models]:
+            latest_version: int = self.ai_template.client.get_latest_version_of_model_by_name(self.name)
+            self.version = latest_version + 1
+            log.info(
+                f"Found an existing model with name {self.name} in the database, "
+                f"incrementing version from the latest found version: {latest_version} -> {self.version}"
+            )
 
     @classmethod
     def load_by_name_version(cls, name, version: int = None, stage: str = None) -> "AI":
@@ -275,52 +279,46 @@ class AI:
             name = path.split("model://")[-1].split("/")[0]
             log.info(f"Searching models with name `{name}` in database...")
             all_models: List[Dict] = list_models(name, raw=True, verbose=False)
-            if len(all_models):
-                match = re.search("(.*)/(.*)", path.split("model://" + name + "/")[-1])
-                if match is not None:
-                    stage, version = match.groups()
-                    if stage and version:
-                        selected = list(
-                            filter(
-                                lambda x: x["stage"] == stage and x["version"] == version,
-                                all_models,
-                            )
-                        )
-                        if len(selected):
-                            s3_path = selected[0]["modelSavePath"]
-                            weights_path = selected[0]["weightsPath"]
-                            return cls.load_from_s3(s3_path, weights_path)
-                        else:
-                            raise ModelNotFoundError(
-                                f"No model found for the given stage {stage} and version {version}"
-                            )
-                    log.info("Returning the latest version in models")
-                    selected = all_models.sort(key=lambda x: x["version"], reverse=True)[0]
-                    s3_path = selected["modelSavePath"]
-                    weights_path = selected["weightsPath"]
-                    return cls.load_from_s3(s3_path, weights_path)
-                else:
-                    # either stage or version is present
-                    # check for version
-                    ending = path.split(f"model://{name}/")[-1]
-                    if cls.is_valid_version(ending):
-                        s3_path = [entry for entry in all_models if int(entry["version"]) == int(ending)][0][
-                            "modelSavePath"
-                        ]
-                    else:
-                        stage = ending
-                        selected_models: List[dict] = [entry for entry in all_models if entry["stage"] == stage]
-                        model_entry = selected_models.sort(key=lambda x: x["version"], reverse=True)[0]
-                        s3_path = model_entry["modelSavePath"]
-                        weights_path = model_entry["weightsPath"]
-                    return cls.load_from_s3(s3_path, weights_path)
-            else:
+            if not len(all_models):
                 raise ModelNotFoundError(f"No models found for the given name : {name}")
-        else:
-            if os.path.exists(path):
-                return cls.load_local(path, weights_path)
+            match = re.search("(.*)/(.*)", path.split(f"model://{name}/")[-1])
+            if match is not None:
+                stage, version = match.groups()
+                if stage and version:
+                    selected = list(
+                        filter(
+                            lambda x: x["stage"] == stage and x["version"] == version,
+                            all_models,
+                        )
+                    )
+                    if not len(selected):
+                        raise ModelNotFoundError(f"No model found for the given stage {stage} and version {version}")
+                    s3_path = selected[0]["modelSavePath"]
+                    weights_path = selected[0]["weightsPath"]
+                    return cls.load_from_s3(s3_path, weights_path)
+                log.info("Returning the latest version in models")
+                selected = all_models.sort(key=lambda x: x["version"], reverse=True)[0]
+                s3_path = selected["modelSavePath"]
+                weights_path = selected["weightsPath"]
             else:
-                raise ValueError("Invalid path, please ensure the path exists")
+                # either stage or version is present
+                # check for version
+                ending = path.split(f"model://{name}/")[-1]
+                if cls.is_valid_version(ending):
+                    s3_path = [entry for entry in all_models if int(entry["version"]) == int(ending)][0][
+                        "modelSavePath"
+                    ]
+                else:
+                    stage = ending
+                    selected_models: List[dict] = [entry for entry in all_models if entry["stage"] == stage]
+                    model_entry = selected_models.sort(key=lambda x: x["version"], reverse=True)[0]
+                    s3_path = model_entry["modelSavePath"]
+                    weights_path = model_entry["weightsPath"]
+            return cls.load_from_s3(s3_path, weights_path)
+        elif os.path.exists(path):
+            return cls.load_local(path, weights_path)
+        else:
+            raise ValueError("Invalid path, please ensure the path exists")
 
     @staticmethod
     def is_valid_version(version: str) -> bool:
@@ -344,7 +342,7 @@ class AI:
 
         parsed_url = urlparse(path, allow_fragments=False)
         bucket_name = parsed_url.netloc
-        path_to_object = parsed_url.path if not parsed_url.path.startswith("/") else parsed_url.path[1:]
+        path_to_object = parsed_url.path[1:] if parsed_url.path.startswith("/") else parsed_url.path
 
         log.info(f"Downloading and unpacking AI object from bucket `{bucket_name}` and path `{path_to_object}`")
         s3.download_file(bucket_name, path_to_object, os.path.join(download_folder, "AISavedModel.tar.gz"))
@@ -386,7 +384,7 @@ class AI:
                 os.makedirs(download_folder, exist_ok=True)
                 parsed_url = urlparse(weights_path, allow_fragments=False)
                 bucket_name = parsed_url.netloc
-                path_to_object = parsed_url.path if not parsed_url.path.startswith("/") else parsed_url.path[1:]
+                path_to_object = parsed_url.path[1:] if parsed_url.path.startswith("/") else parsed_url.path
                 log.info(f"Downloading and unpacking weights from bucket '{bucket_name}' and path '{path_to_object}'")
                 s3.download_file(
                     bucket_name, path_to_object, os.path.join(download_folder, os.path.basename(weights_path))
@@ -442,8 +440,7 @@ class AI:
         if not self.id:
             self._id = self.client.add_model(**kwargs)
         else:
-            # TODO: Add proper exception class
-            raise Exception("Model is already registered in the Database.")
+            raise ModelAlreadyExistsError("Model is already registered in the Database.")
         return self.id
 
     def transition_ai_version_stage(
@@ -464,7 +461,8 @@ class AI:
         Returns:
              Updated AI version
         """
-        # TODO: Archive existing
+        if archive_existing:
+            raise NotImplementedError("Archive existing not implemented yet")
         sett_version = version if version is not None else self.version
         assert sett_version is not None, "Cannot transition ai version with None"
         try:
@@ -496,7 +494,6 @@ class AI:
             f"AI version updated to {self.version} after updating weights. New version created in {self._location}. "
             f"Make sure to AI.push to update in database"
         )
-        # TODO Do we return a new AI object?
 
     def update_ai_class(self, model_class: str, model_class_path="."):
         """Updates the model_class. Running this operation will increase the AI version.
@@ -541,12 +538,12 @@ class AI:
             log.info(f"Version not specified, checking version: {self.version}")
             version = self.version
         if len(models) == 0:
-            raise Exception(
+            raise ModelNotFoundError(
                 f"No models found with the name: {self.name}:{self.version}. "
                 f"Make sure you have 'AI.push'ed some models. "
             )
         elif version in [x["version"] for x in models]:
-            raise Exception(
+            raise ModelAlreadyExistsError(
                 f"Model name and version already exists. Try updating the version number. "
                 f"Hint: Try version {self.client.get_latest_version_of_model_by_name(self.name) + 1}"
             )
@@ -560,7 +557,7 @@ class AI:
                 self.version = version
                 self.weights_path = weights_path
                 self._location = self.save()
-                log.info(f"Updated model {self.name}:{self.version}. " f"Make sure to AI.push to update the database")
+                log.info(f"Updated model {self.name}:{self.version}. Make sure to AI.push to update the database")
         if ai_class is not None:
             self.model_class = None
             self.model_class_name = ai_class
@@ -591,11 +588,11 @@ class AI:
                 )
 
         output = self.model_class.predict(inputs)
-        result = TaskPredictionInstance.validate_prediction(output)
-        return result
+        return TaskPredictionInstance.validate_prediction(output)
 
     def predict_batch(self, inputs: Union[List[List[dict]], TaskBatchInput]) -> List[List[TaskPredictionInstance]]:
-        """Predicts a batch of inputs from model_class and ensures that predict method adheres to schema in ai_definition.
+        """Predicts a batch of inputs from model_class and ensures that predict method adheres to schema in
+        ai_definition.
 
         Args:
             inputs
@@ -617,8 +614,7 @@ class AI:
                 )
 
         batch = self.model_class.predict_batch(inputs)
-        result = TaskPredictionInstance.validate_prediction_batch(batch)
-        return result
+        return TaskPredictionInstance.validate_prediction_batch(batch)
 
     def save(self, path: str = ".AISave", overwrite: bool = False):
         """Saves the model locally.
@@ -630,10 +626,7 @@ class AI:
         save_path = os.path.join(path, self.name)
         os.makedirs(save_path, exist_ok=True)
 
-        if self.version is None:
-            version = "0"
-        else:
-            version = str(self.version)
+        version = "0" if self.version is None else str(self.version)
         version_save_path = os.path.join(save_path, version)
         if not os.path.exists(version_save_path):
             os.makedirs(version_save_path)
@@ -668,7 +661,7 @@ class AI:
         if upload_response.status_code == 204:
             log.info("Upload complete successfully")
         else:
-            raise Exception(
+            raise ModelUploadError(
                 f"Could not upload file {upload_response.status_code}: {upload_response.reason}\n"
                 f"{upload_response.text} "
             )
@@ -704,7 +697,8 @@ class AI:
             else:
                 if get_current_env() == "prod":
                     confirmed = Confirm.ask(
-                        "Do you [bold]really[/bold] want to push weights for a [red]production[/red] AI? This can negatively impact Data Programs relying on the existing AI."
+                        "Do you [bold]really[/bold] want to push weights for a [red]production[/red] AI? "
+                        "This can negatively impact Data Programs relying on the existing AI."
                     )
                     if not confirmed:
                         log.warning("Aborting push")
@@ -727,12 +721,12 @@ class AI:
                 deployment_parameters=self.ai_template.deployment_parameters,
             )
 
-        modelSavePath = self._upload_model_folder(self.id)
+        model_save_path = self._upload_model_folder(self.id)
         weights = self._upload_weights(self.id, update_weights, weights_path)
         self.client.update_model(
             self.id,
             weights_path=weights,
-            model_save_path=modelSavePath,
+            model_save_path=model_save_path,
             deployment_parameters=self.ai_template.deployment_parameters,
         )
         return self.id
@@ -745,9 +739,9 @@ class AI:
         object_name = os.path.join(MODEL_ARTIFACT_PREFIX_S3, idx, self.name, str(self.version), "AISavedModel.tar.gz")
         with open(path_to_tarfile, "rb") as f:
             s3_client.upload_fileobj(f, self.bucket_name, object_name)
-        modelSavePath = os.path.join("s3://", self.bucket_name, object_name)
-        log.info(f"Uploaded AI object to '{modelSavePath}'")
-        return modelSavePath
+        model_save_path = os.path.join("s3://", self.bucket_name, object_name)
+        log.info(f"Uploaded AI object to '{model_save_path}'")
+        return model_save_path
 
     def _upload_training_data(self, local_directory: str, training_id: str) -> str:
         training_data_path = os.path.join("training/data", training_id)
@@ -820,10 +814,10 @@ class AI:
         if isinstance(orchestrator, str):
             try:
                 orchestrator = Orchestrator[orchestrator]
-            except KeyError:
+            except KeyError as e:
                 raise ValueError(
                     f"Unknown orchestrator: {orchestrator}. Try one of: {', '.join(Orchestrator.__members__.values())}"
-                )
+                ) from e
 
         deployment_parameters = self._merge_deployment_parameters(properties, enable_cuda)
         # Build image and compile deployment properties
@@ -838,9 +832,8 @@ class AI:
             download_base=download_base,
         )
 
-        if PredictorFactory.is_remote(orchestrator):
-            if not skip_build:
-                self.push_model(image_name=local_image_name)
+        if PredictorFactory.is_remote(orchestrator) and not skip_build:
+            self.push_model(image_name=local_image_name)
 
         predictor_obj: DeployedPredictor = PredictorFactory.get_predictor_obj(
             orchestrator=orchestrator,
@@ -975,11 +968,11 @@ class AI:
                 image_name = image_name.split(":")[0]
             else:
                 version = str(self.version)
-        id = self.id
-        if id is None:
-            raise Exception("No ID found. AI needs to be registered  via `push()` first.")
-        full_name = push_image(image_name=image_name, model_id=id, version=version)
-        self.client.update_model(id, image=full_name)
+        id_ = self.id
+        if id_ is None:
+            raise ModelNotFoundError("No ID found. AI needs to be registered  via `push()` first.")
+        full_name = push_image(image_name=image_name, model_id=id_, version=version)
+        self.client.update_model(id_, image=full_name)
         return full_name
 
     def train(
@@ -1022,7 +1015,7 @@ class AI:
                 os.path.join(self._location, "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")),
             )
         log.info(f"If tensorboard callback is present, logging in {self.model_class.logger_dir}")
-        train_instance_output = self.model_class.train(
+        return self.model_class.train(
             model_save_path=model_save_path,
             training_data=training_data,
             validation_data=validation_data,
@@ -1035,7 +1028,6 @@ class AI:
             model_parameters=model_parameters,
             callbacks=callbacks,
         )
-        return train_instance_output
 
     @classmethod
     def from_settings(cls, ai_template: AITemplate, instance: InstanceConfig) -> AI:
@@ -1239,7 +1231,9 @@ class AI:
             **kwargs,
         )
 
-    def _get_or_create_training_entry(self, model_id: str, app_id: str = None, properties: dict = {}):
+    def _get_or_create_training_entry(self, model_id: str, app_id: str = None, properties=None):
+        if properties is None:
+            properties = {}
         existing_template_id = self.client.get_training_templates(model_id=model_id, app_id=app_id)
         if len(existing_template_id):
             template_id = existing_template_id[0].id
@@ -1252,7 +1246,6 @@ class AI:
                 model_id=model_id, properties=properties, app_id=app_id
             )["id"]
             log.info(f"Created template : {template_id}")
-            template_id = template_id
         return template_id
 
 

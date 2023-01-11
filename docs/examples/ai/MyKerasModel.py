@@ -106,12 +106,7 @@ class MyKerasModel(BaseModel):
         x = layers.Dense(64, activation="relu", name="dense_2")(x)
         outputs = layers.Dense(10, activation="softmax", name="predictions")(x)
 
-        model = keras.Model(inputs=inputs, outputs=outputs)
-
-        return model
+        return keras.Model(inputs=inputs, outputs=outputs)
 
     def to_tf(self):
-        if self.model is not None:
-            return self.model
-        else:
-            return self.define_model()
+        return self.model if self.model is not None else self.define_model()

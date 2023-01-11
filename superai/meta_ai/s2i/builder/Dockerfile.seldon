@@ -49,6 +49,7 @@ RUN pip install -U --no-cache-dir pip "awscli>=1.18.195"
 COPY requirements_seldon.txt /home/model-server/.requirements/base_requirements.txt
 ARG AWS_DEFAULT_REGION=us-east-1
 ARG PIP_REPO
+ARG AWS_PROFILE
 RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true,uid=1000,gid=1000 \
     --mount=type=cache,target=/root/.cache/pip \
     aws codeartifact login --tool pip --domain superai --repository ${PIP_REPO} && \

@@ -74,14 +74,10 @@ class DataProgram(DataProgramBase):
         )
         self._super_task_models = definition.supertask_models
 
-        self.client = (
-            client
-            if client
-            else Client(
-                api_key=load_api_key(),
-                auth_token=load_auth_token(),
-                id_token=load_id_token(),
-            )
+        self.client = client or Client(
+            api_key=load_api_key(),
+            auth_token=load_auth_token(),
+            id_token=load_id_token(),
         )
         # FIXME: Needs to register default_workflow, and workflows... not the router
         self.__dict__.update(asdict(definition))
@@ -128,7 +124,7 @@ class DataProgram(DataProgramBase):
                 name=name,
                 description=self.description,
             )
-            if metadata == None and auto_generate_metadata
+            if metadata is None and auto_generate_metadata
             else metadata
         )
 
@@ -173,7 +169,7 @@ class DataProgram(DataProgramBase):
         training_dataprogram = os.getenv("TRAINING_DATAPROGRAM")
         is_training = training_dataprogram is not None and training_dataprogram != name
 
-        dp = DataProgram(
+        return DataProgram(
             name=name,
             default_params=default_params,
             handler=handler,
@@ -183,7 +179,6 @@ class DataProgram(DataProgramBase):
             dataprogram=training_dataprogram if is_training else None,
             default_super_task_configs=default_super_task_configs,
         )
-        return dp
 
     def start_service(
         self,
@@ -404,7 +399,6 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
             DPServer(
                 default_params, handler, name=name, workflows=workflows, template_name="", port=dp_server_port
             ).run()
-            return
         else:
             raise Exception(f"{service} is invalid service. 'data_program' or 'schema' is available.")
 
@@ -443,7 +437,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         template = self.client.get_template(template_name=self.template_name)
         old_workflows_names: List[str] = template.get("dpWorkflows", []) or []
 
-        new_workflows_names = [self._name + "." + new_workflow.name for new_workflow in new_workflows]
+        new_workflows_names = [f"{self._name}.{new_workflow.name}" for new_workflow in new_workflows]
 
         if any(item not in new_workflows_names for item in old_workflows_names):
             # Can't delete workflows!
@@ -544,9 +538,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         self._supertasks.append(supertask)
         # Everything after this line can be ignored once the data program™ is already deployed
         if os.environ.get("IN_AGENT"):
-            log.info(
-                f"[DataProgramTemplate.add_supertask] ignoring because IN_AGENT = " f"{os.environ.get('IN_AGENT')}"
-            )
+            log.info(f"[DataProgramTemplate.add_supertask] ignoring because IN_AGENT = {os.environ.get('IN_AGENT')}")
             return
 
         supertask_dict = supertask.put()
@@ -576,7 +568,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         self._register_workflow(workflow)
         # Everything after this line can be ignored once the data program™ is already deployed
         if os.environ.get("IN_AGENT"):
-            log.info(f"[DataProgramTemplate.add_workflow] ignoring because IN_AGENT = " f"{os.environ.get('IN_AGENT')}")
+            log.info(f"[DataProgramTemplate.add_workflow] ignoring because IN_AGENT = {os.environ.get('IN_AGENT')}")
             return
 
         workflow_dict = workflow.put()
@@ -614,7 +606,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         # TODO: Check that the workflow function can take inputs and params arguments
         #          inspect.getfullargspec(workflow).args is one option
 
-        kkwargs = dict()
+        kkwargs = {}
         if not self.add_basic_workflow and len(self.workflows) < 1:
             default = True
             gold = True
@@ -746,11 +738,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
 
                 inputs = args[0]
 
-                if len(args) > 1:
-                    params = args[1]
-                else:
-                    params = kwargs.get("params", {})
-
+                params = args[1] if len(args) > 1 else kwargs.get("params", {})
                 # TODO: Introduce support for task schemas (definition_v1, v2)
                 #   1. Handle case where the output/param schema is not created with task_schema_functions
                 # task_definition = {
@@ -781,7 +769,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                     task_inputs.append(schema_fun(inputs.get(k)))
                 log.info(f"{self._name}._basic:TaskInputs {task_inputs}")
                 if None in task_inputs:
-                    raise Exception(f"Task inputs could not get generated. Schema={input_schema}," f"Inputs={inputs}")
+                    raise Exception(f"Task inputs could not get generated. Schema={input_schema}, Inputs={inputs}")
 
                 # TODO:
                 #  1. Support output schemas that were generated using task_schema_functions
@@ -812,9 +800,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
 
                 log.info(f"{self._name}._basic:TaskOutputs {task_outputs}")
                 if None in task_outputs:
-                    raise Exception(
-                        f"Task outputs could not get generated. Schema={output_schema}, " f"Params={params}"
-                    )
+                    raise Exception(f"Task outputs could not get generated. Schema={output_schema}, Params={params}")
                 task_result = task(
                     input=task_inputs,
                     output=task_outputs,
@@ -833,7 +819,6 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                     log.info(f"task succeeded with response: {task_result.response()}")
                     if len(task_result.response()) > 0:
                         log.info(f"TASK_RESULT {task_result.response()}")
-                        # return task_result
                     else:
                         log.info("WARNING: completed task, but empty task response.")
                         # log.info("resending task, trial no. ", n_tries + 1)
@@ -880,11 +865,10 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         workflow_list: List[str] = template.get("dpWorkflows", []) or []
         if workflow.qualified_name in workflow_list:
             return
-        else:
-            workflow_list.append(workflow.qualified_name)
-            body = {"workflows": workflow_list}
-            updated_template = self.client.update_template(template_name=self.template_name, body=body)
-            assert workflow.qualified_name in updated_template.get("dpWorkflows")
+        workflow_list.append(workflow.qualified_name)
+        body = {"workflows": workflow_list}
+        updated_template = self.client.update_template(template_name=self.template_name, body=body)
+        assert workflow.qualified_name in updated_template.get("dpWorkflows")
 
     def _register_supertask(self, supertask: SuperTaskWorkflow, force_update=True):
         template = None
@@ -896,8 +880,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
 
         if template and not force_update:
             return
-        else:
-            """
+        """
             Body schema:
             input_schema=input_schema,
             input_ui_schema=input_ui_schema,
@@ -917,15 +900,15 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
             default_workers=default_workers,
             default_parameters=default_parameters,
             """
-            body = {
-                "inputSchema": supertask.input_schema,
-                "outputSchema": supertask.output_schema,
-                "parameterSchema": supertask.parameter_schema,
-                # Use dict() before accessing workers, since its root type is a List
-                "default_workers": supertask._schema.config.dict()["workers"],
-                "default_parameters": supertask._schema.config.params.dict(),
-            }
-            updated_template = self.client.update_supertask(task_template_name=supertask.qualified_name, body=body)
+        body = {
+            "inputSchema": supertask.input_schema,
+            "outputSchema": supertask.output_schema,
+            "parameterSchema": supertask.parameter_schema,
+            # Use dict() before accessing workers, since its root type is a List
+            "default_workers": supertask._schema.config.dict()["workers"],
+            "default_parameters": supertask._schema.config.params.dict(),
+        }
+        self.client.update_supertask(task_template_name=supertask.qualified_name, body=body)
 
 
 def _validate_necessary_workflows(workflows):

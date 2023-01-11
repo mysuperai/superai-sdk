@@ -3,6 +3,7 @@ import time
 from abc import ABC
 from typing import Dict, List, Optional, Union
 
+import click
 import sgqlc
 from rich import box
 from rich.console import Console
@@ -69,10 +70,16 @@ EXTRA_FIELDS = [
 
 
 class PredictionError(Exception):
-    pass
+    """Prediction Error"""
+
+
+class ModelError(Exception):
+    """Model Error"""
 
 
 class ModelApiMixin(ABC):
+    """Model API"""
+
     _resource = "model"
 
     def __init__(self):
@@ -370,7 +377,7 @@ class ModelApiMixin(ABC):
         data = self.sess.perform_op(opq)
         res = (opq + data).meta_ai_model
         if len(res) == 0:
-            raise Exception(f"Could not find any matching entries with {name}:{version}")
+            raise ModelError(f"Could not find any matching entries with {name}:{version}")
         idx = res[0].id
         return self.update_model(idx, **kwargs)
 
@@ -380,10 +387,9 @@ class ModelApiMixin(ABC):
         data = self.sess.perform_op(opq)
         res = (opq + data).meta_ai_model
         if len(res) == 0:
-            raise Exception(f"Could not find any entries with model name `{name}`")
-        else:
-            res = list(map(lambda x: x.version, res))
-            return sorted(res, reverse=True)[0]
+            raise ModelError(f"Could not find any entries with model name `{name}`")
+        res = list(map(lambda x: x.version, res))
+        return sorted(res, reverse=True)[0]
 
     def delete_model(self, idx) -> str:
         op = Operation(mutation_root)
@@ -406,7 +412,13 @@ class ModelApiMixin(ABC):
         return app_id
 
 
+class DeploymentException(Exception):
+    """All deployment API mixin exceptions"""
+
+
 class DeploymentApiMixin(ABC):
+    """Deployment API"""
+
     _resource = "deployment"
 
     def __init__(self):
@@ -434,6 +446,7 @@ class DeploymentApiMixin(ABC):
             model_id:
             properties: dict, as in AITemplate.deployment_parameters
             wait: bool, if True, wait for the deployment to be completed before returning.
+            initial_status:
 
         Returns:
             str: id of the newly created deployment
@@ -474,8 +487,10 @@ class DeploymentApiMixin(ABC):
         data = self.sess.perform_op(op)
         try:
             return (op + data).update_meta_ai_deployment_by_pk.target_status
-        except:
-            raise Exception("Could not set target status. Check if you have Ownership for this deployment.")
+        except Exception as e:
+            raise DeploymentException(
+                "Could not set target status. Check if you have Ownership for this deployment."
+            ) from e
 
     def set_deployment_status(
         self, deployment_id: str, target_status: meta_ai_deployment_status_enum, timeout: int = 600
@@ -497,7 +512,7 @@ class DeploymentApiMixin(ABC):
         console = Console()
         end_time = time.time() + timeout
         retries = 0
-        with console.status("[bold green]Waiting for status change...") as status:
+        with console.status("[bold green]Waiting for status change..."):
             while time.time() < end_time:
                 backend_status = self.get_deployment(deployment_id)[field]
                 if backend_status == target_status:
@@ -591,8 +606,7 @@ class DeploymentApiMixin(ABC):
             "scale_in_timeout",
         )
         data = self.sess.perform_op(opq)
-        res = (opq + data).meta_ai_deployment_by_pk
-        return res
+        return (opq + data).meta_ai_deployment_by_pk
 
     def list_deployments(
         self,
@@ -633,8 +647,7 @@ class DeploymentApiMixin(ABC):
             "scale_in_timeout",
         )
         data = self.sess.perform_op(opq)
-        res = (opq + data).meta_ai_deployment
-        return res
+        return (opq + data).meta_ai_deployment
 
     def check_endpoint_is_available(self, deployment_id) -> bool:
         """Query to check if there is an active deployment"""
@@ -647,8 +660,7 @@ class DeploymentApiMixin(ABC):
         p.__fields__("error_message", "state", "completed_at", "started_at")
         data = self.sess.perform_op(op)
         try:
-            output = (op + data).meta_ai_prediction_by_pk
-            return output
+            return (op + data).meta_ai_prediction_by_pk
         except AttributeError:
             log.info(f"No prediction found for prediction_id:{prediction_id}.")
 
@@ -682,12 +694,12 @@ class DeploymentApiMixin(ABC):
         prediction.__fields__("state")
         start = time.time()
 
-        def generate_table(id, state) -> Table:
+        def generate_table(id_, state) -> Table:
             """Make a new table."""
             table = Table(box=box.MINIMAL)
             table.add_column("ID")
             table.add_column("Current State")
-            table.add_row(str(id), str(state))
+            table.add_row(str(id_), str(state))
             return table
 
         with Live(generate_table(prediction_id, ""), auto_refresh=False, transient=True) as live:
@@ -701,8 +713,7 @@ class DeploymentApiMixin(ABC):
                     error_object = self.get_prediction_error(prediction_id)
                     logger.warning(f"Prediction failed while waiting for completion:\n {error_object.error_message}")
                     raise PredictionError(error_object["error_message"])
-            else:
-                raise TimeoutError("Waiting for Prediction result timed out. Try increasing timeout.")
+            raise TimeoutError("Waiting for Prediction result timed out. Try increasing timeout.")
 
     @staticmethod
     def get_prediction_with_data(prediction_id: str, app_id: str = None) -> Optional[meta_ai_prediction]:
@@ -725,8 +736,7 @@ class DeploymentApiMixin(ABC):
         p.instances().__fields__("id", "output", "score")
         data = sess.perform_op(op)
         try:
-            output = (op + data).meta_ai_prediction_by_pk
-            return output
+            return (op + data).meta_ai_prediction_by_pk
         except AttributeError:
             log.info(f"No prediction found for prediction_id:{prediction_id}.")
             return None
@@ -805,7 +815,13 @@ class DeploymentApiMixin(ABC):
         ]
 
 
+class TrainingException(Exception):
+    """All training API exceptions"""
+
+
 class TrainApiMixin(ABC):
+    """Training API"""
+
     _resource = "train"
 
     def __init__(self):
@@ -849,9 +865,9 @@ class TrainApiMixin(ABC):
             return (op + data).insert_meta_ai_training_template_one
         except GraphQlException as e:
             if "duplicate" in str(e):
-                raise Exception(
+                raise TrainingException(
                     "Training template already exists. Currently only one template is allowed per app/model."
-                )
+                ) from e
 
     @staticmethod
     def update_training_template(
@@ -870,6 +886,7 @@ class TrainApiMixin(ABC):
             model_id: ref model if for the template
             properties: the default properties that will get inherited during trainings
             description: optional description for the template
+            template_id:
         """
         app_id_str = str(app_id) if app_id else None
         sess = MetaAISession(app_id=app_id_str)
@@ -877,7 +894,7 @@ class TrainApiMixin(ABC):
         if not template_id:
             templates = TrainApiMixin.get_training_templates(model_id, app_id)
             if len(templates) < 1:
-                raise Exception("Cannot update template. Template does not exist.")
+                raise TrainingException("Cannot update template. Template does not exist.")
             template_id = templates[0].id
 
         update_dict = {}
@@ -912,12 +929,10 @@ class TrainApiMixin(ABC):
         log.info(
             f"Getting training templates indexed by root_model_id={root_model_id} inferred from model_id={model_id}"
         )
-        filters = {"model_id": {"_eq": root_model_id}}
-        if app_id_str:
-            filters["app_id"] = {"_eq": app_id_str}
-        else:
-            filters["app_id"] = {"_is_null": True}
-
+        filters = {
+            "model_id": {"_eq": root_model_id},
+            "app_id": {"_eq": app_id_str} if app_id_str else {"_is_null": True},
+        }
         op.meta_ai_training_template(where=filters).__fields__("id", "name", "properties", "created_at", "description")
         instance_data = sess.perform_op(op)
         try:
@@ -929,7 +944,9 @@ class TrainApiMixin(ABC):
         return q_out
 
     @staticmethod
-    def get_training_template(template_id: uuid, app_id: Optional[uuid]) -> Optional[meta_ai_training_template]:
+    def get_training_template(
+        template_id: Union[uuid, str], app_id: Optional[uuid]
+    ) -> Optional[meta_ai_training_template]:
         """Query single training template by id if it exists.
 
         Returns: the training template
@@ -1100,10 +1117,10 @@ class TrainApiMixin(ABC):
         return (op + data).delete_meta_ai_training_instance_by_pk.id
 
     @staticmethod
-    def update_training_instance(instance_id: uuid, app_id: str = None, state: str = None):
-        assert state in [None, "STARTING"], "Only STARTING state is supported for now."
+    def update_training_instance(instance_id: uuid, app_id: Optional[Union[click.UUID, str]] = None, state: str = None):
+        assert state in {None, "STARTING"}, "Only STARTING state is supported for now."
 
-        sess = MetaAISession(app_id=str(app_id) if app_id else None)
+        sess = MetaAISession(app_id=str(app_id) or None)
         op = Operation(mutation_root)
 
         op.update_meta_ai_training_instance_by_pk(
@@ -1174,7 +1191,7 @@ class TrainApiMixin(ABC):
         app_id_str = str(app_id) if app_id else None
 
         if artifact_type not in ["weights", "source"]:
-            raise ValueError(f"artifact_type must be one of ['weights', 'source']")
+            raise ValueError("artifact_type must be one of ['weights', 'source']")
 
         sess = MetaAIWebsocketSession(app_id=app_id_str)
 
@@ -1188,7 +1205,7 @@ class TrainApiMixin(ABC):
         # Query id for results until ready
         start = time.time()
         console = Console()
-        with console.status(f"Waiting for artifact preparation to complete for model_id={model_id}") as status:
+        with console.status(f"Waiting for artifact preparation to complete for model_id={model_id}"):
             while time.time() - start < timeout:
                 os = Operation(subscription_root)
                 result = os.download_artifact_async(id=download_id)
@@ -1197,13 +1214,9 @@ class TrainApiMixin(ABC):
                 data = next(sess.perform_op(os))
                 res: download_artifact_async = (os + data).download_artifact_async
                 if res.errors:
-                    if "error" in res.errors:
-                        error = res.errors["error"]
-                    else:
-                        error = res.errors
-                    raise Exception(f"Error while preparing model artifact: {error}")
+                    error = res.errors["error"] if "error" in res.errors else res.errors
+                    raise TrainingException(f"Error while preparing model artifact: {error}")
                 if res.output:
                     console.log("Artifact ready for download")
                     return res.output.url
-            else:
-                raise TimeoutError("Waiting for Artifact download url timed out. Try increasing timeout.")
+            raise TimeoutError("Waiting for Artifact download url timed out. Try increasing timeout.")

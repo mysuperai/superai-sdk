@@ -1,3 +1,4 @@
+import contextlib
 import json
 import socket
 import time
@@ -85,12 +86,10 @@ def server_ready(max_wait_secs=10) -> bool:
     """
     start = time.time()
     while time.time() - start < max_wait_secs:
-        try:
+        with contextlib.suppress(requests.exceptions.ConnectionError):
             resp = requests.get("http://127.0.0.1:8002/health")
             if resp.status_code == 200:
                 return True
-        except requests.exceptions.ConnectionError:
-            pass
         time.sleep(0.2)
     return False
 

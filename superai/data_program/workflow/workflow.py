@@ -49,8 +49,10 @@ class Workflow:
 
         self._dp_definition: DataProgramDefinition = dp_definition
         self._prefix = prefix
-        self._client = (
-            client if client else Client(api_key=load_api_key(), auth_token=load_auth_token(), id_token=load_id_token())
+        self._client = client or Client(
+            api_key=load_api_key(),
+            auth_token=load_auth_token(),
+            id_token=load_id_token(),
         )
         self.kwargs = kwargs
 
@@ -149,7 +151,7 @@ class Workflow:
         if self._dp_definition.parameter_schema:
             body["parameter_schema"] = {"params": self.parameter_schema}
 
-        name = self.name if self.name else self.workflow_fn.__name__
+        name = self.name or self.workflow_fn.__name__
 
         # TODO: Description not supported by nacelle
         # if description is not None:

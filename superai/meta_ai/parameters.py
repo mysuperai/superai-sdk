@@ -229,7 +229,7 @@ class ModelParameters:
         self.fc_bias_initializer = fc_bias_initializer
         self.fc_activation = fc_activation
         self.fc_dropout = fc_dropout
-        for k in kwargs.keys():
+        for k in kwargs:
             setattr(self, k, kwargs[k])
 
     @classmethod
@@ -240,10 +240,9 @@ class ModelParameters:
     def get(self, key, default=None):
         if hasattr(self, key):
             return getattr(self, key)
-        else:
-            if default is None:
-                raise KeyError(f"Key {key} not found in {self.__class__.__name__} object")
-            return default
+        if default is None:
+            raise KeyError(f"Key {key} not found in {self.__class__.__name__} object")
+        return default
 
 
 class Config:
@@ -251,7 +250,7 @@ class Config:
 
     def __init__(self, **kwargs):
         self.kwargs = kwargs
-        for k in kwargs.keys():
+        for k in kwargs:
             setattr(self, k, kwargs[k])
 
     def __dir__(self):

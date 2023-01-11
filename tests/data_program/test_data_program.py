@@ -47,8 +47,7 @@ metric = Metric("IMAGE_POLYGON:F1:BOUNDING_BOXES", metric_fn=metric_func)
 
 
 def process_job(job_input: JobInput, context: JobContext[JobOutput]) -> JobOutput:
-    job_output = JobOutput(url=job_input.url)
-    return job_output
+    return JobOutput(url=job_input.url)
 
 
 def _dummy_handler(params: ParameterModel):

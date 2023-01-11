@@ -34,14 +34,13 @@ def local_ai(clean):
         model_class="DummyModel",
         model_class_path=str(model_path.absolute()),
     )
-    ai = AI(
+    yield AI(
         ai_template=template,
         input_params=template.input_schema.parameters(),
-        output_params=template.output_schema.parameters(choices=map(str, range(0, 10))),
+        output_params=template.output_schema.parameters(choices=map(str, range(10))),
         name="pytest_test_model",
         version=1,
     )
-    yield ai
 
 
 def test_predict_legacy(local_ai):

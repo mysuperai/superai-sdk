@@ -200,23 +200,17 @@ def get_job_id():
     """Returns:
     Job ID of current job. For little piggy, it always returns little piggy.
     """
-    if "CANOTIC_AGENT" in os.environ:
-        return get_context_id()
-    else:
-        return "LITTLE_PIGGY"
+    return get_context_id() if "CANOTIC_AGENT" in os.environ else "LITTLE_PIGGY"
 
 
 def get_job_priority(api_key=None):
     """Returns job priority."""
-    if "CANOTIC_AGENT" in os.environ:
-        priority = job_priority()
-        if priority:
-            return priority
-        else:
-            logger.info(f"Failed to query job priority `{get_job_id()}`.")
-            raise RuntimeError(f"Failed to query job priority id `{get_job_id()}`.")
-    else:
+    if "CANOTIC_AGENT" not in os.environ:
         return "LITTLE_PIGGY"
+    if priority := job_priority():
+        return priority
+    logger.info(f"Failed to query job priority `{get_job_id()}`.")
+    raise RuntimeError(f"Failed to query job priority id `{get_job_id()}`.")
 
 
 def get_job_app():
@@ -334,11 +328,10 @@ def get_job_project_name():
     """Returns:
     The project ID of the current job. For little piggy, it always returns little piggy.
     """
-    if "CANOTIC_AGENT" in os.environ:
-        pid = get_context_project_id()
-        return get_project_name(pid)
-    else:
+    if "CANOTIC_AGENT" not in os.environ:
         return "LITTLE_PIGGY"
+    pid = get_context_project_id()
+    return get_project_name(pid)
 
 
 def get_job_tag(api_key: str = None):
@@ -384,20 +377,14 @@ def is_job_child():
     """Returns:
     Whether the current job is a child job. For little piggy, it always returns False.
     """
-    if "CANOTIC_AGENT" in os.environ:
-        return get_context_is_child()
-    else:
-        return False
+    return get_context_is_child() if "CANOTIC_AGENT" in os.environ else False
 
 
 def get_workflow_prefix():
     """Returns:
     The project ID of the current job. For little piggy, it always returns little piggy.
     """
-    if "WF_PREFIX" in os.environ:
-        return os.environ["WF_PREFIX"]
-    else:
-        return "lp"
+    return os.environ["WF_PREFIX"] if "WF_PREFIX" in os.environ else "lp"
 
 
 def store_snapshot(snapshot, data_folder=None):
@@ -434,19 +421,15 @@ def restore_snapshot():
     """TODO(veselin): add description"""
     if "CANOTIC_AGENT" in os.environ:
         snap = load_snapshot()
-        if snap is not None:
-            if "snapshot" in snap:
-                return snap["snapshot"]
+        if snap is not None and "snapshot" in snap:
+            return snap["snapshot"]
 
     return None
 
 
 def restore_snapshot_data():
     """TODO(veselin): add description"""
-    if "CANOTIC_AGENT" in os.environ:
-        return load_snapshot_data()
-
-    return None
+    return load_snapshot_data() if "CANOTIC_AGENT" in os.environ else None
 
 
 def report(status):
@@ -697,7 +680,7 @@ def tasks_parallel(records, task_fn, concurrency=1, task_callback=None):
     while completed < total_tasks:
         remaining_tasks = total_tasks - completed - outstanding_task_count
         logger.info(f"Completed: {completed}. Remaining Tasks: {remaining_tasks}. Total Tasks: {total_tasks}")
-        for i in range(0, min(remaining_tasks, concurrency - outstanding_task_count)):
+        for i in range(min(remaining_tasks, concurrency - outstanding_task_count)):
             index = completed + i + outstanding_task_count
             logger.info(f"INDEX: {index}")
             record = records[index]
@@ -706,9 +689,7 @@ def tasks_parallel(records, task_fn, concurrency=1, task_callback=None):
             tasks.append(fn)
         wait_result = wait_tasks_OR(tasks)
         outstanding_task_count = len(wait_result.not_done)
-        tasks = []
-        for t in wait_result.not_done:
-            tasks.append(t)
+        tasks = list(wait_result.not_done)
         completed += len(wait_result.done)
 
         if task_callback:
@@ -741,7 +722,7 @@ def execute_parallel(records, method_fn, concurrency=10, callback=None):
         remaining_tasks = total_tasks - completed - outstanding_task_count
         logger.info(f"Completed: {completed}. Remaining Tasks: {remaining_tasks}. Total Tasks: {total_tasks}")
         print(f"Completed: {completed}. Remaining Tasks: {remaining_tasks}. Total Tasks: {total_tasks}")
-        for i in range(0, min(remaining_tasks, concurrency - outstanding_task_count)):
+        for i in range(min(remaining_tasks, concurrency - outstanding_task_count)):
             sTime = randint(1, 8)
             logger.debug(f"SLEEPING: {sTime} SECONDS")
             time.sleep(sTime)
@@ -753,9 +734,7 @@ def execute_parallel(records, method_fn, concurrency=10, callback=None):
             tasks.append(fn)
         wait_result = wait_tasks_OR(tasks)
         outstanding_task_count = len(wait_result.not_done)
-        tasks = []
-        for t in wait_result.not_done:
-            tasks.append(t)
+        tasks = list(wait_result.not_done)
         completed += len(wait_result.done)
 
         if callback:
@@ -783,10 +762,10 @@ def task_from_semantic_ui(
     """
     # Merge the response to output
     if record.get("response"):
-        for i in range(0, len(record["output"])):
+        for i in range(len(record["output"])):
             record["output"][i]["value"] = record["response"][i]["value"]
 
-    r = task(
+    return task(
         input=record["input"],
         output=record["output"],
         ai=ai,
@@ -797,7 +776,6 @@ def task_from_semantic_ui(
         total_tasks=total_tasks,
         time_to_update_secs=time_to_update_secs,
     )
-    return r
 
 
 class WorkflowType(str, Enum):
@@ -864,7 +842,7 @@ def schema_wrapper(subject, context, function, uses_new_schema: Optional[bool] =
             kwargs[name] = metric
 
     logger.debug(f"FUNCTION KWARGS = {kwargs}")
-    f_output = function(subject) if 0 == len(kwargs) and subject is not None else function(**kwargs)
+    f_output = function(subject) if not kwargs and subject is not None else function(**kwargs)
 
     if hasattr(function, "__output_param__") and can_validate_input_output:
         schema = function.__output_param__
@@ -981,10 +959,7 @@ def _parse_args(*args, uses_new_schema: Optional[bool] = None, **kwargs):
     if len(args) == len(kwargs) == 0:
         raise ValueError("At least one argument has to be passed to input decorator")
 
-    f_args = dict()
-    f_args["schema"] = None
-    f_args["default"] = None
-
+    f_args = {"schema": None, "default": None}
     if len(args) == 1:
         f_args["name"] = args[0]
 
@@ -1170,7 +1145,7 @@ def mtask(
 
 
 def urgent_task(
-    input,
+    inputs,
     output,
     humans=None,
     ai=None,
@@ -1194,9 +1169,9 @@ def urgent_task(
     show_reject=False,
     amount=None,
 ):
-    input = [text("**URGENT TASK**")] + input
+    inputs = [text("**URGENT TASK**")] + inputs
     return task(
-        input,
+        inputs,
         output,
         humans=humans,
         ai=ai,

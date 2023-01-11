@@ -1,3 +1,4 @@
+import contextlib
 import json
 from pathlib import Path
 from typing import List, Optional
@@ -21,11 +22,7 @@ class Dataset(BaseModel):
 
     @classmethod
     def from_file(cls, file_path: Path) -> "Dataset":
-        if file_path.suffix == ".npz":
-            dataset = Dataset.from_npz(file_path)
-        else:
-            dataset = Dataset.from_json(file_path)
-        return dataset
+        return Dataset.from_npz(file_path) if file_path.suffix == ".npz" else Dataset.from_json(file_path)
 
     @classmethod
     def from_npz(cls, npz_file_path: Path) -> "Dataset":
@@ -74,14 +71,10 @@ def _is_batch(input_object: object) -> bool:
     Returns:
         bool
     """
-    is_batch = False
-    try:
+    with contextlib.suppress(KeyError, TypeError, IndexError):
         _ = input_object[0][0]
-        is_batch = True
-    except (KeyError, TypeError, IndexError):
-        # If it's not a List[List[...]], it's a single input
-        pass
-    return is_batch
+        return True
+    return False
 
 
 def _is_single_input(input_object: object) -> bool:
@@ -93,14 +86,7 @@ def _is_single_input(input_object: object) -> bool:
     Returns:
         bool
     """
-    is_single_input = False
-    try:
+    with contextlib.suppress(KeyError, TypeError, IndexError):
         _ = input_object[0]
-        if isinstance(_, dict):
-            is_single_input = True
-        else:
-            is_single_input = False
-    except (KeyError, TypeError, IndexError):
-        # If it's not a List[...], it's a single input dict {}
-        pass
-    return is_single_input
+        return isinstance(_, dict)
+    return False

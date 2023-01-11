@@ -13,7 +13,7 @@ dp_definition = {
     "output_schema": dt.bundle(label=dt.VIDEO_BOUNDING_BOX_KEYPOINT),
 }
 
-DP_NAME = "VideoBoundingBoxKeypoint" + str(uuid.getnode())
+DP_NAME = f"VideoBoundingBoxKeypoint {str(uuid.getnode())}"
 
 dp = DataProgram(name=DP_NAME, definition=dp_definition, add_basic_workflow=False)
 

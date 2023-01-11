@@ -89,7 +89,7 @@ log.info(
 # ADDING TO PROJECT
 #######################################################################################
 
-DP_NAME = "MyFirstAI" + str(uuid.getnode())
+DP_NAME = f"MyFirstAI{str(uuid.getnode())}"
 dp_definition = None
 # Creating a Project.
 project = Project(

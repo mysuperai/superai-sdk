@@ -64,10 +64,10 @@ def test_worker_type_in_worker():
 def test_bot_worker():
     bot = BotWorker()
     assert str(bot.type) == "bots"
-    dict = bot.dict()
-    assert "workerConstraints" in dict
-    assert "groups" in dict["workerConstraints"]
-    assert dict["workerConstraints"]["groups"][0] == "BOTS"
+    dictionary = bot.dict()
+    assert "workerConstraints" in dictionary
+    assert "groups" in dictionary["workerConstraints"]
+    assert dictionary["workerConstraints"]["groups"][0] == "BOTS"
 
 
 def test_worker_min_items():
@@ -183,7 +183,7 @@ def test_super_task_workflow(monkeypatch, mocker):
     monkeypatch.setattr("superai.data_program.task.super_task.TaskRouter.map", lambda *args, **kwargs: [test_future])
     monkeypatch.setattr("superai.data_program.task.super_task.TaskRouter.reduce", lambda *args, **kwargs: test_future)
 
-    input = SuperTaskJobInput(input=TestInput(url="http://a.com"), output=TestOutput(annotation=""))
-    output = workflow.execute_workflow(job_input=input, configs=params.dict())
+    inputs = SuperTaskJobInput(input=TestInput(url="http://a.com"), output=TestOutput(annotation=""))
+    output = workflow.execute_workflow(job_input=inputs, configs=params.dict())
     assert output
     assert output["task_output"]["annotation"] == "test"

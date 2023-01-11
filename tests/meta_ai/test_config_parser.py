@@ -16,8 +16,7 @@ def config_file():
 @pytest.fixture
 def conf(config_file):
     with open(config_file, "r") as conf_file_stream:
-        conf: dict = yaml.safe_load(conf_file_stream)
-        yield conf
+        yield yaml.safe_load(conf_file_stream)
 
 
 def test_parsed_config(config_file: str):
@@ -40,7 +39,7 @@ def test_root_validator(conf: dict, tmp_path):
     with open(tmp_path.joinpath("new_file.yaml"), "w") as tf_file:
         yaml.dump(data=conf, stream=tf_file, allow_unicode=True, default_flow_style=False)
         with pytest.raises(ValueError) as e:
-            loaded_config = AIConfig(_env_file=str(tmp_path.joinpath("new_file.yaml")))
+            _ = AIConfig(_env_file=str(tmp_path.joinpath("new_file.yaml")))
 
 
 def test_check_orchestrator(conf: dict, tmp_path):
@@ -48,7 +47,7 @@ def test_check_orchestrator(conf: dict, tmp_path):
     with open(tmp_path.joinpath("new_file.yaml"), "w") as tf_file:
         yaml.dump(data=conf, stream=tf_file, allow_unicode=True, default_flow_style=False)
         with pytest.raises(ValidationError) as e:
-            loaded_config = AIConfig(_env_file=str(tmp_path.joinpath("new_file.yaml")))
+            _ = AIConfig(_env_file=str(tmp_path.joinpath("new_file.yaml")))
 
 
 def test_most_basic_settings(tmp_path):

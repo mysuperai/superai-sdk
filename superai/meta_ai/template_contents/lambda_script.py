@@ -4,9 +4,6 @@ from superai.meta_ai.ai import AI
 
 
 class ModelService:
-    def __init__(self):
-        pass
-
     @functools.lru_cache(maxsize={{ai_cache}})
     def get_ai(self, path: str, weights: str) -> AI:
         return AI.load(path, weights)
@@ -17,10 +14,7 @@ class ModelService:
         return ai.predict(data)
 
     def handle(self, data, context):
-        if not data:
-            return None
-        result = self.predict(data, context)
-        return result
+        return self.predict(data, context) if data else None
 
 
 service = ModelService()

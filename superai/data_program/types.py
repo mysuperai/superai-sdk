@@ -147,7 +147,7 @@ class DataProgramDefinition:
         )
         from superai_schema.types import UiWidget
 
-        output = DataProgramDefinition(
+        return DataProgramDefinition(
             parameter_schema=param_schema,
             parameter_ui_schema=params.ui_schema() if isinstance(params, UiWidget) else {},
             input_schema=input_model.schema(),
@@ -157,4 +157,3 @@ class DataProgramDefinition:
             default_parameter=json.loads(params.json(exclude_none=True)),
             supertask_models=handler_output.super_tasks,
         )
-        return output

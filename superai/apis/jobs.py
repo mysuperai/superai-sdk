@@ -259,9 +259,8 @@ class JobsApiMixin(ABC):
                 completed_end_date=completed_end_date,
                 status_in=status_in,
             )
-            for job in paginated_jobs["jobs"]:
-                yield job
-            page = page + 1
+            yield from paginated_jobs["jobs"]
+            page += 1
 
     def get_jobs_operation(self, app_id: str, operation_id: int):
         """Fetch status of job operation given application id and operation id
@@ -345,7 +344,7 @@ class JobsApiMixin(ABC):
                     time.sleep(poll_interval)
             if not operation_completed:
                 return None
-            status.update(status=f"[green]Downloading jobs...")
+            status.update(status="[green]Downloading jobs...")
             download_jobs_url = self.generates_downloaded_jobs_url(app_id, operation_id)["downloadUrl"]
             resp = requests.get(download_jobs_url)
             zipfile = ZipFile(BytesIO(resp.content))

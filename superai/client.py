@@ -71,14 +71,11 @@ class Client(
         )
         try:
             resp.raise_for_status()
-            if resp.status_code == 204:
-                return None
-            else:
-                return resp.json()
+            return None if resp.status_code == 204 else resp.json()
         except requests.exceptions.HTTPError as http_e:
             try:
                 message = http_e.response.json()["message"]
-            except:
+            except Exception:
                 message = http_e.response.text
 
             if http_e.response.status_code == 401:
@@ -101,10 +98,15 @@ class Client(
                     # In this case, it is actually an authorization error and
                     # the token is not valid.
                     raise SuperAIAuthorizationError(
-                        message, http_e.response.status_code, endpoint=f"{self.base_url}/{endpoint}"
-                    )
+                        message,
+                        http_e.response.status_code,
+                        endpoint=f"{self.base_url}/{endpoint}",
+                    ) from http_e
             elif http_e.response.status_code == 409:
                 raise SuperAIEntityDuplicatedError(
-                    message, http_e.response.status_code, base_url=self.base_url, endpoint=endpoint
-                )
-            raise SuperAIError(message, http_e.response.status_code)
+                    message,
+                    http_e.response.status_code,
+                    base_url=self.base_url,
+                    endpoint=endpoint,
+                ) from http_e
+            raise SuperAIError(message, http_e.response.status_code) from http_e

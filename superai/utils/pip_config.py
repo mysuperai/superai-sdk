@@ -9,7 +9,9 @@ from superai.log import logger
 log = logger.get_logger(__name__)
 
 
-def _execute(cmd: str, env: dict = {}):
+def _execute(cmd: str, env=None):
+    if env is None:
+        env = {}
     env = env or {}
     FNULL = open(os.devnull, "w")
     for key, value in env.items():
@@ -53,7 +55,7 @@ def set_index_url(
     region="us-east-1",
 ):
     supported_leves = ["site", "user", "global"]
-    if not pip_config_level in supported_leves:
+    if pip_config_level not in supported_leves:
         raise AttributeError(f"pip config level {pip_config_level} unsupported. Use one of {supported_leves}")
     cmd = f"pip config set --{pip_config_level} global.index-url https://aws:{token}@{domain}-{owner_id}.d.codeartifact.{region}.amazonaws.com/pypi/{repo}/simple/"
     stdout = _execute(cmd)
@@ -78,4 +80,4 @@ def pip_configure(
         if show_pip:
             print(f"Copy/Paste the following command to configure pip manually:\n{pip_cmd}")
     except Exception as e:
-        raise SuperAIConfigurationError(str(e))
+        raise SuperAIConfigurationError(str(e)) from e

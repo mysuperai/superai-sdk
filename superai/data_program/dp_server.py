@@ -111,8 +111,7 @@ class DPServer:
 
     @retry(Exception, tries=5, delay=0.5, backoff=1)
     def get_reverse_proxy_endpoint(self) -> str:
-        endpoint = self.client.get_workflow(self.template_name).get("endpoint", None)
-        return endpoint
+        return self.client.get_workflow(self.template_name).get("endpoint", None)
 
     @retry(Exception, tries=5, delay=0.5, backoff=1)
     def update_reverse_proxy_endpoint(self, public_url: str) -> None:

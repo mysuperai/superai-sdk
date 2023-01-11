@@ -43,11 +43,10 @@ class EnvironmentFileProcessor:
 
     def update_if_value_match(self, key: str, new_value: str, value: Optional[str] = None) -> None:
         """Update to new value only if key and value match"""
-        if "=" not in key:
-            if value is None:
-                raise ValueError(f"Value cannot be {value} ({type(value)})")
-        else:
+        if "=" in key:
             key, value = key.replace(" ", "").split("=")
+        elif value is None:
+            raise ValueError(f"Value cannot be {value} ({type(value)})")
         val = self.environment_variables[key]
         if val == value:
             self.environment_variables[key] = new_value
@@ -62,11 +61,10 @@ class EnvironmentFileProcessor:
 
     def delete_if_value_match(self, key: str, value: Optional[str] = None) -> None:
         """Delete if value matches"""
-        if "=" not in key:
-            if value is None:
-                raise ValueError("Need to pass value to check if value is same")
-        else:
+        if "=" in key:
             key, value = key.replace(" ", "").split("=")
+        elif value is None:
+            raise ValueError("Need to pass value to check if value is same")
         val = self.environment_variables[key]
         if val == value:
             del self.environment_variables[key]

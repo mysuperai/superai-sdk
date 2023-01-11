@@ -122,7 +122,7 @@ class BaseModel(metaclass=ABCMeta):
         s3 = boto3.client("s3")
         parsed_url = urlparse(weights_uri, allow_fragments=False)
         bucket_name = parsed_url.netloc
-        path_to_object = parsed_url.path if not parsed_url.path.startswith("/") else parsed_url.path[1:]
+        path_to_object = parsed_url.path[1:] if parsed_url.path.startswith("/") else parsed_url.path
         object_name = os.path.basename(path_to_object)
         log.debug(f"Bucket name: {bucket_name}, path to object: {path_to_object}, tar name: {object_name}")
         OUTPUT_DIR_NAME = "weights"

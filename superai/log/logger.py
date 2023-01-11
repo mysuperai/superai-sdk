@@ -49,8 +49,7 @@ def create_non_cli_handler(log_format=_log_format, stream=sys.stdout):
 
 def create_cli_handler():
     """Creates logging handler for CLI with rich structured output."""
-    rich_handler = RichHandler(rich_tracebacks=True)
-    return rich_handler
+    return RichHandler(rich_tracebacks=True)
 
 
 def get_logger(name=None, propagate=True):

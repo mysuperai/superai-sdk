@@ -50,10 +50,7 @@ class WorkflowApiMixin(ABC):
 
         collection_formats = {}
 
-        path_params = {}
-        if "workflow_name" in params:
-            path_params["template_name"] = params["workflow_name"]
-
+        path_params = {"template_name": params["workflow_name"]}
         query_params = []
 
         header_params = {}
@@ -194,7 +191,8 @@ class WorkflowApiMixin(ABC):
         reraise=True,
     )
     def put_workflow(self, workflow_name, body, **kwargs):
-        """Creates or updates a workflow given its full qualified name. If the workflow already exists and it is owned by somebody else, then if will return a 409.
+        """Creates or updates a workflow given its full qualified name. If the workflow already exists and
+        it is owned by somebody else, then if will return a 409.
 
         Args:
             Workflow body: (required)
@@ -229,10 +227,7 @@ class WorkflowApiMixin(ABC):
 
         collection_formats = {}
 
-        path_params = {}
-        if "workflow_name" in params:
-            path_params["template_name"] = params["workflow_name"]
-
+        path_params = {"template_name": params["workflow_name"]}
         query_params = []
 
         header_params = {}
@@ -255,7 +250,7 @@ class WorkflowApiMixin(ABC):
         auth_settings = ["apiToken"]
 
         uri = "templates/{template_name}".format(**path_params)
-        response = self.request(
+        return self.request(
             endpoint=uri,
             method="PUT",
             query_params=query_params,
@@ -263,7 +258,6 @@ class WorkflowApiMixin(ABC):
             required_api_key=True,
             required_auth_token=True,
         )
-        return response
 
     @logdecorator.log_on_start(
         logging.DEBUG,

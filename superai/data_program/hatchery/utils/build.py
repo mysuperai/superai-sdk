@@ -1,13 +1,15 @@
 """Common utility for building image."""
+
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import contextlib
 import logging
 import shutil
 from os import makedirs
 from pathlib import Path
 from shutil import copyfile
 from sys import exit
-from typing import List
+from typing import Optional
 
 from rich.progress import DownloadColumn, Progress, TransferSpeedColumn
 from yaml import safe_load
@@ -30,11 +32,11 @@ agent:
     raise ValueError(f"Manifest {name} not found.")
 
 
-def build_path(path, asPath=False):
+def build_path(path, as_path=False):
     """Wrap the file path with the build path"""
     path = Path(settings.hatchery_build_folder) / path
 
-    return path if asPath else str(path)
+    return path if as_path else str(path)
 
 
 @logdecorator.log_on_start(
@@ -63,14 +65,12 @@ def create_build_folder(path=settings.hatchery_build_folder):
 
 
 @logdecorator.log_on_start(logging.DEBUG, "Deleting {path:s}")
-def clean_build_files(path: str = settings.hatchery_build_folder):
+def clean_build_files(path: Optional[str] = None):
     """Clean build folder"""
-    path = Path()
+    path = settings.hatchery_build_folder if path is None else Path()
     log.debug(f"Deleting {path}")
-    try:
+    with contextlib.suppress(Exception):
         shutil.rmtree(path)
-    except Exception:
-        pass
 
 
 def build_path_exists():
@@ -79,24 +79,21 @@ def build_path_exists():
 
 def get_binaries(base_path=settings.s3_bucket, manifest=settings.build_manifest, force_download: bool = True):
     # TODO: Get rid of s3_bucket as parameters and encode this information in the build_manifest
-    manifestPath = Path(manifest)
-    if manifestPath and manifestPath.exists():
+    manifest_path = Path(manifest)
+    if manifest_path and manifest_path.exists():
         should_copy = True
-        try:
-            if manifestPath.samefile(build_path(manifestPath.name)):
+        with contextlib.suppress(FileNotFoundError):
+            if manifest_path.samefile(build_path(manifest_path.name)):
                 should_copy = False
-        except FileNotFoundError:
-            pass
-
         if should_copy:
-            copyfile(manifest, build_path(manifestPath.name))
+            copyfile(manifest, build_path(manifest_path.name))
     else:
         # Writing default manifest to predetermined location
-        with open(build_path(manifestPath.name), "w") as f:
+        with open(build_path(manifest_path.name), "w") as f:
             f.write(get_build_manifest(name="default"))
             f.close()
 
-    with open(build_path(manifestPath.name), "r") as f:
+    with open(build_path(manifest_path.name), "r") as f:
         _config = safe_load(f)
         log.debug(f"BUILD_MANIFEST: {_config}")
 
@@ -140,10 +137,10 @@ def get_binaries(base_path=settings.s3_bucket, manifest=settings.build_manifest,
 )
 def copy_local(filename: str):
     filename = filename.strip()
-    filePath = Path(filename)
-    log.info(f"Copy dependency from {filename} to {build_path(filePath.name)}")
-    copyfile(filename, build_path(filePath.name))
-    return Path(build_path(filePath.name))
+    file_path = Path(filename)
+    log.info(f"Copy dependency from {filename} to {build_path(file_path.name)}")
+    copyfile(filename, build_path(file_path.name))
+    return Path(build_path(file_path.name))
 
 
 @logdecorator.log_on_start(
@@ -169,12 +166,12 @@ def copy_from_s3(bucket: str, filename: str, force_copy: bool = True):
     s3 = session.resource("s3")
 
     filename = filename.strip()
-    filePath = Path(filename)
-    destinationPath = build_path(filePath.name)
+    file_path = Path(filename)
+    destination_path = build_path(file_path.name)
     s3_bucket = s3.Bucket(bucket)
 
-    if force_copy or not Path(destinationPath).exists():
-        log.info(f'Pulling "{filename}" from bucket "{bucket}" to "{destinationPath}"')
+    if force_copy or not Path(destination_path).exists():
+        log.info(f'Pulling "{filename}" from bucket "{bucket}" to "{destination_path}"')
         try:
             # Use Rich progress bar to track download progress
             size_bytes = s3_bucket.Object(filename).content_length
@@ -186,26 +183,26 @@ def copy_from_s3(bucket: str, filename: str, force_copy: bool = True):
 
                 # Disable threading during transfer to mitigate Python 3.9 threading issues
                 config = TransferConfig(use_threads=False)
-                s3_bucket.download_file(filename, destinationPath, Config=config, Callback=work_done)
+                s3_bucket.download_file(filename, destination_path, Config=config, Callback=work_done)
         except botocore.exceptions.ClientError as e:
-            if e.response["Error"]["Code"] == "404" or e.response["Error"]["Code"] == "403":
+            if e.response["Error"]["Code"] in ["404", "403"]:
                 log.error(f"prefix {bucket} and filename {filename} does not exist or aws access is forbidden")
             if e.response["Error"]["Code"] == "400":
                 log.error(
-                    f"S3 Operation not possible. Is session token still valid? Try `superai login` again when in doubt."
+                    "S3 Operation not possible. Is session token still valid? Try `superai login` again when in doubt."
                 )
             log.error(str(e))
             exit(1)
     else:
-        log.info(f"{destinationPath} exists")
-    return Path(destinationPath)
+        log.info(f"{destination_path} exists")
+    return Path(destination_path)
 
 
 def create_agent_run_command(
     template_name: str,
     version: str,
     script: str,
-    args: List[str] = [],
+    args=None,
     run_once: bool = False,
     serve: bool = True,
     concurrency: int = 100,
@@ -215,6 +212,8 @@ def create_agent_run_command(
     api_key: str = None,
 ):
     """Generates piggy command line to execute target script."""
+    if args is None:
+        args = []
     api_key = api_key or load_api_key()
     piggy_agent_path = Path(settings.agent.file)
     if not piggy_agent_path.is_file():
@@ -224,10 +223,10 @@ def create_agent_run_command(
         "java -jar {path} {host} {websocket} {api_key} {concurrency} {runonce} {force_schema} {serve} "
         "{template_name} --version {version} python {script} {args}\n".format(
             path=piggy_agent_path,
-            host="--host {}".format(host) if host else "",
-            websocket="--websocket {}".format(websocket) if websocket else "",
-            api_key="--api_key {}".format(api_key) if api_key else "",
-            concurrency="--concurrency {}".format(concurrency) if concurrency else "",
+            host=f"--host {host}" if host else "",
+            websocket=f"--websocket {websocket}" if websocket else "",
+            api_key=f"--api_key {api_key}" if api_key else "",
+            concurrency=f"--concurrency {concurrency}" if concurrency else "",
             runonce="--runonce" if run_once else "",
             force_schema="--force-schema" if force_schema else "",
             serve="--serve" if serve else "--workflow",

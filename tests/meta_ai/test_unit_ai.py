@@ -112,7 +112,7 @@ def test_conda_pip_dependencies(caplog, clean):
     ai = AI(
         ai_template=template,
         input_params=template.input_schema.parameters(),
-        output_params=template.output_schema.parameters(choices=map(str, range(0, 10))),
+        output_params=template.output_schema.parameters(choices=[str(a) for a in range(10)]),
         name="my_mnist_model2",
         version=1,
     )
@@ -147,7 +147,7 @@ def test_builder(caplog, capsys, mocker, enable_cuda, skip_build, build_all_laye
     ai = AI(
         ai_template=template,
         input_params=template.input_schema.parameters(),
-        output_params=template.output_schema.parameters(choices=map(str, range(0, 10))),
+        output_params=template.output_schema.parameters(choices=[str(a) for a in range(10)]),
         name="my_dummy_model",
         version=1,
     )
@@ -201,16 +201,14 @@ def test_system_commands():
 
 
 def test_base_name():
-    assert AiImageBuilder._get_base_name() == f"superai-model-s2i-python3711-cpu:1"
-    assert AiImageBuilder._get_base_name(enable_cuda=True) == f"superai-model-s2i-python3711-gpu:1"
-    assert AiImageBuilder._get_base_name(lambda_mode=True) == f"superai-model-s2i-python3711-cpu-lambda:1"
-    assert AiImageBuilder._get_base_name(k8s_mode=True) == f"superai-model-s2i-python3711-cpu-seldon:1"
-    assert (
-        AiImageBuilder._get_base_name(k8s_mode=True, enable_cuda=True) == f"superai-model-s2i-python3711-gpu-seldon:1"
-    )
+    assert AiImageBuilder._get_base_name() == "superai-model-s2i-python3711-cpu:1"
+    assert AiImageBuilder._get_base_name(enable_cuda=True) == "superai-model-s2i-python3711-gpu:1"
+    assert AiImageBuilder._get_base_name(lambda_mode=True) == "superai-model-s2i-python3711-cpu-lambda:1"
+    assert AiImageBuilder._get_base_name(k8s_mode=True) == "superai-model-s2i-python3711-cpu-seldon:1"
+    assert AiImageBuilder._get_base_name(k8s_mode=True, enable_cuda=True) == "superai-model-s2i-python3711-gpu-seldon:1"
     assert (
         AiImageBuilder._get_base_name(k8s_mode=True, enable_cuda=True, use_internal=True)
-        == f"superai-model-s2i-python3711-gpu-internal-seldon:1"
+        == "superai-model-s2i-python3711-gpu-internal-seldon:1"
     )
 
 

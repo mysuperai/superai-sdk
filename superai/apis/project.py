@@ -37,10 +37,7 @@ class ProjectApiMixin(ABC):
             A Superai.
         """
 
-        all_params = ["uuid", "x_fields"]
-        all_params.append("_return_http_data_only")
-        all_params.append("_preload_content")
-        all_params.append("_request_timeout")
+        all_params = ["uuid", "x_fields", "_return_http_data_only", "_preload_content", "_request_timeout"]
 
         params = locals()
         for key, val in params["kwargs"].items():
@@ -53,10 +50,7 @@ class ProjectApiMixin(ABC):
 
         collection_formats = {}
 
-        path_params = {}
-        if "uuid" in params:
-            path_params["uuid"] = params["uuid"]
-
+        path_params = {"uuid": params["uuid"]}
         query_params = []
 
         header_params = {}
@@ -106,10 +100,7 @@ class ProjectApiMixin(ABC):
             Qualified workflow name.
         """
 
-        all_params = ["uuid", "x_fields"]
-        all_params.append("_return_http_data_only")
-        all_params.append("_preload_content")
-        all_params.append("_request_timeout")
+        all_params = ["uuid", "x_fields", "_return_http_data_only", "_preload_content", "_request_timeout"]
 
         params = locals()
         for key, val in params["kwargs"].items():
@@ -123,10 +114,7 @@ class ProjectApiMixin(ABC):
 
         collection_formats = {}
 
-        path_params = {}
-        if "uuid" in params:
-            path_params["uuid"] = params["uuid"]
-
+        path_params = {"uuid": params["uuid"]}
         query_params = []
 
         header_params = {}
@@ -193,10 +181,10 @@ class ProjectApiMixin(ABC):
             "output_types",
             "tags",
             "x_fields",
+            "_return_http_data_only",
+            "_preload_content",
+            "_request_timeout",
         ]
-        all_params.append("_return_http_data_only")
-        all_params.append("_preload_content")
-        all_params.append("_request_timeout")
 
         params = locals()
         for key, val in params["kwargs"].items():
@@ -278,10 +266,7 @@ class ProjectApiMixin(ABC):
             Project updated.
         """
 
-        all_params = ["body", "uuid", "x_fields"]
-        all_params.append("_return_http_data_only")
-        all_params.append("_preload_content")
-        all_params.append("_request_timeout")
+        all_params = ["body", "uuid", "x_fields", "_return_http_data_only", "_preload_content", "_request_timeout"]
 
         params = locals()
         for key, val in params["kwargs"].items():
@@ -298,10 +283,7 @@ class ProjectApiMixin(ABC):
 
         collection_formats = {}
 
-        path_params = {}
-        if "uuid" in params:
-            path_params["uuid"] = params["uuid"]
-
+        path_params = {"uuid": params["uuid"]}
         query_params = []
 
         header_params = {}
@@ -359,10 +341,7 @@ class ProjectApiMixin(ABC):
             Project.
         """
 
-        all_params = ["body", "x_fields"]
-        all_params.append("_return_http_data_only")
-        all_params.append("_preload_content")
-        all_params.append("_request_timeout")
+        all_params = ["body", "x_fields", "_return_http_data_only", "_preload_content", "_request_timeout"]
 
         params = locals()
         query_params = {}
@@ -388,8 +367,7 @@ class ProjectApiMixin(ABC):
         local_var_files = {}
 
         body_params = None
-        if "body" in params:
-            body_params = params["body"]
+        body_params = params["body"]
         # HTTP header `Accept`
         header_params["Accept"] = "application/json"
 

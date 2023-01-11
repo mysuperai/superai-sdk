@@ -82,8 +82,7 @@ def get_ecr_image_name(name, version):
     boto_session = boto3.session.Session()
     region = boto_session.region_name
     account = boto_session.client("sts").get_caller_identity()["Account"]
-    ecr_image_name = f"{account}.dkr.ecr.{region}.amazonaws.com/{name}:{version}"
-    return ecr_image_name
+    return f"{account}.dkr.ecr.{region}.amazonaws.com/{name}:{version}"
 
 
 def create_model_entrypoint(worker_count: int) -> str:
@@ -150,12 +149,12 @@ def upload_dir(local_dir: Union[Path, str], aws_root_dir: Union[Path, str], buck
     for subdir in subdirectories:
         file_names = glob.glob(os.path.join(subdir, "*"))
         file_names = [f for f in file_names if not Path(f).is_dir()]
-        for i, file_name in enumerate(file_names):
+        for file_name in file_names:
             file_name = str(file_name).replace(os.path.join(cwd, local_dir), "")
             if file_name.startswith(prefix):  # only modify the text if it starts with the prefix
                 file_name = file_name.replace(prefix, "", 1)  # remove one instance of prefix
             log.info(f"Uploading file: {file_name}")
-            aws_path = os.path.join(aws_root_dir, str(file_name))
+            aws_path = os.path.join(aws_root_dir, file_name)
             s3.meta.client.upload_file(os.path.join(local_dir, file_name), bucket_name, aws_path)
 
 
@@ -195,7 +194,7 @@ def load_and_predict(
             from polyaxon import tracking
 
             tracking.init()
-        except:
+        except Exception:
             log.debug("Polyaxon not installed. Tracking not enabled.")
 
     model_path = str(Path(model_path).absolute())
@@ -216,11 +215,10 @@ def load_and_predict(
     if len(task_input) > 1:
         result = ai_object.predict_batch(task_input)
         scores = [instance["score"] for p in result for instance in p]
-        predict_score = np.mean(scores)
     else:
         result = ai_object.predict(task_input[0])
         scores = [instance["score"] for instance in result]
-        predict_score = np.mean(scores)
+    predict_score = np.mean(scores)
     log.info(f"Prediction score: {predict_score}")
     if metrics_output_dir:
         store_prediction_metrics(metrics_output_dir, dict(score=predict_score))

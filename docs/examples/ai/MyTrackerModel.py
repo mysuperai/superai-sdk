@@ -85,8 +85,7 @@ class MyTrackerModel(BaseModel):
         inputs = keras.Input(shape=(784,), name="digits")
         encoder = self._encoder(trainable=train_encoder)(inputs)
         decoder = self._decoder(trainable=train_decoder)(encoder)
-        model = keras.Model(inputs=inputs, outputs=decoder)
-        return model
+        return keras.Model(inputs=inputs, outputs=decoder)
 
     def _encoder(self, input_data=None, trainable=True):
         encoder = keras.Sequential(

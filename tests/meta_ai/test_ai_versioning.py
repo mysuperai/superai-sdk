@@ -34,7 +34,7 @@ def test_create_child_model(ai_client):
     assert found_root_id == parent_id
 
     with pytest.raises(GraphQlException):
-        child_without_root_id = ai_client.add_model(name="model_3", version=2)
+        ai_client.add_model(name="model_3", version=2)
 
     # Siblings by root model
     siblings_by_root = ai_client.list_model_versions(parent_id, sort_by_version=True)
