@@ -207,7 +207,8 @@ def get_job_priority(api_key=None):
     """Returns job priority."""
     if "CANOTIC_AGENT" not in os.environ:
         return "LITTLE_PIGGY"
-    if priority := job_priority():
+    priority = job_priority()
+    if priority is not None:
         return priority
     logger.info(f"Failed to query job priority `{get_job_id()}`.")
     raise RuntimeError(f"Failed to query job priority id `{get_job_id()}`.")
