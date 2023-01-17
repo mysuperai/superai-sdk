@@ -70,6 +70,7 @@ class HandlerOutput(BaseModel):
     templates: Optional[List[TaskTemplate]] = Field([])
     metrics: Optional[List[Metric]] = Field([], min_items=1)
     super_tasks: Optional[DPSuperTasks] = Field([])
+    post_processing: Optional[bool]
 
     class Config:
         arbitrary_types_allowed = True
@@ -103,6 +104,7 @@ class SchemaServerResponse(BaseModel):
     output_schema: dict
     output_ui_schema: dict
     super_tasks: Optional[List[SuperTaskSchemaResponse]] = None
+    post_processing: Optional[bool]
 
     class Config:
         extra = Extra.forbid

@@ -157,6 +157,7 @@ class DPServer:
             # handler_output = _call_handler(self.handler_fn, app_params.parms, super_task_params)
             handler_output = _call_handler(self.handler_fn, app_params.params, self.super_task_configs)
             self.input_model, self.output_model = handler_output.input_model, handler_output.output_model
+            self.post_process_fn, post_processing = handler_output.post_process_fn, handler_output.post_processing
             # super_task_models = handler_output.super_tasks
 
             try:
@@ -189,6 +190,7 @@ class DPServer:
                 output_schema=self.output_model.schema(),
                 output_ui_schema=self.output_model.ui_schema() if issubclass(self.output_model, UiWidget) else {},
                 super_tasks=super_task_responses or None,  # This hides the key when it's empty
+                post_processing=post_processing,
             )
             return response
 
