@@ -3,6 +3,7 @@ import subprocess
 
 import boto3
 
+from superai import settings
 from superai.exceptions import SuperAIConfigurationError
 from superai.log import logger
 
@@ -52,7 +53,7 @@ def set_index_url(
     repo="pypi-superai",
     domain="superai",
     owner_id="185169359328",
-    region="us-east-1",
+    region=settings.region,
 ):
     supported_leves = ["site", "user", "global"]
     if pip_config_level not in supported_leves:
@@ -69,7 +70,7 @@ def pip_configure(
     repo: str = "pypi-superai",
     domain: str = "superai",
     owner_id: str = "185169359328",
-    region="us-east-1",
+    region: str = settings.region,
     show_pip: bool = False,
 ):
     try:

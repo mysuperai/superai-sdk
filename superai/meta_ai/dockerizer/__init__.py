@@ -16,7 +16,7 @@ from rich.progress import BarColumn, DownloadColumn, Progress, Task, Text
 
 from superai.log import logger
 
-from ... import config
+from ... import config, settings
 from ..exceptions import ExpiredTokenException, ModelDeploymentError
 from .sagemaker_endpoint import (
     create_endpoint,
@@ -99,7 +99,7 @@ def update_docker_file(
         "RUN pip --no-cache-dir install multi-model-server sagemaker-inference retrying awscli~=1.18.195",
         "RUN mkdir -p /home/model-server/",
         "COPY model_server/ /home/model-server/",
-        "ARG AWS_DEFAULT_REGION=us-east-1",
+        f"ARG AWS_DEFAULT_REGION={settings.region}",
         "RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true,uid=1000,gid=1000 "
         "--mount=type=cache,target=/root/.cache/pip "
         "aws codeartifact login --tool pip --domain superai --repository pypi-superai",
@@ -221,7 +221,7 @@ def push_image(
     image_name: str,
     model_id: str,
     version: str = "latest",
-    region: str = "us-east-1",
+    region: str = settings.region,
     show_progress: bool = True,
     verbose: bool = False,
 ) -> str:
@@ -300,7 +300,7 @@ def push_image(
     return full_name
 
 
-def ecr_full_name(image_name, version, model_id, region: str = "us-east-1") -> Tuple[str, str, str]:
+def ecr_full_name(image_name, version, model_id, region: str = settings.region) -> Tuple[str, str, str]:
     boto_session = get_boto_session(region_name=region)
     account = boto_session.client("sts").get_caller_identity()["Account"]
     full_suffix, repository_name = ecr_registry_suffix(image_name, model_id, version)
@@ -371,7 +371,7 @@ def get_docker_client() -> DockerClient:
     return client
 
 
-def get_boto_session(region_name="us-east-1") -> Session:
+def get_boto_session(region_name=settings.region) -> Session:
     """Get a boto3 session. For the superai profile, an error message will be raised if
     credentials are expired
 

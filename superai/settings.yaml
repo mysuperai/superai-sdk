@@ -10,6 +10,7 @@ default:
   meta_ai_base: "@jinja metaai{{this.suffix | lower}}.super.ai/v1/graphql"
   meta_ai_bucket: "@jinja meta-ai-{{this.name | lower}}"
   build_manifest: "build_manifest.yml"
+  region: "us-east-1"
   cognito:
     client_id: "41t3in8ao7fesog76qtskpkkev"
     region: "us-east-1"

@@ -9,6 +9,7 @@ from superai.config import (
     get_config_dir,
     get_current_env,
     remove_secret_settings,
+    settings,
 )
 from superai.log import logger
 
@@ -30,7 +31,7 @@ def _write_config_file(aws_credentials: dict, config_path: str = None):
     if not config.has_section("profile superai"):
         config.add_section("profile superai")
 
-    config.set("profile superai", "region", "us-east-1")
+    config.set("profile superai", "region", settings.region)
     config.set("profile superai", "output", "json")
 
     # save to a file

@@ -9,7 +9,7 @@ import sagemaker
 from botocore.exceptions import ClientError
 from sagemaker import get_execution_role
 
-from superai import log
+from superai import log, settings
 
 
 def create_endpoint(
@@ -17,7 +17,7 @@ def create_endpoint(
     model_url: str = None,
     version: str = "latest",
     arn_role: Optional[str] = None,
-    region: str = "us-east-1",
+    region: str = settings.region,
     initial_instance_count: int = 1,
     instance_type: str = "ml.m5.large",
     mode: str = "SingleModel",
@@ -194,7 +194,7 @@ def get_sagemaker_runtime_client(target_model=None, mode="SingleModel", arn_role
             aws_access_key_id=credentials["AccessKeyId"],
             aws_secret_access_key=credentials["SecretAccessKey"],
             aws_session_token=credentials["SessionToken"],
-            region_name="us-east-1",
+            region_name=settings.region,
         )
         runtime_sm_client = boto_session.client(service_name="sagemaker-runtime")
     return runtime_sm_client

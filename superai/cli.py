@@ -639,7 +639,7 @@ def config(api_key):
 @click.option("--account-name", "-a", help="A valid account name", default="superai", show_default=True)
 @click.option("--role-name", "-r", help="A valid role name", default="SuperAIDeveloper", show_default=True)
 @click.option("--start-url", help="SSO start URL", default="https://superai.awsapps.com/start", show_default=True)
-@click.option("--region", help="AWS region", default="us-east-1", show_default=True)
+@click.option("--region", help="AWS region", default=settings.region, show_default=True)
 def login_sso(account_name, role_name, start_url, region):
     """Login to SSO and add temporary key to the AWS credentials file"""
     sso_login(account_name, role_name, start_url, region)
@@ -1188,7 +1188,7 @@ def build_docker_image(image_name, entry_point, dockerfile, command, worker_coun
 @click.option(
     "--image-name", "-i", required=True, help="Name of the image to be pushed. You can get this from `docker image ls`"
 )
-@click.option("--region", "-r", help="AWS region", default="us-east-1", show_default=True)
+@click.option("--region", "-r", help="AWS region", default=settings.region, show_default=True)
 def push_docker_image(model_id: Union[str, click.UUID], image_name: str, region: str):
     """Push the docker image built by `superai model docker-build` to ECR.
 
