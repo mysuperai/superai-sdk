@@ -32,6 +32,7 @@ class PostProcessRequestModel(BaseModel):
     job_uuid: str
     response: dict
     app_uuid: Optional[str]
+    app_params: Optional[dict]
 
 
 class MethodResponse(BaseModel):

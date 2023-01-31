@@ -201,7 +201,12 @@ def test_method_names(server):
 
 
 def test_post_process(server):
-    r = PostProcessRequestModel(job_uuid="123", response={"__root__": "1"}, app_uuid="123")
+    r = PostProcessRequestModel(
+        job_uuid="123",
+        response={"__root__": "1"},
+        app_uuid="123",
+        app_params={"params": {"choices": ["Dog", "Cat", "UMA"]}},
+    )
     resp = requests.post("http://127.0.0.1:8002/post-process", json=r.dict())
 
     assert resp.json() == "processed"

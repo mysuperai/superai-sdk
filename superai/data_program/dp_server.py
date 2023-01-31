@@ -78,15 +78,11 @@ class DPServer:
         self.params = params
         self.params_schema = params.schema()
         self.handler_fn = handler_fn
+        self.template_name = template_name
         self.log_level = log_level
         self.force_no_tunnel = force_no_tunnel
         self.super_task_configs = super_task_params
         handler_output = _call_handler(self.handler_fn, self.params, self.super_task_configs)
-        self.input_model = handler_output.input_model
-        self.output_model = handler_output.output_model
-        self.post_process_fn = handler_output.post_process_fn
-
-        self.template_name = template_name
 
         self.workflows = []
         for method in workflows:
@@ -121,7 +117,7 @@ class DPServer:
     def ngrok_contextmanager(self, needs_tunnel=False):
         # Boot up ngrok reverse proxy only in case of local deploy
         if needs_tunnel and self.template_name:
-            # ensure the connection gets closed properly
+            # Ensure that the connection gets closed properly
             try:
                 original_reverse_proxy_endpoint = self.get_reverse_proxy_endpoint()
                 ngrok_tunnel = ngrok.connect(self.dp_server_port)
@@ -156,8 +152,8 @@ class DPServer:
             # super_task_params = app_params.super_task_params
             # handler_output = _call_handler(self.handler_fn, app_params.parms, super_task_params)
             handler_output = _call_handler(self.handler_fn, app_params.params, self.super_task_configs)
-            self.input_model, self.output_model = handler_output.input_model, handler_output.output_model
-            self.post_process_fn, post_processing = handler_output.post_process_fn, handler_output.post_processing
+            input_model, output_model = handler_output.input_model, handler_output.output_model
+            has_post_processing = handler_output.post_processing
             # super_task_models = handler_output.super_tasks
 
             try:
@@ -185,12 +181,12 @@ class DPServer:
                     )
 
             response = SchemaServerResponse(
-                input_schema=self.input_model.schema(),
-                input_ui_schema=self.input_model.ui_schema() if issubclass(self.input_model, UiWidget) else {},
-                output_schema=self.output_model.schema(),
-                output_ui_schema=self.output_model.ui_schema() if issubclass(self.output_model, UiWidget) else {},
+                input_schema=input_model.schema(),
+                input_ui_schema=input_model.ui_schema() if issubclass(input_model, UiWidget) else {},
+                output_schema=output_model.schema(),
+                output_ui_schema=output_model.ui_schema() if issubclass(output_model, UiWidget) else {},
                 super_tasks=super_task_responses or None,  # This hides the key when it's empty
-                post_processing=post_processing,
+                post_processing=has_post_processing,
             )
             return response
 
@@ -231,13 +227,16 @@ class DPServer:
 
         @app.post("/post-process", response_model=Optional[str])
         def post_process(output: PostProcessRequestModel) -> Union[str, Response]:
-            if self.post_process_fn is None:
-                # this data program does not implement post-processing
+            app_params = cls.parse_obj(output.app_params["params"])
+            handler_output = _call_handler(self.handler_fn, app_params, self.super_task_configs)
+            output_model, post_process_fn = handler_output.output_model, handler_output.post_process_fn
+            if post_process_fn is None:
+                # This data program does not implement post-processing
                 return Response(status_code=status.HTTP_204_NO_CONTENT)
             try:
-                output_response = self.output_model.parse_obj(output.response)
+                output_response = output_model.parse_obj(output.response)
                 context = PostProcessContext(job_uuid=output.job_uuid, app_uuid=output.app_uuid)
-                return self.post_process_fn(output_response, context)
+                return post_process_fn(output_response, context)
             except Exception as e:
                 log.exception(e)
                 raise HTTPException(status_code=422, detail=str(e))
