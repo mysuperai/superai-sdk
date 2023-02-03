@@ -632,8 +632,8 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                 super_task_params = DPSuperTaskConfigs.from_schema_response(super_task_params, self._name)
 
             handler_output = _call_handler(self.handler, params_model, super_task_configs=super_task_params)
-            process_job = handler_output.process_fn
-            post_process_job = handler_output.post_process_fn
+            process_job, post_process_job = handler_output.process_fn, handler_output.post_process_fn
+            has_post_processing = handler_output.post_processing
 
             # Load raw job input into model with validation
             job_input_model_cls = handler_output.input_model
@@ -702,7 +702,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
             )
             job_output = process_job(job_input_model, job_context)
 
-            if post_process_job is not None:
+            if has_post_processing and post_process_job is not None:
                 context = PostProcessContext(job_cache=job_context.job_cache)
                 response_data = post_process_job(job_output, context)
 
