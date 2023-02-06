@@ -3,15 +3,18 @@ import os
 import shutil
 from pathlib import Path
 
+import boto3
 import pytest
+from moto import mock_s3
 
+from superai import settings
 from superai.meta_ai import AI, AITemplate
 from superai.meta_ai.ai_helper import PREDICTION_METRICS_JSON, load_and_predict
 from superai.meta_ai.parameters import Config
 from superai.meta_ai.schema import Schema, TaskBatchInput, TaskElement, TaskInput
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def clean():
     # clean before
     if os.path.exists(".AISave"):
@@ -22,8 +25,30 @@ def clean():
         shutil.rmtree(".AISave")
 
 
-@pytest.fixture(scope="module")
-def local_ai(clean):
+@pytest.fixture(scope="function")
+def aws_credentials(monkeypatch):
+    """Mocked AWS Credentials for moto."""
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
+    monkeypatch.setenv("AWS_SECURITY_TOKEN", "testing")
+    monkeypatch.setenv("AWS_SESSION_TOKEN", "testing")
+
+
+@pytest.fixture(scope="function")
+def s3(aws_credentials):
+    with mock_s3():
+        yield boto3.client("s3", region_name="us-east-1")
+
+
+@pytest.fixture(scope="function")
+def bucket(s3: boto3.client):
+    s3.create_bucket(
+        Bucket=settings["meta_ai_bucket"],
+    )
+
+
+@pytest.fixture(scope="function")
+def local_ai(clean, bucket):
     model_path = Path(__file__).parent / "fixtures" / "model"
     template = AITemplate(
         input_schema=Schema(),
@@ -54,16 +79,18 @@ def test_predict(local_ai):
     inputs = [
         TaskElement(type="text", value="test"),
     ]
-    response = local_ai.predict(inputs=inputs)
-    assert response
-    assert response[0]["prediction"]
-    assert response[0]["score"]
-
+    single_predict_check(local_ai, inputs)
     ti = TaskInput.parse_obj(inputs)
-    response = local_ai.predict(inputs=ti)
-    assert response
-    assert response[0]["prediction"]
-    assert response[0]["score"]
+    single_predict_check(local_ai, ti)
+
+
+def single_predict_check(local_ai, inputs):
+    result = local_ai.predict(inputs=inputs)
+    assert result
+    assert result[0]["prediction"]
+    assert result[0]["score"]
+
+    return result
 
 
 def test_predict_batch(local_ai):
@@ -71,24 +98,24 @@ def test_predict_batch(local_ai):
         TaskElement(type="text", value="test"),
         TaskElement(type="text", value="test"),
     ]
-    response = local_ai.predict_batch(inputs=inputs)
-    assert response
+    batch_predict_test(local_ai, inputs)
+    ti = TaskInput.parse_obj(inputs)
+    ti_batch = TaskBatchInput.parse_obj([ti, ti])
+    batch_predict_test(local_ai, ti_batch)
+
+
+def batch_predict_test(local_ai, inputs):
+    result = local_ai.predict_batch(inputs=inputs)
+    assert result
     # We unpack two lists
     # One list for each prediction in batch
     # One list for each instance in prediction
-    assert response[0][0]["prediction"]
-    assert response[0][0]["score"]
-    assert response[1][0]["prediction"]
-    assert response[1][0]["score"]
+    assert result[0][0]["prediction"]
+    assert result[0][0]["score"]
+    assert result[1][0]["prediction"]
+    assert result[1][0]["score"]
 
-    ti = TaskInput.parse_obj(inputs)
-    ti_batch = TaskBatchInput.parse_obj([ti, ti])
-    response = local_ai.predict_batch(inputs=ti_batch)
-    assert response
-    assert response[0][0]["prediction"]
-    assert response[0][0]["score"]
-    assert response[1][0]["prediction"]
-    assert response[1][0]["score"]
+    return result
 
 
 def test_load_and_predict(local_ai, tmp_path: Path, monkeypatch):

@@ -10,6 +10,7 @@ import yaml
 
 from superai import Client, settings
 from superai.log import logger
+from superai.meta_ai.ai_helper import get_bucket_name_from_prefix
 from superai.meta_ai.config_parser import TemplateConfig
 from superai.meta_ai.environment_file import EnvironmentFileProcessor
 from superai.meta_ai.parameters import AiDeploymentParameters, Config
@@ -134,7 +135,11 @@ class AITemplate:
             auth_token=load_auth_token(),
             id_token=load_id_token(),
         )
-        self.bucket_name = bucket_name or settings["meta_ai_bucket"]
+        bucket_name_prefix = bucket_name or settings["meta_ai_bucket"]
+        complete_bucket_name = get_bucket_name_from_prefix(bucket_name_prefix)
+        if complete_bucket_name is None:
+            raise ValueError(f"No bucket name exists starting with {bucket_name_prefix}")
+        self.bucket_name = complete_bucket_name
         self.parameters = parameters
         if model_class is None:
             raise NotImplementedError(

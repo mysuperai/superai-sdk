@@ -84,6 +84,7 @@ TEST_REQUIRES = [
     "coverage>=5.3",
     "deepdiff>=4.0.7",
     "dictdiffer>=0.9.0",
+    "moto>=3.1.12",
     "pytest-cov>=2.10.1",
     "pytest-env>=0.6.2",
     "pytest-mock~=3.10.0",

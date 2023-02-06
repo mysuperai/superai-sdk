@@ -5,11 +5,14 @@ import tarfile
 from pathlib import Path
 from subprocess import CalledProcessError
 
+import boto3
 import pytest
 from docker import DockerClient
 from docker.api import APIClient
 from docker.models.images import Image
+from moto import mock_s3
 
+from superai import settings
 from superai.meta_ai import AI
 from superai.meta_ai.ai_template import AITemplate
 from superai.meta_ai.image_builder import AiImageBuilder, Orchestrator, kwargs_warning
@@ -21,6 +24,28 @@ from superai.meta_ai.schema import Schema
 def clean():
     if os.path.exists(".AISave"):
         shutil.rmtree(".AISave")
+
+
+@pytest.fixture(scope="function")
+def aws_credentials(monkeypatch):
+    """Mocked AWS Credentials for moto."""
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
+    monkeypatch.setenv("AWS_SECURITY_TOKEN", "testing")
+    monkeypatch.setenv("AWS_SESSION_TOKEN", "testing")
+
+
+@pytest.fixture(scope="function")
+def s3(aws_credentials):
+    with mock_s3():
+        yield boto3.client("s3", region_name="us-east-1")
+
+
+@pytest.fixture
+def bucket(s3: boto3.client):
+    s3.create_bucket(
+        Bucket=settings["meta_ai_bucket"],
+    )
 
 
 def test_compression():
@@ -50,7 +75,7 @@ def test_compression():
     os.remove(path_to_tarfile)
 
 
-def test_track_changes(caplog, tmp_path, clean):
+def test_track_changes(caplog, tmp_path, clean, bucket):
     caplog.set_level(logging.INFO)
     template = AITemplate(
         input_schema=Schema(),
@@ -64,7 +89,7 @@ def test_track_changes(caplog, tmp_path, clean):
     ai = AI(
         ai_template=template,
         input_params=template.input_schema.parameters(),
-        output_params=template.output_schema.parameters(choices=map(str, range(0, 10))),
+        output_params=template.output_schema.parameters(choices=map(str, range(10))),
         name="my_mnist_model2",
         version=1,
     )
@@ -94,7 +119,7 @@ def test_track_changes(caplog, tmp_path, clean):
     os.chdir(pwd)
 
 
-def test_conda_pip_dependencies(caplog, clean):
+def test_conda_pip_dependencies(caplog, clean, bucket):
     caplog.set_level(logging.INFO)
     template = AITemplate(
         input_schema=Schema(),
@@ -132,7 +157,7 @@ def test_conda_pip_dependencies(caplog, clean):
 @pytest.mark.parametrize("skip_build", [True, False])
 @pytest.mark.parametrize("build_all_layers", [True, False])
 @pytest.mark.parametrize("download_base", [True, False])
-def test_builder(caplog, capsys, mocker, enable_cuda, skip_build, build_all_layers, download_base):
+def test_builder(caplog, capsys, mocker, enable_cuda, skip_build, build_all_layers, download_base, bucket):
     caplog.set_level(logging.DEBUG)
     template = AITemplate(
         input_schema=Schema(),

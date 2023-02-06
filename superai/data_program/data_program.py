@@ -235,7 +235,6 @@ class DataProgram(DataProgramBase):
                 self._add_supertask(st)
 
             start_threading()
-            return
 
         elif service == DataProgram.ServiceType.SCHEMA:
             dp_server_port = settings.schema_port
@@ -250,7 +249,6 @@ class DataProgram(DataProgramBase):
                 super_task_params=self._default_super_task_configs,
                 **service_kwargs,
             ).run()
-            return
         else:
             raise ValueError(f"{service} is invalid service. Pick one of {list(DataProgram.ServiceType)}")
 
@@ -504,7 +502,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         if self.parameter_ui_schema is not None:
             body_json["parameter_ui_schema"] = {"params": self.parameter_ui_schema}
         if self.default_parameter is not None:
-            body_json["default_app_params"] = self.default_parameter
+            body_json["default_app_params"] = {"params": self.default_parameter}
         if self.description is not None:
             body_json["description"] = self.description
         if self.metadata is not None:

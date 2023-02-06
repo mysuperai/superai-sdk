@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 from jinja2 import Environment, PackageLoader, select_autoescape
 
-from superai import Client
+from superai import Client, settings
 from superai.log import logger
 from superai.meta_ai.dataset import Dataset
 from superai.utils import load_api_key, load_auth_token, load_id_token
@@ -246,3 +246,13 @@ def store_prediction_metrics(
         json.dump(metrics, f)
     log.info(f"Metrics saved to: {metrics_output_path}")
     return metrics_output_path
+
+
+def get_bucket_name_from_prefix(bucket_prefix) -> Optional[str]:
+    """boto3 bucket name from a list of buckets starting with a prefix"""
+    s3 = boto3.client("s3", region_name=settings.region)
+    bucket_list = s3.list_buckets()
+    return next(
+        (bucket["Name"] for bucket in bucket_list["Buckets"] if bucket["Name"].startswith(bucket_prefix)),
+        None,
+    )
