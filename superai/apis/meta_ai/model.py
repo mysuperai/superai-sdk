@@ -1075,8 +1075,8 @@ class TrainApiMixin(ABC):
             limit: the maximum number of results to return
 
         """
-        app_id_str = str(app_id) if app_id else None
-        sess = MetaAISession(app_id=app_id_str)
+        # app_id_str = str(app_id) if app_id else None
+        sess = MetaAISession(app_id=app_id)
         op = Operation(query_root)
 
         filters = {}
@@ -1110,17 +1110,16 @@ class TrainApiMixin(ABC):
             id: the id of the training run you want to remove
             app_id: ref app id for the training run
         """
-        sess = MetaAISession(app_id=str(app_id))
+        sess = MetaAISession(app_id=str(app_id) if app_id else None)
         op = Operation(mutation_root)
         op.delete_meta_ai_training_instance_by_pk(id=id).__fields__("id")
         data = sess.perform_op(op)
         return (op + data).delete_meta_ai_training_instance_by_pk.id
 
     @staticmethod
-    def update_training_instance(instance_id: uuid, app_id: Optional[Union[click.UUID, str]] = None, state: str = None):
+    def update_training_instance(instance_id: uuid, app_id: Union[click.UUID, str] = None, state: str = None):
         assert state in {None, "STARTING"}, "Only STARTING state is supported for now."
-
-        sess = MetaAISession(app_id=str(app_id) or None)
+        sess = MetaAISession(app_id=str(app_id) if app_id else None)
         op = Operation(mutation_root)
 
         op.update_meta_ai_training_instance_by_pk(

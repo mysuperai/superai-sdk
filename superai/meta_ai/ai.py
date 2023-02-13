@@ -1146,7 +1146,7 @@ class AI:
             )
 
         # Start the training in the backend
-        instance = self.client.update_training_instance(instance_id, state="STARTING")
+        instance = self.client.update_training_instance(instance_id, app_id, state="STARTING")
         log.info(f"Created training instance : {instance}. Will be started in the backend")
 
     def _prepare_training(
@@ -1185,9 +1185,9 @@ class AI:
         # Merge training parameters with default ones
         if training_parameters:
             if isinstance(training_parameters, dict):
-                obj = TrainingParameters().from_dict(training_parameters)
-                training_parameters = obj
-            loaded_parameters = json.loads(training_parameters.to_json())
+                train_obj = TrainingParameters()
+                train_obj.from_dict(training_parameters)
+            loaded_parameters = json.loads(train_obj.to_json())
         else:
             loaded_parameters = self.client.get_model(model_id=self.id)["default_training_parameters"] or {}
             if isinstance(loaded_parameters, str):

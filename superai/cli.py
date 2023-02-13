@@ -1283,7 +1283,9 @@ def training():
 @pass_client
 def list_trainings(client, app_id: Union[str, click.UUID], model_id: Union[str, click.UUID], state: str, limit: int):
     """List trainings. Allows filtering by state and application id."""
-    trainings = client.get_trainings(str(app_id), str(model_id), state=state, limit=limit)
+    model_id_str = str(model_id) if model_id else None
+    app_id_str = str(app_id) if app_id else None
+    trainings = client.get_trainings(app_id_str, model_id_str, state=state, limit=limit)
     if trainings:
         print(trainings)
 
