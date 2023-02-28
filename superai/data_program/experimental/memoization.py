@@ -57,6 +57,7 @@ def _init_s3_client():
 
 _init_s3_client()
 
+
 # TODO removing push function
 def _push_to_s3(filename, object, s3_bucket):
     _s3_client.upload_fileobj(
@@ -110,9 +111,15 @@ def memo(method, filename, folder=None, refresh=False):
                     log.debug("The S3 and local cache does not exist.")
                     return _refresh_push_to_s3(method, filepath, s3_bucket)
                 else:
-                    raise  # other s3 errors
+                    log.error(
+                        f"Could not access s3: {e}"
+                    )  # other s3 errors, should not lead to internal error in the DP
+            except Exception as e:
+                log.error(f"Could not access memo: {e}")
+
     finally:
         log.debug(f"Memo elapsed time: {time() - start_time} secs")
+    return method()
 
 
 # TODO: this is hacky way of implementing memoization of random task
