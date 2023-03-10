@@ -7,11 +7,7 @@ from superai_schema.types import BaseModel
 from superai.data_program import CollaboratorWorker, CrowdWorker
 
 # import superai
-from superai.data_program.task.super_task import (
-    SuperTaskJobInput,
-    SuperTaskWorkflow,
-    TaskRouter,
-)
+from superai.data_program.task.super_task import SuperTaskWorkflow, TaskRouter
 from superai.data_program.task.types import (
     SuperTaskConfig,
     SuperTaskModel,
@@ -183,7 +179,7 @@ def test_super_task_workflow(monkeypatch, mocker):
     monkeypatch.setattr("superai.data_program.task.super_task.TaskRouter.map", lambda *args, **kwargs: [test_future])
     monkeypatch.setattr("superai.data_program.task.super_task.TaskRouter.reduce", lambda *args, **kwargs: test_future)
 
-    inputs = SuperTaskJobInput(input=TestInput(url="http://a.com"), output=TestOutput(annotation=""))
+    inputs = dict(input=TestInput(url="http://a.com"), output=TestOutput(annotation=""))
     output = workflow.execute_workflow(job_input=inputs, configs=params.dict())
     assert output
-    assert output["task_output"]["annotation"] == "test"
+    assert output["annotation"] == "test"

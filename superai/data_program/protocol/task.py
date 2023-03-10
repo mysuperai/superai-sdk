@@ -927,7 +927,7 @@ def workflow(suffix, prefix=None, workflow_type: Optional[WorkflowType] = None, 
             logger.debug(f"FUNCTION_PARAMS: {params}")
             logger.debug(f"FUNCTION_F: {f}")
 
-            return schema_wrapper(subject, params, f)
+            return schema_wrapper(subject, params, f, uses_new_schema=uses_new_schema)
 
         logger.debug(f"WORFLOW_function: {function}")
         logger.debug(f"WORFLOW_suffix: {suffix}")

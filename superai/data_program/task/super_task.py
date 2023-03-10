@@ -86,11 +86,11 @@ class SuperTaskWorkflow(Workflow):
     ) -> TaskResponse[Output]:
         """Function responsible for scheduling a new child job (which will run `execute`), waiting and returning the result.
 
-        The parameters for the super tasks get passed down from the router job and tha used for the job creation.
+        The parameters for the super tasks get passed down from the router job and that's used for the job creation.
 
         Args:
             task_input: The input for the task.
-            task_output:    The output for the task.
+            task_output: The output for the task.
             super_task_params: The parameters for the super task.
 
         Returns:
@@ -99,7 +99,7 @@ class SuperTaskWorkflow(Workflow):
 
         job = execute(
             name=self.qualified_name,
-            params=self.job_input_model(input=task_input, output=task_output).dict(),
+            params=dict(input=model_to_task_io_payload(task_input), output=model_to_task_io_payload(task_output)),
             app_params=dict(params=super_task_params.dict(exclude_unset=True, exclude_none=True)),
             super_task_params=super_task_params.dict(exclude_unset=True, exclude_none=True),
         )
@@ -117,7 +117,7 @@ class SuperTaskWorkflow(Workflow):
             raise ChildJobInternalError(failure_message)
 
         response = job.result().response()
-        return TaskResponse[self._template.output].parse_obj(response)
+        return response
 
     def execute_workflow(
         self,
@@ -139,9 +139,8 @@ class SuperTaskWorkflow(Workflow):
         """
         # checks task input type
         task_configs = self._schema.config.parse_obj(configs)
-        job_input = self.job_input_model.parse_obj(job_input)
-        task_input = job_input.input
-        task_output = job_input.output
+        task_input = job_input["input"]
+        task_output = job_input["output"]
 
         router = TaskRouter(task_config=task_configs, task_input=task_input, task_output=task_output)
         tasks = router.map()
@@ -149,9 +148,8 @@ class SuperTaskWorkflow(Workflow):
 
         raw_result = selected.result()
         logger.debug(f"Task {selected} completed.")
-        output = task_output.parse_obj(raw_result["values"]["formData"])
 
-        return self.job_output_model(task_output=output).dict(exclude_unset=True, exclude_none=True)
+        return raw_result["values"]["formData"]
 
 
 class TaskRouter:
@@ -216,8 +214,8 @@ class TaskRouter:
         constraints = self._map_worker_constraints(w)
 
         task_future = task_template.submit(
-            task_inputs=model_to_task_io_payload(task_input),
-            task_outputs=model_to_task_io_payload(task_output),
+            task_inputs=task_input,
+            task_outputs=task_output,
             worker_type=w.type,
             **constraints,
         )
