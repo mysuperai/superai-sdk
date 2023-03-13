@@ -6,7 +6,13 @@ from pydantic.generics import GenericModel
 from superai_schema.types import BaseModel
 from typing_extensions import Protocol, TypedDict
 
-from .workers import AIWorker, BotWorker, CollaboratorWorker, CrowdWorker
+from .workers import (
+    AIWorker,
+    BotWorker,
+    CollaboratorWorker,
+    CrowdWorker,
+    IdempotentWorker,
+)
 
 Input = TypeVar("Input", bound=BaseModel)
 Output = TypeVar("Output", bound=BaseModel)
@@ -103,7 +109,7 @@ class SuperTaskWorkers(BaseModel):
     Is necessary to create a correct JSONSchema.
     """
 
-    __root__: List[Union[CrowdWorker, AIWorker, BotWorker, CollaboratorWorker]]
+    __root__: List[Union[CrowdWorker, AIWorker, BotWorker, CollaboratorWorker, IdempotentWorker]]
 
     def __getitem__(self, item):
         return self.__root__[item]

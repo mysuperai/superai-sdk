@@ -15,6 +15,7 @@ class WorkerType(str, enum.Enum):
     ai = "ai"
     crowd = "crowd"
     collaborators = "collaborators"
+    idempotent = "idempotent"
 
 
 class OnTimeoutAction(str, enum.Enum):
@@ -164,7 +165,7 @@ class Worker(BaseModel, ABC):
         le=1.0,
         description="Allows rejecting task results with a confidence score below the threshold.",
     )
-    type: Literal["crowd", "bots", "collaborators", "ai"] = Field(..., description="Type of the worker.")
+    type: Literal["crowd", "bots", "collaborators", "ai", "idempotent"] = Field(..., description="Type of the worker.")
 
     class Config:
         extra = Extra.forbid
@@ -207,3 +208,12 @@ class BotWorker(Worker):
 
     worker_constraints: BotWorkerConstraint = Field(BotWorkerConstraint(), title="Worker Constraints")
     type: Literal["bots"] = WorkerType.bots.value
+
+
+class IdempotentWorker(Worker):
+    """Defines an idempotent worker.
+    This is a pass through worker, equivalent of providing the input of the SuperTask as output
+    """
+
+    worker_constraints: Optional[Dict[str, str]] = Field(None, title="Worker Constraints")
+    type: Literal["idempotent"] = WorkerType.idempotent.value

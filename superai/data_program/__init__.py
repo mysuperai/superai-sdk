@@ -7,6 +7,7 @@ from .task.workers import (
     BotWorker,
     CollaboratorWorker,
     CrowdWorker,
+    IdempotentWorker,
     WorkerType,
 )
 from .workflow import Workflow, WorkflowConfig

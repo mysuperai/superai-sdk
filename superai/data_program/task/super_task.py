@@ -1,4 +1,6 @@
-from typing import Generic, List, Union
+from concurrent.futures import Future
+from time import time
+from typing import Generic, List, Optional, Union
 
 from pydantic.generics import GenericModel
 
@@ -144,12 +146,9 @@ class SuperTaskWorkflow(Workflow):
 
         router = TaskRouter(task_config=task_configs, task_input=task_input, task_output=task_output)
         tasks = router.map()
-        selected = router.reduce(tasks)
+        raw_result = router.reduce(tasks)
 
-        raw_result = selected.result()
-        logger.debug(f"Task {selected} completed.")
-
-        return raw_result["values"]["formData"]
+        return raw_result["formData"]
 
 
 class TaskRouter:
@@ -165,7 +164,7 @@ class TaskRouter:
         self.task_input = task_input
         self.task_output = task_output
 
-    def map(self) -> List[task_future]:
+    def map(self) -> Optional[List[task_future]]:
         tasks = []
         for index, w in enumerate(self.task_config.workers):
             if not w.active:
@@ -205,11 +204,19 @@ class TaskRouter:
             selected = sorted_futures[0]
         else:
             raise Exception("Could not find completed and matching task future.")
-        return selected
+
+        # In case of more complex reduction we don't have a single future to return
+        # for example in the case of combination of tasks. So we return the result.
+        return selected.result()["values"]
 
     def _create_worker_future(self, w: Worker, task_input, task_output):
         """Create an actual task and return the future."""
         task_template = Task(name=w.name)
+
+        if w.type == "idempotent":
+            idempotent_future = Future()
+            idempotent_future.set_result({"values": task_output, "timestamp": time()})
+            return idempotent_future
 
         constraints = self._map_worker_constraints(w)
 

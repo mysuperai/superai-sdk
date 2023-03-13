@@ -144,14 +144,11 @@ def test_task_router(monkeypatch):
     futures = router.map()
     assert futures
 
-    result = mock_task_result({"status": "COMPLETED", "timestamp": 1234, "annotation": "test"})
+    result = mock_task_result({"status": "COMPLETED", "timestamp": 1234, "values": {"annotation": "test"}})
     test_future.set_result(result)
 
     selected = router.reduce(futures)
-    assert selected == test_future
-
-    result = selected.result()
-    assert result == result
+    assert selected == test_future.result()["values"]
 
 
 def test_super_task_workflow(monkeypatch, mocker):
@@ -172,12 +169,15 @@ def test_super_task_workflow(monkeypatch, mocker):
 
     # Create dummy future with result
     test_future = Future()
-    result = mock_task_result(dict(values=dict(formData=dict(annotation="test"))))
+    result = mock_task_result(dict(formData=dict(annotation="test")))
     test_future.set_result(result)
 
     # Mock task router functions already tested above
     monkeypatch.setattr("superai.data_program.task.super_task.TaskRouter.map", lambda *args, **kwargs: [test_future])
-    monkeypatch.setattr("superai.data_program.task.super_task.TaskRouter.reduce", lambda *args, **kwargs: test_future)
+    monkeypatch.setattr(
+        "superai.data_program.task.super_task.TaskRouter.reduce",
+        lambda *args, **kwargs: dict(formData=dict(annotation="test")),
+    )
 
     inputs = dict(input=TestInput(url="http://a.com"), output=TestOutput(annotation=""))
     output = workflow.execute_workflow(job_input=inputs, configs=params.dict())

@@ -28,6 +28,7 @@ class Task:
         WorkerType.collaborators: "USER",
         WorkerType.ai: "AI",
         WorkerType.crowd: "CROWD",
+        WorkerType.idempotent: "IDEMPOTENT",
     }
 
     @property
