@@ -215,5 +215,4 @@ class IdempotentWorker(Worker):
     This is a pass through worker, equivalent of providing the input of the SuperTask as output
     """
 
-    worker_constraints: Optional[Dict[str, str]] = Field(None, title="Worker Constraints")
     type: Literal["idempotent"] = WorkerType.idempotent.value
