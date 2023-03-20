@@ -378,7 +378,7 @@ class AiImageBuilder:
         client.images.get(ecr_image_name).tag(base_image)
 
     def _get_docker_registry(self, region: str) -> str:
-        account_id = boto3.client("sts").get_caller_identity()["Account"]
+        account_id = "185169359328"  # boto3.client("sts").get_caller_identity()["Account"]
         return f"{account_id}.dkr.ecr.{region}.amazonaws.com"
 
     @staticmethod

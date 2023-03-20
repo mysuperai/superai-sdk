@@ -326,16 +326,23 @@ def aws_ecr_login(region: str, registry_name: str) -> Optional[int]:
     # aws --version | awk '{print $1}' | awk -F/ '{ print $2}'
     aws_version = subprocess.check_output(["aws", "--version"]).decode("utf-8").strip().split(" ")[0].split("/")[1]
     aws_major = aws_version.split(".")[0]
+    args_awsv1 = ["aws", "ecr", "get-login", "--region", region, "--no-include-email"]
+    args_awsv2 = ["aws", "ecr", "get-login-password", "--region", region]
 
-    def aws_cli_v1_login():
+    if "AWS_PROFILE" in os.environ:
+        args_awsv1.extend(["--profile", os.environ["AWS_PROFILE"]])
+        args_awsv2.extend(["--profile", os.environ["AWS_PROFILE"]])
+
+    def aws_cli_v1_login(args_awsv1):
         return subprocess.Popen(
-            ["aws", "ecr", "get-login", "--region", region, "--no-include-email"], stdout=subprocess.PIPE
+            args_awsv1,
+            stdout=subprocess.PIPE,
         )
 
-    def aws_cli_v2_login():
-        return subprocess.Popen(["aws", "ecr", "get-login-password", "--region", region], stdout=subprocess.PIPE)
+    def aws_cli_v2_login(args_awsv2):
+        return subprocess.Popen(args_awsv2, stdout=subprocess.PIPE)
 
-    ecr_login_proc = aws_cli_v1_login() if int(aws_major) < 2 else aws_cli_v2_login()
+    ecr_login_proc = aws_cli_v1_login(args_awsv1) if int(aws_major) < 2 else aws_cli_v2_login(args_awsv2)
     ecr_login_code = ecr_login_proc.wait()
     if ecr_login_code != 0:
         log.warning("Failed to login to ECR")
