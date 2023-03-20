@@ -105,7 +105,8 @@ class DataProgramApiMixin(WorkflowApiMixin):
         reraise=True,
     )
     def create_template(self, body, template_name, **kwargs):
-        """Creates or updates a Data Program given its full qualified name. If the Data Program already exists and it is owned by somebody else, then if will return a 409.
+        """Creates or updates a Data Program given its full qualified name. If the Data Program already exists, and it
+        is owned by somebody else, then it will return a 409.
 
         Args:
             body: (required)

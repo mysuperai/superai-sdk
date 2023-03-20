@@ -167,7 +167,6 @@ class DataProgram(DataProgramBase):
         if name is None:
             raise Exception("Environment variable 'WF_PREFIX' or parameter `name` is missing.")
         training_dataprogram = os.getenv("TRAINING_DATAPROGRAM")
-        is_training = training_dataprogram is not None and training_dataprogram != name
 
         return DataProgram(
             name=name,
@@ -176,7 +175,7 @@ class DataProgram(DataProgramBase):
             add_basic_workflow=False,
             metadata=metadata,
             auto_generate_metadata=auto_generate_metadata,
-            dataprogram=training_dataprogram if is_training else None,
+            dataprogram=training_dataprogram,
             default_super_task_configs=default_super_task_configs,
         )
 
