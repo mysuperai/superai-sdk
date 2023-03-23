@@ -48,9 +48,9 @@ local:
 dev:
   name: "dev"
   cognito:
-    client_id: "opc8vhamkun73k7uhva5c07fv"
+    client_id: "7svibr8eh9kp7lvfv16059crto"
     region: "eu-central-1"
-    userpool_id: "eu-central-1_lXXQQFbah"
+    userpool_id: "eu-central-1_dzSCh5fDL"
   dependency_version: "dev"
   base_url: "https://api.dev-eu.super.ai/v1"
   meta_ai_base: "meta-ai.dev-eu.super.ai/v1/graphql"
