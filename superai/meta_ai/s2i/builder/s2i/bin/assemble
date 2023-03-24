@@ -21,7 +21,7 @@ function codeartifact_login() {
   export PATH=/opt/conda/envs/env/bin/:$PATH
   export AWS_DEFAULT_REGION=us-east-1
   echo "Using $(pip --version)"
-  aws codeartifact login --tool pip --domain superai --repository pypi-superai --domain-owner 185169359328
+  aws codeartifact login --tool pip --domain superai --domain-owner 185169359328 --repository pypi-superai
 }
 
 cd /home/model-server
