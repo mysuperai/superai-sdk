@@ -941,9 +941,8 @@ def workflow(suffix, prefix=None, workflow_type: Optional[WorkflowType] = None, 
 
 
 def _is_using_versioned_schema(uses_new_schema: Optional[bool] = None) -> bool:
-    # Not having SERVICE environment variable indicates that legacy versioned schema is in use
-    new_schema = uses_new_schema or os.getenv("SERVICE", False)
-    return not new_schema
+    """The old schema is versioned. This function returns True if the new schema is not used."""
+    return not uses_new_schema
 
 
 def _parse_args(*args, uses_new_schema: Optional[bool] = None, **kwargs):
