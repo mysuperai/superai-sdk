@@ -23,6 +23,8 @@ def _retrieve_secret(env, secret_name_prefix="dataprograms-env-"):
     logger.debug(f"Found {len(secret_list)} secrets with prefix {secret_name_prefix}")
     if not secret_list:
         raise Exception(f"No secrets found with prefix {secret_name_prefix}")
+    if len(secret_list) > 1:
+        logger.warning(f"Found multiple secrets with prefix {secret_name_prefix}. Using first one.")
 
     # Choose the first secret that matches the prefix
     secret_name = secret_list[0]["Name"]
