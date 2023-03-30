@@ -263,6 +263,7 @@ settings = Dynaconf(
     root_path=os.path.expanduser(__superai_root_dir),
     validators=validators,
     merge_enabled=True,
+    loaders=["superai.utils.dp_env_loader", "dynaconf.loaders.env_loader"],
 )
 
 _log = logger.init(

@@ -791,7 +791,14 @@ def serve_workflow(
     if "CANOTIC_AGENT" in os.environ:
         if workflow_type is None:
             workflow_type = WorkflowType.WORKFLOW
-        subscribe_workflow(function=function, prefix=prefix, suffix=suffix, schema=schema, workflow_type=workflow_type)
+        subscribe_workflow(
+            function=function,
+            prefix=prefix,
+            suffix=suffix,
+            schema=schema,
+            workflow_type=workflow_type,
+            api_key=load_api_key(),
+        )
 
 
 def schema_wrapper(subject, context, function, uses_new_schema: Optional[bool] = None):

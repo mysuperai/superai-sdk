@@ -139,6 +139,7 @@ class DataProgram(DataProgramBase):
     class ServiceType(str, enum.Enum):
         DATAPROGRAM = "data_program"
         SCHEMA = "schema"
+        ALL = "all"
 
     @classmethod
     def create(
@@ -248,6 +249,8 @@ class DataProgram(DataProgramBase):
                 super_task_params=self._default_super_task_configs,
                 **service_kwargs,
             ).run()
+        elif service == DataProgram.ServiceType.ALL:
+            self.start_all_services(workflows=workflows, wait=True, **service_kwargs)
         else:
             raise ValueError(f"{service} is invalid service. Pick one of {list(DataProgram.ServiceType)}")
 

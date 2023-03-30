@@ -1118,7 +1118,7 @@ def run_model_predict(predict_func, port=8080, context=None):
         line = _in_pipe.readline()
 
 
-def subscribe_workflow(function, prefix, suffix, schema=None, workflow_type: Optional[WorkflowType] = None):
+def subscribe_workflow(function, prefix, suffix, schema=None, workflow_type: Optional[WorkflowType] = None, **kwargs):
     """Subscribes a workflow.
     TODO: Add workflow_type support for websocket
     """
