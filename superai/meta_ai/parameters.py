@@ -8,7 +8,7 @@ from enum import IntEnum
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import jsonpickle  # type: ignore
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, root_validator, validator
 
 logger = logging.getLogger(__file__)
 
@@ -401,6 +401,24 @@ class AiDeploymentParameters(BaseModel):
         if not v.endswith("Mi") and not v.endswith("Gi"):
             raise ValueError("Memory requirement must be in Mi or Gi")
         return v
+
+    # Validate that GPU options are only set when CUDA is enabled
+    @root_validator
+    def validate_gpu_options(cls, values):
+        """
+        Validate that GPU options are only set when CUDA is enabled.
+        Otherwise there is a K8S pod toleration mismatch.
+        """
+        enable_cuda = values.get("enableCuda")
+        gpu_target_average_utilization = values.get("gpuTargetAverageUtilization")
+        gpu_memory_requirement = values.get("gpuMemoryRequirement")
+
+        if not enable_cuda:
+            if gpu_target_average_utilization is not None:
+                raise ValueError("gpuTargetAverageUtilization can only be set when enableCuda is True")
+            if gpu_memory_requirement is not None:
+                raise ValueError("gpuMemoryRequirement can only be set when enableCuda is True")
+        return values
 
     def dict_for_db(self) -> dict:
         """Method wrapping pydantics dict() method to only contain set fields."""
