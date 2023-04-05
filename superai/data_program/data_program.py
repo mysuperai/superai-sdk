@@ -850,11 +850,12 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         self.__add_basic_workflow()
 
         if not self.router:
-            self.router = (
-                Training(client=self.client, training_dataprogram=self)
-                if self.is_training
-                else BasicRouter(client=self.client, dataprogram=self)
-            )
+            if self.is_training:
+                log.info("Is a training workflow, setting router to Training")
+                self.router = Training(client=self.client, training_dataprogram=self)
+            else:
+                log.info("Not a training workflow, setting basic router")
+                self.router = BasicRouter(client=self.client, dataprogram=self)
 
     def start(self):
         self.__init_router()

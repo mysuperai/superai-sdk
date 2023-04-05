@@ -10,6 +10,7 @@ ARG SOURCE_DIR="superai"
 ENV AWS_DEFAULT_REGION="us-east-1"
 # Flag to enable codeartifact login
 ARG INTERNAL=true
+ARG SEMGREP_VERSION=0.86.5
 
 pre-commit:
     RUN pip install --no-cache-dir pre-commit==2.17.0 black
@@ -18,7 +19,6 @@ pre-commit:
     RUN --mount=type=cache,target=/root/.cache/pre-commit pre-commit run --all-files
 
 semgrep:
-    ARG SEMGREP_VERSION=0.86.5
     RUN pip install --no-cache-dir semgrep==$SEMGREP_VERSION
     # Download rules separately for caching purposes in .ci/semgrep_rules
     RUN mkdir /rules
@@ -77,6 +77,14 @@ build-requirements:
 test-requirements:
     FROM +runtime-pip
     DO +PIP_INSTALL --REQTARGET=".[test]"
+
+ai-requirements:
+    FROM +runtime-pip
+    DO +PIP_INSTALL --REQTARGET=".[ai]"
+    RUN RUN pip install --no-cache-dir pre-commit==2.17.0 semgrep==$SEMGREP_VERSION
+
+    ARG IMAGE_TAG
+    SAVE IMAGE $IMAGE_TAG
 
 test:
     FROM +test-requirements
