@@ -1,5 +1,5 @@
 import json
-from functools import cache
+from functools import lru_cache
 
 import boto3
 from dynaconf import LazySettings
@@ -9,7 +9,7 @@ from superai.log import logger
 secrets_client = boto3.client("secretsmanager")
 
 
-@cache
+@lru_cache
 def _retrieve_secret(env, secret_name_prefix="dataprograms-env-"):
     """Cached secret retrieval function.
 
