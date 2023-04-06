@@ -33,10 +33,15 @@ linter:
 PIP_INSTALL:
     COMMAND
     ARG REQTARGET="."
+    # AWS Credentials defaulting to empty string if aws secret is provided
+    ARG AWS_ACCESS_KEY_ID=""
+    ARG AWS_SECRET_ACCESS_KEY=""
+    ARG AWS_SESSION_TOKEN=""
+
     IF  [ "$INTERNAL" = "true" ]
         RUN --mount=type=secret,id=+secrets/aws,target=/root/.aws/credentials \
             --mount=type=cache,target=/root/.cache/pip \
-            aws codeartifact login --tool pip --domain superai --repository pypi-superai-internal && \
+            aws codeartifact login --tool pip --domain superai --domain-owner 185169359328 --repository pypi-superai-internal --region us-east-1 && \
             pip install "$REQTARGET"
     ELSE
         RUN --mount=type=cache,target=/root/.cache/pip \
@@ -81,9 +86,9 @@ test-requirements:
 ai-requirements:
     FROM +runtime-pip
     DO +PIP_INSTALL --REQTARGET=".[ai]"
-    RUN RUN pip install --no-cache-dir pre-commit==2.17.0 semgrep==$SEMGREP_VERSION
+    RUN pip install --no-cache-dir pre-commit==2.17.0 semgrep==$SEMGREP_VERSION
 
-    ARG IMAGE_TAG
+    ARG IMAGE_TAG="185169359328.dkr.ecr.us-east-1.amazonaws.com/superai-sdk-internal"
     SAVE IMAGE $IMAGE_TAG
 
 test:

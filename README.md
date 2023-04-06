@@ -217,3 +217,18 @@ You can find more examples in docs/examples
 For better logging when using Pycharm, please change your run configuration to have the following switch enabled. It's easier to do it once for the Python runner template for the project. 
 
 > - [x] Emulate terminal in output console
+
+
+### Build the automation release image on your machine
+
+To build the automation release image, which contains the superai-sdk installed in a virtual environment inside the docker container, run the following command:
+
+Ensure that you have the AWS credentials present in your local environment. We recommend using [aws-sso](https://github.com/synfinatic/aws-sso-cli) plugin. 
+```bash
+earthly -P \
+  --build-arg AWS_ACCESS_KEY_ID \
+  --build-arg AWS_SECRET_ACCESS_KEY \
+  --build-arg AWS_SESSION_TOKEN \
+  --secret-file aws="$HOME/.aws/credentials" \
+  +ai-requirements
+```
