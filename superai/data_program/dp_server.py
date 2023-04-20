@@ -118,6 +118,7 @@ class DPServer:
         # Boot up ngrok reverse proxy only in case of local deploy
         if needs_tunnel and self.template_name:
             # Ensure that the connection gets closed properly
+            new_reverse_proxy_endpoint = None
             try:
                 original_reverse_proxy_endpoint = self.get_reverse_proxy_endpoint()
                 ngrok_tunnel = ngrok.connect(self.dp_server_port)
@@ -128,7 +129,8 @@ class DPServer:
             finally:
                 logger.info(f"Reverting endpoint back to {original_reverse_proxy_endpoint}")
                 self.update_reverse_proxy_endpoint(original_reverse_proxy_endpoint)
-                ngrok.disconnect(new_reverse_proxy_endpoint)
+                if new_reverse_proxy_endpoint:
+                    ngrok.disconnect(new_reverse_proxy_endpoint)
         else:
             yield
 
@@ -245,7 +247,7 @@ class DPServer:
         def health():
             return "OK"
 
-        needs_tunnel = not (os.environ.get("ECS") or os.environ.get("JENKINS_URL") or self.force_no_tunnel)
+        needs_tunnel = not (os.environ.get("ECS") or self.force_no_tunnel)
 
         with self.ngrok_contextmanager(needs_tunnel=needs_tunnel):
             uvicorn.run(app, host="0.0.0.0", port=self.dp_server_port, log_level=self.log_level)
