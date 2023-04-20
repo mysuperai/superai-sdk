@@ -37,10 +37,10 @@ def test__map_worker_constraints():
     print(worker.dict())
     constraints = TaskRouter._map_worker_constraints(worker)
     print(constraints)
-    assert "email" in constraints
+    assert "emails" in constraints
     assert "included_ids" in constraints
     print(constraints)
-    assert constraints["email"][0] == "test@test.com"
+    assert constraints["emails"][0] == "test@test.com"
     assert constraints["included_ids"][0] == 1
 
 

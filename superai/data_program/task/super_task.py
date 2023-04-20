@@ -238,7 +238,7 @@ class TaskRouter:
             if "workerId" in constraint_dict:
                 constraints["included_ids"] = w.worker_constraints.worker_id
             if "email" in constraint_dict:
-                constraints["email"] = w.worker_constraints.email
+                constraints["emails"] = w.worker_constraints.email
             if "groups" in constraint_dict:
                 constraints["groups"] = w.worker_constraints.groups
             if "excludedGroups" in constraint_dict:
