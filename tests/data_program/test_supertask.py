@@ -66,8 +66,8 @@ def test_bot_worker():
     assert dictionary["workerConstraints"]["groups"][0] == "BOTS"
 
 
-def test_worker_min_items():
-    """Test that the min_item constraint is acting as expected"""
+def test_worker():
+    """Test that the worker constraints are acting as expected"""
     # Unset worker_id sholud not trigger validation error
     worker_without_id = CrowdWorker(
         worker_constraints=WorkerConstraint(
@@ -75,15 +75,6 @@ def test_worker_min_items():
         ),
     )
     assert worker_without_id
-
-    # Test that empty list of worker_id raises validation error
-    with pytest.raises(ValidationError):
-        worker_with_empty_id_list = CrowdWorker(
-            worker_constraints=WorkerConstraint(
-                worker_id=[],
-            ),
-        )
-        assert worker_with_empty_id_list
 
 
 @pytest.mark.skip(reason="Disabled until UI can interpret training constraints")

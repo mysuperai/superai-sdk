@@ -101,7 +101,6 @@ class WorkerConstraint(BaseModel):
 
     worker_id: Optional[List[int]] = Field(
         None,
-        min_items=1,
         description="Filter workers by their IDs.",
         title="Worker IDs",
     )
