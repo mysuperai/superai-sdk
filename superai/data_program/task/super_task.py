@@ -245,4 +245,6 @@ class TaskRouter:
                 constraints["excluded_groups"] = w.worker_constraints.excluded_groups
             if "trainings" in constraint_dict:
                 constraints["qualifications"] = w.worker_constraints.trainings.get_metrics_list()
+        if w.timeout:
+            constraints["time_to_expire_secs"] = w.timeout
         return constraints
