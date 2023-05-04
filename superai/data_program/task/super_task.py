@@ -247,4 +247,6 @@ class TaskRouter:
                 constraints["qualifications"] = w.worker_constraints.trainings.get_metrics_list()
         if w.timeout:
             constraints["time_to_expire_secs"] = w.timeout
+        if "pay" in w.__fields__:
+            constraints["cost"] = w.pay
         return constraints

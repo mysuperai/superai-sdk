@@ -148,7 +148,7 @@ class Worker(BaseModel, ABC):
         "multiple tasks to the same/different worker.",
         title="Number of tasks",
     )
-    timeout: int = Field(600, ge=1, description="Time in seconds for the worker to complete the task.")
+    timeout: int = Field(86400, ge=1, description="Time in seconds for the worker to complete the task.")
     on_timeout: Optional[OnTimeout] = Field(
         OnTimeout(action=OnTimeoutAction.retry, max_retries=3), title="Timeout action"
     )
@@ -175,6 +175,7 @@ class CrowdWorker(Worker):
     It is a subclass of the Worker class and adds a field for the UI to show.
     """
 
+    pay: float = Field(0.1, ge=0.005, description="How much does the hero get paid to solve the task.")
     worker_constraints: Optional[HumanWorkerConstraint] = Field(None, title="Worker Constraints")
     type: Literal["crowd"] = WorkerType.crowd.value
 
