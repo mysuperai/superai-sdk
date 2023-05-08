@@ -1,5 +1,5 @@
 # Earthfile
-VERSION 0.6
+VERSION --use-no-manifest-list 0.6
 
 ARG PYTHON_MAJOR=3.9
 ARG PYTHON_VERSION=$PYTHON_MAJOR.12
@@ -33,10 +33,6 @@ linter:
 PIP_INSTALL:
     COMMAND
     ARG REQTARGET="."
-    # AWS Credentials defaulting to empty string if aws secret is provided
-    ARG AWS_ACCESS_KEY_ID=""
-    ARG AWS_SECRET_ACCESS_KEY=""
-    ARG AWS_SESSION_TOKEN=""
 
     IF  [ "$INTERNAL" = "true" ]
         RUN --mount=type=secret,id=+secrets/aws,target=/root/.aws/credentials \
@@ -73,23 +69,45 @@ runtime-pip:
     WORKDIR /app
 
     COPY setup.py .
+
+    # AWS Credentials defaulting to empty string if aws secret is provided
+    # Placing the following args in the PIP_INSTALL command does not work as the ARG command should be within a stage, not a command
+    ARG AWS_ACCESS_KEY_ID=""
+    ARG AWS_SECRET_ACCESS_KEY=""
+    ARG AWS_SESSION_TOKEN=""
+
     DO +PIP_INSTALL --REQTARGET="."
 
 build-requirements:
     FROM +runtime-pip
+
+    ARG AWS_ACCESS_KEY_ID=""
+    ARG AWS_SECRET_ACCESS_KEY=""
+    ARG AWS_SESSION_TOKEN=""
+
     DO +PIP_INSTALL --REQTARGET=".[build]"
 
 test-requirements:
     FROM +runtime-pip
+
+    ARG AWS_ACCESS_KEY_ID=""
+    ARG AWS_SECRET_ACCESS_KEY=""
+    ARG AWS_SESSION_TOKEN=""
+
     DO +PIP_INSTALL --REQTARGET=".[test]"
 
 ai-requirements:
     FROM +runtime-pip
+
+    ARG AWS_ACCESS_KEY_ID=""
+    ARG AWS_SECRET_ACCESS_KEY=""
+    ARG AWS_SESSION_TOKEN=""
+
     DO +PIP_INSTALL --REQTARGET=".[ai]"
-    RUN pip install --no-cache-dir pre-commit==2.17.0 semgrep==$SEMGREP_VERSION
+    RUN pip install --no-cache-dir pre-commit==2.17.0 semgrep==$SEMGREP_VERSION python-semantic-release==7.16.2
 
     ARG IMAGE_TAG="185169359328.dkr.ecr.us-east-1.amazonaws.com/superai-sdk-internal"
-    SAVE IMAGE $IMAGE_TAG
+    SAVE IMAGE --no-manifest-list --push ${IMAGE_TAG}
 
 test:
     FROM +test-requirements
@@ -104,4 +122,4 @@ dist:
     RUN make dist
     # copy dist folder in directory of Earthfile
     # Contains wheel file
-    SAVE ARTIFACT  dist AS LOCAL .
+    SAVE ARTIFACT dist AS LOCAL .
