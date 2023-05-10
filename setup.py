@@ -59,9 +59,12 @@ REQUIRES = [
 AI_REQUIRES = [
     "docker>=5.0.0",
     "polyaxon>=1.14.3",
-    "sagemaker>=1.64.1",
     "protobuf>=3.20.1, <4",
     # 4.21.0 broke the sagemaker imports, see https://github.com/protocolbuffers/protobuf/issues/10051
+]
+
+AI_EXPERIMENTAL_REQUIRES = [
+    "sagemaker>=1.64",
 ]
 
 BUILD_REQUIRES = [
@@ -107,9 +110,9 @@ setup(
     extras_require={
         "build": DP_REQUIRES + BUILD_REQUIRES,
         "dp": DP_REQUIRES,
-        "ai": BUILD_REQUIRES + AI_REQUIRES + DP_REQUIRES,
-        "test": TEST_REQUIRES + DP_REQUIRES + AI_REQUIRES,
-        "complete": DP_REQUIRES + AI_REQUIRES + BUILD_REQUIRES + TEST_REQUIRES,
+        "ai": BUILD_REQUIRES + AI_REQUIRES + AI_EXPERIMENTAL_REQUIRES + DP_REQUIRES,
+        "test": TEST_REQUIRES + DP_REQUIRES + AI_REQUIRES + AI_EXPERIMENTAL_REQUIRES,
+        "complete": DP_REQUIRES + AI_REQUIRES + AI_EXPERIMENTAL_REQUIRES + BUILD_REQUIRES + TEST_REQUIRES,
     },
     packages=find_packages(),
     include_package_data=True,
