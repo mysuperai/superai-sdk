@@ -9,7 +9,6 @@ from superai.llm.dataset import Data, Dataset
 from superai.llm.foundation_models import ChatGPT, FoundationModel
 from superai.llm.prompts import Prompt
 from superai.llm.utilities.parser_utils import Parser
-from superai.meta_ai import AI
 
 config = Configuration()
 
@@ -17,7 +16,7 @@ config = Configuration()
 # TODO: add from_examples, from_metaprompt, generate_similar, to/from json
 
 
-class LLM(AI):
+class LLM:
     input_schema: DataType
     output_schema: DataType
     foundation_model: FoundationModel = ChatGPT(engine=config.smart_foundation_model_engine)
