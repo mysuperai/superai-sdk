@@ -68,19 +68,19 @@ AI_EXPERIMENTAL_REQUIRES = [
 ]
 
 BUILD_REQUIRES = [
+    "Sphinx>=3.2.1",
     "black",
     "bump2version>=1.0.0",
     "setuptools>=50.3.2",
-    "Sphinx>=3.2.1",
     "twine>=3.2.0",
     "wheel>=0.35.1",
 ]
 
 DP_REQUIRES = [
     "awscli>=1.18.163",
+    "pyngrok>=5.1.0",
     "superai-dataclient~=0.1.0",
     "superai-schema~=0.7",
-    "pyngrok>=5.1.0",
 ]
 
 TEST_REQUIRES = [
@@ -98,6 +98,45 @@ TEST_REQUIRES = [
     "vcrpy>=4.1.1",
 ]
 
+LLM_REQUIRES = [
+    "GitPython",
+    "Pillow~=9.4.0",
+    "PyPDF2",
+    "aioconsole",
+    "aiofile",
+    "colorama",
+    "duckduckgo-search",
+    "evaluate",
+    "faker",
+    "flake8==3.7.8",
+    "google-api-python-client",
+    "google-search-results",
+    "jiwer",
+    "jupyter",
+    "langchain~=0.0.130",
+    "numpy~=1.24.2",
+    "openai~=0.27.2",
+    "openpyxl",
+    "orjson",
+    "pdf2image~=1.16.3",
+    "pinecone-client",
+    "playwright",
+    "pydantic",
+    "pytesseract",
+    "python-dotenv",
+    "reportlab",
+    "selenium",
+    "soundfile",
+    "tabulate~=0.9.0",
+    "textract-trp~=0.1.3",
+    "tiktoken~=0.3.3",
+    "tweepy",
+    "watchdog==0.9.0",
+    "webdriver-manager",
+    "wikipedia",
+    "wolframalpha",
+]
+
 setup(
     name=NAME,
     version=__version__,
@@ -110,9 +149,15 @@ setup(
     extras_require={
         "build": DP_REQUIRES + BUILD_REQUIRES,
         "dp": DP_REQUIRES,
-        "ai": BUILD_REQUIRES + AI_REQUIRES + AI_EXPERIMENTAL_REQUIRES + DP_REQUIRES,
+        "ai": BUILD_REQUIRES + AI_REQUIRES + DP_REQUIRES,
+        "llm": LLM_REQUIRES + BUILD_REQUIRES + AI_REQUIRES + AI_EXPERIMENTAL_REQUIRES + DP_REQUIRES,
         "test": TEST_REQUIRES + DP_REQUIRES + AI_REQUIRES + AI_EXPERIMENTAL_REQUIRES,
-        "complete": DP_REQUIRES + AI_REQUIRES + AI_EXPERIMENTAL_REQUIRES + BUILD_REQUIRES + TEST_REQUIRES,
+        "complete": BUILD_REQUIRES
+        + DP_REQUIRES
+        + AI_REQUIRES
+        + AI_EXPERIMENTAL_REQUIRES
+        + LLM_REQUIRES
+        + TEST_REQUIRES,
     },
     packages=find_packages(),
     include_package_data=True,
