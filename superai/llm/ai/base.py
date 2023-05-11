@@ -1,6 +1,7 @@
 import concurrent.futures
 from typing import Callable, Dict, List, Optional
 
+from pydantic import BaseModel
 from tqdm import tqdm
 
 from superai.llm.configuration import Configuration
@@ -16,7 +17,7 @@ config = Configuration()
 # TODO: add from_examples, from_metaprompt, generate_similar, to/from json
 
 
-class LLM:
+class LLM(BaseModel):
     input_schema: DataType
     output_schema: DataType
     foundation_model: FoundationModel = ChatGPT(engine=config.smart_foundation_model_engine)

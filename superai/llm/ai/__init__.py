@@ -1,6 +1,5 @@
-from superai.llm.ai.base import AI, LLM
+from superai.llm.ai.base import LLM
 
 __all__ = [
-    "AI",
     "LLM",
 ]
