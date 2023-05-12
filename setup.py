@@ -108,7 +108,7 @@ LLM_REQUIRES = [
     "duckduckgo-search",
     "evaluate",
     "faker",
-    "flake8==3.7.8",
+    "flake8==6.0.0",
     "google-api-python-client",
     "google-search-results",
     "jiwer",
