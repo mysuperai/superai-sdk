@@ -54,7 +54,7 @@ class MyTrackerModel(BaseModel):
         test_dataset = tf.data.Dataset.from_tensor_slices((x_test, y_test))
         log.info("Fit model on training data")
         for epoch in range(hyperparameters.epochs):
-            for (x, y) in train_dataset:
+            for x, y in train_dataset:
                 with tf.GradientTape() as tape:
                     predictions = model(x, training=True)
                     loss = loss_obj(y, predictions)
@@ -66,7 +66,7 @@ class MyTrackerModel(BaseModel):
             self.tracker.add_scalar("loss", train_loss.result(), step=epoch)
             self.tracker.add_scalar("accuracy", train_accuracy.result(), step=epoch)
 
-            for (x, y) in test_dataset:
+            for x, y in test_dataset:
                 predictions = model(x)
                 loss = loss_obj(y, predictions)
                 test_loss(loss)

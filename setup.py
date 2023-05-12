@@ -36,7 +36,7 @@ REQUIRES = [
     "boto3>=1.15",
     "click>=7.0",
     "diskcache>=5.4.0",
-    "dynaconf>=3.1.2",
+    "dynaconf>=3.1.12",
     "fastapi>=0.70.0",
     "futures-then>=0.1.1",
     "genson>=1.2.2",
@@ -77,7 +77,7 @@ BUILD_REQUIRES = [
 ]
 
 DP_REQUIRES = [
-    "awscli>=1.18.163",
+    "awscliv2>=2.2.0",
     "pyngrok>=5.1.0",
     "superai-dataclient~=0.1.0",
     "superai-schema~=0.7",

@@ -221,7 +221,6 @@ if __name__ == "__main__":
 
 
 def print_ai_output(name: str, response: dict, command=None, output=None) -> None:
-
     thoughts = response.get("thoughts", {})
     if thoughts:
         thoughts_reasoning = thoughts.get("reasoning")

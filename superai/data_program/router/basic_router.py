@@ -36,7 +36,6 @@ class BasicRouter(Router):
         dataprogram: "DataProgram" = None,
         **kwargs,
     ):
-
         super().__init__(
             name=name,
             client=client,

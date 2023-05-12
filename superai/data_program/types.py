@@ -63,7 +63,6 @@ class JobContext(Generic[Output]):
 
 
 class HandlerOutput(BaseModel):
-
     input_model: Type[Input]
     output_model: Type[Output]
     process_fn: Callable[[Input, JobContext], Output]

@@ -116,7 +116,6 @@ class mock_task_result:
 
 
 def test_task_router(monkeypatch):
-
     test_future = Future()
     monkeypatch.setattr("superai.data_program.task.basic.Task._create_task_future", lambda *args, **kwargs: test_future)
 

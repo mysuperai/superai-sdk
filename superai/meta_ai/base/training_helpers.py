@@ -17,7 +17,6 @@ class AvailableCallbacks(str, enum.Enum):
 
 
 class DefaultCallback(metaclass=ABCMeta):
-
     Type = TypeVar("Type", bound="DefaultCallback")
 
     callback = None

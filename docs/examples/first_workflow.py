@@ -18,6 +18,7 @@ DP_NAME = f"MyFirstWorkflow {str(uuid.getnode())}"
 # Creating a dataprogram object
 dp = DataProgram(name=DP_NAME, definition=dp_definition, add_basic_workflow=False)
 
+
 # Here we create our first workflow function
 def my_workflow(inputs, params, **kwargs):
     """Simple hello world MNIST workflow

@@ -60,7 +60,6 @@ def model(ai_client):
 
 
 def test_model(ai_client, model):
-
     m = ai_client.get_model_by_name("TestModel")
     assert "name" in m[0]
     assert m[0]["name"] == "TestModel"
@@ -209,7 +208,6 @@ def test_resolve_data_reference(ai_client: ProjectAiApiMixin):
 
 
 def test_predictions(ai_client, mocker):
-
     prediction_id = "396337dc-53a7-48ac-87c4-4a472bf52b41"
     # Mock model api return values
     mocker.patch.object(

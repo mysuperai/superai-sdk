@@ -46,7 +46,6 @@ class Router(ABC):
         self.validate_workflow_attribute("output_schema")
 
     def validate_workflow_attribute(self, attr: str):
-
         if not hasattr(self, attr):
             log.warning(f"{self.name} missing attribute {attr}")
 

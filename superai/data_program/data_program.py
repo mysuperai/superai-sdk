@@ -533,7 +533,6 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
         return response
 
     def _add_supertask(self, supertask: SuperTaskWorkflow) -> Optional[dict]:
-
         self._register_supertask(supertask)
         self._supertasks.append(supertask)
         # Everything after this line can be ignored once the data program™ is already deployed

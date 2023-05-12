@@ -61,7 +61,6 @@ class IntelImageClassification(BaseModel):
 
         # Iterate through training and test sets
         for dataset in datasets:
-
             images = []
             labels = []
 

@@ -1,9 +1,6 @@
 import abc
-import os
 
-from dotenv import load_dotenv
-
-load_dotenv(verbose=True, override=True)
+from superai.config import settings
 
 
 class Singleton(abc.ABCMeta, type):
@@ -21,29 +18,28 @@ class Configuration(metaclass=Singleton):
         self.autonomous_limit = autonomous_limit
         self.debug = debug
 
-        self.open_ai_api_key = os.getenv("OPENAI_API_KEY")
-        self.smart_foundation_model_engine = os.getenv("SMART_FOUNDATION_MODEL", "gpt-4")
-        self.fast_foundation_model_engine = os.getenv("FAST_FOUNDATION_MODEL", "gpt-3.5-turbo")
-        self.embedding_model_engine = os.getenv("EMBEDDING_MODEL", "text-embedding-ada-002")
-        self.pinecone_api_key = os.getenv("PINECONE_API_KEY")
-        self.pinecone_region = os.getenv("PINECONE_ENV")
-        self.embedding_dimension = os.getenv("EMBEDDING_DIMENSION", 1536)
-        self.memory_index = os.getenv("MEMORY_INDEX", "super_llm")
-        self.memory_backend = os.getenv("MEMORY_BACKEND", "local")
-        self.google_api_key = os.getenv("GOOGLE_API_KEY")
-        self.google_cse_id = os.getenv("GOOGLE_CSE_ID")
-        self.custom_search_engine_id = os.getenv("CUSTOM_SEARCH_ENGINE_ID")
-        self.serper_api_key = os.getenv("SERPER_API_KEY")
-        self.bing_subscription_key = os.getenv("BING_SUBSCRIPTION_KEY")
-        self.bing_search_url = os.getenv("BING_SEARCH_URL")
-        self.serp_api_key = os.getenv("SERP_API_KEY")
-        self.wolfram_alpha_appid = os.getenv("WOLFRAM_ALPHA_APPID")
+        self.openai_api_type = settings.get("llm").get("chatgpt").get("openai_api_type")
+        self.openai_api_base = settings.get("llm").get("chatgpt").get("openai_api_base")
+        self.openai_api_version = settings.get("llm").get("chatgpt").get("openai_api_version")
+        self.open_ai_api_key = settings.get("llm").get("chatgpt").get("openai_api_key")
+        self.smart_foundation_model_engine = settings.get("llm").get("chatgpt").get("smart_foundation_model_engine")
+        self.fast_foundation_model_engine = settings.get("llm").get("chatgpt").get("fast_foundation_model_engine")
+        self.embedding_model_engine = settings.get("llm").get("chatgpt").get("embedding_model_engine")
+        self.pinecone_api_key = settings.get("llm").get("memory").get("pinecone_api_key")
+        self.pinecone_region = settings.get("llm").get("memory").get("pinecone_region")
+        self.embedding_dimension = settings.get("llm").get("memory").get("embedding_dimension")
+        self.memory_index = settings.get("llm").get("memory").get("memory_index")
+        self.memory_backend = settings.get("llm").get("memory").get("memory_backend")
+        self.google_api_key = settings.get("llm").get("agents").get("google_api_key")
+        self.google_cse_id = settings.get("llm").get("agents").get("google_cse_id")
+        self.custom_search_engine_id = settings.get("llm").get("agents").get("custom_search_engine_id")
+        self.serper_api_key = settings.get("llm").get("agents").get("serper_api_key")
+        self.bing_subscription_key = settings.get("llm").get("agents").get("bing_subscription_key")
+        self.bing_search_url = settings.get("llm").get("agents").get("bing_search_url")
+        self.serp_api_key = settings.get("llm").get("agents").get("serp_api_key")
+        self.wolfram_alpha_appid = settings.get("llm").get("agents").get("wolfram_alpha_appid")
 
-        self.user_agent = os.getenv(
-            "USER_AGENT",
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36"
-            " (KHTML, like Gecko) Chrome/83.0.4103.97 Safari/537.36",
-        )
+        self.user_agent = settings.get("llm").get("agents").get("user_agent")
 
     def set_autonomous(self, autonomous: bool) -> None:
         self.autonomous = autonomous

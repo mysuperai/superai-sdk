@@ -205,7 +205,6 @@ class PromptTrainerAgent(Agent):
         }
 
     def generate_prompt(self, user_feedback=None, max_send_tokens=None):
-
         # add prompt prefix
 
         # generate system prompt

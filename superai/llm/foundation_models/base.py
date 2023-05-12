@@ -2,7 +2,6 @@ import time
 from abc import ABC, abstractmethod
 from functools import wraps
 
-import openai
 import tiktoken
 from openai.error import RateLimitError
 from pydantic import BaseModel, Extra
@@ -100,11 +99,3 @@ def retry(
                 retries -= 1
 
     return wrapper
-
-
-def check_open_ai_api_key(api_key):
-    try:
-        openai.api_key = api_key
-        openai.Model.list()
-    except Exception as e:
-        raise Exception("Invalid API key. Error: " + str(e))

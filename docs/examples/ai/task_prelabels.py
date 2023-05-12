@@ -40,6 +40,7 @@ t2.add_ai(ai2)
 dp.add_task(t1)
 dp.add_task(t2)
 
+
 # Here we create our first workflow function
 # Not injecting AI list in V0
 def my_workflow(inputs, params, predictions, tasks, **kwargs):

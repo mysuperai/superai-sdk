@@ -12,7 +12,6 @@ config = Configuration()
 
 
 class Agent(ABC):
-
     input_schema: DataType
     output_schema: DataType
     name: str

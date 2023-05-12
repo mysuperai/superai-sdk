@@ -11,10 +11,10 @@ from superai.meta_ai.parameters import (
 )
 from superai.meta_ai.schema import Schema
 
-#%%
+# %%
 if os.path.exists(".AISave"):
     shutil.rmtree(".AISave")
-#%%
+# %%
 template = AITemplate(
     input_schema=Schema(),
     output_schema=Schema(),
@@ -34,9 +34,9 @@ ai = AI(
     version=1,
     description="AI instance of sample MNIST training",
 )
-#%%
+# %%
 ai.push(overwrite=True)
-#%%
+# %%
 ai.training_deploy(
     training_data_dir="./training_data",
     training_parameters=TrainingParameters(
@@ -45,4 +45,4 @@ ai.training_deploy(
     ),
     build_all_layers=False,
 )
-#%%
+# %%

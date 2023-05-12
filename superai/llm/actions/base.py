@@ -19,7 +19,6 @@ class ActionMetaclass(ModelMetaclass):
 
             # Check if the params_schema annotation is missing or wrongly set to BaseModel
             if args_schema_type is None or args_schema_type == BaseModel:
-
                 # Get the origin and arguments of the type annotation
                 annotation_origin = get_origin(args_schema_type)
                 annotation_args = get_args(args_schema_type)
