@@ -96,7 +96,6 @@ class LLM(BaseModel):
                     if self.prompt_postprocessing_function is not None:
                         self.postprocessed_output = self.prompt_postprocessing_function(self.output)
                         output = self.postprocessed_output
-                    self.prompt.set_output(output=output)
                     return Data(input=input, output=output)
 
                 # except Exception as e:
