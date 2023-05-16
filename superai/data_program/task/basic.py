@@ -70,6 +70,7 @@ class Task:
         included_ids: List[str] = None,
         excluded_groups: List[str] = None,
         emails: List[str] = None,
+        qualifier_test_id: int = None,
     ) -> task_future:
         """
         Submit a task and return a task_future, which can be used to get the task result async.
@@ -87,6 +88,7 @@ class Task:
             included_ids:
             excluded_groups:
             emails: Email addresses of the users to be assigned the task
+            qualifier_test_id: Id of the qualifier that needs to be passed to receive the task
 
         Returns:
 
@@ -106,6 +108,7 @@ class Task:
             included_ids=included_ids,
             excluded_groups=excluded_groups,
             humans=emails,
+            qualifier_test_id=qualifier_test_id,
         )
         return self._task_future
 

@@ -89,6 +89,7 @@ def task(
     show_reject=False,
     amount=None,
     worker_type: Optional[str] = None,
+    qualifier_test_id=None,
 ) -> task_future:
     """Routes task for labeling to one or more supervision sources.
 
@@ -116,6 +117,7 @@ def task(
         show_reject: Show reject button.
         amount: Price to pay crowd heroes.
         worker_type: worker type to be used for the task
+        qualifier_test_id: Id of the qualifier that needs to be passed to receive the task
     """
     # TODO(veselin): the number of parameters passed to this function is getting too long, we should organize it into class or dictionary
     if "CANOTIC_AGENT" in os.environ:
@@ -144,6 +146,7 @@ def task(
             schema_version=get_current_version_id(),
             is_ai=ai,
             worker_type=worker_type,
+            qualifier_test_id=qualifier_test_id,
         )
     else:
         raise NotImplementedError("Little piggy not supported")

@@ -245,6 +245,8 @@ class TaskRouter:
                 constraints["excluded_groups"] = w.worker_constraints.excluded_groups
             if "trainings" in constraint_dict:
                 constraints["qualifications"] = w.worker_constraints.trainings.get_metrics_list()
+            if "trainingId" in constraint_dict and constraint_dict["trainingId"] is not None:
+                constraints["qualifier_test_id"] = w.worker_constraints.training_id
         if w.timeout:
             constraints["time_to_expire_secs"] = w.timeout
         if "pay" in w.__fields__:

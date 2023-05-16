@@ -324,6 +324,7 @@ def schedule_task(
     amount=None,
     schema_version=None,
     is_ai=None,
+    qualifier_test_id=None,
 ) -> task_future:
     """Schedules a task for execution by inserting it into the future table."""
     seq = _context.sequence
@@ -366,6 +367,9 @@ def schedule_task(
 
     if qualifications is not None:
         constraints["metrics"] = qualifications
+
+    if qualifier_test_id is not None:
+        constraints["qualifierTestId"] = qualifier_test_id
 
     if (amount is None) and (price is None):
         constraints["priceTag"] = "EASY"

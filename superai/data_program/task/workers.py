@@ -122,6 +122,9 @@ class HumanWorkerConstraint(WorkerConstraint):
         description="Filter workers by their group membership.",
     )
     excluded_groups: Optional[List[str]] = Field(None, description="Exclude workers by their group membership.")
+    training_id: Optional[int] = Field(
+        None, description="Send only to workers that have passed this training.", title="Training ID"
+    )
 
 
 class BotWorkerConstraint(WorkerConstraint):
