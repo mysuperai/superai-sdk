@@ -16,7 +16,7 @@ class Agent(ABC):
     output_schema: DataType
     name: str
     foundation_model: FoundationModel = ChatGPT(engine=config.smart_foundation_model_engine)
-    database: Memory = LocalMemory(memory_name=config.memory_index, overwrite=True)
+    database: Memory = LocalMemory(memory_name=config.memory_index)
 
     message_history: Optional[List[Message]] = []
 

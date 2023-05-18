@@ -24,7 +24,7 @@ my_agent = Agent(
     input_schema=DataType.from_dict(input_format),
     output_schema=DataType.from_dict(output_format),
     name="Business Finder",
-    memory=LocalMemory(memory_name=config.memory_index, overwrite=True),
+    memory=LocalMemory(memory_name=config.memory_index),
 )
 
 my_agent.add_role()

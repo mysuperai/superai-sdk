@@ -78,7 +78,7 @@ BUILD_REQUIRES = [
 
 DP_REQUIRES = [
     "awscliv2>=2.2.0",
-    "pyngrok>=5.1.0",
+    "pyngrok>=6.0.0",
     "superai-dataclient~=0.1.0",
     "superai-schema~=0.7",
 ]
@@ -120,7 +120,6 @@ LLM_REQUIRES = [
     "orjson",
     "pdf2image~=1.16.3",
     "pinecone-client",
-    "playwright",
     "pydantic",
     "pytesseract",
     "python-dotenv",

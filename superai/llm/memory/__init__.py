@@ -29,7 +29,7 @@ def get_memory(memory_backend, init=False):
                 memory.clear()
 
     if memory is None:
-        memory = LocalMemory(memory_name=config.memory_index, overwrite=True)
+        memory = LocalMemory(memory_name=config.memory_index)
         if init:
             memory.clear()
     return memory

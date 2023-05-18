@@ -1,11 +1,11 @@
-from typing import Any
+from typing import Any, Dict, List
 
 
 def get_current_git_branch():
     pass
 
 
-def generate_command_string(command: dict[str, Any]) -> str:
+def generate_command_string(command: Dict[str, Any]) -> str:
     """
     Generate a formatted string representation of a command.
     Args:
@@ -17,14 +17,14 @@ def generate_command_string(command: dict[str, Any]) -> str:
     return f'{command["label"]}: "{command["name"]}", args: {args_string}'
 
 
-def generate_ordered_list(items: list[Any], item_type="list") -> str:
+def generate_ordered_list(items: List[Any], item_type="list") -> str:
     if item_type == "command":
         return "\n".join(f"{i+1}. {generate_command_string(item)}" for i, item in enumerate(items))
     else:
         return "\n".join(f"{i+1}. {item}" for i, item in enumerate(items))
 
 
-def generate_unordered_list(items: list[Any], item_type="list") -> str:
+def generate_unordered_list(items: List[Any], item_type="list") -> str:
     if item_type == "command":
         return "\n".join(f"- {generate_command_string(item)}" for i, item in enumerate(items))
     else:

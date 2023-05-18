@@ -11,7 +11,7 @@ class ActionMetaclass(ModelMetaclass):
     """Metaclass for BaseAction to validate params_schema."""
 
     def __new__(
-        cls: Type[ActionMetaclass], name: str, bases: Tuple[Type, ...], attrs: dict[str, Any]
+        cls: Type[ActionMetaclass], name: str, bases: Tuple[Type, ...], attrs: Dict[str, Any]
     ) -> ActionMetaclass:
         if "params_schema" in attrs:
             schema_annotations = attrs.get("__annotations__", {})
