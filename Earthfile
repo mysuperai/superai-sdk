@@ -61,7 +61,7 @@ runtime-pip:
         && rm -rf /var/lib/apt/lists/*
 
     # Install the runtime interface client
-    RUN pip install --upgrade --no-cache-dir pip~=22.0.4 && pip install --no-cache-dir awscli==1.18.140
+    RUN pip install --upgrade --no-cache-dir pip~=23.1.2 && pip install --no-cache-dir awscli==1.27.135
     
     ENV AWS_DEFAULT_REGION=us-east-1
     ARG PIP_TMP_DIR=/tmp/pip_dir
@@ -104,7 +104,6 @@ ai-requirements:
     ARG AWS_SESSION_TOKEN=""
 
     DO +PIP_INSTALL --REQTARGET=".[ai]"
-    RUN pip install --no-cache-dir pre-commit==2.17.0 semgrep==$SEMGREP_VERSION python-semantic-release==7.16.2
 
     ARG IMAGE_TAG="185169359328.dkr.ecr.us-east-1.amazonaws.com/superai-sdk-internal"
     SAVE IMAGE --no-manifest-list --push ${IMAGE_TAG}
