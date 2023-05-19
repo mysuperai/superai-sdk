@@ -127,7 +127,7 @@ LLM_REQUIRES = [
     "soundfile",
     "tabulate~=0.9.0",
     "textract-trp~=0.1.3",
-    "tiktoken~=0.3.3",
+    "tiktoken~=0.4.0",
     "tweepy",
     "watchdog==3.0.0",
     "webdriver-manager",
