@@ -1,27 +1,26 @@
 import json
 
 import openai
-from pydantic import validator
-from pydantic.types import Any
 
 from superai.llm.configuration import Configuration
 from superai.llm.data_types.message import ChatMessage
 from superai.llm.foundation_models.base import FoundationModel, retry
+from superai.log import logger
 
 config = Configuration()
 
 
+log = logger.get_logger(__name__)
+
+
 class OpenAIFoundation(FoundationModel):
     user: str = None
-    openai_config: Any = None
 
-    @validator("openai_config", always=True, allow_reuse=True)
-    def initialize_openai(cls, v, values):
+    def initialize_openai(self):
         openai.api_type = config.openai_api_type
         openai.api_base = config.openai_api_base
         openai.api_version = config.openai_api_version
         openai.api_key = config.open_ai_api_key
-        return None
 
     def verify_api_key(self, api_key):
         try:
@@ -46,6 +45,8 @@ class ChatGPT(OpenAIFoundation):
 
     @retry
     def predict(self, input: ChatMessage):
+        self.initialize_openai()
+
         if isinstance(input, ChatMessage):
             messages = [
                 {"role": input.role, "content": input.content},
@@ -63,7 +64,9 @@ class ChatGPT(OpenAIFoundation):
             elif all(isinstance(i, str) for i in input):
                 messages = [{"role": "system", "content": i} for i in input]
         else:
-            raise Exception("Invalid input type: must be ChatMessage, str, dict or list of ChatMessage, str, or dict")
+            raise Exception(
+                f"Invalid input type {type(input)}: must be ChatMessage, str, dict or list of ChatMessage, str, or dict"
+            )
 
         # Filter out None values
         params = {
@@ -84,6 +87,7 @@ class ChatGPT(OpenAIFoundation):
 
         filtered_params = {k: v for k, v in params.items() if v is not None}
 
+        log.debug(f"ChatGPT params: {filtered_params}")
         response = openai.ChatCompletion.create(**filtered_params)
 
         if "choices" in response:
@@ -108,6 +112,8 @@ class OpenAIEmbedding(OpenAIFoundation):
 
     @retry
     def predict(self, input):
+        self.initialize_openai()
+
         if isinstance(input, str):
             input = [input]
 
@@ -120,6 +126,8 @@ class OpenAIEmbedding(OpenAIFoundation):
 
         # filter out None values
         filtered_params = {k: v for k, v in params.items() if v is not None}
+
+        log.debug(f"OpenAIEmbedding params: {filtered_params}")
         response = openai.Embedding.create(**filtered_params)
 
         if "data" in response:
