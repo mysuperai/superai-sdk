@@ -7,8 +7,11 @@ from sgqlc.operation import Operation
 
 from superai.config import settings
 from superai.exceptions import SuperAIAuthorizationError
+from superai.log import get_logger
 from superai.utils.apikey_manager import load_api_key
 from superai.utils.decorators import retry
+
+log = get_logger(__name__)
 
 
 class GraphQlException(Exception):
@@ -36,6 +39,10 @@ class MetaAISession(RequestsEndpoint):
             raise TimeoutError()
         elif "Authentication hook unauthorized" in str(error):
             raise SuperAIAuthorizationError(error, error_code=401, endpoint=self.base_url)
+        elif "not a valid graphql query" in str(error):
+            # Print out query for debugging
+            log.debug(f"Query: {op}")
+            raise GraphQlException(error)
         else:
             raise GraphQlException(data)
 

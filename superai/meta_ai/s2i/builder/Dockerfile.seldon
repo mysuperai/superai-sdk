@@ -50,7 +50,10 @@ COPY requirements_seldon.txt /home/model-server/.requirements/base_requirements.
 ARG AWS_DEFAULT_REGION=us-east-1
 ARG PIP_REPO
 ARG AWS_PROFILE
-RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true,uid=1000,gid=1000 \
+ARG AWS_ACCESS_KEY_ID
+ARG AWS_SECRET_ACCESS_KEY
+ARG AWS_SESSION_TOKEN
+RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=false,uid=1000,gid=1000 \
     --mount=type=cache,target=/root/.cache/pip \
     aws codeartifact login --tool pip --domain superai --domain-owner 185169359328 --repository ${PIP_REPO} && \
     pip install -r /home/model-server/.requirements/base_requirements.txt
@@ -58,7 +61,7 @@ RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true,uid=1
 # Install superai version from local path/repository
 COPY .dist/*.whl /home/model-server/.requirements/
 ARG SUPERAI_WHL
-RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=true \
+RUN --mount=type=secret,id=aws,target=/root/.aws/credentials,required=false \
     --mount=type=cache,target=/root/.cache/pip \
     aws codeartifact login --tool pip --domain superai --domain-owner 185169359328 --repository ${PIP_REPO} && \
     pip install '/home/model-server/.requirements/${SUPERAI_WHL}[ai]'

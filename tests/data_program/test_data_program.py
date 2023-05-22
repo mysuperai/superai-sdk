@@ -3,7 +3,6 @@ import pathlib
 from typing import List
 
 import pytest
-import vcr
 from superai_schema.types import BaseModel, Field
 
 from superai.config import get_current_env, settings
@@ -96,18 +95,28 @@ def test_schema_port(monkeypatch):
     assert settings.schema_port == previous_port
 
 
-my_vcr = vcr.VCR(
-    serializer="yaml",
-    cassette_library_dir=f"{pathlib.Path(__file__).resolve().parent}/cassettes",
-    record_mode="once",
-    match_on=["headers", "method"],
-    filter_headers=["x-api-key", "x-app-id", "Content-Length", "User-Agent", "API-KEY", "AUTH-TOKEN", "ID-TOKEN"],
-    decode_compressed_response=True,
-)
+@pytest.fixture(scope="module")
+def vcr(vcr):
+    vcr.serializer = "yaml"
+    vcr.cassette_library_dir = f"{pathlib.Path(__file__).resolve().parent}/cassettes"
+    vcr.record_mode = "once"
+    vcr.match_on = ["method"]
+    vcr.filter_headers = [
+        "x-api-key",
+        "x-app-id",
+        "Content-Length",
+        "User-Agent",
+        "API-KEY",
+        "AUTH-TOKEN",
+        "ID-TOKEN",
+        "Authorization",
+    ]
+    vcr.decode_compressed_response = True
+    return vcr
 
 
 @pytest.fixture
-def use_dev_env_for_vcr():
+def use_dev_env_for_vcr(vcr):
     previous_env = get_current_env()
     assert previous_env == "testing"
 
@@ -117,7 +126,7 @@ def use_dev_env_for_vcr():
     # print(settings.as_dict())
     # assert settings.user.api_key is not None
 
-    with my_vcr.use_cassette("dp_test.yaml"):
+    with vcr.use_cassette("dp_test.yaml"):
         yield
     # Restore previous env
     # settings.configure(FORCE_ENV_FOR_DYNACONF=previous_env)

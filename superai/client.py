@@ -23,6 +23,19 @@ from superai.utils import update_cognito_credentials
 # Set up logging
 logger = logger.get_logger(__name__)
 
+__all__ = [
+    "Client",
+    "AuthApiMixin",
+    "DataApiMixin",
+    "DataProgramApiMixin",
+    "GroundTruthApiMixin",
+    "JobsApiMixin",
+    "ProjectApiMixin",
+    "AiApiMixin",
+    "TasksApiMixin",
+    "SuperTaskApiMixin",
+]
+
 
 class Client(
     JobsApiMixin,
@@ -41,6 +54,17 @@ class Client(
         self.auth_token = auth_token
         self.id_token = id_token
         self.base_url = base_url or settings.get("base_url")
+
+    @classmethod
+    def from_credentials(cls) -> "Client":
+        """Instantiate a client from the credentials stored in the config file."""
+        from superai.utils import load_api_key, load_auth_token, load_id_token
+
+        return cls(
+            api_key=load_api_key(),
+            auth_token=load_auth_token(),
+            id_token=load_id_token(),
+        )
 
     def request(
         self,

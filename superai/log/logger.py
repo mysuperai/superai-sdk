@@ -27,6 +27,10 @@ loggers: List[logging.Logger] = []
 
 logger_blocklist = ["botocore", "requests", "boto3", "sagemaker", "urllib3", "moto"]
 
+from rich.console import Console
+
+console = Console()
+
 
 def create_file_handler(
     log_format=_log_format,

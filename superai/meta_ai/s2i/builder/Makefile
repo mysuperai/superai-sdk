@@ -2,13 +2,9 @@ IMAGE_VERSION=1
 SHELL:=/bin/bash
 
 ifndef PYTHON_VERSION
-	PYTHON_VERSION=3.7.11
+	PYTHON_VERSION=3.10
 endif
 IMAGE_PYTHON_VERSION=$(shell echo -n $(PYTHON_VERSION) | sed 's/\.//g')
-
-ifndef AWS_PROFILE
-	AWS_PROFILE=default
-endif
 
 ifndef mode
 	mode=cpu
@@ -115,7 +111,6 @@ build-lambda: permissions superai-wheel
 		-t ${IMAGE_NAME}-lambda:${IMAGE_VERSION} \
 		--secret id=aws,src=${AWS_CREDENTIAL_FILE} \
 		.
-
 build-seldon: permissions superai-wheel
 	DOCKER_BUILDKIT=1 docker build -f Dockerfile.seldon \
 		--platform=${TARGET_PLATFORM} \
@@ -124,7 +119,10 @@ build-seldon: permissions superai-wheel
 		--build-arg BASE_IMAGE=${BASE_IMAGE} \
 		--build-arg PIP_REPO=${PIP_REPO} \
 		--build-arg SUPERAI_WHL=$(shell ls -t -U ./.dist/ | grep -m 1 'superai') \
-		--build-arg AWS_PROFILE=${AWS_PROFILE} \
+		--build-arg AWS_PROFILE \
+		--build-arg AWS_ACCESS_KEY_ID \
+		--build-arg AWS_SECRET_ACCESS_KEY \
+		--build-arg AWS_SESSION_TOKEN \
 		-t ${IMAGE_NAME}-seldon:${IMAGE_VERSION} \
 		--secret id=aws,src=${AWS_CREDENTIAL_FILE} \
 		.

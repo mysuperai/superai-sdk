@@ -82,7 +82,7 @@ dev:
   meta_ai_bucket: "meta-ai-prediction"
   region: "eu-central-1"
   log:
-    level: 10 #INFO=20, DEBUG=10
+    level: 20 #INFO=20, DEBUG=10
     console: true
   suffix: "-dev"
 

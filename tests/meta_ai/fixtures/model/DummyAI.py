@@ -1,10 +1,10 @@
 import superai_schema.universal_schema.task_schema_functions as df
 
-from superai.meta_ai import BaseModel
+from superai.meta_ai import BaseAI
 from superai.utils import log
 
 
-class DummyModel(BaseModel):
+class DummyAI(BaseAI):
     """
     Dummy model for testing, this is not a real model
     """
@@ -12,7 +12,7 @@ class DummyModel(BaseModel):
     model = None
 
     def __init__(self, *args, **kwargs):
-        super(DummyModel, self).__init__(*args, **kwargs)
+        super(DummyAI, self).__init__(*args, **kwargs)
 
     def load_weights(self, weights_path):
         self.model = None

@@ -1,10 +1,8 @@
 import json
 import time
-from abc import ABC
-from typing import Dict, List, Optional, Union
+from typing import List, Optional, Union
 
 import click
-import sgqlc
 from rich import box
 from rich.console import Console
 from rich.live import Live
@@ -12,9 +10,7 @@ from rich.table import Table
 from sgqlc.operation import Operation
 
 from superai.apis.meta_ai.meta_ai_graphql_schema import (
-    RawPrediction,
     download_artifact_async,
-    meta_ai_assignment_enum,
     meta_ai_deployment,
     meta_ai_deployment_bool_exp,
     meta_ai_deployment_insert_input,
@@ -24,11 +20,7 @@ from superai.apis.meta_ai.meta_ai_graphql_schema import (
     meta_ai_deployment_status_enum,
     meta_ai_deployment_status_enum_comparison_exp,
     meta_ai_deployment_type_enum,
-    meta_ai_model,
     meta_ai_model_bool_exp,
-    meta_ai_model_insert_input,
-    meta_ai_model_pk_columns_input,
-    meta_ai_model_set_input,
     meta_ai_prediction,
     meta_ai_prediction_state_enum,
     meta_ai_training_instance,
@@ -39,15 +31,16 @@ from superai.apis.meta_ai.meta_ai_graphql_schema import (
     meta_ai_training_template_insert_input,
     meta_ai_training_template_pk_columns_input,
     meta_ai_training_template_set_input,
-    meta_ai_visibility_enum,
     mutation_root,
     query_root,
     subscription_root,
     uuid,
     uuid_comparison_exp,
 )
-from superai.log import logger
+from superai.log import console, logger
 
+from ...meta_ai.schema import TaskPredictionInstance
+from .base import AiApiBase
 from .session import (  # type: ignore
     GraphQlException,
     MetaAISession,
@@ -55,368 +48,17 @@ from .session import (  # type: ignore
 )
 
 log = logger.get_logger(__name__)
-BASE_FIELDS = ["name", "version", "id", "ai_worker_id", "visibility", "trainable"]
-EXTRA_FIELDS = [
-    "description",
-    "model_save_path",
-    "weights_path",
-    "input_schema",
-    "output_schema",
-    "served_by",
-    "default_training_parameters",
-    "image",
-    "deployment_parameters",
-]
 
 
 class PredictionError(Exception):
     """Prediction Error"""
 
 
-class ModelError(Exception):
-    """Model Error"""
-
-
-class ModelApiMixin(ABC):
-    """Model API"""
-
-    _resource = "model"
-
-    def __init__(self):
-        self.sess = MetaAISession()
-
-    @property
-    def resource(self) -> str:
-        return self._resource
-
-    @staticmethod
-    def _fields(verbose: bool) -> List[str]:
-        return BASE_FIELDS + EXTRA_FIELDS if verbose else BASE_FIELDS
-
-    @staticmethod
-    def _output_formatter(entries: List[sgqlc.types.Type], to_json: bool) -> Union[List[sgqlc.types.Type], List[Dict]]:
-        if not to_json:
-            return entries
-        elif isinstance(entries, (list, tuple)):
-            return [entry.__json_data__ for entry in entries]
-        else:
-            return entries.__json_data__  # single instance
-
-    def get_all_models(self, to_json: bool = False, verbose: bool = False) -> List[Union[meta_ai_model, Dict]]:
-        op = Operation(query_root)
-        op.meta_ai_model().__fields__(*self._fields(verbose))
-        data = self.sess.perform_op(op)
-        return self._output_formatter((op + data).meta_ai_model, to_json)
-
-    def get_model(self, model_id: str, to_json: bool = False) -> Optional[Union[meta_ai_model, Dict]]:
-        op = Operation(query_root)
-        op.meta_ai_model_by_pk(id=model_id).__fields__(
-            "name",
-            "version",
-            "id",
-            "ai_worker_id",
-            "description",
-            "visibility",
-            "input_schema",
-            "output_schema",
-            "root_id",
-            "served_by",
-            "trainable",
-            "default_training_parameters",
-            "image",
-            "deployment_parameters",
-        )
-        data = self.sess.perform_op(op)
-        return self._output_formatter((op + data).meta_ai_model_by_pk, to_json)
-
-    def get_model_by_name(
-        self, name: str, to_json: bool = False, verbose: bool = False
-    ) -> List[Union[meta_ai_model, Dict]]:
-        op = Operation(query_root)
-        op.meta_ai_model(where={"name": {"_eq": name}}).__fields__(*self._fields(verbose))
-        data = self.sess.perform_op(op)
-        return self._output_formatter((op + data).meta_ai_model, to_json)
-
-    def get_model_by_name_version(
-        self, name: str, version: int, to_json: bool = False, verbose: bool = False
-    ) -> List[Union[meta_ai_model, Dict]]:
-        op = Operation(query_root)
-        op.meta_ai_model(where={"name": {"_eq": name}, "version": {"_eq": version}}).__fields__(*self._fields(verbose))
-        data = self.sess.perform_op(op)
-        return self._output_formatter((op + data).meta_ai_model, to_json)
-
-    def list_model_versions(
-        self,
-        model_id,
-        to_json: bool = False,
-        verbose: bool = False,
-        sort_by_version: bool = True,
-        ascending: bool = True,
-    ) -> List[Union[meta_ai_model, Dict]]:
-        """List all versions of a model which share a common root model (given by the root_id).
-        Args:
-            model_id: uuid
-                Does not need to be the id of the root model.
-            to_json:
-                If True, returns a list of dictionaries instead of schema objects.
-            verbose:
-                If True, returns all model fields.
-            sort_by_version: bool
-                Sort list by version number, depending on `ascending`
-            ascending: bool
-                If True, sort in ascending order. Root model is always first.
-                If False, sort in descending order, most recent model first.
-
-        Returns:
-
-        """
-        op = Operation(query_root)
-        # We query the root_model and then its sibling_models which gives us the whole lineage
-        op.meta_ai_model_by_pk(id=model_id).root_model().sibling_models().__fields__(*self._fields(verbose=verbose))
-        data = self.sess.perform_op(op)
-        models = (op + data).meta_ai_model_by_pk.root_model.sibling_models
-        if sort_by_version:
-            models = sorted(models, key=lambda x: x.version, reverse=not ascending)
-        return self._output_formatter(models, to_json)
-
-    def get_root_model(
-        self, model_id: str, to_json: bool = False, verbose: bool = False
-    ) -> Optional[Union[meta_ai_model, Dict]]:
-        """Get the root model,  i.e. the model that is the parent of all other models.
-        Currently, thats always the one with version=1.
-
-        Args:
-            model_id: uuid
-                Id of one of the models in the lineage.
-            to_json:
-                If True, returns a list of dictionaries instead of schema objects.
-            verbose:
-                If True, returns all model fields.
-
-        Returns:
-
-        """
-        op = Operation(query_root)
-        # We query the root_model and then its sibling_models which gives us the whole lineage
-        op.meta_ai_model_by_pk(id=model_id).root_model().__fields__(*self._fields(verbose=verbose))
-        data = self.sess.perform_op(op)
-        models = (op + data).meta_ai_model_by_pk.root_model
-        return self._output_formatter(models, to_json)
-
-    def get_latest_model(
-        self, model_id: str, to_json: bool = False, verbose: bool = False
-    ) -> Optional[Union[meta_ai_model, Dict]]:
-        """Get the latest (highest) model version of a model.
-
-        Returns:
-            meta_ai_model
-        """
-        # Get sorted model list
-        models = self.list_model_versions(model_id, sort_by_version=True, ascending=False, verbose=verbose)
-        return self._output_formatter(models[0], to_json)
-
-    def add_model(
-        self,
-        name: str,
-        description: str = "",
-        version: int = 1,
-        stage: str = "LOCAL",
-        metadata: str = None,
-        visibility: meta_ai_visibility_enum = "PRIVATE",
-        root_id: str = None,
-        input_schema: dict = None,
-        output_schema: dict = None,
-        model_save_path: str = "",
-        weights_path: str = "",
-        default_training_parameters: dict = None,
-        trainable: bool = False,
-        image: str = None,
-        deployment_parameters: Optional[Union[dict, "DeploymentParameters"]] = None,
-    ) -> str:
-        """Add a new model to the database.
-        Args:
-            name:
-                Name of the model.
-            description:
-                Description of the model.
-            version:
-                Version of the model.
-            stage:
-                Stage of the model.
-            metadata:
-                Metadata of the model. Currently, this is a JSON string.
-            visibility:
-                Visibility of the model. PUBLIC or PRIVATE.
-                PUBLIC models can be used by anyone.
-                PRIVATE models can only be used by the user who created it.
-            root_id:
-                Id of the root model. Establishes the lineage of the model.
-                Is mainly used in retraining a model and storing the weights of the model in a new version.
-            input_schema:
-                Input schema of the model. Is used to match data to compatible models.
-            output_schema:
-                Output schema of the model.
-            model_save_path:
-                URI to the stored model source code.
-            weights_path:
-                URI to the stored model weights.
-            default_training_parameters:
-                Default training parameters for the model. Can be used to create training templates.
-            trainable:
-                If True, the model can be trained and a `train` method exists.
-            image:
-                Path to the docker image containing the model execution environment.
-                Will be used for prediction serving and training.
-            deployment_parameters:
-                Parameters for the deployment in the backend. Mainly contains hardware and scaling parameters.
-
-        Returns:
-
-        """
-        from superai.meta_ai.parameters import AiDeploymentParameters
-
-        deployment_parameters = deployment_parameters or {}
-        if not isinstance(deployment_parameters, AiDeploymentParameters):
-            deployment_parameters = AiDeploymentParameters.parse_obj(deployment_parameters)
-        op = Operation(mutation_root)
-        op.insert_meta_ai_model_one(
-            object=meta_ai_model_insert_input(
-                name=name,
-                description=description,
-                version=version,
-                metadata=json.dumps(metadata) if metadata is not None else metadata,
-                visibility=visibility,
-                input_schema=json.dumps(input_schema),
-                output_schema=json.dumps(output_schema),
-                model_save_path=model_save_path,
-                weights_path=weights_path,
-                root_id=root_id,
-                stage=stage,
-                trainable=trainable,
-                image=image,
-                default_training_parameters=json.dumps(default_training_parameters)
-                if default_training_parameters is not None
-                else default_training_parameters,
-                deployment_parameters=deployment_parameters.json_for_db(),
-            )
-        ).__fields__(
-            "name", "version", "id", "stage", "description", "visibility", "root_id", "image", "deployment_parameters"
-        )
-        data = self.sess.perform_op(op)
-        log.info(f"Created new model: {data}")
-        return (op + data).insert_meta_ai_model_one.id
-
-    def update_model(self, model_id: str, **kwargs) -> str:
-        """Update a model based with specified keyword arguments.
-
-        Examples:
-            >>> update_model(model_id, description="new_description")
-
-        Args:
-            model_id:
-            default_training_parameters: dict
-            description: str
-            image: str
-            input_schema: dict
-            metadata: dict
-            output_schema: dict
-            served_by: str
-            stage: str
-            trainable: bool
-            visibility: str
-            deployment_parameters: dict
-
-        Returns:
-            str: Id of the updated model.
-
-        """
-        from superai.meta_ai.parameters import AiDeploymentParameters
-
-        deployment_parameters = kwargs.get("deployment_parameters", {})
-        if not isinstance(deployment_parameters, AiDeploymentParameters):
-            deployment_parameters = AiDeploymentParameters.parse_obj(deployment_parameters)
-        kwargs["deployment_parameters"] = deployment_parameters.json_for_db()
-
-        op = Operation(mutation_root)
-        op.update_meta_ai_model_by_pk(
-            _set=meta_ai_model_set_input(**kwargs),
-            pk_columns=meta_ai_model_pk_columns_input(id=model_id),
-        ).__fields__("id", *kwargs.keys())
-        data = self.sess.perform_op(op)
-        return (op + data).update_meta_ai_model_by_pk.id
-
-    def update_model_by_name_version(self, name: str, version: int, **kwargs) -> str:
-        """Update a model (identified by name and version) with specified keyword arguments
-        E.g. update_model_by_name_version(name="model123", version=1, description="new_description")
-
-        Args:
-            model_id:
-            default_training_parameters: dict
-            description: str
-            image: str
-            input_schema: dict
-            metadata: dict
-            output_schema: dict
-            served_by: str
-            stage: str
-            trainable: bool
-            visibility: str
-
-        Returns:
-            str: Id of the updated model.
-
-        """
-        if name is None or version is None:
-            raise ValueError("name and version must be specified")
-        if kwargs is None:
-            raise ValueError("At least one kwarg must be specified")
-        opq = Operation(query_root)
-        opq.meta_ai_model(
-            where={"name": {"_eq": name}, "version": {"_eq": version}},
-        ).__fields__("name", "version", "id", "stage")
-        data = self.sess.perform_op(opq)
-        res = (opq + data).meta_ai_model
-        if len(res) == 0:
-            raise ModelError(f"Could not find any matching entries with {name}:{version}")
-        idx = res[0].id
-        return self.update_model(idx, **kwargs)
-
-    def get_latest_version_of_model_by_name(self, name: str) -> int:
-        opq = Operation(query_root)
-        opq.meta_ai_model(where={"name": {"_eq": name}}).__fields__("version")
-        data = self.sess.perform_op(opq)
-        res = (opq + data).meta_ai_model
-        if len(res) == 0:
-            raise ModelError(f"Could not find any entries with model name `{name}`")
-        res = list(map(lambda x: x.version, res))
-        return sorted(res, reverse=True)[0]
-
-    def delete_model(self, idx) -> str:
-        op = Operation(mutation_root)
-        op.delete_meta_ai_model_by_pk(id=idx).__fields__("name", "version", "id")
-        data = self.sess.perform_op(op)
-        return (op + data).delete_meta_ai_model_by_pk.id
-
-    def add_app_mapping(self, idx, app_id, assignment="RAW", active=False, threshold=0.1):
-        op = Operation(mutation_root)
-        op.insert_meta_ai_app_one(
-            model_id=idx,
-            id=app_id,
-            assigned=meta_ai_assignment_enum(assignment),
-            active=active,
-            threshold=threshold,
-        ).__fields__("id")
-        data = self.sess.perform_op(op)
-        log.info(f"Created a new app mapping for app_id {app_id} and model {idx}: {data}")
-        app_id = (op + data).insert_meta_ai_app_one.id
-        return app_id
-
-
 class DeploymentException(Exception):
     """All deployment API mixin exceptions"""
 
 
-class DeploymentApiMixin(ABC):
+class DeploymentApiMixin(AiApiBase):
     """Deployment API"""
 
     _resource = "deployment"
@@ -430,7 +72,7 @@ class DeploymentApiMixin(ABC):
 
     def deploy(
         self,
-        model_id: str,
+        ai_instance_id: str = None,
         deployment_type: meta_ai_deployment_type_enum = "AWS_EKS",
         purpose: str = "SERVING",
         properties: dict = None,
@@ -441,9 +83,9 @@ class DeploymentApiMixin(ABC):
         and store the endpoint name in the table.
 
         Args:
+            ai_instance_id:
             deployment_type: type of backend deployment
             purpose:
-            model_id:
             properties: dict, as in AITemplate.deployment_parameters
             wait: bool, if True, wait for the deployment to be completed before returning.
             initial_status:
@@ -451,30 +93,25 @@ class DeploymentApiMixin(ABC):
         Returns:
             str: id of the newly created deployment
         """
-        existing_deployment = self.get_deployment(model_id)
-        if "status" not in existing_deployment:
-            op = Operation(mutation_root)
-            op.insert_meta_ai_deployment_one(
-                object=meta_ai_deployment_insert_input(
-                    model_id=model_id,
-                    type=meta_ai_deployment_type_enum(deployment_type),
-                    purpose=meta_ai_deployment_purpose_enum(purpose),
-                    target_status=meta_ai_deployment_status_enum(initial_status),
-                    properties=json.dumps(properties),
-                )
-            ).__fields__("id", "model_id", "target_status", "created_at")
-            data = self.sess.perform_op(op)
-            log.info(f"Created new deployment: {data}")
-            deployment_id = (op + data).insert_meta_ai_deployment_one.id
-            if wait:
-                try:
-                    self._wait_for_state_change(deployment_id, field="status", target_status=initial_status)
-                except Exception as e:
-                    log.warning(f"Exception during wait, aborting wait: {e}")
-            return deployment_id
-        else:
-            log.info(f"Deployment already exists with properties: {existing_deployment} ")
-            return None
+        op = Operation(mutation_root)
+        op.insert_meta_ai_deployment_one(
+            object=meta_ai_deployment_insert_input(
+                ai_instance_id=ai_instance_id,
+                type=meta_ai_deployment_type_enum(deployment_type),
+                purpose=meta_ai_deployment_purpose_enum(purpose),
+                target_status=meta_ai_deployment_status_enum(initial_status),
+                properties=json.dumps(properties),
+            )
+        ).__fields__("id", "ai_instance_id", "target_status", "created_at")
+        data = self.sess.perform_op(op)
+        log.info(f"Created new deployment: {data}")
+        deployment_id = (op + data).insert_meta_ai_deployment_one.id
+        if wait:
+            try:
+                self._wait_for_state_change(deployment_id, field="status", target_status=initial_status)
+            except Exception as e:
+                log.warning(f"Exception during wait, aborting wait: {e}")
+        return deployment_id
 
     def _set_target_status(
         self, deployment_id: str, target_status: meta_ai_deployment_status_enum
@@ -509,9 +146,9 @@ class DeploymentApiMixin(ABC):
         return self._wait_for_state_change(deployment_id, field="status", target_status=target_status, timeout=timeout)
 
     def _wait_for_state_change(self, deployment_id: str, field: str, target_status, timeout=600):
-        console = Console()
         end_time = time.time() + timeout
         retries = 0
+        sleep_time = min(timeout, 10)
         with console.status("[bold green]Waiting for status change..."):
             while time.time() < end_time:
                 backend_status = self.get_deployment(deployment_id)[field]
@@ -523,7 +160,7 @@ class DeploymentApiMixin(ABC):
                         f"waiting for [yellow]{field}[/]==[green]{target_status}[/] "
                         f"- retry {retries}, time {retries * 10} seconds"
                     )
-                time.sleep(10)
+                time.sleep(sleep_time)
                 retries += 1
 
         console.log(f"[red][b]{field}[/b] did not reach [b]{target_status}[/b] after [b]{timeout}[/b] seconds")
@@ -576,7 +213,7 @@ class DeploymentApiMixin(ABC):
         op.update_meta_ai_deployment_by_pk(
             _set=meta_ai_deployment_set_input(properties=json.dumps(properties)),
             pk_columns=meta_ai_deployment_pk_columns_input(id=deployment_id),
-        ).__fields__("id", "model_id", "properties")
+        ).__fields__("id", "ai_instance_id", "properties")
         data = self.sess.perform_op(op)
         return (op + data).update_meta_ai_deployment_by_pk
 
@@ -595,7 +232,6 @@ class DeploymentApiMixin(ABC):
         opq = Operation(query_root)
         opq.meta_ai_deployment_by_pk(id=deployment_id).__fields__(
             "id",
-            "model_id",
             "status",
             "target_status",
             "created_at",
@@ -604,6 +240,7 @@ class DeploymentApiMixin(ABC):
             "properties",
             "min_instances",
             "scale_in_timeout",
+            "ai_instance_id",
         )
         data = self.sess.perform_op(opq)
         return (opq + data).meta_ai_deployment_by_pk
@@ -627,13 +264,13 @@ class DeploymentApiMixin(ABC):
         opq = Operation(query_root)
         filters = {}
         if model_id:
-            filters["model_id"] = uuid_comparison_exp(_eq=model_id)
+            filters["ai_instance_id"] = uuid_comparison_exp(_eq=model_id)
         if model_name:
             filters["model"] = meta_ai_model_bool_exp({"name": {"_eq": model_name}})
         if status:
             filters["status"] = meta_ai_deployment_status_enum_comparison_exp(_eq=status)
         deployments = opq.meta_ai_deployment(where=meta_ai_deployment_bool_exp(**filters))
-        models = deployments.model()
+        models = deployments.modelv2()
         models.__fields__("name", "id")
         deployments.__fields__(
             "id",
@@ -697,12 +334,12 @@ class DeploymentApiMixin(ABC):
         def generate_table(id_, state) -> Table:
             """Make a new table."""
             table = Table(box=box.MINIMAL)
-            table.add_column("ID")
+            table.add_column("Prediction ID")
             table.add_column("Current State")
             table.add_row(str(id_), str(state))
             return table
 
-        with Live(generate_table(prediction_id, ""), auto_refresh=False, transient=True) as live:
+        with Live(generate_table(prediction_id, ""), auto_refresh=False, transient=True, console=console) as live:
             while time.time() - start < timeout:
                 data = next(sess.perform_op(opq))
                 res: meta_ai_prediction = (opq + data).meta_ai_prediction_by_pk
@@ -732,7 +369,7 @@ class DeploymentApiMixin(ABC):
         op = Operation(query_root)
         p = op.meta_ai_prediction_by_pk(id=prediction_id)
         p.__fields__("id", "state", "created_at", "completed_at", "started_at", "error_message")
-        p.model.__fields__("id", "name", "version")
+        p.model.__fields__("id", "name")
         p.instances().__fields__("id", "output", "score")
         data = sess.perform_op(op)
         try:
@@ -779,7 +416,7 @@ class DeploymentApiMixin(ABC):
         input_data: dict = None,
         parameters: dict = None,
         timeout: int = 180,
-    ) -> List[RawPrediction]:
+    ) -> List[TaskPredictionInstance]:
         """Predict with endpoint using input data and custom parameters.
         Endpoint is identified either by specific deployment_id or inferred using the model_id.
 
@@ -810,7 +447,7 @@ class DeploymentApiMixin(ABC):
         # Retrieve finished data
         prediction: query_root.meta_ai_prediction = self.get_prediction_with_data(prediction_id=prediction_id)
         return [
-            RawPrediction(json_data={"output": instance.output, "score": instance.score})
+            TaskPredictionInstance(prediction=instance.output, score=instance.score)
             for instance in prediction.instances
         ]
 
@@ -819,7 +456,7 @@ class TrainingException(Exception):
     """All training API exceptions"""
 
 
-class TrainApiMixin(ABC):
+class TrainApiMixin(AiApiBase):
     """Training API"""
 
     _resource = "train"
@@ -833,32 +470,30 @@ class TrainApiMixin(ABC):
 
     @staticmethod
     def create_training_template_entry(
-        model_id: Union[uuid, str], properties: dict, app_id: uuid = None, description: Optional[str] = None
+        ai_instance_id: Union[uuid, str], properties: dict, app_id: uuid = None, description: Optional[str] = None
     ) -> Optional[meta_ai_training_template]:
         """Creates a new training template entry.
 
         Returns: the id of the created entry
 
         Args:
-            model_id: ref model if for the template
+            ai_instance_id: id of the ai instance
             properties: the default properties that will get inherited during trainings
-            app_id: ref app id for the template
+            app_id: id of the app the template belongs to
             description: Description of template
         """
         app_id_str = str(app_id) if app_id else None
         sess = MetaAISession(app_id=app_id_str)
-        model_api = ModelApiMixin()
-        root_model_id = model_api.get_root_model(model_id=str(model_id))["id"]
 
         op = Operation(mutation_root)
         op.insert_meta_ai_training_template_one(
             object=meta_ai_training_template_insert_input(
-                model_id=root_model_id,
+                ai_instance_id=ai_instance_id,
                 app_id=app_id,
                 properties=json.dumps(properties),
                 description=description,
             )
-        ).__fields__("id", "app_id", "model_id", "properties", "description")
+        ).__fields__("id", "app_id", "ai_instance_id", "properties", "description")
         try:
             data = sess.perform_op(op)
             log.info(f"Created training template {data}")
@@ -872,7 +507,7 @@ class TrainApiMixin(ABC):
     @staticmethod
     def update_training_template(
         template_id: uuid = None,
-        model_id: uuid = None,
+        ai_instance_id: uuid = None,
         app_id: uuid = None,
         properties: dict = None,
         description: str = None,
@@ -882,8 +517,8 @@ class TrainApiMixin(ABC):
         Returns: the id of the updated entry
 
         Args:
-            app_id: ref app id for the template
-            model_id: ref model if for the template
+            app_id: id of the app the template belongs to
+            ai_instance_id: id of the AI instance
             properties: the default properties that will get inherited during trainings
             description: optional description for the template
             template_id:
@@ -892,7 +527,7 @@ class TrainApiMixin(ABC):
         sess = MetaAISession(app_id=app_id_str)
         op = Operation(mutation_root)
         if not template_id:
-            templates = TrainApiMixin.get_training_templates(model_id, app_id)
+            templates = TrainApiMixin.get_training_templates(ai_instance_id, app_id)
             if len(templates) < 1:
                 raise TrainingException("Cannot update template. Template does not exist.")
             template_id = templates[0].id
@@ -906,31 +541,29 @@ class TrainApiMixin(ABC):
         op.update_meta_ai_training_template_by_pk(
             _set=meta_ai_training_template_set_input(**update_dict),
             pk_columns=meta_ai_training_template_pk_columns_input(id=template_id),
-        ).__fields__("id", "app_id", "model_id", "properties", "description")
+        ).__fields__("id", "app_id", "ai_instance_id", "properties", "description")
         data = sess.perform_op(op)
         log.info(f"Updated training template {data}")
         return (op + data).update_meta_ai_training_template_by_pk.id
 
     @staticmethod
-    def get_training_templates(model_id: Union[uuid, str], app_id: uuid = None) -> List[meta_ai_training_template]:
+    def get_training_templates(
+        ai_instance_id: Union[uuid, str], app_id: uuid = None
+    ) -> List[meta_ai_training_template]:
         """Finds training templates from the app id and model id keys.
 
         Returns: the training templates
 
         Args:
-            app_id: ref app id for the template
-            model_id: ref model if for the template
+            app_id: app id for the template
+            ai_instance_id: model if for the template
         """
         app_id_str = str(app_id) if app_id else None
         sess = MetaAISession(app_id=app_id_str)
         op = Operation(query_root)
 
-        root_model_id = ModelApiMixin().get_root_model(model_id=str(model_id))["id"]
-        log.info(
-            f"Getting training templates indexed by root_model_id={root_model_id} inferred from model_id={model_id}"
-        )
         filters = {
-            "model_id": {"_eq": root_model_id},
+            "ai_instance_id": {"_eq": ai_instance_id},
             "app_id": {"_eq": app_id_str} if app_id_str else {"_is_null": True},
         }
         op.meta_ai_training_template(where=filters).__fields__("id", "name", "properties", "created_at", "description")
@@ -938,7 +571,7 @@ class TrainApiMixin(ABC):
         try:
             q_out = (op + instance_data).meta_ai_training_template
         except AttributeError:
-            log.info(f"No training templates found for app_id={app_id}, model_id={model_id}.")
+            log.info(f"No training templates found for app_id={app_id}, model_id={ai_instance_id}.")
             return []
 
         return q_out
@@ -966,6 +599,7 @@ class TrainApiMixin(ABC):
             "description",
             "app_id",
             "model_id",
+            "ai_instance_id",
             "name",
         )
         instance_data = sess.perform_op(op)
@@ -996,24 +630,26 @@ class TrainApiMixin(ABC):
 
     def create_training_entry(
         self,
-        model_id: Union[uuid, str],
+        ai_instance_id: Union[uuid, str],
         app_id: Optional[uuid] = None,
         properties: Optional[dict] = None,
         starting_state: Optional[str] = "STARTING",
         template_id: Optional[uuid] = None,
+        source_checkpoint_id=None,
     ):
         """Insert a new training instance, triggering a new training run
 
         Returns: the id of the started training
 
         Args:
-            model_id: ref model if for the training instance
-            app_id: ref app id for the training instance, can be used to create dataset from
-            properties: this is by default inherited from the default of the template, or can be
-            specified as a dict of properties custom for this run
-            starting_state: the starting state of the training, can be one of: STOPPED, STARTING
-                Stopped starting state can be used to delay the start of the training until data is uploaded
-            template_id: the id of the template to use for this training
+            source_checkpoint_id:
+            ai_instance_id: id of the AI instance
+            app_id: id of the app the template belongs to
+            properties: the default properties that will get inherited during trainings
+            starting_state: the starting state of the training
+            template_id: id of the template to use
+            source_checkpoint_id: id of the checkpoint to use as a starting weights
+
         """
         assert starting_state in [None, "STOPPED", "STARTING"], "starting_state must be one of: STOPPED, STARTING"
         properties = properties or {}
@@ -1027,10 +663,10 @@ class TrainApiMixin(ABC):
             template = self.get_training_template(str(template_id), app_id=app_id)
         elif app_id:
             # Pick one of the templates for this app
-            templates = self.get_training_templates(model_id, app_id)
+            templates = self.get_training_templates(ai_instance_id, app_id)
             if len(templates) < 1:
                 log.warning("No existing template found. Creating new one automatically.")
-                template = self.create_training_template_entry(model_id, properties, app_id)
+                template = self.create_training_template_entry(ai_instance_id, properties, app_id)
             else:
                 template = templates[0]
             log.info(f"Creating new training run based on exising template: {template}")
@@ -1047,10 +683,11 @@ class TrainApiMixin(ABC):
             object=meta_ai_training_instance_insert_input(
                 training_template_id=template_id or template.get("id") if template else None,
                 current_properties=json.dumps(properties),
-                model_id=model_id,
+                source_checkpoint_id=source_checkpoint_id,
                 state=starting_state,
+                modelv2_id=ai_instance_id,
             )
-        ).__fields__("id", "training_template_id", "current_properties", "model_id", "state")
+        ).__fields__("id", "training_template_id", "current_properties", "source_checkpoint_id", "state")
 
         data = sess.perform_op(op)
 
@@ -1060,7 +697,7 @@ class TrainApiMixin(ABC):
     @staticmethod
     def get_trainings(
         app_id: uuid = None,
-        model_id: uuid = None,
+        ai_instance_id: uuid = None,
         state: str = "",
         limit=10,
     ) -> List[meta_ai_training_instance]:
@@ -1070,7 +707,7 @@ class TrainApiMixin(ABC):
 
         Args:
             app_id: ref app id for the template
-            model_id: ref model if for the template
+            ai_instance_id: ref model if for the template
             state: by default this quries for IN_PROGRESS run, but can be one the state in training state enum
             limit: the maximum number of results to return
 
@@ -1082,21 +719,21 @@ class TrainApiMixin(ABC):
         filters = {}
         if state:
             filters["state"] = {"_eq": state}
-        if model_id:
-            filters["model_id"] = {"_eq": model_id}
+        if ai_instance_id:
+            filters["modelv2_id"] = {"_eq": ai_instance_id}
         if app_id:
             filters["training_template"] = {}
             filters["training_template"]["app_id"] = {"_eq": app_id}
         instance_query = dict(where=filters, limit=limit)
         log.warning("Without providing an app_id, only trainings without associated apps will be shown.")
         op.meta_ai_training_instance(**instance_query).__fields__(
-            "state", "id", "created_at", "artifacts", "model_id", "training_template_id", "updated_at"
+            "state", "id", "created_at", "artifacts", "ai_instance_id", "training_template_id", "updated_at"
         )
         instance_data = sess.perform_op(op)
         instances = (op + instance_data).meta_ai_training_instance
 
         logger.info(
-            f"Showing a total of {len(instances)}, training instances for app_id:{app_id}, model_id:{model_id}."
+            f"Showing a total of {len(instances)}, training instances for app_id:{app_id}, ai_instance:{ai_instance_id}."
         )
         return instances
 
@@ -1129,21 +766,38 @@ class TrainApiMixin(ABC):
         data = sess.perform_op(op)
         return (op + data).update_meta_ai_training_instance_by_pk.id
 
+    def get_training_instance(self, id: uuid, app_id: Optional[uuid] = None) -> meta_ai_training_instance:
+        """Finds a training instance from the app id and model id keys.
+
+        Returns: the training run
+
+        Args:
+            id: the id of the training run you want to fetch
+            app_id: app id for the training run if it was based on app data
+        """
+        sess = MetaAISession(app_id=str(app_id) if app_id else None)
+        op = Operation(query_root)
+        op.meta_ai_training_instance_by_pk(id=id).__fields__(
+            "state", "id", "created_at", "artifacts", "ai_instance_id", "training_template_id", "updated_at"
+        )
+        data = sess.perform_op(op)
+        return (op + data).meta_ai_training_instance_by_pk
+
     @staticmethod
     def start_training_from_app_model_template(
         app_id: uuid,
-        model_id: uuid,
+        ai_instance_id: uuid,
         task_name: str,
         training_template_id: uuid,
         current_properties: Optional[dict] = None,
         metadata: Optional[dict] = None,
     ) -> uuid:
-        """Starts a training given the app_id, model_id, task_name, training_template_id. This automatically creates a
+        """Starts a training given the app_id, ai_instance_id, task_name, training_template_id. This automatically creates a
         dataset from the app, and starts training from the training_template_id.
 
         Args:
             app_id: App ID
-            model_id: Model ID of the model
+            ai_instance_id: AI Instance ID
             task_name: Task name of the tasks to be trained on
             training_template_id: ID of the training template
             current_properties: properties to be passed to the training
@@ -1156,7 +810,7 @@ class TrainApiMixin(ABC):
         opq = Operation(query_root)
         request = {
             "app_id": app_id,
-            "model_id": model_id,
+            "ai_instance_id": ai_instance_id,
             "task_name": task_name,
             "training_template_id": training_template_id,
         }

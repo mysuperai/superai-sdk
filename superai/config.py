@@ -2,8 +2,9 @@ import os
 import pathlib
 import warnings
 from logging import Logger
-from typing import Dict
+from typing import Dict, Optional
 
+import boto3
 import yaml
 from dynaconf import Dynaconf, Validator  # type: ignore
 from jsonmerge import merge  # type: ignore
@@ -275,3 +276,25 @@ _log = logger.init(
 
 # Convenience method for dynamically switching envs
 using_env = settings.using_env
+
+
+def get_ai_bucket():
+    """Gets the bucket name from the account prefix in the settings."""
+    bucket_name_prefix = settings["meta_ai_bucket"]
+    complete_bucket_name = _get_bucket_name_from_prefix(bucket_name_prefix)
+    return complete_bucket_name
+
+
+def _get_bucket_name_from_prefix(bucket_prefix) -> Optional[str]:
+    """boto3 bucket name from a list of buckets starting with a prefix"""
+    s3 = boto3.client("s3", region_name=settings.region)
+    try:
+        bucket_list = s3.list_buckets()
+        return next(
+            (bucket["Name"] for bucket in bucket_list["Buckets"] if bucket["Name"].startswith(bucket_prefix)),
+            None,
+        )
+    except Exception:
+        # When debug is enabled, this will print the full stack trace
+        _log.warning(f"Could not get bucket name via AWS API. Try to setup your AWS credentials or login to SSO.")
+        raise

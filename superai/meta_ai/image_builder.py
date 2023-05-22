@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import enum
 import functools
 import hashlib
 import json
 import os
 import shutil
 import time
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import boto3  # type: ignore
 from docker import DockerClient
@@ -15,33 +14,20 @@ from docker.errors import ImageNotFound
 
 from superai.config import get_current_env, settings
 from superai.log import logger
-from superai.meta_ai.ai_helper import create_model_entrypoint, create_model_handler
-from superai.meta_ai.dockerizer import aws_ecr_login, get_docker_client
-from superai.meta_ai.environment_file import EnvironmentFileProcessor
+from superai.meta_ai.ai_helper import aws_ecr_login, get_docker_client
+from superai.meta_ai.ai_loader import AILoader
+from superai.meta_ai.orchestrators import (
+    BaseAIOrchestrator,
+    Orchestrator,
+    TrainingOrchestrator,
+)
 from superai.meta_ai.parameters import AiDeploymentParameters
 from superai.utils import system
 
 log = logger.get_logger(__name__)
 
-
-class BaseAIOrchestrator(str, enum.Enum):
-    pass
-
-
-class Orchestrator(BaseAIOrchestrator):
-    LOCAL_DOCKER = "LOCAL_DOCKER"
-    LOCAL_DOCKER_LAMBDA = "LOCAL_DOCKER_LAMBDA"
-    LOCAL_DOCKER_K8S = "LOCAL_DOCKER_K8S"
-    MINIKUBE = "MINIKUBE"
-    AWS_SAGEMAKER = "AWS_SAGEMAKER"
-    AWS_SAGEMAKER_ASYNC = "AWS_SAGEMAKER_ASYNC"
-    AWS_LAMBDA = "AWS_LAMBDA"
-    AWS_EKS = "AWS_EKS"
-
-
-class TrainingOrchestrator(BaseAIOrchestrator):
-    LOCAL_DOCKER_K8S = "LOCAL_DOCKER_K8S"
-    AWS_EKS = "AWS_EKS"
+if TYPE_CHECKING:
+    from superai.meta_ai import AI
 
 
 def reset_workdir(function):
@@ -57,6 +43,7 @@ def reset_workdir(function):
 
 
 class AiImageBuilder:
+
     """Responsible for building the image.
     Inputs are mainly parameters for different orchestrator types and image name.
 
@@ -68,14 +55,7 @@ class AiImageBuilder:
     def __init__(
         self,
         orchestrator: BaseAIOrchestrator,
-        entrypoint_class: str,
-        location: str,
-        name: str,
-        version: Union[str, int],
-        environs: EnvironmentFileProcessor,
-        requirements: Optional[Union[str, List[str]]] = None,
-        conda_env: Optional[Union[str, Dict]] = None,
-        artifacts: Optional[Dict] = None,
+        ai: AI,
         deployment_parameters: Optional[AiDeploymentParameters] = None,
     ):
         """
@@ -88,17 +68,22 @@ class AiImageBuilder:
             environs: Environment file processor
             location: Location of model in local file system
         """
+        staging_dir = AILoader.save_local(ai)
+        from superai.meta_ai import AI
+
+        ai = AI.load(str(staging_dir))
+
         self.orchestrator = orchestrator
         self._check_orchestrator()
 
-        self.name = name
-        self.version = str(version)
-        self.entrypoint_class = entrypoint_class
-        self.environs = environs
-        self.location = location
-        self.requirements = requirements
-        self.conda_env = conda_env
-        self.artifacts = artifacts
+        self.name = ai.name
+        self.version = str(ai.version)
+        self.entrypoint_class = ai.model_class
+        self.environs = ai.environs
+        self.location = str(ai._location)
+        self.requirements = ai.requirements
+        self.conda_env = ai.conda_env
+        self.artifacts = ai.artifacts
         self.deployment_parameters = deployment_parameters or AiDeploymentParameters()
 
     def _check_orchestrator(self) -> None:
@@ -113,25 +98,6 @@ class AiImageBuilder:
     def prepare_entrypoint(self) -> None:
         """Prepare entrypoints and environment variables for the image."""
         if self.orchestrator in [
-            Orchestrator.LOCAL_DOCKER,
-            Orchestrator.AWS_SAGEMAKER,
-            Orchestrator.AWS_SAGEMAKER_ASYNC,
-        ]:
-            with open(os.path.join(self.location, "handler.py"), "w") as handler_file:
-                scripts_content = create_model_handler(self.entrypoint_class, lambda_mode=False)
-                handler_file.write(scripts_content)
-            with open(os.path.join(self.location, "dockerd-entrypoint.py"), "w") as entry_point_file:
-                entry_point_file_content = create_model_entrypoint(self.deployment_parameters.sagemaker_worker_count)
-                entry_point_file.write(entry_point_file_content)
-
-        elif self.orchestrator in [Orchestrator.LOCAL_DOCKER_LAMBDA, Orchestrator.AWS_LAMBDA]:
-            with open(os.path.join(self.location, "handler.py"), "w") as handler_file:
-                scripts_content = create_model_handler(
-                    self.entrypoint_class, lambda_mode=True, ai_cache=self.deployment_parameters.lambda_ai_cache
-                )
-                handler_file.write(scripts_content)
-
-        elif self.orchestrator in [
             Orchestrator.AWS_EKS,
             Orchestrator.LOCAL_DOCKER_K8S,
             TrainingOrchestrator.AWS_EKS,
@@ -160,6 +126,8 @@ class AiImageBuilder:
             enable_eia:
             skip_build:
             use_internal: If true, use the internal development base image
+            build_all_layers: If true, build all layers from scratch
+            download_base: If true, download base image from docker hub
 
         Returns:
             full image name
@@ -171,10 +139,11 @@ class AiImageBuilder:
             self.environs.add_or_update(key, value)
 
         self.prepare()
-        return (
-            self.full_image_name(self.name, self.version)
-            if skip_build
-            else self.build_image_s2i(
+        if skip_build:
+            image = self.full_image_name(self.name, self.version)
+            logger.info(f"Skipping build, using existing image {image} if available.")
+        else:
+            image = self.build_image_s2i(
                 self.name,
                 self.version,
                 enable_cuda=self.deployment_parameters.enable_cuda,
@@ -184,7 +153,8 @@ class AiImageBuilder:
                 always_download=download_base,
                 use_internal=use_internal,
             )
-        )
+            logger.info(f"Built image {image}")
+        return image
 
     def _track_changes(
         self,
@@ -262,7 +232,6 @@ class AiImageBuilder:
             String image name
         """
         k8s_mode = self.orchestrator in [Orchestrator.AWS_EKS, Orchestrator.LOCAL_DOCKER_K8S]
-        lambda_mode = self.orchestrator in [Orchestrator.LOCAL_DOCKER_LAMBDA, Orchestrator.AWS_LAMBDA]
 
         start = time.time()
         os.chdir(self.location)
@@ -274,7 +243,6 @@ class AiImageBuilder:
             enable_cuda=enable_cuda,
             cuda_devel=cuda_devel,
             k8s_mode=k8s_mode,
-            lambda_mode=lambda_mode,
             use_internal=use_internal,
         )
         if always_download:
@@ -306,19 +274,13 @@ class AiImageBuilder:
         if from_scratch:
             self.environs.delete("BUILD_PIP")
             self._create_prediction_image_s2i(
-                base_image_tag=base_image,
-                image_tag=f"{image_name}-pip-layer:{version_tag}",
-                lambda_mode=lambda_mode,
-                k8s_mode=k8s_mode,
+                base_image_tag=base_image, image_tag=f"{image_name}-pip-layer:{version_tag}"
             )
         # fallback if the above environment adding is not run
         self.environs.add_or_update("BUILD_PIP=false")
         full_image_name = self.full_image_name(image_name, version_tag)
         self._create_prediction_image_s2i(
-            base_image_tag=f"{image_name}-pip-layer:{version_tag}",
-            image_tag=full_image_name,
-            lambda_mode=lambda_mode,
-            k8s_mode=k8s_mode,
+            base_image_tag=f"{image_name}-pip-layer:{version_tag}", image_tag=full_image_name
         )
         log.info(f"Built main container `{full_image_name}`")
         log.info(f"Time taken to build: {time.time() - start:.2f}s")
@@ -328,23 +290,18 @@ class AiImageBuilder:
     def full_image_name(self, image_name, version_tag):
         return f"{image_name}:{version_tag}"
 
-    def _create_prediction_image_s2i(self, base_image_tag, image_tag, lambda_mode=False, k8s_mode=False):
+    def _create_prediction_image_s2i(self, base_image_tag, image_tag):
         """Extracted method which creates the prediction image
 
         Args:
             base_image_tag: Identifier of the base image name for building image
             image_tag: Identifier of the image name to be built
-            lambda_mode: Lambda mode
-            k8s_mode: Kubernetes mode
         """
         self.environs.add_or_update("SUPERAI_CONFIG_ROOT", "/tmp/.superai")
-        if lambda_mode:
-            self.environs.add_or_update("LAMBDA_MODE=true")
-        elif k8s_mode:
-            self.environs.add_or_update("SERVICE_TYPE=MODEL")
-            self.environs.add_or_update("PERSISTENCE=0")
-            self.environs.add_or_update("API_TYPE=REST")
-            self.environs.add_or_update("SELDON_MODE=true")
+        self.environs.add_or_update("SERVICE_TYPE=MODEL")
+        self.environs.add_or_update("PERSISTENCE=0")
+        self.environs.add_or_update("API_TYPE=REST")
+        self.environs.add_or_update("SELDON_MODE=true")
         build_envs = [
             f"-v {os.path.join(os.path.expanduser('~'), '.aws')}:/root/.aws "
             f"-v {os.path.join(os.path.expanduser('~'), '.superai')}:/root/.superai "
@@ -384,31 +341,28 @@ class AiImageBuilder:
     @staticmethod
     def _get_base_name(
         enable_eia: bool = False,
-        lambda_mode: bool = False,
         enable_cuda: bool = False,
         cuda_devel: bool = False,
         k8s_mode: bool = False,
         version: int = 1,
         use_internal=False,
+        python_version: str = "310",
     ) -> str:
         """Get Base Image given the configuration. By default the sagemaker CPU image name will be returned.
 
         Args:
             enable_eia: Return Elastic Inference base image name
-            lambda_mode: Return Lambda base image name
             enable_cuda: Return runtime GPU image name
             cuda_devel: Return development GPU image name
             k8s_mode: Return Kubernetes base image names
             use_internal: Use internal development base image
+            python_version: Python version to use, default is 310 = 3.10
         Return:
             String image name
         """
-        if enable_eia and (lambda_mode or enable_cuda or k8s_mode):
+        if enable_eia and (enable_cuda or k8s_mode):
             raise ValueError("Cannot use EIA with other options")
-        if enable_cuda and lambda_mode:
-            raise ValueError("Cannot use CUDA with Lambda")
-
-        base_image = "superai-model-s2i-python3711"
+        base_image = f"superai-model-s2i-python{python_version}"
 
         if cuda_devel:
             base_image += "-gpu-devel"
@@ -422,9 +376,7 @@ class AiImageBuilder:
         if get_current_env() == "dev" or use_internal:
             base_image += "-internal"
 
-        if lambda_mode:
-            base_image += "-lambda"
-        elif k8s_mode:
+        if k8s_mode:
             base_image += "-seldon"
 
         return f"{base_image}:{version}"

@@ -1,20 +1,36 @@
-import glob
+from __future__ import annotations
+
 import importlib
 import json
 import os
+import re
+import subprocess
 import sys
+import tarfile
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import boto3
+import docker
 import numpy as np
 import pandas as pd
-from jinja2 import Environment, PackageLoader, select_autoescape
+import requests
+from boto3 import Session
+from botocore.exceptions import ClientError
+from docker import DockerClient
+from docker.errors import DockerException
+from rich.progress import BarColumn, DownloadColumn, Progress, Task
+from rich.prompt import Confirm
+from rich.text import Text
 
-from superai import Client, settings
+from superai import config, settings
 from superai.log import logger
 from superai.meta_ai.dataset import Dataset
-from superai.utils import load_api_key, load_auth_token, load_id_token
+from superai.meta_ai.exceptions import (
+    AIException,
+    ExpiredTokenException,
+    ModelDeploymentError,
+)
 
 PREDICTION_METRICS_JSON = "metrics.json"
 
@@ -23,11 +39,7 @@ log = logger.get_logger(__name__)
 
 def list_models(
     ai_name: str,
-    client: Client = Client(
-        api_key=load_api_key(),
-        auth_token=load_auth_token(),
-        id_token=load_id_token(),
-    ),
+    client: "Client" = None,
     raw: bool = False,
     verbose: bool = True,
 ) -> Union[List[Dict], pd.DataFrame]:
@@ -39,6 +51,9 @@ def list_models(
         client: Instance of superai.client.
         ai_name: Name of the AI model.
     """
+    from superai import Client
+
+    client = client or Client.from_credentials()
     model_entries: List[Dict] = client.get_model_by_name(ai_name, to_json=True)
     if raw:
         if verbose:
@@ -52,21 +67,21 @@ def list_models(
         return table
 
 
-def get_user_model_class(model_name, save_location, path: Union[str, Path] = "."):
+def get_user_model_class(model_name, save_location, subfolder: Union[str, Path] = "."):
     """Obtain a class definition given the path to the class module
 
     Args:
         save_location: Location of the stored model (e.g. .AISave/...)
-        path: Path to the class module relative to `save_location`
+        subfolder: Path to the class module relative to `save_location`
         model_name: Name of the model
     """
     location = Path(save_location)
-    path_dir = location / path
+    path_dir = location / subfolder
     ai_module_path_str = str(path_dir.absolute())
     sys.path.append(ai_module_path_str)
     parts = model_name.rsplit(".", 1)
     if len(parts) == 1:
-        logger.info(f"Importing {model_name} from {path} (Absolute path: {path_dir})")
+        logger.info(f"Importing {model_name} from {subfolder} (Absolute path: {path_dir})")
         interface_file = importlib.import_module(model_name)
         user_class = getattr(interface_file, model_name)
     else:
@@ -85,47 +100,6 @@ def get_ecr_image_name(name, version):
     return f"{account}.dkr.ecr.{region}.amazonaws.com/{name}:{version}"
 
 
-def create_model_entrypoint(worker_count: int) -> str:
-    """Creates model entrypoint python script for sagemaker deployments"""
-    assert worker_count > 0, "Worker count must be greater than 0"
-    jinja_env = Environment(
-        loader=PackageLoader("superai.meta_ai", package_path="template_contents"), autoescape=select_autoescape()
-    )
-    template = jinja_env.get_template("server_script.py")
-    args = dict(worker_count=worker_count)
-    entry_point_file_content: str = template.render(args)
-    return entry_point_file_content
-
-
-def create_model_handler(model_name: str, lambda_mode: bool, ai_cache: int = None) -> str:
-    """Creates a model handler python script called by sagemaker to wrap the AI class."""
-    assert model_name, "Model name must be provided"
-    jinja_env = Environment(
-        loader=PackageLoader("superai.meta_ai", package_path="template_contents"), autoescape=select_autoescape()
-    )
-    if not lambda_mode:
-        template = jinja_env.get_template("runner_script_s2i.py")
-        args = dict(model_name=model_name)
-    else:
-        template = jinja_env.get_template("lambda_script.py")
-        args = dict(ai_cache=ai_cache, model_name=model_name)
-    scripts_content: str = template.render(args)
-    return scripts_content
-
-
-def find_root_model(name, client) -> Optional[str]:
-    models = client.get_model_by_name(name)
-    possible_root_models = [x for x in models if x.version == 1]
-    if possible_root_models:
-        if len(possible_root_models) == 1:
-            log.warning("Found root model based on name. Its recommended to use an explicit root_id.")
-            return possible_root_models[0].id
-        else:
-            log.error(
-                f"Found multiple possible root AIs based on name: {possible_root_models}. Please pass an explicit root_id."
-            )
-
-
 def upload_dir(local_dir: Union[Path, str], aws_root_dir: Union[Path, str], bucket_name: str, prefix: str = "/"):
     """from current working directory, upload a 'local_dir' with all its subcontents (files and subdirectories...)
     to a aws bucket
@@ -142,20 +116,47 @@ def upload_dir(local_dir: Union[Path, str], aws_root_dir: Union[Path, str], buck
     None
     """
     log.info(f"Uploading directory: {local_dir} to bucket: {bucket_name}")
+
+    # Initialize S3 resource
     s3 = boto3.resource("s3")
-    cwd = str(Path.cwd())
-    p = Path(os.path.join(Path.cwd(), local_dir))
-    subdirectories = list(p.glob("**"))
-    for subdir in subdirectories:
-        file_names = glob.glob(os.path.join(subdir, "*"))
-        file_names = [f for f in file_names if not Path(f).is_dir()]
-        for file_name in file_names:
-            file_name = str(file_name).replace(os.path.join(cwd, local_dir), "")
-            if file_name.startswith(prefix):  # only modify the text if it starts with the prefix
-                file_name = file_name.replace(prefix, "", 1)  # remove one instance of prefix
-            log.info(f"Uploading file: {file_name}")
-            aws_path = os.path.join(aws_root_dir, file_name)
-            s3.meta.client.upload_file(os.path.join(local_dir, file_name), bucket_name, aws_path)
+
+    # Convert to Path objects if necessary
+    local_dir = Path(local_dir) if isinstance(local_dir, str) else local_dir
+    aws_root_dir = Path(aws_root_dir) if isinstance(aws_root_dir, str) else aws_root_dir
+
+    # Set the working directory
+    working_dir = Path.cwd()
+
+    # Get the absolute local directory path
+    absolute_local_dir = working_dir / local_dir
+
+    # Get all files in the local directory and its subdirectories
+    all_files = absolute_local_dir.glob("**/*")
+
+    # Iterate over all files
+    for file_path in all_files:
+        # Skip directories
+        if file_path.is_dir():
+            # Directories are implicit for S3 based on path
+            continue
+
+        # Get the relative path of the file with respect to the local directory
+        relative_file_path = file_path.relative_to(absolute_local_dir)
+
+        # Remove the prefix if it exists
+        s3_file_path = str(relative_file_path)
+        if s3_file_path.startswith(prefix):
+            s3_file_path = s3_file_path[len(prefix) :]
+
+        # Construct the final AWS path
+        aws_path = str((aws_root_dir / s3_file_path).resolve())
+
+        log.debug(f"Uploading file: {s3_file_path}")
+
+        # Upload the file to S3
+        s3.meta.client.upload_file(str(file_path), bucket_name, aws_path)
+
+    log.info(f"Finished uploading directory: {local_dir.absolute()} to bucket: {bucket_name}")
 
 
 def load_and_predict(
@@ -210,7 +211,7 @@ def load_and_predict(
         dataset = Dataset.from_json(json_input=json_input)
     log.info(f"Dataset loaded: {dataset}")
 
-    ai_object = AI.load_local(model_path, weights_path=weights_path)
+    ai_object = AI.load(model_path, weights_path=weights_path)
     task_input = dataset.X_train
     if len(task_input) > 1:
         result = ai_object.predict_batch(task_input)
@@ -248,11 +249,249 @@ def store_prediction_metrics(
     return metrics_output_path
 
 
-def get_bucket_name_from_prefix(bucket_prefix) -> Optional[str]:
-    """boto3 bucket name from a list of buckets starting with a prefix"""
-    s3 = boto3.client("s3", region_name=settings.region)
-    bucket_list = s3.list_buckets()
-    return next(
-        (bucket["Name"] for bucket in bucket_list["Buckets"] if bucket["Name"].startswith(bucket_prefix)),
-        None,
+def _compress_folder(path_to_tarfile: Union[str, Path], location: Union[str, Path]):
+    """Helper to compress a directory into a tarfile
+
+    Args:
+        path_to_tarfile: Path to file to be generated after compressing
+        location: Path to folder to be compressed
+    """
+
+    path_to_tarfile = Path(path_to_tarfile)
+    assert path_to_tarfile.suffixes == [".tar", ".gz"], "Should be a valid tarfile path"
+    with tarfile.open(path_to_tarfile, "w:gz") as tar:
+        for file in Path(location).iterdir():
+            tar.add(file, arcname=file.name)
+    assert path_to_tarfile.exists()
+
+
+def _ai_name_validator(instance, attribute, name):
+    """Validate that the AI name only contains _ and - and alphanumeric characters"""
+    if not re.match(r"^[a-zA-Z0-9_-]*$", str(name)):
+        raise AIException("AI name can only contain alphanumeric characters")
+
+
+def _ai_version_validator(instance, attribute, version):
+    """Validate that the AI version only has the short semantic version format 1.0 or 3.2"""
+    if not re.match(r"^[0-9]+\.[0-9]+$", str(version)):
+        raise AIException("AI version can only be in the format {MAJOR}.{MINOR} e.g  1.0 or 3.2")
+
+
+def _path_exists_validator(instance, attribute, path):
+    if not Path(path).exists():
+        raise AIException(f"Path {path} does not exist")
+
+
+def _not_none_validator(instance, attribute, value):
+    if value is None:
+        raise AIException(f"Value cannot be None")
+
+
+def confirm_action():
+    confirmed = Confirm.ask(
+        "Do you [bold]really[/bold] want to overwrite a [red]production[/red] AI? "
+        "This can negatively impact Data Programs relying on the existing AI."
     )
+    if not confirmed:
+        log.warning("Aborting action")
+        raise ModelDeploymentError("Action aborted by User")
+
+
+class UploadColumn(DownloadColumn):
+    """Renders uploaded and total layer size, e.g. 0.4/1.8 GB"""
+
+    def render(self, task: Task) -> Text:
+        # do not display column if no total size is available
+        if int(task.total) == 1:
+            return Text()
+        return super(UploadColumn, self).render(task)
+
+
+def push_image(
+    image_name: str,
+    model_id: str,
+    version: str = "latest",
+    region: str = settings.region,
+    show_progress: bool = True,
+    verbose: bool = False,
+) -> str:
+    """Push container to ECR
+
+    Args:
+        image_name: Name of the locally built image
+        model_id: UUID of the model/AI (in `AI` given by `id` property)
+        version: Version string for docker container
+        region: AWS region
+        show_progress: Enable / disable progress bar
+        verbose: Whether to log the image push stream
+    """
+    if ":" in image_name:
+        image_name, version = image_name.split(":")
+    full_name, registry_prefix, repository_name = ecr_full_name(image_name, version, model_id, region)
+    boto_session = get_boto_session(region_name=region)
+    account = boto_session.client("sts").get_caller_identity()["Account"]
+
+    logger.info(f"Pushing image to ECR: {full_name}")
+
+    # login to the ECR registry where the image will be pushed to
+    aws_ecr_login(region, registry_prefix)
+
+    docker_client = get_docker_client()
+    ecr_client = boto_session.client("ecr")
+    log.info(f"Checking if image repository exists with name {repository_name}")
+    try:
+        ecr_client.describe_repositories(registryId=account, repositoryNames=[repository_name])
+    except Exception as e:
+        log.info(e)
+        ecr_client.create_repository(repositoryName=repository_name)
+        log.info(f"Created repository for `{repository_name}`.")
+
+    log.info(f"Tagging to `{full_name}`")
+    docker_client.images.get(f"{image_name}:{version}").tag(full_name)
+
+    log.info("Pushing image...")
+    columns = [
+        "[progress.description]{task.description}",
+        BarColumn(),
+        "[progress.percentage]{task.percentage:>3.0f}%",
+        UploadColumn(),
+    ]
+    layers = {}  # keep track of pushed layers, keyed by layer ID
+    disable_progress = not show_progress
+    with Progress(*columns, disable=disable_progress) as progress:
+        for line in docker_client.images.push(repository=full_name, stream=True, decode=True):
+            if verbose:
+                log.info(line)
+
+            if "id" in line and "progressDetail" in line:
+                layer_id, status = line["id"], line["status"]
+                description = f"[blue]{layer_id}[/blue] - {status}"
+
+                if layer_id not in layers:
+                    # create a task for tracking progress for each layer
+                    layers[layer_id] = progress.add_task(description, total=1)
+
+                layer_task = layers.get(layer_id)
+                progress_detail = line.get("progressDetail", {})
+
+                params = {}
+                if status == "Layer already exists":
+                    params["completed"] = 1
+                elif progress_detail:
+                    params["completed"] = progress_detail["current"]
+                    params["total"] = max(progress_detail["current"], progress_detail.get("total", 0))
+
+                progress.update(layer_task, description=description, **params)
+
+        if "error" in line:
+            # errors in the ECR image push operation usually appear in the last line
+            raise ModelDeploymentError(f"Failed to push image to ECR - {line['error']}")
+
+    log.info(f" Image pushed successfully to {full_name} ")
+    return full_name
+
+
+def ecr_full_name(image_name, version, model_id, region: str = settings.region) -> Tuple[str, str, str]:
+    boto_session = get_boto_session(region_name=region)
+    account = boto_session.client("sts").get_caller_identity()["Account"]
+    full_suffix, repository_name = ecr_registry_suffix(image_name, model_id, version)
+    registry_prefix = f"{account}.dkr.ecr.{region}.amazonaws.com"
+    full_name = f"{registry_prefix}/{full_suffix}"
+    return full_name, registry_prefix, repository_name
+
+
+def ecr_registry_suffix(image_name: str, model_id: str, tag: Union[str, int]) -> Tuple[str, str]:
+    env = config.settings.get("name")
+    full_suffix = f"{ECR_MODEL_ROOT_PREFIX}/{env}/{model_id}/{image_name}"
+    if len(full_suffix + str(tag)) > 255:
+        # AWS allows 256 characters for the name
+        logger.warning("Image name is too long. Truncating to 255 characters...")
+        full_suffix = full_suffix[: 255 - len(tag)]
+    full_suffix_with_version = f"{full_suffix}:{tag}"
+    return full_suffix_with_version, full_suffix
+
+
+def aws_ecr_login(region: str, registry_name: str) -> Optional[int]:
+    log.info("Logging in to ECR...")
+
+    # aws --version | awk '{print $1}' | awk -F/ '{ print $2}'
+    aws_version = subprocess.check_output(["aws", "--version"]).decode("utf-8").strip().split(" ")[0].split("/")[1]
+    aws_major = aws_version.split(".")[0]
+    args_awsv1 = ["aws", "ecr", "get-login", "--region", region, "--no-include-email"]
+    args_awsv2 = ["aws", "ecr", "get-login-password", "--region", region]
+
+    if "AWS_PROFILE" in os.environ:
+        args_awsv1.extend(["--profile", os.environ["AWS_PROFILE"]])
+        args_awsv2.extend(["--profile", os.environ["AWS_PROFILE"]])
+
+    def aws_cli_v1_login(args_awsv1):
+        return subprocess.Popen(
+            args_awsv1,
+            stdout=subprocess.PIPE,
+        )
+
+    def aws_cli_v2_login(args_awsv2):
+        return subprocess.Popen(args_awsv2, stdout=subprocess.PIPE)
+
+    ecr_login_proc = aws_cli_v1_login(args_awsv1) if int(aws_major) < 2 else aws_cli_v2_login(args_awsv2)
+    ecr_login_code = ecr_login_proc.wait()
+    if ecr_login_code != 0:
+        log.warning("Failed to login to ECR")
+        return ecr_login_code
+
+    # login to ECR via the docker login command, i.e. the output of the ECR login command
+    ecr_login_output, _ = ecr_login_proc.communicate()
+    if int(aws_major) < 2:
+        docker_login_stdin = None
+        docker_login_cmd = ecr_login_output.decode("utf-8")
+    else:
+        docker_login_stdin = ecr_login_output
+        docker_login_cmd = f"docker login --username AWS --password-stdin {registry_name}"
+
+    docker_login_proc = subprocess.Popen(
+        docker_login_cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT
+    )
+    docker_login_proc.communicate(docker_login_stdin)
+    docker_login_code = docker_login_proc.wait()
+    if docker_login_code != 0:
+        log.warning("Failed to login to ECR via docker login. Is the docker daemon up and running?")
+
+    return docker_login_code
+
+
+def get_docker_client() -> DockerClient:
+    """Returns a Docker client, raising a ModelDeploymentError if the Docker server is not accessible."""
+    try:
+        client = docker.from_env(timeout=10)
+        client.ping()
+    except (DockerException, requests.ConnectionError) as e:
+        raise ModelDeploymentError("Could not find a running Docker daemon. Is Docker running?") from e
+    return client
+
+
+def get_boto_session(region_name=settings.region) -> Session:
+    """Get a boto3 session. For the superai profile, an error message will be raised if
+    credentials are expired
+
+    Args:
+        region_name: Name of the region
+
+    Returns:
+        Boto3 session
+    """
+    try:
+        session = boto3.session.Session(region_name=region_name)
+        _ = session.client("sts").get_caller_identity()["Account"]
+        return session
+    except ClientError as client_error:
+        if "ExpiredToken" in str(client_error):
+            log.error(f"Obtained error : {client_error}")
+            raise ExpiredTokenException(
+                "Please log in to superai by performing 'superai login -u <username>'"
+            ) from client_error
+        else:
+            log.error(f"Unexpected Exception: {client_error}")
+            raise client_error
+
+
+ECR_MODEL_ROOT_PREFIX = "models"

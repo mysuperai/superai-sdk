@@ -13,9 +13,9 @@ from docker.models.images import Image
 from moto import mock_s3
 
 from superai import settings
-from superai.meta_ai import AI
-from superai.meta_ai.ai_template import AITemplate
-from superai.meta_ai.image_builder import AiImageBuilder, Orchestrator, kwargs_warning
+from superai.meta_ai import AI, Orchestrator
+from superai.meta_ai.ai_helper import _compress_folder
+from superai.meta_ai.image_builder import AiImageBuilder, kwargs_warning
 from superai.meta_ai.parameters import Config
 from superai.meta_ai.schema import Schema
 
@@ -48,12 +48,12 @@ def bucket(s3: boto3.client):
     )
 
 
-def test_compression():
-    compression_method = AI._compress_folder
+def test_compression(tmp_path_factory):
+    compression_method = _compress_folder
+    folder_path = tmp_path_factory.mktemp("test_folder")
+    another_folder_path = tmp_path_factory.mktemp("test_folder2")
+    destination_folder = tmp_path_factory.mktemp("destination")
 
-    folder_path = os.path.join(".AISave", "new_folder")
-    if not os.path.exists(folder_path):
-        os.makedirs(folder_path)
     for i in range(1, 5):
         if i == 4:
             os.makedirs(os.path.join(folder_path, "folder"))
@@ -61,37 +61,27 @@ def test_compression():
                 file.writelines(["test"] * i)
         with open(os.path.join(folder_path, f"{i}_file.txt"), "w") as file:
             file.writelines(["test"] * i)
-    path_to_tarfile = os.path.join(".AISave", "test_tarfile.tar.gz")
+
+    path_to_tarfile = os.path.join(destination_folder, "test_tarfile.tar.gz")
     compression_method(path_to_tarfile, folder_path)
 
-    another_folder_path = os.path.join(".AISave", "another_folder")
-    os.makedirs(another_folder_path)
     with tarfile.open(path_to_tarfile) as tar:
         tar.extractall(path=another_folder_path)
     for i in range(1, 5):
         assert os.path.exists(os.path.join(another_folder_path, f"{i}_file.txt"))
-    shutil.rmtree(folder_path)
-    shutil.rmtree(another_folder_path)
-    os.remove(path_to_tarfile)
 
 
 def test_track_changes(caplog, tmp_path, clean, bucket):
     caplog.set_level(logging.INFO)
-    template = AITemplate(
+    ai = AI(
         input_schema=Schema(),
         output_schema=Schema(),
         configuration=Config(),
-        name="My_template",
         description="Template for my new awesome project",
         model_class="MyKerasModel",
         requirements=["tensorflow", "opencv-python-headless"],
-    )
-    ai = AI(
-        ai_template=template,
-        input_params=template.input_schema.parameters(),
-        output_params=template.output_schema.parameters(choices=map(str, range(10))),
         name="my_mnist_model2",
-        version=1,
+        version="1.0",
     )
     pwd = os.getcwd()
     os.chdir(ai._location)
@@ -99,17 +89,7 @@ def test_track_changes(caplog, tmp_path, clean, bucket):
         backup_content = fp.read()
     with open("requirements.txt", "a") as fp:
         fp.write("\nscipy")
-    builder = AiImageBuilder(
-        orchestrator=Orchestrator.LOCAL_DOCKER,
-        name=ai.name,
-        version=ai.version,
-        location=ai._location,
-        environs=ai.environs,
-        entrypoint_class=template.model_class,
-        requirements=ai.requirements,
-        conda_env=ai.conda_env,
-        artifacts=ai.artifacts,
-    )
+    builder = AiImageBuilder(orchestrator=Orchestrator.LOCAL_DOCKER, ai=ai)
     assert builder._track_changes(cache_root=tmp_path)
     assert not builder._track_changes(cache_root=tmp_path)
     with open("requirements.txt", "w") as fp:
@@ -119,9 +99,9 @@ def test_track_changes(caplog, tmp_path, clean, bucket):
     os.chdir(pwd)
 
 
-def test_conda_pip_dependencies(caplog, clean, bucket):
+def test_conda_pip_dependencies(caplog, clean, bucket, tmp_path):
     caplog.set_level(logging.INFO)
-    template = AITemplate(
+    ai = AI(
         input_schema=Schema(),
         output_schema=Schema(),
         configuration=Config(),
@@ -133,24 +113,17 @@ def test_conda_pip_dependencies(caplog, clean, bucket):
             "dependencies": ["pip", "tensorflow", {"pip": ["opencv-python-headless"]}],
         },
         requirements=["imgaug", "scikit-image"],
+        version="1.0",
     )
-    ai = AI(
-        ai_template=template,
-        input_params=template.input_schema.parameters(),
-        output_params=template.output_schema.parameters(choices=[str(a) for a in range(10)]),
-        name="my_mnist_model2",
-        version=1,
-    )
-    pwd = os.getcwd()
-    os.chdir(ai._location)
-    with open("requirements.txt", "r") as fp:
+    # Export the AI (as we do for deployment)
+    output_path = ai._save_local(tmp_path)
+    with open(output_path / "requirements.txt", "r") as fp:
         requirements = fp.read()
-    with open("environment.yml", "r") as fp:
+    with open(output_path / "environment.yml", "r") as fp:
         conda_env_text = fp.read()
     assert "tensorflow" in conda_env_text
     assert "opencv-python-headless" not in conda_env_text
     assert all(requirement in requirements for requirement in ["opencv-python-headless", "imgaug", "scikit-image"])
-    os.chdir(pwd)
 
 
 @pytest.mark.parametrize("enable_cuda", [True, False])
@@ -159,41 +132,25 @@ def test_conda_pip_dependencies(caplog, clean, bucket):
 @pytest.mark.parametrize("download_base", [True, False])
 def test_builder(caplog, capsys, mocker, enable_cuda, skip_build, build_all_layers, download_base, bucket):
     caplog.set_level(logging.DEBUG)
-    template = AITemplate(
+    ai = AI(
         input_schema=Schema(),
         output_schema=Schema(),
         configuration=Config(),
-        name="My_template",
         description="Template for my new awesome project",
-        model_class="DummyModel",
+        model_class="DummyAI",
         model_class_path=Path(__file__).parent / "fixtures" / "model",
         requirements=["sklearn"],
-    )
-    ai = AI(
-        ai_template=template,
-        input_params=template.input_schema.parameters(),
-        output_params=template.output_schema.parameters(choices=[str(a) for a in range(10)]),
         name="my_dummy_model",
-        version=1,
+        version="1.0",
     )
-    builder = AiImageBuilder(
-        orchestrator=Orchestrator.LOCAL_DOCKER,
-        name=ai.name,
-        version=ai.version,
-        location=ai._location,
-        environs=ai.environs,
-        entrypoint_class=template.model_class,
-        requirements=ai.requirements,
-        conda_env=ai.conda_env,
-        artifacts=ai.artifacts,
-    )
+    builder = AiImageBuilder(orchestrator=Orchestrator.LOCAL_DOCKER_K8S, ai=ai)
     # Disable actual S2I call until we have efficient way to test it
     mocker.patch("superai.meta_ai.image_builder.system", return_value=0)
     # Mock Docker client and API client
     mock_docker_client = mocker.Mock(spec=DockerClient)
     mock_docker_client.api = mocker.Mock(spec=APIClient)
     mock_image = mocker.Mock(spec=Image)
-    mock_image._id = "test_image_id"
+    mock_image.id = "test_image_id"
     mock_docker_client.images.get.return_value = mock_image
     mock_docker_client.images.pull.return_value = mock_image
     mock_docker_client.api.reload_config.return_value = None
@@ -226,14 +183,24 @@ def test_system_commands():
 
 
 def test_base_name():
-    assert AiImageBuilder._get_base_name() == "superai-model-s2i-python3711-cpu:1"
-    assert AiImageBuilder._get_base_name(enable_cuda=True) == "superai-model-s2i-python3711-gpu:1"
-    assert AiImageBuilder._get_base_name(lambda_mode=True) == "superai-model-s2i-python3711-cpu-lambda:1"
-    assert AiImageBuilder._get_base_name(k8s_mode=True) == "superai-model-s2i-python3711-cpu-seldon:1"
-    assert AiImageBuilder._get_base_name(k8s_mode=True, enable_cuda=True) == "superai-model-s2i-python3711-gpu-seldon:1"
+    pv = "310"
     assert (
-        AiImageBuilder._get_base_name(k8s_mode=True, enable_cuda=True, use_internal=True)
-        == "superai-model-s2i-python3711-gpu-internal-seldon:1"
+        AiImageBuilder._get_base_name(
+            python_version=pv,
+        )
+        == f"superai-model-s2i-python{pv}-cpu:1"
+    )
+    assert AiImageBuilder._get_base_name(python_version=pv, enable_cuda=True) == f"superai-model-s2i-python{pv}-gpu:1"
+    assert (
+        AiImageBuilder._get_base_name(python_version=pv, k8s_mode=True) == f"superai-model-s2i-python{pv}-cpu-seldon:1"
+    )
+    assert (
+        AiImageBuilder._get_base_name(python_version=pv, k8s_mode=True, enable_cuda=True)
+        == f"superai-model-s2i-python{pv}-gpu-seldon:1"
+    )
+    assert (
+        AiImageBuilder._get_base_name(python_version=pv, k8s_mode=True, enable_cuda=True, use_internal=True)
+        == f"superai-model-s2i-python{pv}-gpu-internal-seldon:1"
     )
 
 

@@ -4,7 +4,7 @@ import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional, TypeVar
+from typing import TYPE_CHECKING, List, Optional, TypeVar
 
 import docker  # type: ignore
 import requests
@@ -13,12 +13,16 @@ from docker.models.containers import Container  # type: ignore
 from rich import print
 from rich.prompt import Confirm
 
-from superai import Client
-from superai.meta_ai.dockerizer import get_docker_client
-from superai.meta_ai.image_builder import Orchestrator
+from superai.meta_ai.ai_helper import get_docker_client
 from superai.meta_ai.parameters import AiDeploymentParameters
 from superai.meta_ai.schema import TaskPredictionInstance
 from superai.utils import log
+
+from .exceptions import AIDeploymentException
+from .orchestrators import Orchestrator
+
+if TYPE_CHECKING:
+    from superai.meta_ai import AIInstance
 
 
 class DeployedPredictor(metaclass=ABCMeta):
@@ -26,7 +30,6 @@ class DeployedPredictor(metaclass=ABCMeta):
     Deployments are physical instances of AI models deployed on a cloud provider or locally.
     They provide endpoints to make predictions.
 
-    TODO: Extract deployment logic from `AI` into here.
     """
 
     Type = TypeVar("Type", bound="DeployedPredictor")
@@ -34,16 +37,16 @@ class DeployedPredictor(metaclass=ABCMeta):
     def __init__(
         self,
         orchestrator: Orchestrator,
-        local_image_name: str,
-        ai: "AI",
-        deploy_properties: AiDeploymentParameters,
+        ai: AIInstance,
+        deploy_properties: AiDeploymentParameters = None,
+        local_image_name: Optional[str] = None,
         weights_path: Optional[str] = None,
         *args,
         **kwargs,
     ):
         self.orchestrator = orchestrator
         self.local_image_name = local_image_name
-        self.ai = ai
+        self.ai_instance = ai
         if isinstance(deploy_properties, dict):
             self.deploy_properties = AiDeploymentParameters.parse_obj(deploy_properties)
         else:
@@ -67,7 +70,7 @@ class DeployedPredictor(metaclass=ABCMeta):
         pass
 
     @classmethod
-    def from_dict(cls, dictionary: dict, client: Optional[Client] = None) -> "DeployedPredictor":
+    def from_dict(cls, dictionary: dict, client: Optional["Client"] = None) -> "DeployedPredictor":
         if list(dictionary.keys())[0] == "LocalPredictor":
             return LocalPredictor.from_dict(dictionary["LocalPredictor"])
         else:
@@ -215,7 +218,7 @@ class LocalPredictor(DeployedPredictor):
         return dictionary
 
     @classmethod
-    def from_dict(cls, dictionary, client: Optional[Client] = None) -> "LocalPredictor":
+    def from_dict(cls, dictionary, client: Optional["Client"] = None) -> "LocalPredictor":
         return cls(existing=False, remove=True, **dictionary)
 
 
@@ -224,90 +227,138 @@ class RemotePredictor(DeployedPredictor):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.client = self.ai.client
+        from superai.client import Client
 
-    def deploy(self, redeploy=False) -> str:
+        self.client = Client.from_credentials()
+
+    def load(self) -> bool:
+        """Load existing predictor from database.
+
+        Returns:
+            True if predictor was loaded, False otherwise.
+        """
+        existing_deployment = self._get_existing_deployment()
+        if existing_deployment:
+            self.id = existing_deployment.id
+            log.info(f"Loaded existing deployment with id {self.id}.")
+            return True
+        return False
+
+    def deploy(self, redeploy=False, wait_time_seconds=1) -> str:
         """Deploy the image to the remote orchestrator.
+        Can block and wait for the deployment to be ready.
+
         Args:
-            redeploy:
-            orchestrator: Orchestrator to deploy to.
-            properties: Properties to deploy with.
             redeploy: Allow redeploying existing deployment.
-            skip_build: Skip building and force reuse existing image.
+            wait_time_seconds: Time to wait for deployment to be ready.
 
         Returns:
             Id of deployment
 
         """
-        if self.ai.id is None:
+        c = self.client
+        # Check if AI id is present
+        if self.ai_instance.id is None:
             raise LookupError("Cannot find AI id, please make sure you push the AI model to create a database entry")
 
-        self.ai.served_by = self.ai.served_by or self.ai.client.get_model(self.ai.id)["served_by"]
-        existing_deployment = self.ai.client.get_deployment(self.ai.served_by) if self.ai.served_by else None
+        self.load()
 
-        deployment_exists = existing_deployment is not None and "status" in existing_deployment
-
-        if deployment_exists and not redeploy:
-            raise Exception("Deployment with this version already exists. Try undeploy first or set `redeploy=True`.")
-        elif redeploy:
-            self.ai.undeploy()
-
-        if not deployment_exists:
-            self.id = self.client.deploy(self.ai.id, deployment_type=self.orchestrator.value)
-            log.info(f"Created new deployment with id {self.id}.")
+        if self.id:
+            if not redeploy:
+                raise AIDeploymentException(
+                    "Deployment with this version already exists. Try undeploy() first or set `deploy(redeploy=True)`."
+                )
+            else:
+                self.terminate(wait_seconds=5)
         else:
-            self.id = self.ai.deployment_id
-            log.info(f"Reusing existing deployment with id {self.id}.")
-        self.ai.served_by = self.id
+            # Create new deployment entry if no existing deployment is found
+            self.id = c.deploy(self.ai_instance.id)
+            log.info(f"Created new deployment with id {self.id}.")
 
-        self.client.set_deployment_properties(
-            deployment_id=self.ai.deployment_id, properties=self.deploy_properties.dict_for_db()
-        )
-        self.client.update_model(self.ai.id, served_by=self.ai.served_by)
+        # Update deployment properties and AI instance
+        c.set_deployment_properties(deployment_id=self.id, properties=self.deploy_properties.dict_for_db())
 
-        self.client.set_deployment_status(deployment_id=self.ai.deployment_id, target_status="ONLINE")
-        deployment = self.client.get_deployment(self.ai.deployment_id)
-        log.info(f"Deployment={deployment} done.")
-
+        # Set deployment status to ONLINE and fetch deployment details
+        finished = c.set_deployment_status(deployment_id=self.id, target_status="ONLINE", timeout=wait_time_seconds)
+        deployment = c.get_deployment(self.id)
+        if not finished:
+            log.warning(f"Deployment is getting ready in the background: {deployment}")
+        else:
+            log.info(f"Deployment finished and ready for predictions: {deployment}")
         return self.id
 
-    def predict(self, input, **kwargs):
+    def _get_existing_deployment(self):
+        """Get existing deployment based on AI instance id
+        Either fetch explicit deployment_id from ai_instance.served_by or
+        fetch all deployments for this AI instance and use the first one.
+        """
+        c = self.client
+        # Fetch served_by field if not present
+        if not self.ai_instance.served_by:
+            ai_instance_dict = c.get_ai_instance(self.ai_instance.id)
+            if ai_instance_dict:
+                self.ai_instance.served_by = ai_instance_dict.served_by
+
+        # Check if deployment with the same version already exists
+        existing_deployment = c.get_deployment(self.ai_instance.served_by) if self.ai_instance.served_by else None
+        if not existing_deployment:
+            list_deployments = c.list_deployments(model_id=self.ai_instance.id)
+            if list_deployments:
+                log.info(f"Found {len(list_deployments)} deployments for this AI instance. Using the first one.")
+                existing_deployment = list_deployments[0]
+        return existing_deployment
+
+    def predict(self, input, wait_time_seconds=180, **kwargs) -> List[TaskPredictionInstance]:
         if self.client.check_endpoint_is_available(self.id):
             input_data, parameters = input.get("data", {}), input.get("parameters", {})
-            result = self.client.predict_from_endpoint(
-                deployment_id=self.id, input_data=input_data, parameters=parameters
+            return self.client.predict_from_endpoint(
+                deployment_id=self.id,
+                input_data=input_data,
+                parameters=parameters,
+                model_id=self.ai_instance.id,
+                timeout=wait_time_seconds,
             )
-            return TaskPredictionInstance.validate_prediction(result)
         else:
             log.error("Prediction failed as endpoint does not seem to exist, please redeploy.")
             raise LookupError("Endpoint does not exist, redeploy")
 
-    def terminate(self):
-        self.client.set_deployment_status(deployment_id=self.id, target_status="OFFLINE")
+    def terminate(self, wait_seconds=1):
+        """Terminate the deployment.
+        Args:
+            wait_seconds: Seconds to wait for the deployment to terminate.
+        """
+        id = self.id or self.ai_instance.served_by
+        log.info(f"Terminating deployment with id {id}, waiting {wait_seconds} seconds for backend action.")
+        self.client.set_deployment_status(deployment_id=id, target_status="OFFLINE", timeout=wait_seconds)
 
     def to_dict(self) -> dict:
         return dict(id=self.id)
 
     @classmethod
-    def from_dict(cls, dictionary, client: Optional[Client] = None) -> "RemotePredictor":
-        client = client or Client()
+    def from_dict(cls, dictionary, client: Optional["Client"] = None) -> "RemotePredictor":
+        from superai.client import Client
+
+        client = client or Client.from_credentials()
         return cls(client=client, id=dictionary["id"])
 
 
 class PredictorFactory(object):
     __predictor_classes = {
-        "LOCAL_DOCKER": LocalPredictor,
-        "LOCAL_DOCKER_LAMBDA": LocalPredictor,
         "LOCAL_DOCKER_K8S": LocalPredictor,
-        "AWS_SAGEMAKER": RemotePredictor,
-        "AWS_SAGEMAKER_ASYNC": RemotePredictor,
-        "AWS_LAMBDA": RemotePredictor,
         "AWS_EKS": RemotePredictor,
     }
 
     @staticmethod
     def get_predictor_obj(*args, orchestrator: Orchestrator, **kwargs) -> "DeployedPredictor.Type":
         """Factory method to get a predictor"""
+        if isinstance(orchestrator, str):
+            try:
+                orchestrator = Orchestrator[orchestrator]
+            except KeyError as e:
+                raise ValueError(
+                    f"Unknown orchestrator: {orchestrator}. Try one of: {', '.join(Orchestrator.__members__.values())}"
+                ) from e
+
         predictor_class = PredictorFactory.__predictor_classes.get(orchestrator)
         log.info(f"Creating predictor of type: {predictor_class} with kwargs: {kwargs}")
 

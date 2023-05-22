@@ -32,7 +32,7 @@ cp -Rf /tmp/src/. ./
 if [[ -z "$BUILD_PIP" ]]; then
   echo "BUILD_PIP does not exist. Building the model dependencies..."
   echo "Logging in to Super.AI CodeArtifact repository..."
-  codeartifact_login
+  codeartifact_login || echo "Failed to login to CodeArtifact"
   if [[ -f environment.yml ]]; then
     echo "---> Creating environment with Conda..."
     if [[ -z "$CONDA_ENV_NAME" ]]; then

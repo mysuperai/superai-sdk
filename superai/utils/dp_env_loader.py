@@ -67,7 +67,11 @@ def load(
         try:
             # Try loading super_transport settings and setting the corresponding properties
             # This is necessary to inject the correct values into the transport layer
-            from superai_transport.hatchery import hatchery_config as hc
+            try:
+                from superai_transport.hatchery import hatchery_config as hc
+            except ImportError:
+                logger.debug("superai_transport not installed")
+                return
 
             for secret_key, value in secret.items():
                 secret_key = transform_key(secret_key)
@@ -75,6 +79,6 @@ def load(
         except Exception as e:
             logger.warning(f"Error setting super_transport settings: {e}")
     except Exception as e:
-        logger.warning(f"Error loading DP env secrets: {e}")
+        logger.debug(f"Error loading DP env secrets: {e}")
         if not silent:
             raise

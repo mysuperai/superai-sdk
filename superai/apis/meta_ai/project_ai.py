@@ -1,11 +1,11 @@
 import json
-from abc import ABC
 from typing import List, Union
 
 from sgqlc.operation import Operation
 
 from superai.log import logger
 
+from .base import AiApiBase
 from .session import MetaAISession
 
 log = logger.get_logger(__name__)
@@ -26,12 +26,8 @@ from superai.apis.meta_ai.meta_ai_graphql_schema import (
 )
 
 
-class ProjectAiApiMixin(ABC):
+class ProjectAiApiMixin(AiApiBase):
     _resource = "project_ai"
-
-    @property
-    def resource(self):
-        return self._resource
 
     def get_models(self, app_id: str, assignment: str = None, active=None):
         sess = MetaAISession(app_id=app_id)
@@ -56,41 +52,59 @@ class ProjectAiApiMixin(ABC):
         self,
         app_id: str,
         assignment: meta_ai_assignment_enum,
-        model_id: str,
         active: bool = None,
         threshold: float = None,
+        instance_id: str = None,
     ):
         sess = MetaAISession(app_id=app_id)
         op = Operation(mutation_root)
-        input_args = {"id": app_id, "model_id": model_id, "assigned": assignment}
+        if not instance_id:
+            raise ValueError("AI instance_id must be provided")
+        input_args = {"id": app_id, "assigned": assignment}
         if active is not None:
             input_args["active"] = active
         if threshold is not None:
             input_args["threshold"] = threshold
+        if instance_id is not None:
+            input_args["instance_id"] = instance_id
         insert_input = meta_ai_app_insert_input(input_args)
         conflict_handler = meta_ai_app_on_conflict(
-            constraint=meta_ai_app_constraint("app_modelId_id_assigned_key"),
-            update_columns=["modelId", "active", "threshold"],
+            constraint=meta_ai_app_constraint("app_instanceId_assigned_id_key"),
+            update_columns=["active", "threshold"],
         )
         op.insert_meta_ai_app_one(object=insert_input, on_conflict=conflict_handler).__fields__(
-            "id", "model_id", "assigned", "active"
+            "id", "assigned", "active", "instance_id"
         )
         data = sess.perform_op(op)
         print(data)
         return (op + data).insert_meta_ai_app_one
 
-    def list_prelabels(self, app_id: str, model_id: str):
+    def delete_ai_project_assignment(
+        self, app_id: str, assignment: meta_ai_assignment_enum = "TASK", instance_id: str = None
+    ) -> int:
+        """Delete the assignment of a model to a project.
+        Args:
+            app_id: The project id
+            assignment: The assignment type
+            instance_id: The AI instance id
+
+        Return the number of rows affected.
+        """
         sess = MetaAISession(app_id=app_id)
-        op = Operation(query_root)
-        model = op.meta_ai_app_by_pk(id=app_id, model_id=model_id, assigned="PRELABEL").model
-        predictions = model.predictions()
-        predictions.id()
-        predictions.instances().id()
+        op = Operation(mutation_root)
+
+        if not instance_id:
+            raise ValueError("AI instance_id must be provided")
+        check = meta_ai_app_bool_exp(
+            id=uuid_comparison_exp(_eq=app_id),
+            assigned=meta_ai_assignment_enum_comparison_exp(_eq=assignment),
+        )
+        if instance_id is not None:
+            check.instance_id = uuid_comparison_exp(_eq=instance_id)
+
+        op.delete_meta_ai_app(where=check).__fields__("affected_rows")
         data = sess.perform_op(op)
-        try:
-            return (op + data).meta_ai_app_by_pk.model.predictions
-        except AttributeError:
-            log.info(f"No predictions for project with id: {app_id} and model_id:{model_id}")
+        return (op + data).delete_meta_ai_app.affected_rows
 
     def list_prediction_instances(self, app_id: str, prediction_id: str):
         sess = MetaAISession(app_id=app_id)
@@ -140,7 +154,7 @@ class ProjectAiApiMixin(ABC):
         model_output: Union[str, List[str]],
         app_id: str,
         job_id: int,
-        model_id: str,
+        checkpoint_id,
         assignment: meta_ai_assignment_enum = "PRELABEL",
     ):
         sess = MetaAISession(app_id=app_id)
@@ -149,7 +163,7 @@ class ProjectAiApiMixin(ABC):
         else:
             model_output = [model_output]
         op = Operation(mutation_root)
-        input_args = {"app_id": app_id, "model_id": model_id, "type": assignment, "job_id": job_id}
+        input_args = {"app_id": app_id, "checkpoint_id": checkpoint_id, "type": assignment, "job_id": job_id}
         insert_input = meta_ai_prediction_insert_input(input_args)
         op.insert_meta_ai_prediction_one(object=insert_input).__fields__("id")
         data = sess.perform_op(op)
@@ -171,7 +185,7 @@ class ProjectAiApiMixin(ABC):
             data = sess.perform_op(op)
             instance_id = (op + data).insert_meta_ai_instance_one.id
             log.debug(
-                f"Inserted output instance {instance_id} for model {model_id} under prediction_id {prediction_id}."
+                f"Inserted output instance {instance_id} for checkpoint {checkpoint_id} under prediction_id {prediction_id}."
             )
 
         return prediction_id
