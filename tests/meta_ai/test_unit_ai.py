@@ -71,34 +71,6 @@ def test_compression(tmp_path_factory):
         assert os.path.exists(os.path.join(another_folder_path, f"{i}_file.txt"))
 
 
-def test_track_changes(caplog, tmp_path, clean, bucket):
-    caplog.set_level(logging.INFO)
-    ai = AI(
-        input_schema=Schema(),
-        output_schema=Schema(),
-        configuration=Config(),
-        description="Template for my new awesome project",
-        model_class="MyKerasModel",
-        requirements=["tensorflow", "opencv-python-headless"],
-        name="my_mnist_model2",
-        version="1.0",
-    )
-    pwd = os.getcwd()
-    os.chdir(ai._location)
-    with open("requirements.txt", "r") as fp:
-        backup_content = fp.read()
-    with open("requirements.txt", "a") as fp:
-        fp.write("\nscipy")
-    builder = AiImageBuilder(orchestrator=Orchestrator.LOCAL_DOCKER, ai=ai)
-    assert builder._track_changes(cache_root=tmp_path)
-    assert not builder._track_changes(cache_root=tmp_path)
-    with open("requirements.txt", "w") as fp:
-        fp.write(backup_content)
-    assert builder._track_changes(cache_root=tmp_path)
-    assert not builder._track_changes(cache_root=tmp_path)
-    os.chdir(pwd)
-
-
 def test_conda_pip_dependencies(caplog, clean, bucket, tmp_path):
     caplog.set_level(logging.INFO)
     ai = AI(
@@ -130,7 +102,7 @@ def test_conda_pip_dependencies(caplog, clean, bucket, tmp_path):
 @pytest.mark.parametrize("skip_build", [True, False])
 @pytest.mark.parametrize("build_all_layers", [True, False])
 @pytest.mark.parametrize("download_base", [True, False])
-def test_builder(caplog, capsys, mocker, enable_cuda, skip_build, build_all_layers, download_base, bucket):
+def test_builder(caplog, capsys, mocker, enable_cuda, skip_build, build_all_layers, download_base, bucket, tmp_path):
     caplog.set_level(logging.DEBUG)
     ai = AI(
         input_schema=Schema(),
@@ -144,8 +116,6 @@ def test_builder(caplog, capsys, mocker, enable_cuda, skip_build, build_all_laye
         version="1.0",
     )
     builder = AiImageBuilder(orchestrator=Orchestrator.LOCAL_DOCKER_K8S, ai=ai)
-    # Disable actual S2I call until we have efficient way to test it
-    mocker.patch("superai.meta_ai.image_builder.system", return_value=0)
     # Mock Docker client and API client
     mock_docker_client = mocker.Mock(spec=DockerClient)
     mock_docker_client.api = mocker.Mock(spec=APIClient)
@@ -154,20 +124,20 @@ def test_builder(caplog, capsys, mocker, enable_cuda, skip_build, build_all_laye
     mock_docker_client.images.get.return_value = mock_image
     mock_docker_client.images.pull.return_value = mock_image
     mock_docker_client.api.reload_config.return_value = None
-    mocker.patch("superai.meta_ai.image_builder.get_docker_client", return_value=mock_docker_client)
-    # Mock s2i availability
-    mocker.patch("superai.meta_ai.image_builder.shutil.which", return_value="s2i")
-    # Mock ecr login
-    mocker.patch("superai.meta_ai.image_builder.aws_ecr_login", return_value=0)
+    mocker.patch("superai_builder.docker.client.get_docker_client", return_value=mock_docker_client)
     # Mock ecr registry call
     mocker.patch(
         "superai.meta_ai.image_builder.AiImageBuilder._get_docker_registry",
         return_value="123.dkr.ecr.us-east-1.amazonaws.com",
     )
+    mocker.patch("superai_builder.ai.image_build.os.path.expanduser", return_value=str(tmp_path))
+    Path(tmp_path / ".aws").mkdir(parents=True, exist_ok=True)
+    Path(tmp_path / ".superai").mkdir(parents=True, exist_ok=True)
+    Path(tmp_path / ".canotic").mkdir(parents=True, exist_ok=True)
 
-    image_name = builder.build_image(
-        skip_build=skip_build, build_all_layers=build_all_layers, download_base=download_base
-    )
+    mocker.patch("superai_builder.ai.image_build.AIImageBuilder.run", return_value=None)
+
+    image_name = builder.build_image(skip_build=skip_build)
     assert image_name == f"{ai.name}:{ai.version}"
 
 
@@ -180,28 +150,6 @@ def test_system_commands():
 
     with pytest.raises(CalledProcessError) as e:
         system("python random_file_name.py")
-
-
-def test_base_name():
-    pv = "310"
-    assert (
-        AiImageBuilder._get_base_name(
-            python_version=pv,
-        )
-        == f"superai-model-s2i-python{pv}-cpu:1"
-    )
-    assert AiImageBuilder._get_base_name(python_version=pv, enable_cuda=True) == f"superai-model-s2i-python{pv}-gpu:1"
-    assert (
-        AiImageBuilder._get_base_name(python_version=pv, k8s_mode=True) == f"superai-model-s2i-python{pv}-cpu-seldon:1"
-    )
-    assert (
-        AiImageBuilder._get_base_name(python_version=pv, k8s_mode=True, enable_cuda=True)
-        == f"superai-model-s2i-python{pv}-gpu-seldon:1"
-    )
-    assert (
-        AiImageBuilder._get_base_name(python_version=pv, k8s_mode=True, enable_cuda=True, use_internal=True)
-        == f"superai-model-s2i-python{pv}-gpu-internal-seldon:1"
-    )
 
 
 def test_kwargs_warning(monkeypatch):

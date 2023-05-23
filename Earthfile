@@ -33,6 +33,9 @@ linter:
 PIP_INSTALL:
     COMMAND
     ARG REQTARGET="."
+    ARG AWS_ACCESS_KEY_ID=""
+    ARG AWS_SECRET_ACCESS_KEY=""
+    ARG AWS_SESSION_TOKEN=""
 
     IF  [ "$INTERNAL" = "true" ]
         RUN --mount=type=secret,id=+secrets/aws,target=/root/.aws/credentials \
@@ -76,7 +79,7 @@ runtime-pip:
     ARG AWS_SECRET_ACCESS_KEY=""
     ARG AWS_SESSION_TOKEN=""
 
-    DO +PIP_INSTALL --REQTARGET="."
+    DO +PIP_INSTALL --REQTARGET="." --AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID --AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY --AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN
 
 build-requirements:
     FROM +runtime-pip
@@ -85,7 +88,7 @@ build-requirements:
     ARG AWS_SECRET_ACCESS_KEY=""
     ARG AWS_SESSION_TOKEN=""
 
-    DO +PIP_INSTALL --REQTARGET=".[build]"
+    DO +PIP_INSTALL --REQTARGET=".[build]" --AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID --AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY --AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN
 
 test-requirements:
     FROM +runtime-pip
@@ -94,7 +97,7 @@ test-requirements:
     ARG AWS_SECRET_ACCESS_KEY=""
     ARG AWS_SESSION_TOKEN=""
 
-    DO +PIP_INSTALL --REQTARGET=".[test]"
+    DO +PIP_INSTALL --REQTARGET=".[test]" --AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID --AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY --AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN
 
 ai-requirements:
     FROM +runtime-pip
@@ -103,7 +106,9 @@ ai-requirements:
     ARG AWS_SECRET_ACCESS_KEY=""
     ARG AWS_SESSION_TOKEN=""
 
-    DO +PIP_INSTALL --REQTARGET=".[ai]"
+    DO +PIP_INSTALL --REQTARGET=".[ai]" --AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID --AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY --AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN
+    RUN pip install --no-cache-dir pre-commit==2.17.0 semgrep==$SEMGREP_VERSION python-semantic-release==7.16.2
+
 
     ARG IMAGE_TAG="185169359328.dkr.ecr.us-east-1.amazonaws.com/superai-sdk-internal"
     SAVE IMAGE --no-manifest-list --push ${IMAGE_TAG}

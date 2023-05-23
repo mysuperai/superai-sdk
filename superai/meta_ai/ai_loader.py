@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 
 import boto3
 import yaml
+from superai_builder.ai.image_build import AIImageBuilder
 
 from superai.log import logger
 from superai.meta_ai.ai_helper import _compress_folder
@@ -45,6 +46,12 @@ AI_S3_PREFIX = "s3://"
 class AILoader:
     """Class to load and store an AI Template from/to a local or S3 path."""
 
+    builder = AIImageBuilder(
+        environment_file_name=CONDA_ENV_FILE_NAME,
+        requirements_file_name=REQUIREMENTS_FILE_NAME,
+        setup_script_name=ARTIFACT_SETUP_SCRIPT_NAME,
+    )
+
     @classmethod
     def load_ai(
         cls, identifier: Union[Path, str], weights_path: Optional[Union[Path, str]] = None, pull_db_data=True
@@ -57,7 +64,7 @@ class AILoader:
         relevant model and loaded.
 
         Args:
-            identifier_path: The path to the AI model.
+            identifier: The path to the AI model.
             weights_path: The path to the model weights file (if any).
             pull_db_data: If True, will pull the latest data from the database and overwrite the local model config.
 
@@ -317,13 +324,14 @@ class AILoader:
     def export_all(cls, ai, target_directory: Union[str, Path]):
         """Save the AI ai to a given path.
         This will copy the code, requirements, conda environment and also dump the ai metadata to a json file.
-
         """
         # Copy the ai to avoid side effects when changing fields
         ai_clone = deepcopy(ai)
         target_directory = Path(target_directory)
 
         conda_target = cls._dump_conda_env(ai_clone, target_directory)
+
+        cls._copy_dockerfile(ai_clone, target_directory)
 
         cls._copy_source(ai_clone, target_directory)
 
@@ -368,11 +376,12 @@ class AILoader:
                 except yaml.YAMLError as exc:
                     log.error(exc)
 
-    @staticmethod
-    def _copy_setup_script(ai: AI, target: Path):
+    @classmethod
+    def _copy_setup_script(cls, ai: AI, target: Path):
         # Save setup script
         if ai.artifacts is not None and "run" in ai.artifacts:
             shutil.copy(Path(ai.artifacts["run"]), target / ARTIFACT_SETUP_SCRIPT_NAME)
+        cls.builder.ensure_setup_script(target)
 
     @staticmethod
     def copy_requirements_txt(ai: AI, requirements_target_file: Path):
@@ -431,7 +440,25 @@ class AILoader:
                 f.write(initial_line + "\n".join(conda_pip_packages))
 
         ai.requirements = str(requirements_target_file) if requirements_target_file.exists() else None
+        cls.builder.ensure_requirements(target_folder)
         return requirements_target_file
+
+    @classmethod
+    def _copy_dockerfile(cls, ai: AI, target: Path):
+        """Copy Dockerfile if it exists, otherwise create one from builder"""
+        dockerfile_target = cls.builder.get_dockerfile_path(target)
+
+        if ai.dockerfile is not None:
+            log.debug("Copying Dockerfile")
+            dockerfile = Path(ai.dockerfile)
+            if dockerfile.is_file() and dockerfile.name == "Dockerfile":
+                shutil.copy(dockerfile, dockerfile_target)
+            else:
+                logger.warning("dockerfile is not a valid path, copying the default Dockerfile")
+                cls.builder.copy_docker_file(target)
+        else:
+            cls.builder.copy_docker_file(target)
+        return dockerfile_target
 
     @classmethod
     def _copy_source(cls, ai: AI, target: Path):
@@ -523,6 +550,7 @@ class AILoader:
             else:
                 raise ValueError("Make sure conda_env is a valid path to a .yml file or a dictionary.")
             ai.conda_env = str(conda_target)
+        cls.builder.ensure_environment(target)
         return conda_target
 
     @classmethod

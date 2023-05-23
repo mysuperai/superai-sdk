@@ -17,7 +17,7 @@ NAME = "superai"
 
 # VERSION is defined in superai/version.py
 try:
-    sys.path[0:0] = [NAME]
+    sys.path[:0] = [NAME]
     from version import __version__  # type: ignore
 except ImportError:
     # Fallback in case we only want to install requirements
@@ -46,7 +46,7 @@ REQUIRES = [
     "jsonpickle>=1.4.1",
     "pandas>=1.2.5",
     "pip>=19.1",
-    "pycognito>=2021.3.1",
+    "pycognito>=2022.12.0",
     "pyyaml>=3.13",
     "requests>=2.22",
     "rich>=10.1",
@@ -61,6 +61,7 @@ AI_REQUIRES = [
     "polyaxon>=1.14.3",
     "protobuf>=3.20.1, <4",
     # 4.21.0 broke the sagemaker imports, see https://github.com/protocolbuffers/protobuf/issues/10051
+    "superai-builder>=0.6.2",
 ]
 
 AI_EXPERIMENTAL_REQUIRES = [
@@ -93,6 +94,7 @@ TEST_REQUIRES = [
     "pytest-vcr>=1.0.2",
     "pytest>=6.1.2",
     "seldon-core>=1.11.2",
+    "superai-builder>=0.6.2",
     "tox>=2.9.1",
     "vcrpy>=4.1.1",
 ]

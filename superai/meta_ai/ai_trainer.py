@@ -207,7 +207,6 @@ class AITrainer:
         self.ai.build(
             orchestrator,
             deployment_parameters=deployment_parameters,
-            use_internal=use_internal,
             skip_build=skip_build,
             **kwargs,
         )

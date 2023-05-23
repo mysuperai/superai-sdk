@@ -11,17 +11,14 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import boto3
-import docker
 import numpy as np
 import pandas as pd
-import requests
 from boto3 import Session
 from botocore.exceptions import ClientError
-from docker import DockerClient
-from docker.errors import DockerException
 from rich.progress import BarColumn, DownloadColumn, Progress, Task
 from rich.prompt import Confirm
 from rich.text import Text
+from superai_builder.docker.client import get_docker_client
 
 from superai import config, settings
 from superai.log import logger
@@ -457,16 +454,6 @@ def aws_ecr_login(region: str, registry_name: str) -> Optional[int]:
         log.warning("Failed to login to ECR via docker login. Is the docker daemon up and running?")
 
     return docker_login_code
-
-
-def get_docker_client() -> DockerClient:
-    """Returns a Docker client, raising a ModelDeploymentError if the Docker server is not accessible."""
-    try:
-        client = docker.from_env(timeout=10)
-        client.ping()
-    except (DockerException, requests.ConnectionError) as e:
-        raise ModelDeploymentError("Could not find a running Docker daemon. Is Docker running?") from e
-    return client
 
 
 def get_boto_session(region_name=settings.region) -> Session:

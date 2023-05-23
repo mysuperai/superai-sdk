@@ -177,6 +177,7 @@ class AI:
     requirements: Optional[Union[str, List[str]]] = None
     code_path: Optional[Union[str, List[str], Path, List[Path]]] = []
     conda_env: Optional[Union[str, Dict]] = None
+    dockerfile: Optional[Union[str, Path]] = None
     artifacts: Optional[Dict] = None
     parameters: Optional[dict] = None
     default_deployment_parameters: Optional[Union[AiDeploymentParameters, dict]] = attr.field(default=None, repr=False)
@@ -285,10 +286,10 @@ class AI:
     def load(cls, path: str, weights_path: Optional[str, Path] = None, pull_db_data=True) -> "AI":
         """Loads an AI from a local or S3 path.
 
-        If the path is a valid local path, the AI model will be loaded from the local path. If the path is a valid S3 path,
-        the model will be downloaded from S3. Manage S3 access using your AWS credentials. If the path is a valid model path
-        (i.e., prefix is `ai://some_name/version` or `ai://some_name/stage`), the database will be queried to find the
-        relevant model and loaded.
+        If the path is a valid local path, the AI model will be loaded from the local path. If the path is a valid S3
+        path, the model will be downloaded from S3. Manage S3 access using your AWS credentials. If the path is a valid
+        model path (i.e., prefix is `ai://some_name/version` or `ai://some_name/stage`), the database will be queried
+        to find the relevant model and loaded.
 
         Args:
             path: The path to the AI model.
@@ -406,7 +407,8 @@ class AI:
         if self.id:
             if not overwrite:
                 raise AIException(
-                    f"AI: {self.name}:{self.version} already exists with id {self.id}. Use `save(overwrite=True)` to overwrite."
+                    f"AI: {self.name}:{self.version} already exists with id {self.id}. "
+                    f"Use `save(overwrite=True)` to overwrite."
                 )
             else:
                 if get_current_env() == "prod":
@@ -447,9 +449,7 @@ class AI:
         deployment_parameters: Optional[AiDeploymentParameters] = None,
         skip_build=False,
         cuda_devel=False,
-        use_internal=False,
-        build_all_layers=False,
-        download_base=False,
+        overwrite=False,
     ) -> AI:
         """Build the image and return the image name.
         Args:
@@ -473,13 +473,9 @@ class AI:
             ai=self,
             deployment_parameters=deployment_parameters,
         )
-        # TODO: reduce these args when S2I is removed
         local_image_name = image_builder.build_image(
             cuda_devel=cuda_devel,
             skip_build=skip_build,
-            use_internal=use_internal,
-            build_all_layers=build_all_layers,
-            download_base=download_base,
         )
         self._local_image = local_image_name
 
@@ -643,7 +639,8 @@ class AI:
     def create_instance(self, name: str = None, **kwargs) -> AIInstance:
         """Create an instance of this AI.
 
-        The instance is the actual model that can be used for predictions and training and assigned to an project/application.
+        The instance is the actual model that can be used for predictions and training and assigned to a
+        project/application.
 
         Args:
             name: Name of the instance, if not provided, will use the name of the template

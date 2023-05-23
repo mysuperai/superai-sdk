@@ -6,6 +6,7 @@ from unittest import mock
 import boto3
 import pytest
 from moto import mock_ecr, mock_s3, mock_sts
+from superai_builder.docker import client
 
 import superai
 from superai import settings
@@ -223,7 +224,7 @@ def test_save_model(local_ai: AI, tmp_path):
     assert ai_uuid
 
 
-@mock.patch("superai.meta_ai.image_builder.AiImageBuilder.build_image_s2i")
+@mock.patch("superai.meta_ai.image_builder.AiImageBuilder.build_image_superai_builder")
 def test_build_model(mocked_builder, local_ai: AI, tmp_path):
     ai_uuid = local_ai.id
     assert ai_uuid
@@ -234,12 +235,14 @@ def test_build_model(mocked_builder, local_ai: AI, tmp_path):
 
 @pytest.fixture(scope="function")
 def docker_client_mock(mocker):
-    patched_docker_client = mocker.patch.object(superai.meta_ai.ai_helper, "get_docker_client", autospec=True)
+    patched_docker_client = mocker.patch.object(client, "get_docker_client", autospec=True)
+
     mock_client = mocker.Mock()
     patched_docker_client.return_value = mock_client
     # Patch images.get() and images.push()
     mock_client.images.get.return_value = mocker.Mock()
     mock_client.images.push.return_value = ["Docker push dummy line"]
+
     yield patched_docker_client
 
 
@@ -247,9 +250,12 @@ def test_chaining_ai(mocker, local_ai: AI, docker_client_mock):
     """Test that we can chain together the main AI methods.
     This assumes that the return value is always the instance itself."""
     patched_s2i_build = mocker.patch.object(
-        superai.meta_ai.image_builder.AiImageBuilder, "build_image_s2i", autospec=True
+        superai.meta_ai.image_builder.AiImageBuilder, "build_image_superai_builder", autospec=True
     )
     patched_s2i_build.return_value = "image:tag"
+
+    # Used in pus_ image directly
+    mocker.patch.object(superai.meta_ai.ai_helper, "get_docker_client", docker_client_mock)
 
     ai = local_ai.save(overwrite=True).build().push_image()
     assert patched_s2i_build.called

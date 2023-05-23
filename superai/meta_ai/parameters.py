@@ -371,6 +371,7 @@ class AiDeploymentParameters(BaseModel):
         description="Pass custom environment variables to the deployment. "
         'Should be a dictionary like {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}',
     )
+    base_image: Optional[str] = Field(None, description="Base image to use for the deployment")
 
     class Config:
         use_enum_values = True

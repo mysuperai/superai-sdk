@@ -5,18 +5,17 @@ from typing import List, Optional, Tuple, Union
 
 class EnvironmentFileProcessor:
     def __init__(self, location: Union[str, Path], filename: str = "environment", data: Optional[dict] = None):
-        data = data or {}
         self.location = str(location)
         self.filename = filename
         if not self.location.endswith(self.filename):
             # update the path so that only self.location refers to environment file
             self.location = os.path.join(self.location, self.filename)
         self.environment_variables: dict = {}
-        if not os.path.exists(self.location):
-            if data:
-                self.from_dict(data)
-        else:
+        data = data or {}
+        if os.path.exists(self.location):
             self.environment_variables = self._read()
+        elif data:
+            self.from_dict(data)
 
     @staticmethod
     def _process_input(

@@ -12,17 +12,15 @@ from docker.errors import APIError  # type: ignore
 from docker.models.containers import Container  # type: ignore
 from rich import print
 from rich.prompt import Confirm
+from superai_builder.docker.client import get_docker_client
 
-from superai.meta_ai.ai_helper import get_docker_client
+from superai.meta_ai.exceptions import AIDeploymentException
 from superai.meta_ai.parameters import AiDeploymentParameters
 from superai.meta_ai.schema import TaskPredictionInstance
 from superai.utils import log
 
-from .exceptions import AIDeploymentException
-from .orchestrators import Orchestrator
-
 if TYPE_CHECKING:
-    from superai.meta_ai import AIInstance
+    from superai.meta_ai import AIInstance, Orchestrator
 
 
 class DeployedPredictor(metaclass=ABCMeta):
@@ -82,13 +80,12 @@ class LocalPredictor(DeployedPredictor):
         super(LocalPredictor, self).__init__(*args, **kwargs)
 
         self.client = get_docker_client()
-        self.lambda_mode = self.orchestrator in [Orchestrator.LOCAL_DOCKER_LAMBDA, Orchestrator.AWS_LAMBDA]
         self.enable_cuda = self.deploy_properties.enable_cuda
-        self.k8s_mode = self.orchestrator == Orchestrator.LOCAL_DOCKER_K8S or None
         self.container_name = self.local_image_name.replace(":", "_")
-        self.weights_volume = self.deploy_properties.mount_path if self.k8s_mode else "/opt/ml/model/"
+        self.weights_volume = self.deploy_properties.mount_path
         self.kwargs = kwargs
         self.remove = remove
+        self.container = None
 
     def deploy(self, redeploy=False) -> None:
         try:
@@ -134,12 +131,8 @@ class LocalPredictor(DeployedPredictor):
         if self.container is None:
             self.container: Container = self.client.containers.get(self.container_name)
 
-        if self.lambda_mode:
-            url = "http://localhost:9000/2015-03-31/functions/function/invocations"
-        elif self.k8s_mode:
-            url = "http://localhost:9000/api/v1.0/predictions"
-        else:
-            url = "http://localhost/invocations"
+        url = "http://localhost:9000/api/v1.0/predictions"
+
         headers = {"Content-Type": mime}
         if mime.endswith("json"):
             res = requests.post(url, json=input, headers=headers)
@@ -185,13 +178,9 @@ class LocalPredictor(DeployedPredictor):
         log.info("Stopping container")
         self.container.stop()
 
-    def _get_port_assignment(self):
-        if self.lambda_mode:
-            return {8080: 9000}
-        elif self.k8s_mode:
-            return {9000: 9000}
-        else:
-            return {8080: 80, 8081: 8081}
+    @staticmethod
+    def _get_port_assignment():
+        return {9000: 9000}
 
     def _get_volumes(self, weights_volume: str):
         return (
