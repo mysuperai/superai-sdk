@@ -449,18 +449,15 @@ class AI:
         deployment_parameters: Optional[AiDeploymentParameters] = None,
         skip_build=False,
         cuda_devel=False,
-        overwrite=False,
+        overwrite=True,
     ) -> AI:
         """Build the image and return the image name.
         Args:
             orchestrator:
             deployment_parameters: Optional deployment parameters to override the default deployment parameters.
             skip_build: Skip building and return the image name which would be built.
-            cuda_devel:
-            use_internal:
-                Use the internal development base image
-            build_all_layers: Force a fresh build of all layers
-            download_base: Force redownload of the base image
+            cuda_devel: Build with cuda devel image.
+            overwrite: Overwrite existing AI staging directory for building.
 
         Returns:
             AI object with the image name set.
@@ -472,6 +469,7 @@ class AI:
             orchestrator,
             ai=self,
             deployment_parameters=deployment_parameters,
+            overwrite=overwrite,
         )
         local_image_name = image_builder.build_image(
             cuda_devel=cuda_devel,

@@ -125,11 +125,25 @@ class AICheckpoint:
             new_tag = CheckpointTag(new_tag)
             self.validate_checkpoint_tag(new_tag)
             self.tag = new_tag.value
-            self.client.update_checkpoint(self.id, tag=new_tag.value)
+
+            previous_checkpoint = self._find_relative_with_tag(new_tag)
+            if previous_checkpoint:
+                self._transfer_tag(previous_checkpoint, self)
+            else:
+                self.client.update_checkpoint(self.id, tag=new_tag.value)
         else:
             # Reset the tag to None
             self.client.update_checkpoint(self.id, tag=None)
             self.tag = None
+
+    def _find_relative_with_tag(self, new_tag) -> Optional["AICheckpoint"]:
+        """Find checkpoints with the same tag as the new tag."""
+        if self.ai_instance_id:
+            checkpoint = self.client.get_checkpoint_for_instance(self.ai_instance_id, tag=new_tag.value)
+        else:
+            checkpoint = self.client.get_checkpoint_for_template(self.template_id, tag=new_tag.value)
+        if checkpoint:
+            return AICheckpoint.load(checkpoint.id)
 
     def validate_checkpoint_tag(self, new_tag: str):
         available_tags = self.client.list_available_checkpoint_tags()
@@ -145,12 +159,11 @@ class AICheckpoint:
 
         tag = CheckpointTag(tag)
         client = Client.from_credentials()
-        cklist = client.get_checkpoint_for_instance(ai_instance_id, tag.value)
+        checkpoint = client.get_checkpoint_for_instance(ai_instance_id, tag.value)
+        if checkpoint:
+            return cls.load(checkpoint.id)
 
-        if len(cklist) == 0:
-            log.debug(f"No checkpoint found for instance {ai_instance_id} with tag {tag.value}")
-            return None
-        return cls.load(cklist[0].id)
+        log.debug(f"No checkpoint found for instance {ai_instance_id} with tag {tag.value}")
 
     @classmethod
     def get_default_template_checkpoint(cls, template_id: str) -> Optional["AICheckpoint"]:
@@ -171,14 +184,39 @@ class AICheckpoint:
     def create_descendant(self, weights_path: str) -> "AICheckpoint":
         """Create a new checkpoint that is a descendant of this one."""
 
-        descendant = AICheckpoint(template_id=self.template_id, weights_path=weights_path, parent_version=self.id)
+        descendant = AICheckpoint(
+            template_id=self.template_id,
+            weights_path=weights_path,
+            parent_version=self.id,
+            ai_instance_id=self.ai_instance_id,
+            tag=None,
+        )
         descendant.save()
 
         if self.tag == CheckpointTag.LATEST:
-            tag = CheckpointTag.LATEST
-            self.change_tag()  # Remove the tag from the parent
-            descendant.change_tag(tag)
+            self._transfer_tag(self, descendant)
         return descendant
+
+    def _transfer_tag(
+        self, source: "AICheckpoint", target: "AICheckpoint", new_tag: Optional[Union[CheckpointTag, str]] = None
+    ):
+        """Method to transfer tag from source to target Checkpoint.
+        The database schema only allows one checkpoint to have a tag at a time.
+        We need to remove the tag from the source checkpoint before assigning it to the target checkpoint.
+
+        Args:
+            source (AICheckpoint): Source checkpoint
+            target (AICheckpoint): Target checkpoint
+            new_tag (Optional[Union[CheckpointTag, str]], optional): New tag to assign to the target checkpoint.
+                Defaults to source tag.
+        """
+        new_tag = new_tag or source.tag
+        new_tag = CheckpointTag(new_tag)
+
+        self.client.update_checkpoint(source.id, tag=None)
+        self.client.update_checkpoint(target.id, tag=new_tag.value)
+        source.tag = None
+        target.tag = new_tag
 
     def create_clone(self, ai_instance_id: str) -> "AICheckpoint":
         """Create a new checkpoint that is a clone of this one."""

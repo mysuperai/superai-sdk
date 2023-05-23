@@ -377,11 +377,23 @@ def test_get_current_checkpoint(ai_name, saved_ai):
 def test_create_checkpoint_descendant(saved_ai, tmp_path):
     instance = saved_ai.create_instance()
     checkpoint = instance.get_checkpoint()
+    assert checkpoint.ai_instance_id == instance.id
+    checkpoint.change_tag("LATEST")
     descendant = checkpoint.create_descendant(weights_path=str(tmp_path))
     assert descendant
     assert descendant.id != checkpoint.id
+    assert descendant.ai_instance_id == instance.id
     assert descendant.template_id == checkpoint.template_id
     assert descendant.tag == "LATEST"
+
+    descendant2 = descendant.create_descendant(weights_path=str(tmp_path))
+    assert descendant2
+    assert descendant2.id != descendant.id
+    assert descendant2.ai_instance_id == instance.id
+    assert descendant2.template_id == descendant.template_id
+    assert descendant2.tag == "LATEST"
+
+    descendant2.change_tag("STABLE")
 
 
 def test_remote_deploy(pushed_ai):
