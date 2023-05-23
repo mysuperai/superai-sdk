@@ -1473,7 +1473,7 @@ def view_training_template(client, app_id: Union[str, click.UUID], template_id: 
 @click.option(
     "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
 )
-def deploy_ai(config_file, clean=True, push=False):
+def deploy_ai(config_file, clean=True):
     """Push and deploy an AI and its artifacts (docker image, default checkpoint)."""
     from superai.meta_ai.ai import AI
 
@@ -1481,7 +1481,7 @@ def deploy_ai(config_file, clean=True, push=False):
         shutil.rmtree(save_file)
 
     ai_object = AI.from_yaml(config_file)
-    print(f"Loaded AI: {AI}")
+    print(f"Loaded AI: {ai_object}")
 
     ai_object.save(weights_path=ai_object.weights_path, overwrite=True)
     print(f"Pushed AI: {ai_object}")
@@ -1489,6 +1489,31 @@ def deploy_ai(config_file, clean=True, push=False):
     print(f"Built AI: {ai_object}")
     ai_object.push_image()
     print(f"Pushed AI: {ai_object}")
+
+
+@ai.command("build", help="Build an AI from its config file")
+@click.option(
+    "--config-file",
+    "-c",
+    help="Config YAML file containing AI properties and deployment definition",
+    type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+    default="config.yml",
+)
+@click.option(
+    "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
+)
+def build_ai(config_file, clean=True):
+    """Build an AI image locally. Can be used for testing (in CI/CD)."""
+    from superai.meta_ai.ai import AI
+
+    if clean and os.path.exists(save_file):
+        shutil.rmtree(save_file)
+
+    ai_object = AI.from_yaml(config_file)
+    print(f"Loaded AI: {ai_object}")
+
+    ai_object.build()
+    print(f"Built AI: {ai_object}")
 
 
 @ai.command("predictor-test", help="Test the predictor created from the deploy command")
