@@ -729,6 +729,21 @@ def validate_ai_config(file: pathlib.Path):
     print(ai)
 
 
+@ai.command("migrate-config")
+@click.option("--file", "-f", default="config.yml")
+@click.option("--yes", "-y", is_flag=True, default=False)
+@click.option("--not-null", "-n", is_flag=True, default=True)
+def migrate_ai_config(file: pathlib.Path, yes: bool, not_null: bool):
+    """Migrate AI config to new schema."""
+    from superai.meta_ai import AI
+
+    ai = AI.from_yaml(file)
+    print(ai)
+    print("Migrating to new schema...")
+    if yes or click.confirm(f"This will overwrite the existing {file}. Do you want to continue?", abort=True):
+        ai.to_yaml(file, not_null=not_null)
+
+
 @ai.command("list")
 @click.option("--name", required=False, help="Filter by model name.")
 @click.option("--version", required=False, help="Filter by model version.")
@@ -1447,38 +1462,33 @@ def view_training_template(client, app_id: Union[str, click.UUID], template_id: 
         print(template)
 
 
-@ai.command("deploy", help="Deploy a AI from its config file")
+@ai.command("deploy", help="Deploy an AI from its config file")
 @click.option(
     "--config-file",
     "-c",
     help="Config YAML file containing AI properties and deployment definition",
     type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+    default="config.yml",
 )
 @click.option(
     "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
 )
-@click.option("--push/--no-push", "-p/-np", help="Push to create a model entry", default=False)
 def deploy_ai(config_file, clean=True, push=False):
-    """Deploy a model from config"""
+    """Push and deploy an AI and its artifacts (docker image, default checkpoint)."""
     from superai.meta_ai.ai import AI
-    from superai.meta_ai.deployed_predictors import DeployedPredictor
 
     if clean and os.path.exists(save_file):
         shutil.rmtree(save_file)
 
     ai_object = AI.from_yaml(config_file)
     print(f"Loaded AI: {AI}")
-    if push:
-        ai_object.save(weights_path=ai_object.weights_path, overwrite=True)
-    # TODO: remove parameter passing to deploy() method, get everything from config fige
-    predictor: DeployedPredictor = ai_object.deploy()
-    predictor_dictionary = {predictor.__class__.__name__: predictor.to_dict()}
-    with open(
-        os.path.join(settings.path_for(), "cache", ai_object.name, str(ai_object.version), ".predictor_config.json"),
-        "w",
-    ) as predictor_config:
-        logger.info("Storing predictor config")
-        json.dump(predictor_dictionary, predictor_config)
+
+    ai_object.save(weights_path=ai_object.weights_path, overwrite=True)
+    print(f"Pushed AI: {ai_object}")
+    ai_object.build()
+    print(f"Built AI: {ai_object}")
+    ai_object.push_image()
+    print(f"Pushed AI: {ai_object}")
 
 
 @ai.command("predictor-test", help="Test the predictor created from the deploy command")

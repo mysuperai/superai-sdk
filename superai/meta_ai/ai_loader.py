@@ -354,17 +354,17 @@ class AILoader:
         Raises:
             yaml.YAMLError: If there is an error in the formatting of the 'environment.yml' file.
         """
-        ai.environs = EnvironmentFileProcessor(os.path.abspath(version_save_path), filename=ENV_VAR_FILENAME)
-        ai.environs.add_or_update("MODEL_NAME", ai.model_class)
+        ai._environs = EnvironmentFileProcessor(os.path.abspath(version_save_path), filename=ENV_VAR_FILENAME)
+        ai._environs.add_or_update("MODEL_NAME", ai.model_class)
         model_module_path = ai.model_class_path
         if model_module_path != Path("."):
             log.debug("Copying model_class_path")
-            ai.environs.add_or_update("MODEL_CLASS_PATH", str(model_module_path).replace("/", "."))
+            ai._environs.add_or_update("MODEL_CLASS_PATH", str(model_module_path).replace("/", "."))
         if conda_target.exists():
             with open(conda_target, "r") as env_yaml:
                 try:
                     conda_env_yaml = yaml.safe_load(env_yaml)
-                    ai.environs.add_or_update("CONDA_ENV_NAME", conda_env_yaml.get("name", "env"))
+                    ai._environs.add_or_update("CONDA_ENV_NAME", conda_env_yaml.get("name", "env"))
                 except yaml.YAMLError as exc:
                     log.error(exc)
 

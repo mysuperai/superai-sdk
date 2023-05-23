@@ -192,7 +192,7 @@ class AI:
     _created_at: Optional[datetime] = None
     _updated_at: Optional[datetime] = None
     _model_class_instance: Optional[BaseAI] = None
-    environs: Optional[EnvironmentFileProcessor] = attr.field(default=None, repr=False)
+    _environs: Optional[EnvironmentFileProcessor] = attr.field(default=None, repr=False)
     _client: Optional["Client"] = attr.field(default=None, repr=False)
     _location: Optional[Path] = attr.field(default=None)
     id: Optional[str] = None
@@ -207,7 +207,7 @@ class AI:
         )
         if self._location is None:
             self._location = self.model_class_path
-        self.environs = EnvironmentFileProcessor(str(self._location), data=self.environs)
+        self._environs = EnvironmentFileProcessor(str(self._location), data=self._environs)
         # Cast code path to Path type
         if isinstance(self.code_path, str):
             self.code_path = [self.code_path]
@@ -218,11 +218,18 @@ class AI:
 
         self._client: Client = Client.from_credentials()
 
-    def to_dict(self, only_db_fields=False):
+    def to_dict(self, only_db_fields=False, not_null=False):
         """Converts the object to a json string."""
+
+        def is_null(value):
+            if not_null and value is None:
+                return True
+            return False
 
         def filter_fn(attr, value):
             name = attr.name
+            if is_null(value):
+                return False
             if name.startswith("_"):
                 # Ignore private fields
                 return False
@@ -238,7 +245,7 @@ class AI:
             if isinstance(value, Path):
                 return str(value)
             if isinstance(value, PydanticBaseModel):
-                return value.dict()
+                return value.dict(exclude_none=not_null)
             return value
 
         json_data = attr.asdict(self, filter=filter_fn, value_serializer=serialize)
@@ -604,13 +611,23 @@ class AI:
             if key in new_dict:
                 logger.warning(f"Key {key} is deprecated. Please use the new format.")
                 new_dict.pop(key)
+
+        if "version" in new_dict:
+            try:
+                _ai_version_validator(None, None, new_dict["version"])
+            except AIException:
+                logger.exception(
+                    "Version is not in the correct format. Please use the new format. Falling back to 1.0."
+                )
+                new_dict["version"] = "1.0"
+
         log.info(f"Updated yaml dict: {new_dict}")
         return new_dict
 
-    def to_yaml(self, yaml_file: Union[Path, str]) -> None:
+    def to_yaml(self, yaml_file: Union[Path, str], not_null: bool = True) -> None:
         """Create an AI_Template instance from a yaml file"""
         with open(yaml_file, "w") as f:
-            yaml.safe_dump(self.to_dict(), f)
+            yaml.safe_dump(self.to_dict(not_null=not_null), f)
 
     def get_default_checkpoint(self):
         """Get the default checkpoint for this AI"""

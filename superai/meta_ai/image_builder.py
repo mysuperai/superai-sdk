@@ -79,7 +79,7 @@ class AiImageBuilder:
         self.name = ai.name
         self.version = str(ai.version)
         self.entrypoint_class = ai.model_class
-        self.environs = ai.environs
+        self.environs = ai._environs
         self.location = str(ai._location)
         self.requirements = ai.requirements
         self.conda_env = ai.conda_env
