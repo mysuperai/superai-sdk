@@ -106,7 +106,7 @@ class AiApiMixin(AiApiBase):
 
     def update_ai_by_object(self, template: AI) -> str:
         op = Operation(mutation_root)
-        template_dict = template.to_dict(only_db_fields=True)
+        template_dict = template.to_dict(only_db_fields=True, not_null=True)
         template_dict.pop("id", None)
         op.update_meta_ai_template_by_pk(
             _set=meta_ai_template_set_input(**template_dict),

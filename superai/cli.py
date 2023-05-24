@@ -5,6 +5,7 @@ import pathlib
 import shutil
 import signal
 import sys
+import time
 from datetime import datetime
 from typing import List, Optional, Union
 from urllib.parse import urlparse
@@ -1491,6 +1492,43 @@ def deploy_ai(config_file, clean=True):
     print(f"Pushed AI: {ai_object}")
 
 
+@ai.command("local-deploy", help="Deploy an AI from its config file")
+@click.option(
+    "--config-file",
+    "-c",
+    help="Config YAML file containing AI properties and deployment definition",
+    type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+    default="config.yml",
+)
+@click.option(
+    "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
+)
+@click.option("--redeploy/--no-clean", "-r/-nr", help="Redeploy the existing deployment", default=True)
+@click.option("--log/--no-log", "-l/-nl", help="Log the deployment, this blocks the executor", default=False)
+def local_deploy_ai(config_file, clean=True, redeploy=True, log=False):
+    """Local Deploy an AI model for integration testing"""
+    from superai.meta_ai.ai import AI
+    from superai.meta_ai.ai_instance import AIInstance
+
+    if clean and os.path.exists(save_file):
+        shutil.rmtree(save_file)
+
+    ai_object = AI.from_yaml(config_file)
+    print(f"Loaded AI: {ai_object}")
+
+    ai_object.build()
+    print(f"Built AI: {ai_object}")
+
+    ai_object.save(overwrite=True)
+    print(f"Saved AI: {ai_object}")
+
+    ai_instance = AIInstance.instantiate(ai_object)
+    predictor = ai_instance.local_deploy(ai_object, redeploy=redeploy)
+
+    if log:
+        predictor.log()
+
+
 @ai.command("create-instance", help="Create an AI instance from an AI config file")
 @click.option(
     "--config-file",
@@ -1509,20 +1547,31 @@ def deploy_ai(config_file, clean=True):
     type=click.Choice(["PUBLIC", "PRIVATE"]),
     default="PRIVATE",
 )
-def create_ai_instance(config_file, clean=True, visibility="PRIVATE"):
+@click.option(
+    "--deploy",
+    "-d",
+    help="Deploy the AI instance after creation",
+    type=click.Choice(["True", "False"]),
+    default="True",
+)
+def create_ai_instance(config_file, clean=True, visibility="PRIVATE", deploy=True):
     """Push and deploy an AI and its artifacts (docker image, default checkpoint)."""
     from superai.meta_ai.ai import AI
 
     if clean and os.path.exists(save_file):
         shutil.rmtree(save_file)
 
-    ai_object = AI.from_yaml(config_file)
+    ai_object = AI.from_yaml(config_file, pull_db_data=True)
     print(f"Loaded AI: {ai_object}")
-    ai_object.save(weights_path=ai_object.weights_path, overwrite=True)
+    ai_object.save(overwrite=True)
     print(f"Saved AI: {ai_object}")
 
     instance = ai_object.create_instance(visibility=visibility)
     print(f"Created AI instance: {instance}")
+
+    if deploy:
+        instance.deploy(redeploy=True)
+        print(f"Deployed AI instance: {instance}")
 
 
 @ai.command("build", help="Build an AI from its config file")
@@ -1556,6 +1605,7 @@ def build_ai(config_file, clean=True):
     "-c",
     help="Points to the config file",
     type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+    default="config.yml",
 )
 @click.option("--predict-input", "-i", help="Prediction input", type=str, required=False)
 @click.option("--predict-input-file", "-if", help="Prediction input file", type=click.Path(), required=False)
@@ -1572,22 +1622,30 @@ def build_ai(config_file, clean=True):
     help="Expected output file (should only be used if your model is consistent",
     type=click.Path(),
 )
+@click.option("--wait-seconds", "-w", help="Seconds to wait for the predictor to be ready", type=int, default=1)
 @pass_client
 def predictor_test(
-    client, config_file, predict_input=None, predict_input_file=None, expected_output=None, expected_output_file=None
+    client,
+    config_file,
+    predict_input=None,
+    predict_input_file=None,
+    expected_output=None,
+    expected_output_file=None,
+    wait_seconds=1,
 ):
     """Deploy and test a predictor from config file"""
     from superai.meta_ai.ai import AI
     from superai.meta_ai.deployed_predictors import DeployedPredictor
 
     ai_object = AI.from_yaml(config_file)
-    config_path = os.path.join(
-        settings.path_for(), "cache", ai_object.name, str(ai_object.version), ".predictor_config.json"
-    )
-    if not os.path.exists(config_path):
+    ai_object.save(overwrite=True)
+    print(ai_object.cache_path())
+    config_path = ai_object.cache_path() / ".predictor_config.json"
+    if not config_path.exists():
         raise click.ClickException(f"Predictor config does not exist at {config_path}")
     with open(config_path, "r") as predictor_config:
         predictor_dictionary = json.load(predictor_config)
+        log.info(f"Loading predictor config: {predictor_dictionary}")
     predictor: DeployedPredictor = DeployedPredictor.from_dict(predictor_dictionary, client)
     if predict_input is not None:
         predict_input = json.loads(predict_input)
@@ -1596,8 +1654,10 @@ def predictor_test(
             predict_input = json.load(predict_file_stream)
     else:
         raise ValueError("One of --predict-input or --predict-input-file should be passed")
+    time.sleep(wait_seconds)
     predicted_output = predictor.predict(predict_input)
     click.echo(predicted_output)
+    assert predicted_output is not None
     expected_message = "Expected output should be same as predicted output"
     if expected_output is not None:
         assert predicted_output == expected_output, expected_message

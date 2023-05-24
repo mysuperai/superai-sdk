@@ -390,15 +390,22 @@ class AILoader:
             log.debug("Copying all requirements")
             if type(ai.requirements) == str:
                 requirements_file = Path(ai.requirements)
+                whl_file_folder = requirements_file.parent
                 if requirements_file.exists():
                     shutil.copy(requirements_file, requirements_target_file)
             elif type(ai.requirements) == list:
                 with open(requirements_target_file, "w") as f:
                     f.write("\n".join(ai.requirements))
+                whl_file_folder = ai.artifacts.get("whl_file_folder", None) if ai.artifacts is not None else None
             else:
                 raise ValueError(
                     "Make sure requirements is a list of requirements or valid path to requirements.txt file"
                 )
+            if whl_file_folder is not None:
+                for filename in whl_file_folder.iterdir():
+                    if filename.suffix == ".whl":
+                        log.info(f"Copying whl file {filename.name}")
+                        shutil.copy(filename, requirements_target_file.parent / filename.name)
 
     @staticmethod
     def extract_pip_from_conda(conda_target_file: Path):

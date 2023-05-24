@@ -68,11 +68,13 @@ class DeployedPredictor(metaclass=ABCMeta):
         pass
 
     @classmethod
-    def from_dict(cls, dictionary: dict, client: Optional["Client"] = None) -> "DeployedPredictor":
+    def from_dict(
+        cls, dictionary: dict, client: Optional["Client"] = None, ai: Optional["AI"] = None
+    ) -> "DeployedPredictor":
         if list(dictionary.keys())[0] == "LocalPredictor":
-            return LocalPredictor.from_dict(dictionary["LocalPredictor"])
+            return LocalPredictor.from_dict(dictionary["LocalPredictor"], ai=ai)
         else:
-            return RemotePredictor.from_dict(dictionary["RemotePredictor"], client)
+            return RemotePredictor.from_dict(dictionary["RemotePredictor"], client=client)
 
 
 class LocalPredictor(DeployedPredictor):
@@ -172,7 +174,7 @@ class LocalPredictor(DeployedPredictor):
             if not leave_running:
                 self.terminate()
             else:
-                log.info(f"Container is running in the backgourd with id:{self.container.id}")
+                log.info(f"Container is running in the background with id:{self.container.id}")
 
     def terminate(self):
         log.info("Stopping container")
@@ -202,13 +204,19 @@ class LocalPredictor(DeployedPredictor):
         )
 
     def to_dict(self) -> dict:
-        dictionary = {"deploy_properties": self.deploy_properties.dict_for_db()}
-        dictionary["deploy_properties"]["weights_path"] = self.weights_path
+        dictionary = {
+            "deploy_properties": self.deploy_properties.dict_for_db(),
+            "local_image_name": self.local_image_name,
+            "weights_path": self.weights_path,
+        }
+
         return dictionary
 
     @classmethod
-    def from_dict(cls, dictionary, client: Optional["Client"] = None) -> "LocalPredictor":
-        return cls(existing=False, remove=True, **dictionary)
+    def from_dict(cls, dictionary, client: Optional["Client"] = None, ai: Optional["AI"] = None) -> "LocalPredictor":
+        from superai.meta_ai import Orchestrator
+
+        return cls(existing=False, remove=True, ai=ai, orchestrator=Orchestrator.LOCAL_DOCKER_K8S, **dictionary)
 
 
 class RemotePredictor(DeployedPredictor):

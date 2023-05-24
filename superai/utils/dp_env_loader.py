@@ -6,8 +6,6 @@ from dynaconf import LazySettings
 
 from superai.log import logger
 
-secrets_client = boto3.client("secretsmanager")
-
 
 @lru_cache
 def _retrieve_secret(env, secret_name_prefix="dataprograms-env-"):
@@ -18,6 +16,8 @@ def _retrieve_secret(env, secret_name_prefix="dataprograms-env-"):
             Only used for invalidation of cache
     """
     # Get secret by prefix
+    secrets_client = boto3.client("secretsmanager")
+
     response = secrets_client.list_secrets(Filters=[{"Key": "name", "Values": [secret_name_prefix]}])
     secret_list = response["SecretList"]
     logger.debug(f"Found {len(secret_list)} secrets with prefix {secret_name_prefix}")

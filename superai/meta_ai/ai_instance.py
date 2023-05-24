@@ -1,3 +1,4 @@
+import json
 import typing
 from pathlib import Path
 from typing import List, Optional, Union
@@ -7,9 +8,10 @@ import attr
 from superai.apis.meta_ai.meta_ai_graphql_schema import meta_ai_modelv2
 from superai.config import get_current_env
 from superai.log import get_logger
+from superai.meta_ai import AI
 from superai.meta_ai.ai_checkpoint import CheckpointTag
 from superai.meta_ai.ai_helper import _not_none_validator, confirm_action
-from superai.meta_ai.deployed_predictors import RemotePredictor
+from superai.meta_ai.deployed_predictors import LocalPredictor, RemotePredictor
 from superai.meta_ai.exceptions import AIException, ModelNotFoundError
 from superai.meta_ai.orchestrators import Orchestrator
 from superai.meta_ai.parameters import AiDeploymentParameters, TrainingParameters
@@ -238,7 +240,6 @@ class AIInstance:
 
         if redeploy and get_current_env() == "prod":
             confirm_action()
-        from superai.meta_ai import AI
 
         ai = AI.load(self.template_id)
 
@@ -258,6 +259,27 @@ class AIInstance:
         self.served_by = deployment_id
         self.update(served_by=deployment_id)
 
+        return predictor_obj
+
+    def local_deploy(self, ai: Optional["AI"] = None, redeploy: bool = True) -> "LocalPredictor":
+        """Deploys the model to the local backend to serve predictions."""
+
+        ai = ai or AI.load(self.template_id)
+
+        if not ai.local_image:
+            raise AIException("AI has no Docker image stored. Try ai.build()")
+
+        predictor_obj: LocalPredictor = LocalPredictor(
+            orchestrator=Orchestrator.LOCAL_DOCKER_K8S,
+            deploy_properties=ai.default_deployment_parameters,
+            local_image_name=ai.local_image,
+            ai=self,
+        )
+        predictor_obj.deploy(redeploy=redeploy)
+        predictor_dict = {predictor_obj.__class__.__name__: predictor_obj.to_dict()}
+        with open(ai.cache_path() / ".predictor_config.json", "w") as f:
+            log.info(f"Storing predictor config in cache path {ai.cache_path() / '.predictor_config.json'}")
+            json.dump(predictor_dict, f)
         return predictor_obj
 
     def predict(self, input_data: dict, params: dict = None, wait_time_seconds=180) -> List[TaskPredictionInstance]:

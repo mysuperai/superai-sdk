@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, List, Optional, Union
@@ -13,7 +14,7 @@ from pydantic import BaseModel as PydanticBaseModel
 from pydantic import ValidationError
 
 from superai.apis.meta_ai.meta_ai_graphql_schema import meta_ai_template
-from superai.config import get_ai_bucket, get_current_env
+from superai.config import get_ai_bucket, get_current_env, settings
 from superai.log import logger
 from superai.meta_ai.ai_helper import (
     _ai_name_validator,
@@ -306,6 +307,12 @@ class AI:
         weights_path = Path(weights_path) if weights_path else None
         return AILoader.load_ai(path, weights_path, pull_db_data=pull_db_data)
 
+    def cache_path(self) -> Path:
+        """Static cache path for storing the deployed predictor configuration"""
+        path = Path(settings.path_for(), "cache", self.id)
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
     @staticmethod
     def is_valid_version(version: str) -> bool:
         """Checks for valid short semantic version.
@@ -457,6 +464,10 @@ class AI:
 
         # Create default checkpoint and store in database
         weights_path = weights_path or self.weights_path
+        if not weights_path:
+            log.warning("No weights path provided, passing empty directory.")
+            weights_path = tempfile.mkdtemp()
+
         default_checkpoint = AICheckpoint(template_id=self.id, weights_path=str(weights_path)).save()
         self._client.update_ai(
             self.id,
@@ -624,6 +635,9 @@ class AI:
         old_sections = ["template", "instance", "deploy"]
         new_dict = {}
 
+        # Prefer name from the instance to keep old compatibility with DP
+        name = yaml_dict.get("instance", {}).get("name") or yaml_dict.get("template", {}).get("name")
+
         legacy = False
         for section in old_sections:
             if section in yaml_dict:
@@ -635,6 +649,10 @@ class AI:
         # In case of redundancy, prefer keys from the 'template' section
         if "template" in yaml_dict:
             new_dict.update(yaml_dict["template"])
+
+        # Add name from instance
+        if name:
+            new_dict["name"] = name
 
         # Rename legacy names to new field names
         rename_map = {
@@ -694,3 +712,7 @@ class AI:
         self._load_id()
         instance = AIInstance.instantiate(ai=self, name=name, **kwargs)
         return instance
+
+    @property
+    def local_image(self):
+        return self._local_image
