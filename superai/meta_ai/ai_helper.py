@@ -120,7 +120,7 @@ def upload_dir(local_dir: Union[Path, str], aws_root_dir: Union[Path, str], buck
     # Convert to Path objects if necessary
     local_dir = Path(local_dir) if isinstance(local_dir, str) else local_dir
     aws_root_dir = Path(aws_root_dir) if isinstance(aws_root_dir, str) else aws_root_dir
-
+    log.info("Uploading to: " + str(aws_root_dir))
     # Set the working directory
     working_dir = Path.cwd()
 
@@ -131,6 +131,7 @@ def upload_dir(local_dir: Union[Path, str], aws_root_dir: Union[Path, str], buck
     all_files = absolute_local_dir.glob("**/*")
 
     # Iterate over all files
+    count = 0
     for file_path in all_files:
         # Skip directories
         if file_path.is_dir():
@@ -146,14 +147,14 @@ def upload_dir(local_dir: Union[Path, str], aws_root_dir: Union[Path, str], buck
             s3_file_path = s3_file_path[len(prefix) :]
 
         # Construct the final AWS path
-        aws_path = str((aws_root_dir / s3_file_path).resolve())
+        aws_path = str((aws_root_dir / s3_file_path))
 
-        log.debug(f"Uploading file: {s3_file_path}")
+        log.debug(f"Uploading file: {s3_file_path} to {aws_path}")
 
         # Upload the file to S3
         s3.meta.client.upload_file(str(file_path), bucket_name, aws_path)
-
-    log.info(f"Finished uploading directory: {local_dir.absolute()} to bucket: {bucket_name}")
+        count += 1
+    log.info(f"Finished uploading directory: {local_dir.absolute()} with {count} file(s).")
 
 
 def load_and_predict(
