@@ -91,7 +91,9 @@ class AiCheckpointApiMixin(AiApiBase):
     ) -> Optional[Union[meta_ai_checkpoint, Dict]]:
         op = Operation(query_root)
         check = meta_ai_checkpoint_bool_exp(
-            template_id=uuid_comparison_exp(_eq=template_id), tag=meta_ai_checkpoint_tag_enum_comparison_exp(_eq=tag)
+            template_id=uuid_comparison_exp(_eq=template_id),
+            tag=meta_ai_checkpoint_tag_enum_comparison_exp(_eq=tag),
+            modelv2_id=uuid_comparison_exp(_is_null=True),
         )
         op.meta_ai_checkpoint(where=check).__fields__(*AiCheckpointApiMixin._fields(verbose))
         data = self.sess.perform_op(op)

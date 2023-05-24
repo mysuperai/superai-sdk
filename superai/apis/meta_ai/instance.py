@@ -31,7 +31,7 @@ class AiInstanceApiMixin(AiApiBase):
     """Instance API"""
 
     _resource = "aiInstance"
-    BASE_FIELDS = ["name", "id", "template_id", "checkpoint_tag"]
+    BASE_FIELDS = ["name", "id", "template_id", "checkpoint_tag", "visibility"]
     EXTRA_FIELDS = [
         "created_at",
         "description",

@@ -189,6 +189,7 @@ class AI:
     image: Optional[str] = None
     default_image: Optional[str] = None
     default_checkpoint: Optional[str] = None
+    visibility: Optional[str] = attr.field(default="PRIVATE", validator=attr.validators.in_(["PRIVATE", "PUBLIC"]))
     _model_save_path: Optional[str] = None
     _created_at: Optional[datetime] = None
     _updated_at: Optional[datetime] = None
@@ -392,12 +393,18 @@ class AI:
         self,
         weights_path: Optional[Union[Path, str]] = None,
         overwrite=False,
+        upload_source=False,
+        create_checkpoint=False,
     ) -> AI:
         """Saves the AI in the backend.
+        Allows uploading model source code and creating a checkpoint based on the weights.
+        Only runs those steps if necesseary (still missing) or if forced by the user.
 
         Args:
             weights_path: Path to weights in s3
             overwrite: Overwrite existing entry
+            upload_source: Force uploading new source code
+            create_checkpoint: Force creating a new checkpoint based on weights_path
 
         Returns:
             AI object with updated id
@@ -416,22 +423,60 @@ class AI:
         else:
             self.id = self._register()
 
+        # Only upload source if necessary
+        if upload_source or not self._model_save_path:
+            self._upload_model_source()
+
+        # Only create checkpoint if necessary
+        if create_checkpoint or not self.default_checkpoint:
+            self.create_checkpoint(weights_path)
+
+        self._client.update_ai_by_object(self)
+        return self
+
+    def _upload_model_source(self):
+        """Uploads the model source to S3 and stores reference in DB."""
         save_path = AILoader.save_local(self, overwrite=True)
         # Defer uploading until we have a registered id
         model_save_path = AILoader.upload_model_folder(save_path, self.id, self.name, self.version, get_ai_bucket())
+        self._client.update_ai(
+            self.id,
+            model_save_path=model_save_path,
+        )
+        self._model_save_path = model_save_path
+        return model_save_path
+
+    def create_checkpoint(self, weights_path: Optional[Union[Path, str]] = None) -> str:
+        """Create a default checkpoint for the AI.
+        Args:
+            weights_path: The path to the model weights file (if any).
+        Returns:
+            the checkpoint id.
+        """
         from superai.meta_ai import AICheckpoint
 
         # Create default checkpoint and store in database
         weights_path = weights_path or self.weights_path
         default_checkpoint = AICheckpoint(template_id=self.id, weights_path=str(weights_path)).save()
-
         self._client.update_ai(
             self.id,
-            model_save_path=model_save_path,
-            default_deployment_parameters=self.default_deployment_parameters.dict(),
             default_checkpoint=default_checkpoint.id,
         )
         self.default_checkpoint = default_checkpoint.id
+        return default_checkpoint
+
+    def update(self, **fields) -> AI:
+        """Update the AI local in the backend.
+
+        Args:
+            fields: Fields to update
+
+        Returns:
+            AI object with updated fields
+        """
+        for k, v in fields.items():
+            setattr(self, k, v)
+        self.save(overwrite=True)
         return self
 
     def _load_id(self) -> Optional[str]:

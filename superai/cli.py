@@ -1491,6 +1491,40 @@ def deploy_ai(config_file, clean=True):
     print(f"Pushed AI: {ai_object}")
 
 
+@ai.command("create-instance", help="Create an AI instance from an AI config file")
+@click.option(
+    "--config-file",
+    "-c",
+    help="Config YAML file containing AI properties and deployment definition",
+    type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+    default="config.yml",
+)
+@click.option(
+    "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
+)
+@click.option(
+    "--visibility",
+    "-V",
+    help="Visibility of the AI instance",
+    type=click.Choice(["PUBLIC", "PRIVATE"]),
+    default="PRIVATE",
+)
+def create_ai_instance(config_file, clean=True, visibility="PRIVATE"):
+    """Push and deploy an AI and its artifacts (docker image, default checkpoint)."""
+    from superai.meta_ai.ai import AI
+
+    if clean and os.path.exists(save_file):
+        shutil.rmtree(save_file)
+
+    ai_object = AI.from_yaml(config_file)
+    print(f"Loaded AI: {ai_object}")
+    ai_object.save(weights_path=ai_object.weights_path, overwrite=True)
+    print(f"Saved AI: {ai_object}")
+
+    instance = ai_object.create_instance(visibility=visibility)
+    print(f"Created AI instance: {instance}")
+
+
 @ai.command("build", help="Build an AI from its config file")
 @click.option(
     "--config-file",

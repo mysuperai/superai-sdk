@@ -223,6 +223,15 @@ def test_save_model(local_ai: AI, tmp_path):
     ai_uuid = local_ai.id
     assert ai_uuid
 
+    # Change visibility
+    returned_ai.visibility = "PUBLIC"
+    returned_ai.save(overwrite=True)
+    assert returned_ai.visibility == "PUBLIC"
+
+    # Test update method
+    returned_ai.update(visibility="PRIVATE")
+    assert returned_ai.visibility == "PRIVATE"
+
 
 @mock.patch("superai.meta_ai.image_builder.AiImageBuilder.build_image_superai_builder")
 def test_build_model(mocked_builder, local_ai: AI, tmp_path):
@@ -342,6 +351,12 @@ def test_create_ai_instance(ai_name, saved_ai):
     assert ai_instance.id
     assert ai_instance.template_id == saved_ai.id
     assert ai_instance.description == "new description"
+
+    # Make ai instance public
+    ai_instance.update(visibility="PUBLIC")
+    assert ai_instance.visibility == "PUBLIC"
+    ai_instance.update(visibility="PRIVATE")
+    assert ai_instance.visibility == "PRIVATE"
 
 
 def test_delete_ai_instance(ai_name, saved_ai):

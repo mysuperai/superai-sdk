@@ -34,7 +34,7 @@ class AiApiMixin(AiApiBase):
     """AI API"""
 
     _resource = "ai"
-    BASE_FIELDS = ["name", "version", "id", "trainable"]
+    BASE_FIELDS = ["name", "version", "id", "trainable", "visibility"]
     EXTRA_FIELDS = [
         "created_at",
         "default_checkpoint",
@@ -100,6 +100,17 @@ class AiApiMixin(AiApiBase):
         op.update_meta_ai_template_by_pk(
             _set=meta_ai_template_set_input(**fields),
             pk_columns=meta_ai_template_pk_columns_input(id=template_id),
+        ).__fields__("id")
+        data = self.sess.perform_op(op)
+        return (op + data).update_meta_ai_template_by_pk.id
+
+    def update_ai_by_object(self, template: AI) -> str:
+        op = Operation(mutation_root)
+        template_dict = template.to_dict(only_db_fields=True)
+        template_dict.pop("id", None)
+        op.update_meta_ai_template_by_pk(
+            _set=meta_ai_template_set_input(**template_dict),
+            pk_columns=meta_ai_template_pk_columns_input(id=template.id),
         ).__fields__("id")
         data = self.sess.perform_op(op)
         return (op + data).update_meta_ai_template_by_pk.id

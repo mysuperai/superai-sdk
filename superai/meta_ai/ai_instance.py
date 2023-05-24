@@ -69,6 +69,7 @@ class AIInstance:
     organisation_id: int = attr.field(default=None)
     ai_worker_id: str = attr.field(default=None)
     ai_worker_username: str = attr.field(default=None)
+    visibility: Optional[str] = attr.field(default="PRIVATE", validator=attr.validators.in_(["PRIVATE", "PUBLIC"]))
     _predictor: Optional[RemotePredictor] = attr.field(default=None, repr=False)
 
     _client: Optional["Client"] = attr.field(default=None, repr=False)
@@ -129,7 +130,15 @@ class AIInstance:
         # Clone the checkpoint
         template_checkpoint.create_clone(ai_instance_id=self.id)
 
-    def update(self, deployment_parameters=None, name=None, description=None, checkpoint_tag=None, served_by=None):
+    def update(
+        self,
+        deployment_parameters=None,
+        name=None,
+        description=None,
+        checkpoint_tag=None,
+        served_by=None,
+        visibility=None,
+    ):
         if deployment_parameters is not None:
             self.deployment_parameters = deployment_parameters
         if name is not None:
@@ -140,6 +149,8 @@ class AIInstance:
             self.checkpoint_tag = checkpoint_tag
         if served_by is not None:
             self.served_by = served_by
+        if visibility is not None:
+            self.visibility = visibility
 
         self.client.update_ai_instance(
             self.id,
@@ -148,6 +159,7 @@ class AIInstance:
             deployment_parameters=self.deployment_parameters,
             checkpoint_tag=self.checkpoint_tag,
             served_by=self.served_by,
+            visibility=self.visibility,
         )
         log.debug(f"AI instance {self} updated")
 
