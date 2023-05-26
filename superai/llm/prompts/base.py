@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Dict, List
+from typing import Dict, List, Union
 
 from pydantic import BaseModel, Extra
 
@@ -15,6 +15,13 @@ from superai.llm.utilities import generate_ordered_list, generate_unordered_list
 config = Configuration()
 
 
+class PromptExample(BaseModel):
+    """Example to add to LLM prompt"""
+
+    input: str
+    output: str
+
+
 class Prompt(BaseModel, ABC):
     prompt: str = None
 
@@ -25,8 +32,8 @@ class Prompt(BaseModel, ABC):
     constraints: List[str] = []
     prompt_prefix: str = None
     prompt_suffix: str = None
-    examples: List[str] = []
-    anti_examples: List[str] = []
+    examples: List[Union[str, PromptExample]] = []
+    anti_examples: List[Union[str, PromptExample]] = []
     context: List[str] = []
     input: str = None
     output: str = None
@@ -109,8 +116,11 @@ class Prompt(BaseModel, ABC):
         if self.examples:
             examples_string = "\n\nExamples:"
             for i, example in enumerate(self.examples):
-                examples_string += f"\n\n Example input {i+1}:\n{example.input}"
-                examples_string += f"\n\n Example output {i+1}:\n{example.output}"
+                if isinstance(example, str):
+                    examples_string += f"\n\n Example {i+1}:\n{example}"
+                elif isinstance(example, PromptExample):
+                    examples_string += f"\n\n Example input {i+1}:\n{example.input}"
+                    examples_string += f"\n\n Example output {i+1}:\n{example.output}"
                 examples_string += "\n\n###"
             prompt += examples_string
 

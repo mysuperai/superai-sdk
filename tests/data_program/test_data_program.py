@@ -101,7 +101,16 @@ my_vcr = vcr.VCR(
     cassette_library_dir=f"{pathlib.Path(__file__).resolve().parent}/cassettes",
     record_mode="once",
     match_on=["headers", "method"],
-    filter_headers=["x-api-key", "x-app-id", "Content-Length", "User-Agent", "API-KEY", "AUTH-TOKEN", "ID-TOKEN"],
+    filter_headers=[
+        "x-api-key",
+        "x-app-id",
+        "Content-Length",
+        "User-Agent",
+        "API-KEY",
+        "AUTH-TOKEN",
+        "ID-TOKEN",
+        "Accept-Encoding",
+    ],
     decode_compressed_response=True,
 )
 

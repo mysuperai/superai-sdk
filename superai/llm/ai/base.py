@@ -1,5 +1,5 @@
 import concurrent.futures
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Union
 
 from pydantic import BaseModel
 from tqdm import tqdm
@@ -9,6 +9,7 @@ from superai.llm.data_types import ChatMessage, DataType
 from superai.llm.dataset import Data, Dataset
 from superai.llm.foundation_models import ChatGPT, FoundationModel
 from superai.llm.prompts import Prompt
+from superai.llm.prompts.base import PromptExample
 from superai.llm.utilities.parser_utils import Parser
 
 config = Configuration()
@@ -32,7 +33,7 @@ class LLM(BaseModel):
     constraints: Optional[List[str]] = []
     prompt_prefix: Optional[str] = None
     prompt_suffix: Optional[str] = None
-    examples: Optional[List[str]] = []
+    examples: Optional[List[Union[str, PromptExample]]] = []
     anti_examples: Optional[List[str]] = []
     context: Optional[List[str]] = []
     input: Optional[str] = None
@@ -308,18 +309,18 @@ class LLM(BaseModel):
         else:
             raise ValueError("memories must be a list of strings")
 
-    def add_example(self, example):
+    def add_example(self, example: Union[str, PromptExample]):
         if isinstance(example, str):
             self.examples.append(example)
         else:
-            raise ValueError("example must be a string")
+            raise ValueError("example must be a string or PromptExample")
 
-    def add_examples(self, examples):
+    def add_examples(self, examples: List[Union[str, PromptExample]]):
         if isinstance(examples, list):
             for e in examples:
                 self.add_example(e)
         else:
-            raise ValueError("examples must be a list of strings")
+            raise ValueError("examples must be a list of strings or PromptExample")
 
     def add_anti_example(self, anti_example):
         if isinstance(anti_example, str):

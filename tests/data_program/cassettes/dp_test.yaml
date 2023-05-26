@@ -27,7 +27,7 @@ interactions:
       Content-Type:
       - application/json
     method: PUT
-    uri: https://api-testing.super.ai/v1/templates/dp_test.router
+    uri: https://api-test.super.ai/v1/templates/dp_test.router
   response:
     body:
       string: '{"uuid": "ec150a62-5746-4745-a800-00971bf36fd3", "created": "2022-11-09T17:04:08.196+00:00",
@@ -94,7 +94,7 @@ interactions:
       Connection:
       - keep-alive
     method: GET
-    uri: https://api-testing.super.ai/v1/templates/dp_test.router
+    uri: https://api-test.super.ai/v1/templates/dp_test.router
   response:
     body:
       string: '{"uuid": "ec150a62-5746-4745-a800-00971bf36fd3", "created": "2022-11-09T17:04:08.196+00:00",
@@ -170,7 +170,7 @@ interactions:
       Content-Type:
       - application/json
     method: PUT
-    uri: https://api-testing.super.ai/v1/templates/dp_test.parse
+    uri: https://api-test.super.ai/v1/templates/dp_test.parse
   response:
     body:
       string: '{"uuid": "050c1552-81c8-409b-a158-98fb70848350", "created": "2022-11-09T17:07:33.162+00:00",
@@ -232,7 +232,7 @@ interactions:
       Content-Type:
       - application/json
     method: PUT
-    uri: https://api-testing.super.ai/v1/templates/dp_test.router
+    uri: https://api-test.super.ai/v1/templates/dp_test.router
   response:
     body:
       string: '{"uuid": "ec150a62-5746-4745-a800-00971bf36fd3", "created": "2022-11-09T17:04:08.196+00:00",
@@ -299,7 +299,7 @@ interactions:
       Connection:
       - keep-alive
     method: GET
-    uri: https://api-testing.super.ai/v1/templates/dp_test.router
+    uri: https://api-test.super.ai/v1/templates/dp_test.router
   response:
     body:
       string: '{"uuid": "ec150a62-5746-4745-a800-00971bf36fd3", "created": "2022-11-09T17:04:08.196+00:00",

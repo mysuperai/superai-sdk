@@ -57,6 +57,10 @@ runtime-pip:
         unzip \
         git \
         libcurl4-openssl-dev \
+        pkg-config \
+        libcairo2-dev \
+        libjpeg-dev \
+        libgif-dev \
         && apt-get clean  \
         && rm -rf /var/lib/apt/lists/*
 
