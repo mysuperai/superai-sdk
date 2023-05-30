@@ -139,8 +139,7 @@ class AILoader:
         from superai import Client
 
         client = Client.from_credentials()
-        ai = client.get_ai(ai_id, to_json=True)
-        return ai
+        return client.get_ai(ai_id, to_json=True)
 
     @staticmethod
     def _get_s3_path_from_ai_dict(ai: dict) -> str:

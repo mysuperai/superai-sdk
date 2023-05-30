@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import re
 import tempfile
 from datetime import datetime
 from pathlib import Path
@@ -222,13 +223,15 @@ class AI:
 
         self._client: Client = Client.from_credentials()
 
+        if re.match(r"^[0-9]+\.[0-9]+\.[0-9]+$", str(self.version)):
+            patch = self.version.split(".")[2]
+            self.version = str(self.version).removesuffix(f".{patch}")
+
     def to_dict(self, only_db_fields=False, not_null=False):
         """Converts the object to a json string."""
 
         def is_null(value):
-            if not_null and value is None:
-                return True
-            return False
+            return bool(not_null and value is None)
 
         def filter_fn(attr, value):
             name = attr.name
@@ -237,11 +240,7 @@ class AI:
             if name.startswith("_"):
                 # Ignore private fields
                 return False
-            if only_db_fields and name not in meta_ai_template.__field_names__:
-                # Ignore non-db fields
-                return False
-
-            return True
+            return not only_db_fields or name in meta_ai_template.__field_names__
 
         def serialize(inst, field, value):
             if isinstance(value, EnvironmentFileProcessor):
@@ -320,27 +319,27 @@ class AI:
         Only major and minor versions are supported.
         """
         try:
-            major, minor = version.split(".")
-            if not (major.isdigit() and minor.isdigit()):
+            if len(version.split(".")) == 2:
+                major, minor = version.split(".")
+            else:
+                major, minor, patch = version.split(".")
+            if not major.isdigit() or not minor.isdigit():
                 return False
-            if int(major) < 0 or int(minor) < 0:
-                return False
-            return True
+            return int(major) >= 0 and int(minor) >= 0
         except ValueError:
             return False
 
     def _register(self):
         """Adds an entry in the meta AI database."""
         log.info(f"Creating database entry for {self}.")
-        if not self.id:
-            try:
-                self.id = self._client.create_ai(self)
-            except GraphQlException as e:
-                if "Uniqueness violation" not in str(e):
-                    raise e
-                self.id = self._client.list_ai_by_name_version(self.name, self.version)[0]["id"]
-        else:
+        if self.id:
             raise ModelAlreadyExistsError("Model is already registered in the Database.")
+        try:
+            self.id = self._client.create_ai(self)
+        except GraphQlException as e:
+            if "Uniqueness violation" not in str(e):
+                raise e
+            self.id = self._client.list_ai_by_name_version(self.name, self.version)[0]["id"]
         return self.id
 
     def predict(self, inputs: Union[TaskInput, List[dict]]) -> List[TaskPredictionInstance]:
@@ -425,9 +424,8 @@ class AI:
                     f"AI: {self.name}:{self.version} already exists with id {self.id}. "
                     f"Use `save(overwrite=True)` to overwrite."
                 )
-            else:
-                if get_current_env() == "prod":
-                    confirm_action()
+            if get_current_env() == "prod":
+                confirm_action()
         else:
             self.id = self._register()
 
@@ -675,9 +673,9 @@ class AI:
                 _ai_version_validator(None, None, new_dict["version"])
             except AIException:
                 logger.exception(
-                    "Version is not in the correct format. Please use the new format. Falling back to 1.0."
+                    "Version is not in the correct format. Please use the new format. Falling back to 1.0.0"
                 )
-                new_dict["version"] = "1.0"
+                new_dict["version"] = "1.0.0"
 
         log.info(f"Updated yaml dict: {new_dict}")
         return new_dict
@@ -693,10 +691,9 @@ class AI:
 
         if self.default_checkpoint:
             return AICheckpoint.load(self.default_checkpoint)
-        else:
-            loaded = AICheckpoint.get_default_template_checkpoint(self.id)
-            self.default_checkpoint = loaded.id
-            return loaded
+        loaded = AICheckpoint.get_default_template_checkpoint(self.id)
+        self.default_checkpoint = loaded.id
+        return loaded
 
     def create_instance(self, name: str = None, **kwargs) -> AIInstance:
         """Create an instance of this AI.
@@ -711,8 +708,7 @@ class AI:
         from superai.meta_ai import AIInstance
 
         self._load_id()
-        instance = AIInstance.instantiate(ai=self, name=name, **kwargs)
-        return instance
+        return AIInstance.instantiate(ai=self, name=name, **kwargs)
 
     @property
     def local_image(self):

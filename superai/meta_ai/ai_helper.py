@@ -120,7 +120,7 @@ def upload_dir(local_dir: Union[Path, str], aws_root_dir: Union[Path, str], buck
     # Convert to Path objects if necessary
     local_dir = Path(local_dir) if isinstance(local_dir, str) else local_dir
     aws_root_dir = Path(aws_root_dir) if isinstance(aws_root_dir, str) else aws_root_dir
-    log.info("Uploading to: " + str(aws_root_dir))
+    log.info(f"Uploading to: {str(aws_root_dir)}")
     # Set the working directory
     working_dir = Path.cwd()
 
@@ -143,9 +143,7 @@ def upload_dir(local_dir: Union[Path, str], aws_root_dir: Union[Path, str], buck
 
         # Remove the prefix if it exists
         s3_file_path = str(relative_file_path)
-        if s3_file_path.startswith(prefix):
-            s3_file_path = s3_file_path[len(prefix) :]
-
+        s3_file_path = s3_file_path.removeprefix(prefix)
         # Construct the final AWS path
         aws_path = str((aws_root_dir / s3_file_path))
 
@@ -282,7 +280,7 @@ def _path_exists_validator(instance, attribute, path):
 
 def _not_none_validator(instance, attribute, value):
     if value is None:
-        raise AIException(f"Value cannot be None")
+        raise AIException("Value cannot be None")
 
 
 def confirm_action():
