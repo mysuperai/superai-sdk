@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, List, Optional, TypeVar
 
 import docker  # type: ignore
+import netifaces
 import requests
 from docker.errors import APIError  # type: ignore
 from docker.models.containers import Container  # type: ignore
@@ -78,16 +79,22 @@ class DeployedPredictor(metaclass=ABCMeta):
 
 
 class LocalPredictor(DeployedPredictor):
-    def __init__(self, *args, remove=True, **kwargs):
+    def __init__(self, *args, port=9000, remove=True, **kwargs):
         super(LocalPredictor, self).__init__(*args, **kwargs)
 
         self.client = get_docker_client()
         self.enable_cuda = self.deploy_properties.enable_cuda
-        self.container_name = self.local_image_name.replace(":", "_")
+        self.container_name = self.local_image_name.replace(":", "_") + "_" + os.environ.get("RUN_UUID", "")
         self.weights_volume = self.deploy_properties.mount_path
         self.kwargs = kwargs
         self.remove = remove
         self.container = None
+        if os.environ.get("JENKINS_URL") is not None:
+            self.ip_address = netifaces.ifaddresses("docker0")[netifaces.AF_INET][0]["addr"]
+        else:
+            self.ip_address = "localhost"
+        self.port = port
+        self.timeout = 120
 
     def deploy(self, redeploy=False) -> None:
         try:
@@ -133,7 +140,7 @@ class LocalPredictor(DeployedPredictor):
         if self.container is None:
             self.container: Container = self.client.containers.get(self.container_name)
 
-        url = "http://localhost:9000/api/v1.0/predictions"
+        url = f"http://{self.ip_address}:{self.port}/api/v1.0/predictions"
 
         headers = {"Content-Type": mime}
         if mime.endswith("json"):
@@ -180,9 +187,8 @@ class LocalPredictor(DeployedPredictor):
         log.info("Stopping container")
         self.container.stop()
 
-    @staticmethod
-    def _get_port_assignment():
-        return {9000: 9000}
+    def _get_port_assignment(self):
+        return {self.port: self.port}
 
     def _get_volumes(self, weights_volume: str):
         return (

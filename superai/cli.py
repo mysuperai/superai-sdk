@@ -1505,7 +1505,8 @@ def deploy_ai(config_file, clean=True):
 )
 @click.option("--redeploy/--no-clean", "-r/-nr", help="Redeploy the existing deployment", default=True)
 @click.option("--log/--no-log", "-l/-nl", help="Log the deployment, this blocks the executor", default=False)
-def local_deploy_ai(config_file, clean=True, redeploy=True, log=False):
+@click.option("--skip-build/--no-skip-build", "-sb/-nsb", help="Skip building the docker image", default=False)
+def local_deploy_ai(config_file, clean=True, redeploy=True, log=False, skip_build=False):
     """Local Deploy an AI model for integration testing"""
     from superai.meta_ai.ai import AI
     from superai.meta_ai.ai_instance import AIInstance
@@ -1516,7 +1517,7 @@ def local_deploy_ai(config_file, clean=True, redeploy=True, log=False):
     ai_object = AI.from_yaml(config_file)
     print(f"Loaded AI: {ai_object}")
 
-    ai_object.build()
+    ai_object.build(skip_build=skip_build)
     print(f"Built AI: {ai_object}")
 
     ai_object.save(overwrite=True)
@@ -1527,6 +1528,32 @@ def local_deploy_ai(config_file, clean=True, redeploy=True, log=False):
 
     if log:
         predictor.log()
+
+
+@ai.command("local-undeploy", help="Undeploy an AI from its config file")
+@click.option(
+    "--config-file",
+    "-c",
+    help="Config YAML file containing AI properties and deployment definition",
+    type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+    default="config.yml",
+)
+@click.option(
+    "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
+)
+def local_undeploy_ai(config_file, clean=True, redeploy=True):
+    """Local Un-Deploy an AI model for integration testing"""
+    from superai.meta_ai.ai import AI
+    from superai.meta_ai.ai_instance import AIInstance
+
+    if clean and os.path.exists(save_file):
+        shutil.rmtree(save_file)
+
+    ai_object = AI.from_yaml(config_file)
+    print(f"Loaded AI: {ai_object}")
+
+    ai_instance = AIInstance.instantiate(ai_object)
+    ai_instance.local_undeploy(ai_object)
 
 
 @ai.command("create-instance", help="Create an AI instance from an AI config file")
@@ -1609,6 +1636,7 @@ def build_ai(config_file, clean=True):
 )
 @click.option("--predict-input", "-i", help="Prediction input", type=str, required=False)
 @click.option("--predict-input-file", "-if", help="Prediction input file", type=click.Path(), required=False)
+@click.option("--predict-input-folder", "-ifo", help="Prediction input folder", type=click.Path(), required=False)
 @click.option(
     "--expected-output",
     "-o",
@@ -1629,6 +1657,7 @@ def predictor_test(
     config_file,
     predict_input=None,
     predict_input_file=None,
+    predict_input_folder=None,
     expected_output=None,
     expected_output_file=None,
     wait_seconds=1,
@@ -1636,6 +1665,9 @@ def predictor_test(
     """Deploy and test a predictor from config file"""
     from superai.meta_ai.ai import AI
     from superai.meta_ai.deployed_predictors import DeployedPredictor
+
+    log.info(f"Waiting for predictor to be ready, {wait_seconds} seconds")
+    time.sleep(wait_seconds)
 
     ai_object = AI.from_yaml(config_file)
     ai_object.save(overwrite=True)
@@ -1649,15 +1681,27 @@ def predictor_test(
     predictor: DeployedPredictor = DeployedPredictor.from_dict(predictor_dictionary, client)
     if predict_input is not None:
         predict_input = json.loads(predict_input)
+        predicted_output = predictor.predict(predict_input)
+        click.echo(predicted_output)
+        assert predicted_output is not None
     elif predict_input_file is not None:
         with open(predict_input_file, "r") as predict_file_stream:
             predict_input = json.load(predict_file_stream)
+        predicted_output = predictor.predict(predict_input)
+        click.echo(predicted_output)
+        assert predicted_output is not None
+    elif predict_input_folder is not None:
+        folder = pathlib.Path(predict_input_folder)
+        predicted_output = []
+        for file in folder.iterdir():
+            with open(folder / file, "r") as predict_file_stream:
+                predict_input = json.load(predict_file_stream)
+                output = predictor.predict(predict_input)
+                assert output is not None
+                predicted_output.append(output)
     else:
-        raise ValueError("One of --predict-input or --predict-input-file should be passed")
-    time.sleep(wait_seconds)
-    predicted_output = predictor.predict(predict_input)
-    click.echo(predicted_output)
-    assert predicted_output is not None
+        raise ValueError("One of --predict-input, --predict-input-file, --predict-input-folder should be passed")
+
     expected_message = "Expected output should be same as predicted output"
     if expected_output is not None:
         assert predicted_output == expected_output, expected_message

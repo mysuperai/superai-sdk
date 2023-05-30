@@ -1,4 +1,5 @@
 import json
+import shutil
 import typing
 from pathlib import Path
 from typing import List, Optional, Union
@@ -281,6 +282,25 @@ class AIInstance:
             log.info(f"Storing predictor config in cache path {ai.cache_path() / '.predictor_config.json'}")
             json.dump(predictor_dict, f)
         return predictor_obj
+
+    def local_undeploy(self, ai: Optional["AI"] = None):
+        """Un-Deploys the model from local backend ."""
+
+        ai = ai or AI.load(self.template_id)
+
+        if not ai.local_image:
+            raise AIException("AI has no Docker image stored. Try ai.build()")
+
+        predictor_obj: LocalPredictor = LocalPredictor(
+            orchestrator=Orchestrator.LOCAL_DOCKER_K8S,
+            deploy_properties=ai.default_deployment_parameters,
+            local_image_name=ai.local_image,
+            ai=self,
+        )
+        predictor_obj.terminate()
+        predictor_config_path = ai.cache_path() / ".predictor_config.json"
+        if predictor_config_path.exists():
+            shutil.rmtree(predictor_config_path.parent)
 
     def predict(self, input_data: dict, params: dict = None, wait_time_seconds=180) -> List[TaskPredictionInstance]:
         """Predict with remote predictor.

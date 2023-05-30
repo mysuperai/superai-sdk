@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import os
 import tempfile
 from datetime import datetime
 from pathlib import Path
@@ -309,7 +310,7 @@ class AI:
 
     def cache_path(self) -> Path:
         """Static cache path for storing the deployed predictor configuration"""
-        path = Path(settings.path_for(), "cache", self.id)
+        path = Path(settings.path_for(), "cache", os.environ.get("RUN_UUID", self.id))
         path.mkdir(parents=True, exist_ok=True)
         return path
 
