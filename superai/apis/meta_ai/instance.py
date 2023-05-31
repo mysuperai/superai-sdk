@@ -13,7 +13,6 @@ from superai.apis.meta_ai.meta_ai_graphql_schema import (
 )
 from superai.log import logger
 
-from ...meta_ai.ai_checkpoint import CheckpointTag
 from .base import AiApiBase
 from .session import (  # type: ignore
     GraphQlException,
@@ -79,6 +78,8 @@ class AiInstanceApiMixin(AiApiBase):
 
         if "checkpoint_tag" in fields:
             tag = fields["checkpoint_tag"]
+            from ...meta_ai.ai_checkpoint import CheckpointTag
+
             if isinstance(tag, CheckpointTag):
                 fields["checkpoint_tag"] = tag.value
 

@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import json
 import time
-from typing import List, Optional, Union
+from typing import TYPE_CHECKING, List, Optional, Union
 
 import click
 from rich import box
@@ -39,7 +41,6 @@ from superai.apis.meta_ai.meta_ai_graphql_schema import (
 )
 from superai.log import console, logger
 
-from ...meta_ai.schema import TaskPredictionInstance
 from .base import AiApiBase
 from .session import (  # type: ignore
     GraphQlException,
@@ -48,6 +49,10 @@ from .session import (  # type: ignore
 )
 
 log = logger.get_logger(__name__)
+
+
+if TYPE_CHECKING:
+    from superai.meta_ai.schema import TaskPredictionInstance
 
 
 class PredictionError(Exception):
@@ -446,6 +451,8 @@ class DeploymentApiMixin(AiApiBase):
 
         # Retrieve finished data
         prediction: query_root.meta_ai_prediction = self.get_prediction_with_data(prediction_id=prediction_id)
+        from superai.meta_ai.schema import TaskPredictionInstance
+
         return [
             TaskPredictionInstance(prediction=instance.output, score=instance.score)
             for instance in prediction.instances

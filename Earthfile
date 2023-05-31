@@ -36,7 +36,6 @@ PIP_INSTALL:
     ARG AWS_ACCESS_KEY_ID=""
     ARG AWS_SECRET_ACCESS_KEY=""
     ARG AWS_SESSION_TOKEN=""
-
     IF  [ "$INTERNAL" = "true" ]
         RUN --mount=type=secret,id=+secrets/aws,target=/root/.aws/credentials \
             --mount=type=cache,target=/root/.cache/pip \
@@ -80,6 +79,19 @@ runtime-pip:
     ARG AWS_SESSION_TOKEN=""
 
     DO +PIP_INSTALL --REQTARGET="." --AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID --AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY --AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN
+
+base-superai-install:
+    # Contains the base install for the superai package
+    FROM +runtime-pip
+    COPY . .
+    # Install the superai package with all files copied
+    RUN pip install -e .
+
+test-superai-cli:
+    # Test the superai CLI (run in CI/CD)
+    # Mainly fails, if there are imports for the superai package that are not in the setup.py base requirements
+    FROM +base-superai-install
+    RUN superai info
 
 build-requirements:
     FROM +runtime-pip
