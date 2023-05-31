@@ -7,7 +7,6 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, List, Optional, TypeVar
 
 import docker  # type: ignore
-import netifaces
 import requests
 from docker.errors import APIError  # type: ignore
 from docker.models.containers import Container  # type: ignore
@@ -90,6 +89,8 @@ class LocalPredictor(DeployedPredictor):
         self.remove = remove
         self.container = None
         if os.environ.get("JENKINS_URL") is not None:
+            import netifaces
+
             self.ip_address = netifaces.ifaddresses("docker0")[netifaces.AF_INET][0]["addr"]
         else:
             self.ip_address = "localhost"
