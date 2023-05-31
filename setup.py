@@ -102,7 +102,7 @@ TEST_REQUIRES = [
 
 LLM_REQUIRES = [
     "GitPython",
-    "Pillow~=9.4.0",
+    "Pillow~=9.5.0",
     "PyPDF2",
     "aioconsole",
     "aiofile",
