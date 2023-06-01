@@ -48,6 +48,7 @@ def transform_key(key):
     return key
 
 
+@lru_cache
 def load(
     obj: LazySettings,
     env: str = "dev",

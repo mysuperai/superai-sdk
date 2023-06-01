@@ -68,7 +68,7 @@ class AICheckpoint:
         backend_data = client.get_checkpoint(id, to_json=True)
         return cls.from_dict(backend_data)
 
-    def save(self, overwrite: bool = False, weights_path: Optional[Path] = None):
+    def save(self, overwrite: bool = False, weights_path: Optional[Union[Path, str]] = None):
         if self.id is None:
             self.id = self.client.add_checkpoint(self)
         else:

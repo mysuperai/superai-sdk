@@ -1581,7 +1581,31 @@ def local_undeploy_ai(config_file, clean=True, redeploy=True):
     type=click.Choice(["True", "False"]),
     default="True",
 )
-def create_ai_instance(config_file, clean=True, visibility="PRIVATE", deploy=True):
+# add name and weights path options
+@click.option("--name", "-n", help="Name of the AI instance", type=str, default=None)
+@click.option(
+    "--weights-path",
+    "-wp",
+    help="Path to the weights file to be used for the AI instance. Can be a local path or a URI",
+    type=str,
+    default=None,
+)
+@click.option(
+    "--instance-config",
+    "-ic",
+    help="Instance config file",
+    type=click.Path(exists=False, readable=False, dir_okay=False, path_type=pathlib.Path),
+    default="instance_config.yml",
+)
+def create_ai_instance(
+    config_file,
+    clean=True,
+    visibility="PRIVATE",
+    deploy=True,
+    name=None,
+    weights_path=None,
+    instance_config=None,
+):
     """Push and deploy an AI and its artifacts (docker image, default checkpoint)."""
     from superai.meta_ai.ai import AI
 
@@ -1593,12 +1617,23 @@ def create_ai_instance(config_file, clean=True, visibility="PRIVATE", deploy=Tru
     ai_object.save(overwrite=True)
     print(f"Saved AI: {ai_object}")
 
-    instance = ai_object.create_instance(visibility=visibility)
-    print(f"Created AI instance: {instance}")
+    if name or weights_path:
+        # Override config when name or weights_path is provided
+        instances = [ai_object.create_instance(visibility=visibility, name=name, weights_path=weights_path)]
+    elif instance_config.exists():
+        from superai.meta_ai.ai_instance import instantiate_instances_from_config
+
+        print(f"Loading instance config from {instance_config}")
+        instances = instantiate_instances_from_config(instance_config, ai_object, visibility=visibility)
+    else:
+        instances = ai_object.create_instances(visibility=visibility)
+
+    print(f"Created AI instances: {instances}")
 
     if deploy:
-        instance.deploy(redeploy=True)
-        print(f"Deployed AI instance: {instance}")
+        for instance in instances:
+            instance.deploy(redeploy=True)
+            print(f"Deployed AI instance: {instance}")
 
 
 @ai.command("build", help="Build an AI from its config file")

@@ -13,6 +13,7 @@ from superai import settings
 from superai.meta_ai import AIInstance, AILoader
 from superai.meta_ai.ai import AI
 from superai.meta_ai.ai_checkpoint import AICheckpoint
+from superai.meta_ai.ai_instance import AIInstanceConfig, AIInstanceConfigFile
 from superai.meta_ai.ai_loader import TEMPLATE_SAVE_FILE_NAME
 from superai.meta_ai.exceptions import AIException
 from superai.meta_ai.schema import TaskPredictionInstance
@@ -448,3 +449,17 @@ def test_train_on_app(ai_name, saved_ai, tmp_path):
 
     training_instance = ai_instance.train(local_path=tmp_path, skip_build=True)
     assert training_instance
+
+
+def test_ai_instance_config(tmp_path):
+    instance1 = AIInstanceConfig(weights_path="s3://test", name="instance1")
+    assert instance1
+
+    config_file = AIInstanceConfigFile(instances=[instance1])
+    assert config_file
+    config_file.to_yaml(tmp_path / "instance_config.yaml")
+
+    config_file2 = AIInstanceConfigFile.from_yaml(tmp_path / "instance_config.yaml")
+    assert config_file2
+    assert config_file2.instances[0].name == "instance1"
+    assert config_file2.instances[0].weights_path == "s3://test"

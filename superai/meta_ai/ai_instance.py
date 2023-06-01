@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import List, Optional, Union
 
 import attr
+import yaml
+from pydantic import BaseModel
 
 from superai.apis.meta_ai.meta_ai_graphql_schema import meta_ai_modelv2
 from superai.config import get_current_env
@@ -116,22 +118,40 @@ class AIInstance:
         return self
 
     @classmethod
-    def instantiate(cls, ai: "AI", name: str = None, **kwargs) -> "AIInstance":
-        """Instantiate an AI instance from an AI"""
+    def instantiate(cls, ai: "AI", name: str = None, weights_path: str = None, **kwargs) -> "AIInstance":
+        """Instantiate an AI instance from an AI.
+        Allows setting weights and other parameters.
+
+        Args:
+            ai: The AI to instantiate.
+            name: The name of the AI instance, if not provided, the name of the AI will be used.
+            weights_path: The path to the weights to use for the AI instance, if not provided, the default AI checkpoint will be used.
+            **kwargs: Additional parameters to pass to the AI instance.
+        """
         instance = AIInstance(template_id=ai.id, name=name or ai.name, **kwargs)
         instance.save()
-        if not instance.get_checkpoint():
+
+        existing_checkpoint = instance.get_checkpoint()
+        if weights_path:
+            if existing_checkpoint:
+                existing_checkpoint.save(weights_path=weights_path, overwrite=True)
+            else:
+                from superai.meta_ai.ai_checkpoint import AICheckpoint
+
+                AICheckpoint(template_id=ai.id, weights_path=weights_path, ai_instance_id=instance.id).save()
+        elif not existing_checkpoint:
             instance._clone_template_checkpoint(ai)
+
         return instance
 
-    def _clone_template_checkpoint(self, ai: "AI"):
+    def _clone_template_checkpoint(self, ai: "AI") -> "AICheckpoint":
         """Will create a new checkpoint with the same name and tag as the template checkpoint but scoped to the AI instance."""
         if not self.id:
             raise AIException("AI instance not saved. Please save the instance first.")
         # Get the template checkpoint
         template_checkpoint = ai.get_default_checkpoint()
         # Clone the checkpoint
-        template_checkpoint.create_clone(ai_instance_id=self.id)
+        return template_checkpoint.create_clone(ai_instance_id=self.id)
 
     def update(
         self,
@@ -373,3 +393,45 @@ class AIInstance:
     def from_dict(cls, data: dict):
         """Creates a AiInstance object from a dict."""
         return cls(**data)
+
+
+class AIInstanceConfig(BaseModel):
+    """Simple CI/CD configuration for an AI instance."""
+
+    weights_path: Optional[str] = None
+    name: Optional[str] = None
+
+
+class AIInstanceConfigFile(BaseModel):
+    """Simple CI/CD configuration file for an AI instance placed in AI repositories.
+    Contains a list of AIInstanceConfig objects used to instantiate multiple AI instances from a single AI template."""
+
+    instances: List[AIInstanceConfig] = []
+
+    def to_yaml(self, path: Union[str, Path]):
+        """Saves the AIInstanceConfigFile to a yaml file."""
+        with open(path, "w") as f:
+            yaml.dump(self.dict(), f)
+
+    @classmethod
+    def from_yaml(cls, path: Union[str, Path]):
+        """Loads the AIInstanceConfigFile from a yaml file."""
+        with open(path, "r") as f:
+            data = yaml.safe_load(f)
+        return cls(**data)
+
+
+def instantiate_instances_from_config(
+    config: Union[AIInstanceConfigFile, Path], ai: AI, **ai_instance_args
+) -> List[AIInstance]:
+    """Instantiates AI instances from a config file."""
+    instances = []
+    if isinstance(config, Path):
+        config = AIInstanceConfigFile.from_yaml(config)
+
+    for instance in config.instances:
+        ai_instance = AIInstance.instantiate(
+            ai, name=instance.name, weights_path=instance.weights_path, **ai_instance_args
+        )
+        instances.append(ai_instance)
+    return instances
