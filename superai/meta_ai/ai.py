@@ -223,10 +223,6 @@ class AI:
 
         self._client: Client = Client.from_credentials()
 
-        if re.match(r"^[0-9]+\.[0-9]+\.[0-9]+$", str(self.version)):
-            patch = self.version.split(".")[2]
-            self.version = str(self.version).removesuffix(f".{patch}")
-
     def to_dict(self, only_db_fields=False, not_null=False):
         """Converts the object to a json string."""
 
@@ -619,7 +615,19 @@ class AI:
         if pull_db_data and ai_id:
             db_dict = AILoader._get_ai_dict_by_id(ai_id)
             yaml_dict.update(db_dict)
+        yaml_dict = cls._remove_patch_from_version(yaml_dict)
         return AI.from_dict(yaml_dict)
+
+    @staticmethod
+    def _remove_patch_from_version(yaml_input: Dict) -> Dict:
+        """Remove the patch version from the version number"""
+        yaml_dict = yaml_input.copy()
+        version = yaml_dict.get("version")
+        if version is not None and re.match(r"^[0-9]+\.[0-9]+\.[0-9]+$", str(version)):
+            patch = version.split(".")[2]
+            version = str(version).removesuffix(f".{patch}")
+            yaml_dict["version"] = version
+        return yaml_dict
 
     @staticmethod
     def _check_legacy_yaml(yaml_dict) -> Optional[Dict]:

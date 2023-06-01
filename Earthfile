@@ -170,7 +170,7 @@ ai-requirements:
     RUN --mount=type=secret,id=+secrets/aws,target=/root/.aws/credentials \
             --mount=type=cache,target=/root/.cache/pip \
             aws codeartifact login --tool pip --domain superai --domain-owner 185169359328 --repository pypi-superai-internal --region us-east-1 && \
-            pip install ".[ai]"
+            pip install ".[test]"
 
     COPY . .
 

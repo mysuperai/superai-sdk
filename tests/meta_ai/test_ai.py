@@ -173,3 +173,13 @@ def test_predict_dataset(local_ai, tmp_path: Path, monkeypatch):
         metrics = json.load(f)
     assert metrics["score"]
     assert metrics["score"] == 1.0
+
+
+def test_remove_patch_from_yaml():
+    sample_dict = {"name": "some_name"}
+    assert AI._remove_patch_from_version(sample_dict) == sample_dict, "No version in dict"
+    dict_with_version = {"name": "some_name", "version": "1.0"}
+    assert AI._remove_patch_from_version(dict_with_version) == dict_with_version, "No patch to remove"
+    dict_with_patch = {"name": "some_name", "version": "1.0.0"}
+    assert AI._remove_patch_from_version(dict_with_patch) != dict_with_patch, "Dictionary will be changed"
+    assert AI._remove_patch_from_version(dict_with_patch) == {"name": "some_name", "version": "1.0"}
