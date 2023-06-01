@@ -1626,7 +1626,7 @@ def create_ai_instance(
         print(f"Loading instance config from {instance_config}")
         instances = instantiate_instances_from_config(instance_config, ai_object, visibility=visibility)
     else:
-        instances = ai_object.create_instances(visibility=visibility)
+        instances = [ai_object.create_instance(visibility=visibility)]
 
     print(f"Created AI instances: {instances}")
 
