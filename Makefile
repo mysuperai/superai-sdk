@@ -56,6 +56,12 @@ lint: ## check style with flake8
 test: ## run tests quickly with the default Python
 	pytest --vcr-record=none --junitxml=.test/junit.xml --cov=superai --cov-report=xml:.test/coverage.xml
 
+clean-ai-cassette:
+	rm tests/meta_ai/fixtures/cassettes/*.yaml
+
+record-ai-cassette: clean-ai-cassette
+	pytest --vcr-record=once tests/meta_ai -L
+
 test-all: ## run tests on every Python version with tox
 	tox
 

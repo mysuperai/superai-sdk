@@ -171,7 +171,7 @@ class AICheckpoint:
 
         client = Client.from_credentials()
         ck = client.get_default_checkpoint_for_template(template_id)
-        return cls.load(ck.id)
+        return cls.load(ck.id) if ck else None
 
     @classmethod
     def list_checkpoints(cls, ai_instance_id: str) -> List["AICheckpoint"]:

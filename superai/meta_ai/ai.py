@@ -430,7 +430,7 @@ class AI:
             self._upload_model_source()
 
         # Only create checkpoint if necessary
-        if create_checkpoint or not self.default_checkpoint:
+        if create_checkpoint or not self.get_default_checkpoint():
             self.create_checkpoint(weights_path)
 
         self._client.update_ai_by_object(self)
@@ -693,15 +693,16 @@ class AI:
         with open(yaml_file, "w") as f:
             yaml.safe_dump(self.to_dict(not_null=not_null), f)
 
-    def get_default_checkpoint(self):
+    def get_default_checkpoint(self) -> Optional["AICheckpoint"]:
         """Get the default checkpoint for this AI"""
         from superai.meta_ai import AICheckpoint
 
         if self.default_checkpoint:
             return AICheckpoint.load(self.default_checkpoint)
         loaded = AICheckpoint.get_default_template_checkpoint(self.id)
-        self.default_checkpoint = loaded.id
-        return loaded
+        if loaded:
+            self.default_checkpoint = loaded.id
+            return loaded
 
     def create_instance(self, name: str = None, **kwargs) -> AIInstance:
         """Create an instance of this AI.

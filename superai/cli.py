@@ -1506,7 +1506,13 @@ def deploy_ai(config_file, clean=True):
 @click.option("--redeploy/--no-clean", "-r/-nr", help="Redeploy the existing deployment", default=True)
 @click.option("--log/--no-log", "-l/-nl", help="Log the deployment, this blocks the executor", default=False)
 @click.option("--skip-build/--no-skip-build", "-sb/-nsb", help="Skip building the docker image", default=False)
-def local_deploy_ai(config_file, clean=True, redeploy=True, log=False, skip_build=False):
+@click.option(
+    "--update-weights/--no-update-weights",
+    "-uw/-nuw",
+    help="Force updating the weights. Only respected if weights were uploaded before.",
+    default=False,
+)
+def local_deploy_ai(config_file, clean=True, redeploy=True, log=False, skip_build=False, update_weights=False):
     """Local Deploy an AI model for integration testing"""
     from superai.meta_ai.ai import AI
     from superai.meta_ai.ai_instance import AIInstance
@@ -1520,7 +1526,7 @@ def local_deploy_ai(config_file, clean=True, redeploy=True, log=False, skip_buil
     ai_object.build(skip_build=skip_build)
     print(f"Built AI: {ai_object}")
 
-    ai_object.save(overwrite=True)
+    ai_object.save(overwrite=True, create_checkpoint=update_weights)
     print(f"Saved AI: {ai_object}")
 
     ai_instance = AIInstance.instantiate(ai_object)

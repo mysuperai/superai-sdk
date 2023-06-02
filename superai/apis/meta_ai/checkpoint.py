@@ -116,12 +116,15 @@ class AiCheckpointApiMixin(AiApiBase):
 
     def get_default_checkpoint_for_template(
         self, template_id: str, to_json: bool = False
-    ) -> Union[meta_ai_checkpoint, Dict]:
+    ) -> Optional[Union[meta_ai_checkpoint, Dict]]:
         op = Operation(query_root)
         op.meta_ai_template_by_pk(id=template_id).default_checkpoint()
         data = self.sess.perform_op(op)
-        checkpoint_id = (op + data).meta_ai_template_by_pk.default_checkpoint
-        return self.get_checkpoint(checkpoint_id, to_json)
+        mapped = (op + data).meta_ai_template_by_pk
+        if mapped and mapped.default_checkpoint:
+            return self.get_checkpoint(mapped.default_checkpoint, to_json)
+        else:
+            return None
 
     def list_checkpoints_for_template(
         self, template_id: str, with_tag=False, to_json: bool = False, verbose: bool = False
