@@ -1474,7 +1474,13 @@ def view_training_template(client, app_id: Union[str, click.UUID], template_id: 
 @click.option(
     "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
 )
-def deploy_ai(config_file, clean=True):
+@click.option(
+    "--update-weights/--no-update-weights",
+    "-uw/-nuw",
+    help="Force updating the weights. Only respected if weights were uploaded before.",
+    default=False,
+)
+def deploy_ai(config_file, clean=True, update_weights=False):
     """Push and deploy an AI and its artifacts (docker image, default checkpoint)."""
     from superai.meta_ai.ai import AI
 
@@ -1484,7 +1490,7 @@ def deploy_ai(config_file, clean=True):
     ai_object = AI.from_yaml(config_file)
     print(f"Loaded AI: {ai_object}")
 
-    ai_object.save(weights_path=ai_object.weights_path, overwrite=True)
+    ai_object.save(weights_path=ai_object.weights_path, overwrite=True, create_checkpoint=update_weights)
     print(f"Pushed AI: {ai_object}")
     ai_object.build()
     print(f"Built AI: {ai_object}")
