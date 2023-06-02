@@ -305,7 +305,7 @@ class AI:
 
     def cache_path(self) -> Path:
         """Static cache path for storing the deployed predictor configuration"""
-        path = Path(settings.path_for(), "cache", os.environ.get("RUN_UUID", self.id))
+        path = Path(settings.path_for()) / "cache" / os.environ.get("RUN_UUID", f"{self.name}_{self.version}")
         path.mkdir(parents=True, exist_ok=True)
         return path
 

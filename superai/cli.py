@@ -1514,8 +1514,9 @@ def deploy_ai(config_file, clean=True):
 )
 def local_deploy_ai(config_file, clean=True, redeploy=True, log=False, skip_build=False, update_weights=False):
     """Local Deploy an AI model for integration testing"""
+    from superai.meta_ai import Orchestrator
     from superai.meta_ai.ai import AI
-    from superai.meta_ai.ai_instance import AIInstance
+    from superai.meta_ai.deployed_predictors import LocalPredictor
 
     if clean and os.path.exists(save_file):
         shutil.rmtree(save_file)
@@ -1529,11 +1530,19 @@ def local_deploy_ai(config_file, clean=True, redeploy=True, log=False, skip_buil
     ai_object.save(overwrite=True, create_checkpoint=update_weights)
     print(f"Saved AI: {ai_object}")
 
-    ai_instance = AIInstance.instantiate(ai_object)
-    predictor = ai_instance.local_deploy(ai_object, redeploy=redeploy)
+    predictor_obj: LocalPredictor = LocalPredictor(
+        orchestrator=Orchestrator.LOCAL_DOCKER_K8S,
+        deploy_properties=ai_object.default_deployment_parameters,
+        local_image_name=ai_object.local_image,
+    )
+    predictor_obj.deploy(redeploy=redeploy)
+    predictor_dict = {predictor_obj.__class__.__name__: predictor_obj.to_dict()}
+    with open(ai_object.cache_path() / ".predictor_config.json", "w") as f:
+        click.echo(f"Storing predictor config in cache path {ai_object.cache_path() / '.predictor_config.json'}")
+        json.dump(predictor_dict, f)
 
     if log:
-        predictor.log()
+        predictor_obj.log()
 
 
 @ai.command("local-undeploy", help="Undeploy an AI from its config file")
@@ -1547,10 +1556,10 @@ def local_deploy_ai(config_file, clean=True, redeploy=True, log=False, skip_buil
 @click.option(
     "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
 )
-def local_undeploy_ai(config_file, clean=True, redeploy=True):
+def local_undeploy_ai(config_file, clean=True):
     """Local Un-Deploy an AI model for integration testing"""
     from superai.meta_ai.ai import AI
-    from superai.meta_ai.ai_instance import AIInstance
+    from superai.meta_ai.deployed_predictors import DeployedPredictor
 
     if clean and os.path.exists(save_file):
         shutil.rmtree(save_file)
@@ -1558,8 +1567,17 @@ def local_undeploy_ai(config_file, clean=True, redeploy=True):
     ai_object = AI.from_yaml(config_file)
     print(f"Loaded AI: {ai_object}")
 
-    ai_instance = AIInstance.instantiate(ai_object)
-    ai_instance.local_undeploy(ai_object)
+    config_path = ai_object.cache_path() / ".predictor_config.json"
+    if not config_path.exists():
+        raise click.ClickException(f"Predictor config does not exist at {config_path}")
+    with open(config_path, "r") as predictor_config:
+        predictor_dictionary = json.load(predictor_config)
+        log.info(f"Loading predictor config: {predictor_dictionary}")
+
+    predictor_obj: DeployedPredictor = DeployedPredictor.from_dict(predictor_dictionary, client)
+    predictor_obj.terminate()
+    if config_path.exists():
+        shutil.rmtree(config_path)
 
 
 @ai.command("create-instance", help="Create an AI instance from an AI config file")
@@ -1735,7 +1753,9 @@ def predictor_test(
         folder = pathlib.Path(predict_input_folder)
         predicted_output = []
         for file in folder.iterdir():
-            with open(folder / file, "r") as predict_file_stream:
+            if not file.suffix == ".json":
+                continue
+            with open(file, "r") as predict_file_stream:
                 predict_input = json.load(predict_file_stream)
                 output = predictor.predict(predict_input)
                 assert output is not None

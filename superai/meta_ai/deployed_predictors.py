@@ -35,7 +35,7 @@ class DeployedPredictor(metaclass=ABCMeta):
     def __init__(
         self,
         orchestrator: Orchestrator,
-        ai: AIInstance,
+        ai: Optional[AIInstance] = None,
         deploy_properties: AiDeploymentParameters = None,
         local_image_name: Optional[str] = None,
         weights_path: Optional[str] = None,
@@ -140,6 +140,8 @@ class LocalPredictor(DeployedPredictor):
     def predict(self, input, mime="application/json"):
         if self.container is None:
             self.container: Container = self.client.containers.get(self.container_name)
+        container_state = self.container.attrs["State"]
+        assert container_state["Status"] == "running", "Container is not running"
 
         url = f"http://{self.ip_address}:{self.port}/api/v1.0/predictions"
 
@@ -234,6 +236,8 @@ class RemotePredictor(DeployedPredictor):
         from superai.client import Client
 
         self.client = Client.from_credentials()
+        if self.ai_instance is None:
+            raise ValueError("AI instance cannot be None for RemotePredictor.")
 
     def load(self) -> bool:
         """Load existing predictor from database.
