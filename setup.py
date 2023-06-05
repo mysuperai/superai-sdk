@@ -62,7 +62,7 @@ AI_REQUIRES = [
     "protobuf>=3.20.1, <4",
     # 4.21.0 broke the sagemaker imports, see https://github.com/protocolbuffers/protobuf/issues/10051
     "netifaces>=0.11.0",
-    "superai-builder>=0.6.2",
+    "superai-builder>=0.6.10",
 ]
 
 AI_EXPERIMENTAL_REQUIRES = [
