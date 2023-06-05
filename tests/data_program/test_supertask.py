@@ -1,13 +1,19 @@
 from concurrent.futures import Future
+from unittest.mock import Mock
 
 import pytest
 from pydantic import ValidationError
 from superai_schema.types import BaseModel
 
 from superai.data_program import CollaboratorWorker, CrowdWorker
+from superai.data_program.Exceptions import TaskExpiredMaxRetries
 
 # import superai
-from superai.data_program.task.super_task import SuperTaskWorkflow, TaskRouter
+from superai.data_program.task.super_task import (
+    SuperTaskWorkflow,
+    TaskHandler,
+    TaskRouter,
+)
 from superai.data_program.task.types import (
     SuperTaskConfig,
     SuperTaskModel,
@@ -17,12 +23,28 @@ from superai.data_program.task.workers import (
     BotWorker,
     HumanWorkerConstraint,
     MetricOperator,
+    OnTimeout,
+    OnTimeoutAction,
     TrainingConstraint,
     TrainingConstraintSet,
     Worker,
     WorkerConstraint,
     WorkerType,
 )
+
+
+class TestInput(BaseModel):
+    url: str
+
+
+class TestOutput(BaseModel):
+    annotation: str
+
+
+sample_input = TestInput(url="https://a.com")
+sample_output = TestOutput(annotation="")
+completed_future = {"status": "COMPLETED", "timestamp": 1234, "values": {"annotation": "test"}}
+expired_future = {"status": "EXPIRED", "timestamp": 1234, "values": {"annotation": "test"}}
 
 
 def test_worker_schema():
@@ -35,7 +57,7 @@ def test_worker_schema():
 def test__map_worker_constraints():
     worker = CollaboratorWorker(worker_constraints=HumanWorkerConstraint(email=["test@test.com"], worker_id=[1]))
     print(worker.dict())
-    constraints = TaskRouter._map_worker_constraints(worker)
+    constraints = TaskHandler._map_worker_constraints(worker)
     print(constraints)
     assert "emails" in constraints
     assert "included_ids" in constraints
@@ -86,7 +108,7 @@ def test_worker_training_constraint():
             )
         ),
     )
-    constraints = TaskRouter._map_worker_constraints(worker)
+    constraints = TaskHandler._map_worker_constraints(worker)
     assert "qualifications" in constraints
     assert "test" == constraints["qualifications"][0]["name"]
     assert 0.5 == constraints["qualifications"][0]["value"]
@@ -121,20 +143,12 @@ def test_task_router(monkeypatch):
 
     params = SuperTaskConfig(workers=[CollaboratorWorker(), BotWorker()], strategy=TaskStrategy.FIRST_COMPLETED)
 
-    class TestInput(BaseModel):
-        url: str
-
-    class TestOutput(BaseModel):
-        annotation: str
-
-    router = TaskRouter(
-        task_config=params, task_input=TestInput(url="http://a.com"), task_output=TestOutput(annotation="")
-    )
+    router = TaskRouter(task_config=params)
     assert router
-    futures = router.map()
+    futures = router.map(task_input=sample_input, task_output=sample_output)
     assert futures
 
-    result = mock_task_result({"status": "COMPLETED", "timestamp": 1234, "values": {"annotation": "test"}})
+    result = mock_task_result(completed_future)
     test_future.set_result(result)
 
     selected = router.reduce(futures)
@@ -142,12 +156,6 @@ def test_task_router(monkeypatch):
 
 
 def test_super_task_workflow(monkeypatch, mocker):
-    class TestInput(BaseModel):
-        url: str
-
-    class TestOutput(BaseModel):
-        annotation: str
-
     # Disable transport calls
     mocker.patch("superai.data_program.protocol.task.start_threading")
     mocker.patch("superai.data_program.protocol.task.serve_workflow")
@@ -169,7 +177,79 @@ def test_super_task_workflow(monkeypatch, mocker):
         lambda *args, **kwargs: dict(formData=dict(annotation="test")),
     )
 
-    inputs = dict(input=TestInput(url="http://a.com"), output=TestOutput(annotation=""))
+    inputs = dict(input=sample_input, output=sample_output)
     output = workflow.execute_workflow(job_input=inputs, configs=params.dict())
     assert output
     assert output["annotation"] == "test"
+
+
+def test_supertask_timeout_task_fail(monkeypatch):
+    test_future = Future()
+    monkeypatch.setattr("superai.data_program.task.basic.Task._create_task_future", lambda *args, **kwargs: test_future)
+
+    params = SuperTaskConfig(
+        workers=[
+            CollaboratorWorker(on_timeout=OnTimeout(action=OnTimeoutAction.fail)),
+            BotWorker(on_timeout=OnTimeout(action=OnTimeoutAction.fail)),
+        ],
+        strategy=TaskStrategy.FIRST_COMPLETED,
+    )
+
+    router = TaskRouter(task_config=params)
+    futures = router.map(task_input=sample_input, task_output=sample_output)
+    result = mock_task_result(expired_future)
+    test_future.set_result(result)
+
+    with pytest.raises(TaskExpiredMaxRetries):
+        router.reduce(futures)
+
+
+def test_supertask_timeout_task_expire(monkeypatch):
+    test_future = Future()
+    monkeypatch.setattr("superai.data_program.task.basic.Task._create_task_future", lambda *args, **kwargs: test_future)
+
+    params = SuperTaskConfig(
+        workers=[
+            CollaboratorWorker(on_timeout=OnTimeout(action=OnTimeoutAction.retry, max_retries=1)),
+            BotWorker(on_timeout=OnTimeout(action=OnTimeoutAction.retry, max_retries=1)),
+        ],
+        strategy=TaskStrategy.FIRST_COMPLETED,
+    )
+
+    router = TaskRouter(task_config=params)
+    futures = router.map(task_input=sample_input, task_output=sample_output)
+    result = mock_task_result(expired_future)
+    test_future.set_result(result)
+
+    # Should raise at the second retry since the result is always mocked as EXPIRED
+    with pytest.raises(TaskExpiredMaxRetries):
+        router.reduce(futures)
+
+
+def test_supertask_timeout_task_successful(monkeypatch):
+    timeout_test_future = Future()
+    successful_future = Future()
+    return_data = [timeout_test_future, timeout_test_future, successful_future]
+    test_mock = Mock(side_effect=return_data)
+    monkeypatch.setattr(
+        "superai.data_program.task.basic.Task._create_task_future",
+        test_mock,
+    )
+
+    params = SuperTaskConfig(
+        workers=[
+            CollaboratorWorker(on_timeout=OnTimeout(action=OnTimeoutAction.retry, max_retries=2)),
+        ],
+        strategy=TaskStrategy.FIRST_COMPLETED,
+    )
+
+    router = TaskRouter(task_config=params)
+    futures = router.map(task_input=sample_input, task_output=sample_output)
+    timeout_result = mock_task_result(expired_future)
+    working_result = mock_task_result(completed_future)
+    timeout_test_future.set_result(timeout_result)
+    successful_future.set_result(working_result)
+
+    # Should not raise since the third call has a completed future
+    router.reduce(futures)
+    assert test_mock.call_count == len(return_data)
