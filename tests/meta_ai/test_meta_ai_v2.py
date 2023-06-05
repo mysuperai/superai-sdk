@@ -13,6 +13,7 @@ from superai import settings
 from superai.meta_ai import AIInstance, AILoader
 from superai.meta_ai.ai import AI
 from superai.meta_ai.ai_checkpoint import AICheckpoint
+from superai.meta_ai.ai_helper import get_public_superai_instance
 from superai.meta_ai.ai_instance import AIInstanceConfig, AIInstanceConfigFile
 from superai.meta_ai.ai_loader import TEMPLATE_SAVE_FILE_NAME
 from superai.meta_ai.exceptions import AIException
@@ -463,3 +464,20 @@ def test_ai_instance_config(tmp_path):
     assert config_file2
     assert config_file2.instances[0].name == "instance1"
     assert config_file2.instances[0].weights_path == "s3://test"
+
+
+def test_get_public_superai_instance(saved_ai):
+    ai_instance = saved_ai.create_instance(visibility="PUBLIC")
+    assert ai_instance.id
+
+    assert get_public_superai_instance(name=ai_instance.name, version=saved_ai.version)
+    assert not get_public_superai_instance(name=ai_instance.name, version="0.0.0")
+
+    # Private instance should not be returned, and not the one with different name
+    ai_instance2 = saved_ai.create_instance(name="different_name", visibility="PRIVATE")
+    assert ai_instance2.id
+    assert not get_public_superai_instance(name=ai_instance2.name, version=saved_ai.version)
+
+    # Make ai instance public and test again
+    ai_instance2.update(visibility="PUBLIC")
+    assert get_public_superai_instance(name=ai_instance2.name, version=saved_ai.version)

@@ -66,6 +66,30 @@ class AiInstanceApiMixin(AiApiBase):
         instance = self._output_formatter((op + data).meta_ai_modelv2_by_pk, to_json)
         return instance if instance else None
 
+    def get_ai_instance_by_template_version(
+        self,
+        name: str,
+        version: str,
+        owner_id: Optional[int] = None,
+        visibility: str = "PRIVATE",
+        to_json: bool = False,
+    ) -> Optional[Union[meta_ai_modelv2, Dict]]:
+        op = Operation(query_root)
+        fields = AiInstanceApiMixin._fields(True)
+
+        where = {
+            "template": {"version": {"_eq": version}},
+            "name": {"_eq": name},
+            "visibility": {"_eq": visibility},
+        }
+        if owner_id:
+            where["ownerId"] = {"_eq": owner_id}
+
+        op.meta_ai_modelv2(where=where).__fields__(*fields)
+        data = self.sess.perform_op(op)
+        instance = self._output_formatter((op + data).meta_ai_modelv2, to_json)
+        return instance[0] if instance else None
+
     def create_ai_instance(self, instance: AIInstance) -> str:
         op = Operation(mutation_root)
         op.insert_meta_ai_modelv2_one(object=instance.to_dict(exclude_none=True, only_db_fields=True)).__fields__("id")

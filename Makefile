@@ -60,7 +60,7 @@ clean-ai-cassette:
 	rm tests/meta_ai/fixtures/cassettes/*.yaml
 
 record-ai-cassette: clean-ai-cassette
-	pytest --vcr-record=once tests/meta_ai -L
+	LOCAL_META_AI=1 pytest --vcr-record=once tests/meta_ai -L
 
 test-all: ## run tests on every Python version with tox
 	tox

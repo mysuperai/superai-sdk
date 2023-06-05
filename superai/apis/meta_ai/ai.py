@@ -71,12 +71,18 @@ class AiApiMixin(AiApiBase):
         return self._output_formatter((op + data).meta_ai_template, to_json)
 
     def list_ai_by_name_version(
-        self, name: str, version: str, to_json: bool = False, verbose: bool = False
+        self, name: str, version: str, owner_id: int = None, to_json: bool = False, verbose: bool = False
     ) -> List[Union[meta_ai_template, Dict]]:
+        """
+        List all ai templates by name and version and optionally owner_id
+        """
         op = Operation(query_root)
-        op.meta_ai_template(where={"name": {"_eq": name}, "version": {"_eq": version}}).__fields__(
-            *AiApiMixin._fields(verbose)
-        )
+        where = {"name": {"_eq": name}, "version": {"_eq": version}}
+
+        if owner_id:
+            where["owner_id"] = {"_eq": owner_id}
+
+        op.meta_ai_template(where=where).__fields__(*AiApiMixin._fields(verbose))
         data = self.sess.perform_op(op)
         return self._output_formatter((op + data).meta_ai_template, to_json)
 

@@ -30,6 +30,7 @@ from superai.meta_ai.exceptions import (
 )
 
 PREDICTION_METRICS_JSON = "metrics.json"
+ECR_MODEL_ROOT_PREFIX = "models"
 
 log = logger.get_logger(__name__)
 
@@ -480,4 +481,24 @@ def get_boto_session(region_name=settings.region) -> Session:
             raise client_error
 
 
-ECR_MODEL_ROOT_PREFIX = "models"
+def get_public_superai_instance(name: str, version: str, client=None) -> Optional["AIInstance"]:
+    """
+    Get a public Super.AI instance.
+
+    Is used in Dataprograms to get the public instance of the AI for task predictions.
+
+    Args:
+        name: name of the AI instance
+        version: version of the AI
+        client: Super.AI client
+
+    Returns:
+
+
+    """
+
+    from superai import Client
+
+    SUPERAI_OWNER_ID = 1
+    client = client or Client.from_credentials()
+    return client.get_ai_instance_by_template_version(name, version, SUPERAI_OWNER_ID, visibility="PUBLIC")
