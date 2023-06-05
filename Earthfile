@@ -159,7 +159,7 @@ ai-requirements:
     WORKDIR ${USER_HOME}
 
     RUN --mount=type=cache,target=/root/.cache/pip \
-        pip install pre-commit==2.17.0 semgrep==$SEMGREP_VERSION python-semantic-release==7.16.2
+        pip install pre-commit==2.17.0 semgrep==$SEMGREP_VERSION python-semantic-release==7.34.3
 
     COPY setup.py .
 

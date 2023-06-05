@@ -30,8 +30,7 @@ def _retrieve_secret(env, secret_name_prefix="dataprograms-env-"):
     secret_name = secret_list[0]["Name"]
     logger.debug(f"Loading DP env secrets {secret_name}")
     secret_response = secrets_client.get_secret_value(SecretId=secret_name)
-    secret = json.loads(secret_response["SecretString"])
-    return secret
+    return json.loads(secret_response["SecretString"])
 
 
 def transform_key(key):
