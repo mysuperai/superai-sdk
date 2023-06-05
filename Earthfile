@@ -85,7 +85,7 @@ base-superai-install:
     FROM +runtime-pip
     COPY . .
     # Install the superai package with all files copied
-    RUN pip install -e .
+    DO +PIP_INSTALL --REQTARGET="." --AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID --AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY --AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN
 
 test-superai-cli:
     # Test the superai CLI (run in CI/CD)

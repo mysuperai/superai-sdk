@@ -78,7 +78,20 @@ class DeployedPredictor(metaclass=ABCMeta):
 
 
 class LocalPredictor(DeployedPredictor):
-    def __init__(self, *args, port=9000, remove=True, **kwargs):
+    def __init__(self, *args, port=9000, remove=True, rest_workers=1, grpc_workers=0, **kwargs):
+        """_summary_
+
+        Parameters
+        ----------
+        port : int, optional
+            Local exposed host port, by default 9000
+        remove : bool, optional
+            Remove container after stopping, by default True
+        rest_workers : int, optional
+            How many REST workers are spawned for the predictor, by default 1
+        grpc_workers : int, optional
+            How many GRPC workers are spawned for the predictor., by default 0 disables GRPC
+        """
         super(LocalPredictor, self).__init__(*args, **kwargs)
 
         self.client = get_docker_client()
@@ -96,6 +109,8 @@ class LocalPredictor(DeployedPredictor):
             self.ip_address = "localhost"
         self.port = port
         self.timeout = 120
+        self.grpc_workers = grpc_workers
+        self.rest_workers = rest_workers
 
     def deploy(self, redeploy=False) -> None:
         try:
@@ -116,6 +131,10 @@ class LocalPredictor(DeployedPredictor):
 
             log.info(f"Starting new container with name {self.container_name}.")
             envs = dict(MNT_PATH=self.weights_volume)
+
+            envs["GRPC_WORKERS"] = self.grpc_workers
+            envs["GUNICORN_WORKERS"] = self.rest_workers
+
             if self.deploy_properties.envs:
                 envs.update(self.deploy_properties.envs)
             self.container: Container = self.client.containers.run(

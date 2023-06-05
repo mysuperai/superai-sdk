@@ -1540,6 +1540,7 @@ def local_deploy_ai(config_file, clean=True, redeploy=True, log=False, skip_buil
         orchestrator=Orchestrator.LOCAL_DOCKER_K8S,
         deploy_properties=ai_object.default_deployment_parameters,
         local_image_name=ai_object.local_image,
+        weights_path=ai_object.weights_path,
     )
     predictor_obj.deploy(redeploy=redeploy)
     predictor_dict = {predictor_obj.__class__.__name__: predictor_obj.to_dict()}
