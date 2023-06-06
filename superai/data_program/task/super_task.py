@@ -276,7 +276,7 @@ class TaskRouter:
 
     def _handle_retrial(self, task_futures: Dict[int, TaskHandler]) -> List[task_future]:
         while True:
-            futures = wait_tasks_OR(handler.task_future for handler in task_futures.values())
+            futures = wait_tasks_OR([handler.task_future for handler in task_futures.values()])
 
             for current_handler in task_futures.values():
                 # since we waited with OR the first done is all we need.
@@ -291,7 +291,7 @@ class TaskRouter:
             if self.task_config.params.strategy == TaskStrategy.FIRST_COMPLETED:
                 return futures
 
-            futures = wait_tasks_AND(handler.task_future for handler in task_futures.values())
+            futures = wait_tasks_AND([handler.task_future for handler in task_futures.values()])
 
             result_ready = True
             for current_handler in task_futures.values():
