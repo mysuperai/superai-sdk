@@ -116,7 +116,9 @@ class AIInstance:
         return self
 
     @classmethod
-    def instantiate(cls, ai: "AI", name: str = None, weights_path: str = None, **kwargs) -> "AIInstance":
+    def instantiate(
+        cls, ai: "AI", name: str = None, weights_path: str = None, force_clone_checkpoint: bool = False, **kwargs
+    ) -> "AIInstance":
         """Instantiate an AI instance from an AI.
         Allows setting weights and other parameters.
 
@@ -124,6 +126,7 @@ class AIInstance:
             ai: The AI to instantiate.
             name: The name of the AI instance, if not provided, the name of the AI will be used.
             weights_path: The path to the weights to use for the AI instance, if not provided, the default AI checkpoint will be used.
+            force_clone_checkpoint: If True, will clone the template checkpoint even if a checkpoint already exists.
             **kwargs: Additional parameters to pass to the AI instance.
         """
         instance = AIInstance(template_id=ai.id, name=name or ai.name, **kwargs)
@@ -137,7 +140,7 @@ class AIInstance:
                 from superai.meta_ai.ai_checkpoint import AICheckpoint
 
                 AICheckpoint(template_id=ai.id, weights_path=weights_path, ai_instance_id=instance.id).save()
-        elif not existing_checkpoint:
+        elif not existing_checkpoint or force_clone_checkpoint:
             instance._clone_template_checkpoint(ai)
 
         return instance

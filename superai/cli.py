@@ -1628,6 +1628,13 @@ def local_undeploy_ai(config_file, clean=True):
     type=click.Path(exists=False, readable=False, dir_okay=False, path_type=pathlib.Path),
     default="instance_config.yml",
 )
+@click.option(
+    "--force-clone-checkpoint",
+    "-fcc",
+    help="Force cloning the checkpoint from the AI to the AI instance",
+    type=click.Choice(["True", "False"]),
+    default="False",
+)
 def create_ai_instance(
     config_file,
     clean=True,
@@ -1636,6 +1643,7 @@ def create_ai_instance(
     name=None,
     weights_path=None,
     instance_config=None,
+    force_clone_checkpoint=False,
 ):
     """Push and deploy an AI and its artifacts (docker image, default checkpoint)."""
     from superai.meta_ai.ai import AI
@@ -1650,14 +1658,23 @@ def create_ai_instance(
 
     if name or weights_path:
         # Override config when name or weights_path is provided
-        instances = [ai_object.create_instance(visibility=visibility, name=name, weights_path=weights_path)]
+        instances = [
+            ai_object.create_instance(
+                visibility=visibility,
+                name=name,
+                weights_path=weights_path,
+                force_clone_checkpoint=force_clone_checkpoint,
+            )
+        ]
     elif instance_config.exists():
         from superai.meta_ai.ai_instance import instantiate_instances_from_config
 
         print(f"Loading instance config from {instance_config}")
-        instances = instantiate_instances_from_config(instance_config, ai_object, visibility=visibility)
+        instances = instantiate_instances_from_config(
+            instance_config, ai_object, visibility=visibility, force_clone_checkpoint=force_clone_checkpoint
+        )
     else:
-        instances = [ai_object.create_instance(visibility=visibility)]
+        instances = [ai_object.create_instance(visibility=visibility, force_clone_checkpoint=force_clone_checkpoint)]
 
     print(f"Created AI instances: {instances}")
 
