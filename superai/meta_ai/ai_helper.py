@@ -285,6 +285,8 @@ def _not_none_validator(instance, attribute, value):
 
 
 def confirm_action():
+    if os.getenv("JENKINS_URL") or os.getenv("FORCE_CONFIRM") == "true":
+        return
     confirmed = Confirm.ask(
         "Do you [bold]really[/bold] want to overwrite a [red]production[/red] AI? "
         "This can negatively impact Data Programs relying on the existing AI."
