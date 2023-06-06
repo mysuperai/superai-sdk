@@ -110,6 +110,7 @@ def vcr(vcr):
         "AUTH-TOKEN",
         "ID-TOKEN",
         "Authorization",
+        "Accept-Encoding",
     ]
     vcr.decode_compressed_response = True
     return vcr
