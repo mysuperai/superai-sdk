@@ -87,7 +87,7 @@ class AICheckpoint:
             self._local_path = Path(weights_path)
             self.weights_path = s3_path
         elif weights_path.startswith("s3"):
-            logger.info("Weights path is already an s3 path, skipping upload.")
+            logger.info(f"Weights path {weights_path} is already an s3 path, skipping upload.")
         else:
             raise ValueError(f"Invalid weights path: {weights_path}. Must be either a local path or an s3 path.")
 
@@ -197,8 +197,9 @@ class AICheckpoint:
             self._transfer_tag(self, descendant)
         return descendant
 
+    @classmethod
     def _transfer_tag(
-        self, source: "AICheckpoint", target: "AICheckpoint", new_tag: Optional[Union[CheckpointTag, str]] = None
+        cls, source: "AICheckpoint", target: "AICheckpoint", new_tag: Optional[Union[CheckpointTag, str]] = None
     ):
         """Method to transfer tag from source to target Checkpoint.
         The database schema only allows one checkpoint to have a tag at a time.
@@ -210,18 +211,21 @@ class AICheckpoint:
             new_tag (Optional[Union[CheckpointTag, str]], optional): New tag to assign to the target checkpoint.
                 Defaults to source tag.
         """
+        from superai import Client
+
+        client = Client.from_credentials()
         new_tag = new_tag or source.tag
         new_tag = CheckpointTag(new_tag)
 
-        self.client.update_checkpoint(source.id, tag=None)
-        self.client.update_checkpoint(target.id, tag=new_tag.value)
+        client.update_checkpoint(source.id, tag=None)
+        client.update_checkpoint(target.id, tag=new_tag.value)
         source.tag = None
         target.tag = new_tag
 
-    def create_clone(self, ai_instance_id: str) -> "AICheckpoint":
+    def create_clone(self, ai_instance_id: str, tag=None) -> "AICheckpoint":
         """Create a new checkpoint that is a clone of this one."""
         clone = AICheckpoint(
-            template_id=self.template_id, weights_path=self.weights_path, ai_instance_id=ai_instance_id
+            template_id=self.template_id, weights_path=self.weights_path, ai_instance_id=ai_instance_id, tag=tag
         )
         clone.save()
         return clone

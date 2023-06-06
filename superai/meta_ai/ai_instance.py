@@ -151,8 +151,20 @@ class AIInstance:
             raise AIException("AI instance not saved. Please save the instance first.")
         # Get the template checkpoint
         template_checkpoint = ai.get_default_checkpoint()
+
+        # Replace already existing latest checkpoint
+        latest = self.get_checkpoint("LATEST")
+
         # Clone the checkpoint
-        return template_checkpoint.create_clone(ai_instance_id=self.id)
+        clone = template_checkpoint.create_clone(ai_instance_id=self.id, tag=None if latest else "LATEST")
+
+        if latest:
+            log.info("Replacing existing latest checkpoint of the AI instance")
+            from .ai_checkpoint import AICheckpoint
+
+            AICheckpoint._transfer_tag(latest, clone, "LATEST")
+
+        return clone
 
     def update(
         self,

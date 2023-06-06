@@ -142,7 +142,9 @@ class AiCheckpointApiMixin(AiApiBase):
         op = Operation(mutation_root)
 
         # Translate enum to string if needed
-        tag = checkpoint.tag.value if checkpoint.tag else None
+        from superai.meta_ai.ai_checkpoint import CheckpointTag
+
+        tag = CheckpointTag(checkpoint.tag).value if checkpoint.tag else None
 
         op.insert_meta_ai_checkpoint_one(
             object=meta_ai_checkpoint_insert_input(

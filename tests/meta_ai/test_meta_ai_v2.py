@@ -151,6 +151,8 @@ def saved_ai(local_ai: AI):
     ai_uuid = local_ai.save(overwrite=True)
     assert ai_uuid
     yield local_ai
+    deleted = local_ai._client.delete_ai(local_ai.id)
+    assert deleted
 
 
 @pytest.fixture(scope="module")
