@@ -1,10 +1,15 @@
 from concurrent.futures import Future
 from time import time
-from typing import Generic, List, Optional, Union
+from typing import Dict, Generic, List, Optional, Union
 
 from pydantic.generics import GenericModel
 
-from superai.data_program.Exceptions import ChildJobFailed, ChildJobInternalError
+from superai.data_program.Exceptions import (
+    ChildJobFailed,
+    ChildJobInternalError,
+    TaskExpiredMaxRetries,
+    UnknownTaskStatus,
+)
 from superai.data_program.protocol.task import (
     WorkflowType,
     execute,
@@ -144,90 +149,69 @@ class SuperTaskWorkflow(Workflow):
         task_input = job_input["input"]
         task_output = job_input["output"]
 
-        router = TaskRouter(task_config=task_configs, task_input=task_input, task_output=task_output)
-        tasks = router.map()
+        router = TaskRouter(task_config=task_configs)
+        tasks = router.map(task_input, task_output)
         raw_result = router.reduce(tasks)
 
         return raw_result["formData"]
 
 
-class TaskRouter:
-    """Wrapper class around creating, mapping and aggregating tasks according to the Worker Parameters in SuperTask."""
-
-    def __init__(
-        self,
-        task_config: SuperTaskConfig,
-        task_input: Input,
-        task_output: Output,
-    ):
-        self.task_config = task_config
+class TaskHandler:
+    def __init__(self, task_input: Input, task_output: Output, worker: Worker, index: int):
         self.task_input = task_input
         self.task_output = task_output
+        self.worker = worker
+        self.retrial_policy = worker.on_timeout.action
+        self.max_retries = worker.on_timeout.max_retries or 0
+        self.constraints = self._map_worker_constraints(worker)
+        self.index = index
+        self.retries_done = 0
 
-    def map(self) -> Optional[List[task_future]]:
-        tasks = []
-        for index, w in enumerate(self.task_config.workers):
-            if not w.active:
-                continue
-            task_future = self._create_worker_future(w, self.task_input, self.task_output)
-            task_future._index = index
+    def submit_task(self):
+        """Create an actual task"""
+        task_template = Task(name=self.worker.name)
 
-            tasks.append(task_future)
-        return tasks
-
-    def reduce(self, task_futures: List[task_future]) -> task_future:
-        # Wait and aggregate results
-        results = None
-        if self.task_config.params.strategy == TaskStrategy.FIRST_COMPLETED:
-            results = wait_tasks_OR(task_futures)
-        elif self.task_config.params.strategy == TaskStrategy.BEST:
-            # TODO: find way to have scores to sort by
-            # results = wait_tasks_AND(tasks)
-            raise NotImplementedError("TaskStrategy.BEST is not implemented yet.")
-        elif self.task_config.params.strategy == TaskStrategy.PRIORITY:
-            results = wait_tasks_AND(task_futures)
-        else:
-            raise ValueError("Unknown task strategy.")
-
-        if not results or not results.done:
-            raise Exception("No complete results returned from tasks.")
-
-        # Sort futures based on initial index in `workers` list
-        sorted_futures = sorted(results.done, key=lambda f: f._index)
-
-        if (
-            self.task_config.params.strategy == TaskStrategy.FIRST_COMPLETED
-            or self.task_config.params.strategy == TaskStrategy.PRIORITY
-        ):
-            # Return first completed or highest priority task
-            # In case of 'FirstCompleted', we should only have one task anyway
-            selected = sorted_futures[0]
-        else:
-            raise Exception("Could not find completed and matching task future.")
-
-        # In case of more complex reduction we don't have a single future to return
-        # for example in the case of combination of tasks. So we return the result.
-        return selected.result()["values"]
-
-    def _create_worker_future(self, w: Worker, task_input, task_output):
-        """Create an actual task and return the future."""
-        task_template = Task(name=w.name)
-
-        if w.type == "idempotent":
+        if self.worker.type == "idempotent":
             idempotent_future = Future()
-            idempotent_future.set_result({"values": task_output, "timestamp": time()})
-            return idempotent_future
-
-        constraints = self._map_worker_constraints(w)
+            idempotent_future.set_result({"values": self.task_output, "timestamp": time()})
+            self.task_future = idempotent_future
+            return
 
         task_future = task_template.submit(
-            task_inputs=task_input,
-            task_outputs=task_output,
-            worker_type=w.type,
-            **constraints,
+            task_inputs=self.task_input,
+            task_outputs=self.task_output,
+            worker_type=self.worker.type,
+            **self.constraints,
         )
-        logger.info(f"Task {task_template.name} submitted for worker {w}.")
-        return task_future
+        logger.info(f"Task {task_template.name} submitted for worker {self.worker}.")
+        self.task_future = task_future
+        self.task_future._index = self.index
+
+    def is_future_done(self):
+        return self.task_future.done()
+
+    def is_result_ready(self):
+        # check if future needs to be retried
+        result = self.task_future.result()
+
+        if result.status() in ["EXPIRED", "REJECTED"]:
+            return False
+        if result.status() != "COMPLETED":
+            raise UnknownTaskStatus(str(result.status()))
+
+        log.info("Task succeeded, checking results")
+        getter = getattr(result.response(), "get", None)
+        if callable(getter) and len(getter("values", [])) > 0:
+            return True
+        log.warning("Completed task, but empty task response.")
+        return False
+
+    def retry_future(self):
+        if self.retries_done >= self.max_retries or self.retrial_policy != "RETRY":
+            raise TaskExpiredMaxRetries(f"Exhausted the retries after {str(self.retries_done)} were done.")
+        self.retries_done = self.retries_done + 1
+        log.info(f"Resending task, trial no. {self.retries_done}")
+        self.submit_task()
 
     @staticmethod
     def _map_worker_constraints(w: Worker) -> dict:
@@ -252,3 +236,69 @@ class TaskRouter:
         if "pay" in w.__fields__:
             constraints["cost"] = w.pay
         return constraints
+
+
+class TaskRouter:
+    """Wrapper class around creating, mapping and aggregating tasks according to the Worker Parameters in SuperTask."""
+
+    def __init__(
+        self,
+        task_config: SuperTaskConfig,
+        allowed_strategies: List[str] = [TaskStrategy.PRIORITY, TaskStrategy.FIRST_COMPLETED],
+    ):
+        self.task_config = task_config
+        if self.task_config.params.strategy not in allowed_strategies:
+            raise ValueError("Unknown task strategy.")
+
+    def map(self, task_input, task_output) -> Optional[Dict[int, TaskHandler]]:
+        tasks = {}
+        for index, worker in enumerate(self.task_config.workers):
+            if not worker.active:
+                continue
+            task_handler = TaskHandler(task_input, task_output, worker, index)
+            task_handler.submit_task()
+            tasks[index] = task_handler
+        return tasks
+
+    def reduce(self, task_futures: Dict[int, TaskHandler]) -> dict:
+        """Handles retrial and aggregation of results"""
+        results = self._handle_retrial(task_futures)
+        # Sort futures based on initial index in `workers` list
+        sorted_futures = sorted(results.done, key=lambda f: f._index)
+
+        # Return first completed or highest priority task
+        # In case of 'FirstCompleted', we should only have one task anyway
+        selected = sorted_futures[0]
+
+        # In case of more complex reduction we don't have a single future to return
+        # for example in the case of combination of tasks. So we return the result.
+        return selected.result()["values"]
+
+    def _handle_retrial(self, task_futures: Dict[int, TaskHandler]) -> List[task_future]:
+        while True:
+            futures = wait_tasks_OR(handler.task_future for handler in task_futures.values())
+
+            for current_handler in task_futures.values():
+                # since we waited with OR the first done is all we need.
+                if current_handler.is_future_done():
+                    break
+
+            # is result ready is BLOCKING, that's why we check it only for the one future that's done
+            if not current_handler.is_result_ready():
+                # Future needs to be retried
+                current_handler.retry_future()
+                continue
+            if self.task_config.params.strategy == TaskStrategy.FIRST_COMPLETED:
+                return futures
+
+            futures = wait_tasks_AND(handler.task_future for handler in task_futures.values())
+
+            result_ready = True
+            for current_handler in task_futures.values():
+                # if any of them doesn't have the result ready we need to retry
+                if not current_handler.is_result_ready():
+                    current_handler.retry_future()
+                    result_ready = False
+
+            if result_ready:
+                return futures

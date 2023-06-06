@@ -7,15 +7,15 @@ import superai_schema.universal_schema.task_schema_functions as df
 from tensorflow import keras
 from tensorflow.keras import layers
 
-from superai.meta_ai import BaseModel
+from superai.meta_ai import BaseAI
 from superai.utils import log
 
 
-class MyEncodeDecodeModel(BaseModel):
+class MyEncodeDecodeAI(BaseAI):
     model = None
 
     def __init__(self, *args, **kwargs):
-        super(MyEncodeDecodeModel, self).__init__(*args, **kwargs)
+        super(MyEncodeDecodeAI, self).__init__(*args, **kwargs)
         if self.logger_dir is None:
             self.logger_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 

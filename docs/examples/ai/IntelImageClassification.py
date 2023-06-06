@@ -13,7 +13,7 @@ import tensorflow as tf
 from sklearn.utils import shuffle
 from tqdm import tqdm
 
-from superai.meta_ai import BaseModel
+from superai.meta_ai import BaseAI
 from superai.meta_ai.base.base_ai import add_default_tracking, default_random_seed
 from superai.meta_ai.base.training_helpers import (
     AvailableCallbacks,
@@ -29,7 +29,7 @@ logger.setLevel(logging.INFO)
 directory_to_extract_to = "./directory"
 
 
-class IntelImageClassification(BaseModel):
+class IntelImageClassification(BaseAI):
     def __init__(self, **kwargs):
         super(IntelImageClassification, self).__init__(**kwargs)
         self.class_names = ["mountain", "street", "glacier", "buildings", "sea", "forest"]
@@ -183,7 +183,7 @@ class IntelImageClassification(BaseModel):
         # track and save
         if not os.path.exists(model_save_path):
             os.makedirs(model_save_path)
-        model.save(model_save_path)
+        model._save_local(model_save_path)
         logger.info(f"Training complete, saved model in {model_save_path}")
 
         return TrainerOutput(metric=dict(eval_accuracy=accuracy))

@@ -6,7 +6,7 @@ from typing import List, Optional
 import numpy as np
 from pydantic import BaseModel
 
-from superai import logger
+from superai.log import logger
 from superai.meta_ai.schema import TaskBatchInput, TaskBatchOutput, TaskInput
 
 

@@ -5,18 +5,18 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 
-from superai.meta_ai import BaseModel
+from superai.meta_ai import BaseAI
 from superai.utils import log
 
 
 ###########################################################################
 # Tracking a training operation
 ###########################################################################
-class MyTrackerModel(BaseModel):
+class MyTrackerAI(BaseAI):
     model = None
 
     def __init__(self, *args, **kwargs):
-        super(MyTrackerModel, self).__init__(*args, **kwargs)
+        super(MyTrackerAI, self).__init__(*args, **kwargs)
 
     def train(
         self,
@@ -74,7 +74,7 @@ class MyTrackerModel(BaseModel):
             self.tracker.add_scalar("loss", test_loss.result(), step=epoch)
             self.tracker.add_scalar("accuracy", test_accuracy.result(), step=epoch)
         # Picked from https://www.tensorflow.org/guide/keras/save_and_serialize
-        model.save(model_save_path)
+        model._save_local(model_save_path)
 
         # we could also store the model config in a json format in the save path
         json_config = model.to_json()

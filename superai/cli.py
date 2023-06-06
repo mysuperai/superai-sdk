@@ -5,6 +5,7 @@ import pathlib
 import shutil
 import signal
 import sys
+import time
 from datetime import datetime
 from typing import List, Optional, Union
 from urllib.parse import urlparse
@@ -718,18 +719,44 @@ def ai():
     """View, list and control models and their deployments."""
 
 
+# Create a CLI validate command that loads the .yaml from the current directory and then instantiates a AI object with it
+@ai.command("validate-config")
+@click.option("--file", "-f", default="config.yml")
+def validate_ai_config(file: pathlib.Path):
+    """Validate model definition file"""
+    from superai.meta_ai import AI
+
+    ai = AI.from_yaml(file)
+    print(ai)
+
+
+@ai.command("migrate-config")
+@click.option("--file", "-f", default="config.yml")
+@click.option("--yes", "-y", is_flag=True, default=False)
+@click.option("--not-null", "-n", is_flag=True, default=True)
+def migrate_ai_config(file: pathlib.Path, yes: bool, not_null: bool):
+    """Migrate AI config to new schema."""
+    from superai.meta_ai import AI
+
+    ai = AI.from_yaml(file)
+    print(ai)
+    print("Migrating to new schema...")
+    if yes or click.confirm(f"This will overwrite the existing {file}. Do you want to continue?", abort=True):
+        ai.to_yaml(file, not_null=not_null)
+
+
 @ai.command("list")
 @click.option("--name", required=False, help="Filter by model name.")
 @click.option("--version", required=False, help="Filter by model version.")
 @pass_client
-def list_ai(client, name: Union[click.UUID, str], version: Union[int, str]):
+def list_ai(client, name: Union[click.UUID, str], version: str):
     """List available models"""
     if name is None:
-        print(client.get_all_models())
+        print(client.list_ai())
     elif version is None:
-        print(client.get_model_by_name(str(name)))
+        print(client.list_ai_by_name(str(name)))
     else:
-        print(client.get_model_by_name_version(str(name), str(version)))
+        print(client.list_ai_by_name_version(str(name), str(version)))
 
 
 @ai.command("view")
@@ -737,20 +764,13 @@ def list_ai(client, name: Union[click.UUID, str], version: Union[int, str]):
 @pass_client
 def get_ai(client, id: Union[click.UUID, str]):
     """View model parameters"""
-    print(client.get_model(str(id)))
+    print(client.get_ai(str(id)))
 
 
 @ai.command("update")
 @click.argument("id", type=click.UUID)
-@click.option("--name", required=False, help="Model name")
-@click.option("--description", required=False, help="Model description")
-@click.option(
-    "--visibility",
-    required=False,
-    type=click.Choice(["PRIVATE", "PUBLIC"]),
-    help="Model visibility",
-    show_choices=True,
-)
+@click.option("--name", required=False, help="AI name")
+@click.option("--description", required=False, help="AI description")
 @pass_client
 def update_ai(client, id: Union[click.UUID, str], name: str, description: str, visibility: str):
     """Update model parameters"""
@@ -759,10 +779,7 @@ def update_ai(client, id: Union[click.UUID, str], name: str, description: str, v
         params["name"] = name
     if description is not None:
         params["description"] = description
-    if visibility is not None:
-        params["visibility"] = visibility
-
-    print(client.update_model(str(id), **params))
+    print(client.update_ai(str(id), **params))
 
 
 @ai.command("download")
@@ -902,7 +919,7 @@ def train(
     )
     processed_hyperparameters = HyperParameterSpec.load_from_list(hyperparameters)
     processed_model_parameters = ModelParameters.load_from_list(model_parameters)
-    ai_object = AI.load_local(path)
+    ai_object = AI.load(path, weights_path=weights_path)
     ai_object.train(
         model_save_path=model_save_path,
         training_data=training_data_path,
@@ -1153,44 +1170,6 @@ def docker():
     """Docker specific commands"""
 
 
-@docker.command(name="build", help="Build a docker image for a sagemaker model.")
-@click.option("--image-name", "-i", required=True, help="Name of the image to be built")
-@click.option(
-    "--entry-point",
-    "-e",
-    required=True,
-    help="Path to file which will serve as entrypoint to the sagemaker model. Generally this is a method which calls "
-    "the predict method",
-)
-@click.option("--dockerfile", "-d", help="Path to Dockerfile.", default="Dockerfile", show_default=True)
-@click.option(
-    "--command", "-c", help="Command to run after the entrypoint in the image.", default="serve", show_default=True
-)
-@click.option("--worker-count", "-w", help="Number of workers to run.", default=1, show_default=True)
-@click.option(
-    "--entry-point-method",
-    "-em",
-    help="Method to be called inside the entry point. Make sure this method accepts the input data and context. ",
-    default="handle",
-    show_default=True,
-)
-@click.option(
-    "--use-shell", "-u", help="Use shell to run the build process, which is more verbose. Used by default", default=True
-)
-def build_docker_image(image_name, entry_point, dockerfile, command, worker_count, entry_point_method, use_shell):
-    from superai.meta_ai.dockerizer import build_image
-
-    build_image(
-        image_name=image_name,
-        entry_point=entry_point,
-        dockerfile=dockerfile,
-        command=command,
-        worker_count=worker_count,
-        entry_point_method=entry_point_method,
-        use_shell=use_shell,
-    )
-
-
 @docker.command(name="push")
 @click.argument("id", required=True, type=click.UUID)
 @click.option(
@@ -1203,7 +1182,7 @@ def push_docker_image(model_id: Union[str, click.UUID], image_name: str, region:
     ID is the UUID of the AI model.
     Check `superai ai list` to see the list of models with their UUIDs.
     """
-    from superai.meta_ai.dockerizer import push_image
+    from superai.meta_ai.ai_helper import push_image
 
     if ":" in image_name:
         image, version = image_name.split(":")
@@ -1243,29 +1222,6 @@ def docker_run_local(image_name: str, model_path: str, gpu: bool):
     command = f"docker run {options} {image_name}"
     logger.info(f"Running command: {command}")
     os.system(command)
-
-
-@docker.command(
-    "invoke-local",
-    help="Invoke the locally deployed container. The API description of the local container can be found at "
-    "http://localhost/api-description",
-)
-@click.option(
-    "--mime",
-    "-mm",
-    default="application/json",
-    help="MIME type of the payload. `application/json` will be sent to the invocation directly. For other MIME types, "
-    "you can pass the path to file with --body. If its a valid path, it will be loaded and sent to the request. "
-    "Default: `application/json`",
-)
-@click.option(
-    "--body", "-b", required=True, help="Body of payload to be sent to the invocation. Can be a path to a file as well."
-)
-def docker_invoke_local(mime, body):
-    """Docker invoke with a prediction input"""
-    from superai.meta_ai.dockerizer.sagemaker_endpoint import invoke_local
-
-    invoke_local(mime, body)
 
 
 @ai.group()
@@ -1352,7 +1308,7 @@ def trigger_template_training(
 
     idx = client.start_training_from_app_model_template(
         app_id=str(app_id),
-        model_id=str(model_id),
+        ai_instance_id=str(model_id),
         task_name=task_name,
         training_template_id=str(training_template_id),
         current_properties=properties,
@@ -1362,60 +1318,56 @@ def trigger_template_training(
         print(f"Started new training with ID {idx}")
 
 
-@training.command("deploy", help="Deploy a AI from its config file")
-@click.option(
-    "--config-file",
-    "-c",
-    help="Config YAML file containing AI properties and training deployment definition",
-    type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
-)
-@click.option("--push/--no-push", "-p/-np", help="Push the model before training", default=True)
-@click.option(
-    "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
-)
-def training_deploy(config_file, push=True, clean=True):
-    """Deploy a training from config"""
-    from superai.meta_ai.ai import obtain_object_template_config
-
-    if clean and os.path.exists(save_file):
-        shutil.rmtree(save_file)
-    ai_object, ai_template_object, config_data = obtain_object_template_config(config_file)
-
-    if config_data.training_deploy is not None:
-        if push:
-            ai_object.push(
-                update_weights=config_data.training_deploy.update_weights,
-                overwrite=config_data.training_deploy.overwrite,
-            )
-        ai_object.training_deploy(
-            training_data_dir=config_data.training_deploy.training_data_dir,
-            skip_build=config_data.training_deploy.skip_build,
-            properties=config_data.training_deploy.properties,
-            training_parameters=config_data.training_deploy.training_parameters,
-            enable_cuda=config_data.training_deploy.enable_cuda,
-            build_all_layers=config_data.training_deploy.build_all_layers,
-            envs=config_data.training_deploy.envs,
-            download_base=config_data.training_deploy.download_base,
-        )
-    elif config_data.training_deploy_from_app is not None:
-        if push:
-            ai_object.push(
-                update_weights=config_data.training_deploy_from_app.update_weights,
-                overwrite=config_data.training_deploy_from_app.overwrite,
-            )
-        ai_object.start_training_from_app(
-            app_id=config_data.training_deploy_from_app.app_id,
-            task_name=config_data.training_deploy_from_app.task_name,
-            current_properties=config_data.training_deploy_from_app.current_properties,
-            metadata=config_data.training_deploy_from_app.metadata,
-            skip_build=config_data.training_deploy_from_app.skip_build,
-            enable_cuda=config_data.training_deploy_from_app.enable_cuda,
-            build_all_layers=config_data.training_deploy_from_app.build_all_layers,
-            envs=config_data.training_deploy_from_app.envs,
-            download_base=config_data.training_deploy_from_app.download_base,
-        )
-    else:
-        raise ValueError("configuration should contain 'training_deploy' or 'training_deploy_from_app' section")
+# @training.command("deploy", help="Deploy a AI from its config file")
+# @click.option(
+#     "--config-file",
+#     "-c",
+#     help="Config YAML file containing AI properties and training deployment definition",
+#     type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+# )
+# @click.option("--push/--no-push", "-p/-np", help="Push the model before training", default=True)
+# @click.option(
+#     "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
+# )
+# def training_deploy(config_file, push=True, clean=True):
+#     """Deploy a training from config"""
+#     from superai.meta_ai.ai import AI
+#
+#     if clean and os.path.exists(save_file):
+#         shutil.rmtree(save_file)
+#     ai_object = AI.from_yaml(config_file)
+#     ai_object.training_deployment_parameters
+#     # TODO: remove all this wrapper code with parameter loading of the AITrainer class
+#
+#     if config_data.training_deploy is not None:
+#         if push:
+#             ai_object.save(overwrite=config_data.training_deploy.overwrite)
+#         ai_object.training_deploy(
+#             training_data_dir=config_data.training_deploy.training_data_dir,
+#             skip_build=config_data.training_deploy.skip_build,
+#             properties=config_data.training_deploy.properties,
+#             training_parameters=config_data.training_deploy.default_training_parameters,
+#             enable_cuda=config_data.training_deploy.enable_cuda,
+#             build_all_layers=config_data.training_deploy.build_all_layers,
+#             envs=config_data.training_deploy.envs,
+#             download_base=config_data.training_deploy.download_base,
+#         )
+#     elif config_data.training_deploy_from_app is not None:
+#         if push:
+#             ai_object.save(overwrite=config_data.training_deploy_from_app.overwrite)
+#         ai_object.start_training_from_app(
+#             app_id=config_data.training_deploy_from_app.app_id,
+#             task_name=config_data.training_deploy_from_app.task_name,
+#             current_properties=config_data.training_deploy_from_app.current_properties,
+#             metadata=config_data.training_deploy_from_app.metadata,
+#             skip_build=config_data.training_deploy_from_app.skip_build,
+#             enable_cuda=config_data.training_deploy_from_app.enable_cuda,
+#             build_all_layers=config_data.training_deploy_from_app.build_all_layers,
+#             envs=config_data.training_deploy_from_app.envs,
+#             download_base=config_data.training_deploy_from_app.download_base,
+#         )
+#     else:
+#         raise ValueError("configuration should contain 'training_deploy' or 'training_deploy_from_app' section")
 
 
 @training.group()
@@ -1445,7 +1397,9 @@ def create_template(client, app_id: Union[str, click.UUID], model_id: Union[str,
             print("Couldn't read json inputs")
             exit()
 
-    idx = client.create_training_template_entry(model_id=str(model_id), properties=json_inputs, app_id=str(app_id))
+    idx = client.create_training_template_entry(
+        ai_instance_id=str(model_id), properties=json_inputs, app_id=str(app_id)
+    )
     if idx:
         print(f"Created new training with ID {idx}")
 
@@ -1481,7 +1435,7 @@ def update_template(
     else:
         json_inputs = None
     idx = client.update_training_template(
-        model_id=str(model_id), app_id=str(app_id), properties=json_inputs, description=description
+        ai_instance_id=str(model_id), app_id=str(app_id), properties=json_inputs, description=description
     )
     if idx:
         print(f"Updated training template with id={idx}")
@@ -1509,60 +1463,233 @@ def view_training_template(client, app_id: Union[str, click.UUID], template_id: 
         print(template)
 
 
-@ai.command("deploy", help="Deploy a AI from its config file")
+@ai.command("deploy", help="Deploy an AI from its config file")
 @click.option(
     "--config-file",
     "-c",
     help="Config YAML file containing AI properties and deployment definition",
     type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+    default="config.yml",
 )
 @click.option(
     "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
 )
-@click.option("--push/--no-push", "-p/-np", help="Push to create a model entry", default=False)
-def deploy_ai(config_file, clean=True, push=False):
-    """Deploy a model from config"""
-    from superai.meta_ai.ai import obtain_object_template_config
-    from superai.meta_ai.deployed_predictors import DeployedPredictor
-    from superai.meta_ai.parameters import AiDeploymentParameters
+@click.option(
+    "--update-weights/--no-update-weights",
+    "-uw/-nuw",
+    help="Force updating the weights. Only respected if weights were uploaded before.",
+    default=False,
+)
+def deploy_ai(config_file, clean=True, update_weights=False):
+    """Push and deploy an AI and its artifacts (docker image, default checkpoint)."""
+    from superai.meta_ai.ai import AI
 
     if clean and os.path.exists(save_file):
         shutil.rmtree(save_file)
 
-    ai_object, ai_template_object, config_data = obtain_object_template_config(config_file=config_file)
-    print(f"Configuration : {config_data}")
+    ai_object = AI.from_yaml(config_file)
+    print(f"Loaded AI: {ai_object}")
 
-    properties = config_data.deploy.properties
-    if isinstance(properties, str):
-        properties = json.loads(properties)
-    if isinstance(properties, dict):
-        properties = AiDeploymentParameters.parse_obj(properties)
-    else:
-        properties = AiDeploymentParameters()
+    ai_object.save(weights_path=ai_object.weights_path, overwrite=True, create_checkpoint=update_weights)
+    print(f"Pushed AI: {ai_object}")
+    ai_object.build()
+    print(f"Built AI: {ai_object}")
+    ai_object.push_image()
+    print(f"Pushed AI: {ai_object}")
 
-    if push:
-        ai_object.push(
-            update_weights=True,
-            overwrite=True,
-            weights_path=config_data.instance.weights_path,
-        )
-    predictor: DeployedPredictor = ai_object.deploy(
-        orchestrator=config_data.deploy.orchestrator,
-        skip_build=config_data.deploy.skip_build,
-        properties=properties,
-        enable_eia=config_data.deploy.enable_eia,
-        cuda_devel=config_data.deploy.cuda_devel,
-        redeploy=config_data.deploy.redeploy,
-        build_all_layers=config_data.deploy.build_all_layers,
-        download_base=config_data.deploy.download_base,
+
+@ai.command("local-deploy", help="Deploy an AI from its config file")
+@click.option(
+    "--config-file",
+    "-c",
+    help="Config YAML file containing AI properties and deployment definition",
+    type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+    default="config.yml",
+)
+@click.option(
+    "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
+)
+@click.option("--redeploy/--no-clean", "-r/-nr", help="Redeploy the existing deployment", default=True)
+@click.option("--log/--no-log", "-l/-nl", help="Log the deployment, this blocks the executor", default=False)
+@click.option("--skip-build/--no-skip-build", "-sb/-nsb", help="Skip building the docker image", default=False)
+@click.option(
+    "--update-weights/--no-update-weights",
+    "-uw/-nuw",
+    help="Force updating the weights. Only respected if weights were uploaded before.",
+    default=False,
+)
+def local_deploy_ai(config_file, clean=True, redeploy=True, log=False, skip_build=False, update_weights=False):
+    """Local Deploy an AI model for integration testing"""
+    from superai.meta_ai import Orchestrator
+    from superai.meta_ai.ai import AI
+    from superai.meta_ai.deployed_predictors import LocalPredictor
+
+    if clean and os.path.exists(save_file):
+        shutil.rmtree(save_file)
+
+    ai_object = AI.from_yaml(config_file)
+    print(f"Loaded AI: {ai_object}")
+
+    ai_object.build(skip_build=skip_build)
+    print(f"Built AI: {ai_object}")
+
+    ai_object.save(overwrite=True, create_checkpoint=update_weights)
+    print(f"Saved AI: {ai_object}")
+
+    predictor_obj: LocalPredictor = LocalPredictor(
+        orchestrator=Orchestrator.LOCAL_DOCKER_K8S,
+        deploy_properties=ai_object.default_deployment_parameters,
+        local_image_name=ai_object.local_image,
+        weights_path=ai_object.weights_path,
     )
-    predictor_dictionary = {predictor.__class__.__name__: predictor.to_dict()}
-    with open(
-        os.path.join(settings.path_for(), "cache", ai_object.name, str(ai_object.version), ".predictor_config.json"),
-        "w",
-    ) as predictor_config:
-        logger.info("Storing predictor config")
-        json.dump(predictor_dictionary, predictor_config)
+    predictor_obj.deploy(redeploy=redeploy)
+    predictor_dict = {predictor_obj.__class__.__name__: predictor_obj.to_dict()}
+    with open(ai_object.cache_path() / ".predictor_config.json", "w") as f:
+        click.echo(f"Storing predictor config in cache path {ai_object.cache_path() / '.predictor_config.json'}")
+        json.dump(predictor_dict, f)
+
+    if log:
+        predictor_obj.log()
+
+
+@ai.command("local-undeploy", help="Undeploy an AI from its config file")
+@click.option(
+    "--config-file",
+    "-c",
+    help="Config YAML file containing AI properties and deployment definition",
+    type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+    default="config.yml",
+)
+@click.option(
+    "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
+)
+def local_undeploy_ai(config_file, clean=True):
+    """Local Un-Deploy an AI model for integration testing"""
+    from superai.meta_ai.ai import AI
+    from superai.meta_ai.deployed_predictors import DeployedPredictor
+
+    if clean and os.path.exists(save_file):
+        shutil.rmtree(save_file)
+
+    ai_object = AI.from_yaml(config_file)
+    print(f"Loaded AI: {ai_object}")
+
+    config_path = ai_object.cache_path() / ".predictor_config.json"
+    if not config_path.exists():
+        raise click.ClickException(f"Predictor config does not exist at {config_path}")
+    with open(config_path, "r") as predictor_config:
+        predictor_dictionary = json.load(predictor_config)
+        log.info(f"Loading predictor config: {predictor_dictionary}")
+
+    predictor_obj: DeployedPredictor = DeployedPredictor.from_dict(predictor_dictionary, client)
+    predictor_obj.terminate()
+    if config_path.exists():
+        shutil.rmtree(config_path)
+
+
+@ai.command("create-instance", help="Create an AI instance from an AI config file")
+@click.option(
+    "--config-file",
+    "-c",
+    help="Config YAML file containing AI properties and deployment definition",
+    type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+    default="config.yml",
+)
+@click.option(
+    "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
+)
+@click.option(
+    "--visibility",
+    "-V",
+    help="Visibility of the AI instance",
+    type=click.Choice(["PUBLIC", "PRIVATE"]),
+    default="PRIVATE",
+)
+@click.option(
+    "--deploy",
+    "-d",
+    help="Deploy the AI instance after creation",
+    type=click.Choice(["True", "False"]),
+    default="True",
+)
+# add name and weights path options
+@click.option("--name", "-n", help="Name of the AI instance", type=str, default=None)
+@click.option(
+    "--weights-path",
+    "-wp",
+    help="Path to the weights file to be used for the AI instance. Can be a local path or a URI",
+    type=str,
+    default=None,
+)
+@click.option(
+    "--instance-config",
+    "-ic",
+    help="Instance config file",
+    type=click.Path(exists=False, readable=False, dir_okay=False, path_type=pathlib.Path),
+    default="instance_config.yml",
+)
+def create_ai_instance(
+    config_file,
+    clean=True,
+    visibility="PRIVATE",
+    deploy=True,
+    name=None,
+    weights_path=None,
+    instance_config=None,
+):
+    """Push and deploy an AI and its artifacts (docker image, default checkpoint)."""
+    from superai.meta_ai.ai import AI
+
+    if clean and os.path.exists(save_file):
+        shutil.rmtree(save_file)
+
+    ai_object = AI.from_yaml(config_file, pull_db_data=True)
+    print(f"Loaded AI: {ai_object}")
+    ai_object.save(overwrite=True)
+    print(f"Saved AI: {ai_object}")
+
+    if name or weights_path:
+        # Override config when name or weights_path is provided
+        instances = [ai_object.create_instance(visibility=visibility, name=name, weights_path=weights_path)]
+    elif instance_config.exists():
+        from superai.meta_ai.ai_instance import instantiate_instances_from_config
+
+        print(f"Loading instance config from {instance_config}")
+        instances = instantiate_instances_from_config(instance_config, ai_object, visibility=visibility)
+    else:
+        instances = [ai_object.create_instance(visibility=visibility)]
+
+    print(f"Created AI instances: {instances}")
+
+    if deploy:
+        for instance in instances:
+            instance.deploy(redeploy=True)
+            print(f"Deployed AI instance: {instance}")
+
+
+@ai.command("build", help="Build an AI from its config file")
+@click.option(
+    "--config-file",
+    "-c",
+    help="Config YAML file containing AI properties and deployment definition",
+    type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+    default="config.yml",
+)
+@click.option(
+    "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
+)
+def build_ai(config_file, clean=True):
+    """Build an AI image locally. Can be used for testing (in CI/CD)."""
+    from superai.meta_ai.ai import AI
+
+    if clean and os.path.exists(save_file):
+        shutil.rmtree(save_file)
+
+    ai_object = AI.from_yaml(config_file)
+    print(f"Loaded AI: {ai_object}")
+
+    ai_object.build()
+    print(f"Built AI: {ai_object}")
 
 
 @ai.command("predictor-test", help="Test the predictor created from the deploy command")
@@ -1571,9 +1698,11 @@ def deploy_ai(config_file, clean=True, push=False):
     "-c",
     help="Points to the config file",
     type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+    default="config.yml",
 )
 @click.option("--predict-input", "-i", help="Prediction input", type=str, required=False)
 @click.option("--predict-input-file", "-if", help="Prediction input file", type=click.Path(), required=False)
+@click.option("--predict-input-folder", "-ifo", help="Prediction input folder", type=click.Path(), required=False)
 @click.option(
     "--expected-output",
     "-o",
@@ -1587,32 +1716,60 @@ def deploy_ai(config_file, clean=True, push=False):
     help="Expected output file (should only be used if your model is consistent",
     type=click.Path(),
 )
+@click.option("--wait-seconds", "-w", help="Seconds to wait for the predictor to be ready", type=int, default=1)
 @pass_client
 def predictor_test(
-    client, config_file, predict_input=None, predict_input_file=None, expected_output=None, expected_output_file=None
+    client,
+    config_file,
+    predict_input=None,
+    predict_input_file=None,
+    predict_input_folder=None,
+    expected_output=None,
+    expected_output_file=None,
+    wait_seconds=1,
 ):
     """Deploy and test a predictor from config file"""
-    from superai.meta_ai.ai import obtain_object_template_config
+    from superai.meta_ai.ai import AI
     from superai.meta_ai.deployed_predictors import DeployedPredictor
 
-    ai_object, ai_template_object, config_data = obtain_object_template_config(config_file=config_file)
-    config_path = os.path.join(
-        settings.path_for(), "cache", ai_object.name, str(ai_object.version), ".predictor_config.json"
-    )
-    if not os.path.exists(config_path):
+    log.info(f"Waiting for predictor to be ready, {wait_seconds} seconds")
+    time.sleep(wait_seconds)
+
+    ai_object = AI.from_yaml(config_file)
+    ai_object.save(overwrite=True)
+    print(ai_object.cache_path())
+    config_path = ai_object.cache_path() / ".predictor_config.json"
+    if not config_path.exists():
         raise click.ClickException(f"Predictor config does not exist at {config_path}")
     with open(config_path, "r") as predictor_config:
         predictor_dictionary = json.load(predictor_config)
+        log.info(f"Loading predictor config: {predictor_dictionary}")
     predictor: DeployedPredictor = DeployedPredictor.from_dict(predictor_dictionary, client)
     if predict_input is not None:
         predict_input = json.loads(predict_input)
+        predicted_output = predictor.predict(predict_input)
+        click.echo(predicted_output)
+        assert predicted_output is not None
     elif predict_input_file is not None:
         with open(predict_input_file, "r") as predict_file_stream:
             predict_input = json.load(predict_file_stream)
+        predicted_output = predictor.predict(predict_input)
+        click.echo(predicted_output)
+        assert predicted_output is not None
+    elif predict_input_folder is not None:
+        folder = pathlib.Path(predict_input_folder)
+        predicted_output = []
+        for file in folder.iterdir():
+            if not file.suffix == ".json":
+                continue
+            with open(file, "r") as predict_file_stream:
+                predict_input = json.load(predict_file_stream)
+                output = predictor.predict(predict_input)
+                assert output is not None
+                predicted_output.append(output)
     else:
-        raise ValueError("One of --predict-input or --predict-input-file should be passed")
-    predicted_output = predictor.predict(predict_input)
-    click.echo(predicted_output)
+        raise ValueError("One of --predict-input, --predict-input-file, --predict-input-folder should be passed")
+
     expected_message = "Expected output should be same as predicted output"
     if expected_output is not None:
         assert predicted_output == expected_output, expected_message
@@ -1635,10 +1792,10 @@ def predictor_test(
 @pass_client
 def predictor_teardown(client, config_file):
     """Remove a deployed predictor from config file"""
-    from superai.meta_ai.ai import obtain_object_template_config
+    from superai.meta_ai.ai import AI
     from superai.meta_ai.deployed_predictors import DeployedPredictor
 
-    ai_object, ai_template_object, config_data = obtain_object_template_config(config_file=config_file)
+    ai_object = AI.from_yaml(config_file)
     config_path = os.path.join(
         settings.path_for(), "cache", ai_object.name, str(ai_object.version), ".predictor_config.json"
     )

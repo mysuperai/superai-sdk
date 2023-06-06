@@ -1,19 +1,21 @@
 import os
-from typing import List, Optional, Tuple
+from pathlib import Path
+from typing import List, Optional, Tuple, Union
 
 
 class EnvironmentFileProcessor:
-    def __init__(self, location: str, filename: str = "environment"):
-        self.location = location
+    def __init__(self, location: Union[str, Path], filename: str = "environment", data: Optional[dict] = None):
+        self.location = str(location)
         self.filename = filename
         if not self.location.endswith(self.filename):
             # update the path so that only self.location refers to environment file
             self.location = os.path.join(self.location, self.filename)
         self.environment_variables: dict = {}
-        if not os.path.exists(self.location):
-            self._write()
-        else:
+        data = data or {}
+        if os.path.exists(self.location):
             self.environment_variables = self._read()
+        elif data:
+            self.from_dict(data)
 
     @staticmethod
     def _process_input(
@@ -96,6 +98,9 @@ class EnvironmentFileProcessor:
         with open(self.location, "r") as env_file:
             content = env_file.read().split("\n")
         variables = {}
+        # Check if the file is empty
+        if content == [""]:
+            return variables
         for val in content:
             x, y = val.split("=")
             variables[x] = y

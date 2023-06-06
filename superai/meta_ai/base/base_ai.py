@@ -20,9 +20,9 @@ default_random_seed = 65778
 log = logging.getLogger()
 
 
-class BaseModel(metaclass=ABCMeta):
-    """Represents a generic Python model that evaluates inputs and produces Data Program Project compatible outputs.
-    By subclassing :class:`~BaseModel`, users can create customized SuperAI models, leveraging custom inference logic and
+class BaseAI(metaclass=ABCMeta):
+    """Represents a generic AI that evaluates inputs and produces Data Program Project compatible outputs.
+    By subclassing :class:`~BaseAI`, users can create customized SuperAI AIs, leveraging custom inference logic and
     artifact dependencies.
     """
 
@@ -135,7 +135,7 @@ class BaseModel(metaclass=ABCMeta):
                 tar.extractall(path=full_path)
             log.info(f"Successfully downloaded and unpacked weights to path `{full_path}`")
         else:
-            BaseModel._pull_s3_folder(weights_uri, full_path)
+            BaseAI._pull_s3_folder(weights_uri, full_path)
             log.info(f"Successfully downloaded weights folder to path `{full_path}`")
         return full_path
 

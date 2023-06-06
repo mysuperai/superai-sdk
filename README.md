@@ -22,7 +22,7 @@ pip install superai
 
 ### Requirements
 
-- Python 3.6 or later. On systems that have both Python 2 and Python 3 installed, you may need to replace the call to `pip` with `pip3`.
+- Python 3.9 or later
 - Dependencies in this package rely on the Clang build tools on MacOS. If you have recently updated or installed XCode, you may have to run `sudo xcodebuild -license` prior to installation.
 - A [super.AI](https://super.ai/) account
 
@@ -232,3 +232,9 @@ earthly -P \
   --secret-file aws="$HOME/.aws/credentials" \
   +ai-requirements
 ```
+
+### AI Components
+The SDK allow defining and deploying AI models which integrate with the Super.AI platform. Check out the [AI Quickstart Notebook](docs/ai_quickstart.ipynb) for a first glance.
+
+### AI CI/CD
+The earthly file creates a base image used in the Jenkins pipeline used for AI automation. The definition of the Jenkinsfile is here https://github.com/mysuperai/ai-automation. 

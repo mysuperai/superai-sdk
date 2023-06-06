@@ -8,7 +8,7 @@ import pytest
 from moto import mock_s3
 
 from superai import settings
-from superai.meta_ai import AI, AITemplate
+from superai.meta_ai import AI
 from superai.meta_ai.ai_helper import PREDICTION_METRICS_JSON, load_and_predict
 from superai.meta_ai.parameters import Config
 from superai.meta_ai.schema import Schema, TaskBatchInput, TaskElement, TaskInput
@@ -48,24 +48,19 @@ def bucket(s3: boto3.client):
 
 
 @pytest.fixture(scope="function")
-def local_ai(clean, bucket):
+def local_ai(clean, bucket) -> AI:
     model_path = Path(__file__).parent / "fixtures" / "model"
-    template = AITemplate(
+    ai = AI(
         input_schema=Schema(),
         output_schema=Schema(),
         configuration=Config(),
-        name="pytest_test_template",
         description="Template for my dummy template used for testing",
-        model_class="DummyModel",
+        model_class="DummyAI",
         model_class_path=str(model_path.absolute()),
-    )
-    yield AI(
-        ai_template=template,
-        input_params=template.input_schema.parameters(),
-        output_params=template.output_schema.parameters(choices=map(str, range(10))),
         name="pytest_test_model",
-        version=1,
+        version="1.0",
     )
+    yield ai
 
 
 def test_predict_legacy(local_ai):
@@ -126,8 +121,7 @@ def test_load_and_predict(local_ai, tmp_path: Path, monkeypatch):
         tmp_path: tmp path for this test
 
     """
-    # Store absolute location of AISave folder
-    absolute_location = Path(local_ai._location).absolute()
+    absolute_location = Path(local_ai._save_local(tmp_path)).absolute()
     # Change to temporary folder to ensure no relative context to AISave folder for testing
     monkeypatch.chdir(tmp_path)
 
@@ -159,7 +153,7 @@ def test_predict_dataset(local_ai, tmp_path: Path, monkeypatch):
 
     """
     # Store absolute location of AISave folder
-    absolute_location = Path(local_ai._location).absolute()
+    absolute_location = Path(local_ai._save_local(tmp_path)).absolute()
     # Change to temporary folder to ensure no relative context to AISave folder for testing
     monkeypatch.chdir(tmp_path)
 
@@ -179,3 +173,13 @@ def test_predict_dataset(local_ai, tmp_path: Path, monkeypatch):
         metrics = json.load(f)
     assert metrics["score"]
     assert metrics["score"] == 1.0
+
+
+def test_remove_patch_from_yaml():
+    sample_dict = {"name": "some_name"}
+    assert AI._remove_patch_from_version(sample_dict) == sample_dict, "No version in dict"
+    dict_with_version = {"name": "some_name", "version": "1.0"}
+    assert AI._remove_patch_from_version(dict_with_version) == dict_with_version, "No patch to remove"
+    dict_with_patch = {"name": "some_name", "version": "1.0.0"}
+    assert AI._remove_patch_from_version(dict_with_patch) != dict_with_patch, "Dictionary will be changed"
+    assert AI._remove_patch_from_version(dict_with_patch) == {"name": "some_name", "version": "1.0"}

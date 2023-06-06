@@ -6,8 +6,6 @@ from dynaconf import LazySettings
 
 from superai.log import logger
 
-secrets_client = boto3.client("secretsmanager")
-
 
 @lru_cache
 def _retrieve_secret(env, secret_name_prefix="dataprograms-env-"):
@@ -18,6 +16,8 @@ def _retrieve_secret(env, secret_name_prefix="dataprograms-env-"):
             Only used for invalidation of cache
     """
     # Get secret by prefix
+    secrets_client = boto3.client("secretsmanager")
+
     response = secrets_client.list_secrets(Filters=[{"Key": "name", "Values": [secret_name_prefix]}])
     secret_list = response["SecretList"]
     logger.debug(f"Found {len(secret_list)} secrets with prefix {secret_name_prefix}")
@@ -30,8 +30,7 @@ def _retrieve_secret(env, secret_name_prefix="dataprograms-env-"):
     secret_name = secret_list[0]["Name"]
     logger.debug(f"Loading DP env secrets {secret_name}")
     secret_response = secrets_client.get_secret_value(SecretId=secret_name)
-    secret = json.loads(secret_response["SecretString"])
-    return secret
+    return json.loads(secret_response["SecretString"])
 
 
 def transform_key(key):
@@ -48,6 +47,7 @@ def transform_key(key):
     return key
 
 
+@lru_cache
 def load(
     obj: LazySettings,
     env: str = "dev",
@@ -67,7 +67,11 @@ def load(
         try:
             # Try loading super_transport settings and setting the corresponding properties
             # This is necessary to inject the correct values into the transport layer
-            from superai_transport.hatchery import hatchery_config as hc
+            try:
+                from superai_transport.hatchery import hatchery_config as hc
+            except ImportError:
+                logger.debug("superai_transport not installed")
+                return
 
             for secret_key, value in secret.items():
                 secret_key = transform_key(secret_key)
@@ -75,6 +79,6 @@ def load(
         except Exception as e:
             logger.warning(f"Error setting super_transport settings: {e}")
     except Exception as e:
-        logger.warning(f"Error loading DP env secrets: {e}")
+        logger.debug(f"Error loading DP env secrets: {e}")
         if not silent:
             raise

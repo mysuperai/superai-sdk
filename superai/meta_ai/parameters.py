@@ -3,14 +3,15 @@ from __future__ import annotations
 import ast
 import enum
 import json
-import logging
 from enum import IntEnum
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import jsonpickle  # type: ignore
 from pydantic import BaseModel, Field, root_validator, validator
 
-logger = logging.getLogger(__file__)
+from superai.log import logger
+
+logger = logger.get_logger(__name__)
 
 
 class Scalar:
@@ -245,32 +246,19 @@ class ModelParameters:
         return default
 
 
-class Config:
-    """Mocked config class to be shared between AI and DP objects."""
+class Config(dict):
+    """Simplified config class to be shared between AI and DP objects."""
 
     def __init__(self, **kwargs):
-        self.kwargs = kwargs
-        for k in kwargs:
-            setattr(self, k, kwargs[k])
-
-    def __dir__(self):
-        return self.kwargs.keys()
-
-    def parametrize(self, **kwargs):
-        pass
+        super().__init__(**kwargs)
 
     @property
     def to_json(self):
         return jsonpickle.encode(self)
 
-    __call__ = parametrize
-
     @classmethod
     def from_json(cls, inputs):
         return jsonpickle.decode(inputs)
-
-    def __eq__(self, other):
-        return self.to_json == other.to_json
 
 
 class TrainingParameters:
@@ -378,14 +366,12 @@ class AiDeploymentParameters(BaseModel):
         alias="modelTimeoutSeconds",
     )
     lambda_ai_cache: Optional[int] = Field(32, ge=0, description="Lambda AI cache size", alias="lambdaAICache")
-    sagemaker_worker_count: Optional[int] = Field(
-        1, ge=1, description="SageMaker worker count in the same endpoint", alias="sagemakerWorkerCount"
-    )
     envs: Optional[Dict[str, str]] = Field(
         None,
         description="Pass custom environment variables to the deployment. "
         'Should be a dictionary like {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}',
     )
+    base_image: Optional[str] = Field(None, description="Base image to use for the deployment")
 
     class Config:
         use_enum_values = True
@@ -446,3 +432,37 @@ class AiDeploymentParameters(BaseModel):
             if k in self.dict():
                 self.dict()[k] = v
         return self
+
+    @classmethod
+    def merge_deployment_parameters(
+        cls,
+        template_parameters: Union[dict, AiDeploymentParameters],
+        properties: Union[dict, AiDeploymentParameters],
+        enable_cuda,
+    ) -> AiDeploymentParameters:
+        """Merges deployment parameters from the AI template and the user-provided deployment parameters.
+        Precedence is given to the user-provided deployment parameters.
+
+        Args:
+            properties: Optional variable to override hardware and scaling deployment parameters from the AI template.
+            enable_cuda: Legacy kwarg for backwards compatibility.
+
+        Returns:
+            Merged deployment parameters.
+
+        """
+        # Parse properties into DeploymentParameters object
+        properties = cls.parse_from_optional(properties)
+        if enable_cuda:
+            logger.warning(
+                "enable_cuda is deprecated and will be removed in future versions. Use `properties` instead."
+            )
+            properties.enable_cuda = enable_cuda
+        # Merge properties with deployment parameters from AI template with precedence to properties
+        if isinstance(template_parameters, dict):
+            template_parameters = cls.parse_obj(template_parameters)
+
+        template_deployment_parameters = template_parameters.dict_for_db()
+        template_deployment_parameters.update(properties.dict_for_db())
+        deployment_parameters = cls.parse_obj(template_deployment_parameters)
+        return deployment_parameters

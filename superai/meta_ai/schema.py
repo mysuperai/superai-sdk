@@ -11,28 +11,34 @@ from superai.log import logger
 log = logger.get_logger(__name__)
 
 
-class Schema:
+class SchemaParameters(BaseModel):
+    __root__: dict = Field(default_factory=dict)
+
+    def to_json(self):
+        return self.json()
+
+    @classmethod
+    def from_json(cls, input):
+        return cls.parse_raw(input)
+
+
+class Schema(BaseModel):
     """Mocked class for all schema related functionalities."""
 
-    def __init__(self, **kwargs):
-        super().__init__()
-        self.kwargs = kwargs
-        self.params = None
+    kwargs: dict = Field(default_factory=dict)
+    params: Optional[SchemaParameters] = None
 
-    def parameters(self, **kwargs) -> "SchemaParameters":
+    def parameters(self, **kwargs) -> SchemaParameters:
         self.params = SchemaParameters(**kwargs)
         return self.params
 
     @property
     def to_json(self):
-        return jsonpickle.encode(self)
+        return self.json()
 
     @classmethod
     def from_json(cls, input):
-        return jsonpickle.decode(input)
-
-    def __eq__(self, other):
-        return self.to_json == other.to_json
+        return cls.parse_raw(input)
 
 
 class Image(Schema):
@@ -43,19 +49,6 @@ class Image(Schema):
 class SingleChoice(Schema):
     def __init__(self, **kwargs):
         super(SingleChoice, self).__init__(**kwargs)
-
-
-class SchemaParameters:
-    def __init__(self, **kwargs):
-        self.__dict__.update(kwargs)
-
-    @property
-    def to_json(self):
-        return jsonpickle.encode(self)
-
-    @classmethod
-    def from_json(cls, input):
-        return jsonpickle.decode(input)
 
 
 class EasyPredictions:
@@ -187,7 +180,12 @@ class TaskBatchOutput(TaskBatchIO):
 
 
 class TaskPredictionInstance(BaseModel):
-    prediction: Union[TaskOutput, dict, str, RawPrediction]  # TODO: Deprecated dict,str usage here
+    prediction: Union[
+        TaskOutput,
+        dict,
+        str,
+        RawPrediction,
+    ]  # TODO: Deprecated dict,str usage here
     score: float = Field(..., ge=0, le=1)
 
     def __getitem__(self, item):
