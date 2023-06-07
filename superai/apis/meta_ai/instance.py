@@ -50,10 +50,25 @@ class AiInstanceApiMixin(AiApiBase):
         data = self.sess.perform_op(op)
         return self._output_formatter((op + data).meta_ai_modelv2, to_json)
 
-    def get_ai_instance_by_name(self, name: str, to_json: bool = False) -> Optional[Union[meta_ai_modelv2, Dict]]:
+    def get_ai_instance_by_name(
+        self, name: str, template_id: Optional[str] = None, to_json: bool = False
+    ) -> Optional[Union[meta_ai_modelv2, Dict]]:
+        """
+        Get AI instance by name and template_id
+        Args:
+            name: name of the instance
+            template_id: template_id of the instance
+            to_json: return json
+
+        Returns:
+
+        """
         op = Operation(query_root)
         fields = AiInstanceApiMixin._fields(True)
-        op.meta_ai_modelv2(where={"name": {"_eq": name}}).__fields__(*fields)
+        where = {"name": {"_eq": name}}
+        if template_id:
+            where["template_id"] = {"_eq": template_id}
+        op.meta_ai_modelv2(where=where).__fields__(*fields)
         data = self.sess.perform_op(op)
         instance = self._output_formatter((op + data).meta_ai_modelv2, to_json)
         return instance[0] if instance else None

@@ -1652,10 +1652,13 @@ def create_ai_instance(
         shutil.rmtree(save_file)
 
     ai_object = AI.from_yaml(config_file, pull_db_data=True)
+    if visibility != ai_object.visibility:
+        ai_object.visibility = visibility
+        log.warning(f"Setting visibility of AI to {visibility}.")
+
     print(f"Loaded AI: {ai_object}")
     ai_object.save(overwrite=True)
     print(f"Saved AI: {ai_object}")
-
     if name or weights_path:
         # Override config when name or weights_path is provided
         instances = [

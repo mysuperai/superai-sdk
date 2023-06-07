@@ -488,9 +488,16 @@ class AI:
     def _load_id(self) -> Optional[str]:
         """Load the id from the database if it exists."""
         if not self.id:
-            with contextlib.suppress(Exception):
-                loaded_ai = self._client.list_ai_by_name_version(self.name, self.version)[0]
-                self.id = loaded_ai.id
+            with contextlib.suppress(GraphQlException, IndexError):
+                potential_ais = self._client.list_ai_by_name_version(self.name, self.version)
+                if len(potential_ais) > 1:
+                    raise AIException(
+                        f"Multiple AIs found with name {self.name} and version {self.version}. "
+                        f"Please specify the id."
+                        f"Found: {potential_ais}"
+                    )
+
+                self.id = potential_ais[0].id
                 log.info(f"Loaded AI {self.name}:{self.version} with id {self.id}")
         return self.id
 

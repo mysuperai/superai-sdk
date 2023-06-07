@@ -101,7 +101,7 @@ class AIInstance:
         Includes check for existing instance.
         """
         # Check for existing instance
-        ai_instance = self.client.get_ai_instance_by_name(self.name)
+        ai_instance = self.client.get_ai_instance_by_name(self.name, self.template_id)
         if ai_instance:
             self.id = ai_instance.id
 
