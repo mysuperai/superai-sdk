@@ -172,18 +172,16 @@ class TaskHandler:
         task_template = Task(name=self.worker.name)
 
         if self.worker.type == "idempotent":
-            idempotent_future = Future()
-            idempotent_future.set_result({"values": self.task_output, "timestamp": time()})
-            self.task_future = idempotent_future
-            return
-
-        task_future = task_template.submit(
-            task_inputs=self.task_input,
-            task_outputs=self.task_output,
-            worker_type=self.worker.type,
-            **self.constraints,
-        )
-        logger.info(f"Task {task_template.name} submitted for worker {self.worker}.")
+            task_future = Future()
+            task_future.set_result({"values": self.task_output, "timestamp": time(), "status": "COMPLETED"})
+        else:
+            task_future = task_template.submit(
+                task_inputs=self.task_input,
+                task_outputs=self.task_output,
+                worker_type=self.worker.type,
+                **self.constraints,
+            )
+            logger.info(f"Task {task_template.name} submitted for worker {self.worker}.")
         self.task_future = task_future
         self.task_future._index = self.index
 
@@ -191,6 +189,9 @@ class TaskHandler:
         return self.task_future.done()
 
     def is_result_ready(self):
+        if self.worker.type == "idempotent":
+            return True
+
         # check if future needs to be retried
         result = self.task_future.result()
 

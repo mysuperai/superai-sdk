@@ -5,7 +5,7 @@ import pytest
 from pydantic import ValidationError
 from superai_schema.types import BaseModel
 
-from superai.data_program import CollaboratorWorker, CrowdWorker
+from superai.data_program import CollaboratorWorker, CrowdWorker, IdempotentWorker
 from superai.data_program.Exceptions import TaskExpiredMaxRetries
 
 # import superai
@@ -253,3 +253,15 @@ def test_supertask_timeout_task_successful(monkeypatch):
     # Should not raise since the third call has a completed future
     router.reduce(futures)
     assert test_mock.call_count == len(return_data)
+
+
+def test_supertask_timeout_task_successful_idempotent():
+    params = SuperTaskConfig(
+        workers=[IdempotentWorker()],
+        strategy=TaskStrategy.FIRST_COMPLETED,
+    )
+
+    router = TaskRouter(task_config=params)
+    futures = router.map(task_input=sample_input, task_output=sample_output)
+    results = router.reduce(futures)
+    assert results == sample_output
