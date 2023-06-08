@@ -10,7 +10,6 @@ ARG SOURCE_DIR="superai"
 ENV AWS_DEFAULT_REGION="us-east-1"
 # Flag to enable codeartifact login
 ARG INTERNAL=true
-ARG SEMGREP_VERSION=0.86.5
 
 pre-commit:
     RUN pip install --no-cache-dir pre-commit==2.17.0 black
@@ -18,16 +17,7 @@ pre-commit:
     WORKDIR /app
     RUN --mount=type=cache,target=/root/.cache/pre-commit pre-commit run --all-files
 
-semgrep:
-    RUN pip install --no-cache-dir semgrep==$SEMGREP_VERSION
-    # Download rules separately for caching purposes in .ci/semgrep_rules
-    RUN mkdir /rules
-    COPY . ./app
-    WORKDIR /app
-    RUN semgrep --metrics=off --error --severity ERROR --disable-version-check --config .ci/semgrep_rules
-
 linter:
-    BUILD +semgrep
     BUILD +pre-commit
 
 PIP_INSTALL:
@@ -163,7 +153,7 @@ ai-requirements:
     WORKDIR ${USER_HOME}
 
     RUN --mount=type=cache,target=/root/.cache/pip \
-        pip install pre-commit==2.17.0 semgrep==$SEMGREP_VERSION python-semantic-release==7.34.3
+        pip install pre-commit==2.17.0 python-semantic-release==7.34.3
 
     COPY setup.py .
 
@@ -209,3 +199,25 @@ dist:
     # copy dist folder in directory of Earthfile
     # Contains wheel file
     SAVE ARTIFACT dist AS LOCAL .
+
+sonarcloud:
+    FROM openjdk:21-slim
+    ARG SONAR_SCANNER_VERSION=4.8.0.2856
+    RUN apt-get update && apt-get install -y wget unzip \
+        &&  wget -U "scannercli" -q -O /opt/sonar-scanner-cli.zip https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_SCANNER_VERSION}.zip \
+        && unzip /opt/sonar-scanner-cli.zip -d /opt && rm /opt/sonar-scanner-cli.zip \
+        && ln -s /opt/sonar-scanner-${SONAR_SCANNER_VERSION}/bin/sonar-scanner /usr/local/bin/sonar-scanner
+
+    ARG SONAR_TOKEN
+    ARG SONAR_HOST_URL="https://sonarcloud.io"
+    ARG SONAR_EXTRA_ARGS=""
+    WORKDIR /app
+    COPY . .
+    RUN ls -la
+    # Copy repository files (including coverage)
+    RUN --mount=type=cache,target=/root/.sonar/cache \
+                sonar-scanner \
+                -Dsonar.login=${SONAR_TOKEN}  \
+                -Dsonar.python.coverage.reportPaths=.test/coverage.xml \
+                -Dsonar.python.xunit.reportPath=.test/junit.xml \
+                ${SONAR_EXTRA_ARGS}
