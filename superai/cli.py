@@ -1,4 +1,5 @@
 import contextlib
+import functools
 import json
 import os
 import pathlib
@@ -57,6 +58,15 @@ def _signal_handler(s, f):
 @click.group()
 def cli():
     pass
+
+
+def common_params(func):
+    @click.option("--verbose", "-v", is_flag=True, help="Verbose output")
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
 
 
 @cli.command()
@@ -746,17 +756,48 @@ def migrate_ai_config(file: pathlib.Path, yes: bool, not_null: bool):
 
 
 @ai.command("list")
-@click.option("--name", required=False, help="Filter by model name.")
-@click.option("--version", required=False, help="Filter by model version.")
+@click.option("--name", required=False, help="Filter by AI name.")
+@click.option("--version", required=False, help="Filter by AI version.")
 @pass_client
 def list_ai(client, name: Union[click.UUID, str], version: str):
-    """List available models"""
+    """List available AI (templates)"""
     if name is None:
         print(client.list_ai())
     elif version is None:
         print(client.list_ai_by_name(str(name)))
     else:
         print(client.list_ai_by_name_version(str(name), str(version)))
+
+
+@ai.command("list-instances")
+@click.option("--name", required=False, help="Filter by instance name.")
+@click.option("--ai_name", required=False, help="Filter by AI name.")
+@click.option("--ai_version", required=False, help="Filter by AI version.")
+@click.option("--visibility", required=False, help="Filter by instance visibility.")
+@click.option("--checkpoint_tag", required=False, help="Filter by instance checkpoint tag.")
+@common_params
+@pass_client
+def list_ai_instances(
+    client: Client,
+    name: str = None,
+    ai_name: str = None,
+    ai_version: str = None,
+    visibility: str = None,
+    checkpoint_tag: str = None,
+    verbose: bool = False,
+):
+    """List available AI instances."""
+    print(
+        client.list_ai_instances(
+            name=name,
+            ai_name=ai_name,
+            to_json=True,
+            ai_version=ai_version,
+            visibility=visibility,
+            checkpoint_tag=checkpoint_tag,
+            verbose=verbose,
+        )
+    )
 
 
 @ai.command("view")

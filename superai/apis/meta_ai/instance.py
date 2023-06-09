@@ -44,9 +44,33 @@ class AiInstanceApiMixin(AiApiBase):
         "served_by",
     ]
 
-    def list_ai_instances(self, to_json: bool = False, verbose: bool = False) -> List[Union[meta_ai_modelv2, Dict]]:
+    def list_ai_instances(
+        self,
+        to_json: bool = False,
+        name: Optional[str] = None,
+        ai_name: Optional[str] = None,
+        ai_version: Optional[str] = None,
+        visibility: Optional[str] = None,
+        checkpoint_tag=Optional[str],
+        verbose: bool = True,
+    ) -> List[Union[meta_ai_modelv2, Dict]]:
         op = Operation(query_root)
-        op.meta_ai_modelv2().__fields__(*AiInstanceApiMixin._fields(verbose))
+        where = {}
+        if name:
+            where["name"] = {"_ilike": f"%{name}%"}
+        if ai_name:
+            where["template"] = {"name": {"_ilike": f"%{ai_name}%"}}
+        if ai_version:
+            where["template"] = {"version": {"_ilike": f"%{ai_version}%"}}
+        if visibility:
+            where["visibility"] = {"_eq": visibility}
+        if checkpoint_tag:
+            where["checkpoint_tag"] = {"_eq": checkpoint_tag}
+
+        instance = op.meta_ai_modelv2(where=where)
+        instance.__fields__(*AiInstanceApiMixin._fields(verbose))
+        instance.template.__fields__("name", "version", "visibility")
+
         data = self.sess.perform_op(op)
         return self._output_formatter((op + data).meta_ai_modelv2, to_json)
 

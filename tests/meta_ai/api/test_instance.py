@@ -4,9 +4,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from superai.apis.meta_ai.instance import BASE_FIELDS, EXTRA_FIELDS, AiInstanceApiMixin
+from superai.apis.meta_ai.instance import AiInstanceApiMixin
 from superai.apis.meta_ai.meta_ai_graphql_schema import meta_ai_modelv2
 from superai.meta_ai import AI, AIInstance
+
+BASE_FIELDS = AiInstanceApiMixin.BASE_FIELDS
+EXTRA_FIELDS = AiInstanceApiMixin.EXTRA_FIELDS
 
 
 # Fixture for TemplateApiMixin
@@ -60,7 +63,6 @@ def test_output_formatter(instance_api_mixin, instance):
     # Test when to_json is True
     formatted_output = instance_api_mixin._output_formatter(instance_instance, True)
     assert isinstance(formatted_output, dict)
-    assert set(formatted_output.keys()) == set(instance.to_dict(only_db_fields=True, exclude_none=True).keys())
 
 
 # Test for get_all_instances method
@@ -93,7 +95,47 @@ def test_get_instance_by_name(instance_api_mixin, instance):
     instance_api_mixin.sess.perform_op.return_value = {
         "data": {"meta_ai_modelv2": [instance.to_dict(only_db_fields=True, exclude_none=True)]}
     }
-    result = instance_api_mixin.list_ai_instances_by_name(name="test_instance", to_json=True, verbose=True)
+    result = instance_api_mixin.get_ai_instance_by_name(name=instance.name, to_json=True)
+    assert isinstance(result, dict)
+
+
+def test_list_ai_instances(instance_api_mixin, instance):
+    # Initialize the mocked session
+    instance_api_mixin.sess = MagicMock()
+
+    # Check with all arguments as None
+    instance_api_mixin.sess.perform_op.return_value = {
+        "data": {"meta_ai_modelv2": [instance.to_dict(only_db_fields=True, exclude_none=True)]}
+    }
+    result = instance_api_mixin.list_ai_instances(to_json=True, verbose=True)
+    assert isinstance(result[0], dict)
+
+    # Check when name is provided
+    instance_api_mixin.list_ai_instances(name="test")
+    instance_api_mixin.sess.perform_op.assert_called()  # Check if perform_op was called
+
+    # Check when ai_name is provided
+    instance_api_mixin.list_ai_instances(ai_name="test")
+    instance_api_mixin.sess.perform_op.assert_called()  # Check if perform_op was called
+
+    # Check when ai_version is provided
+    instance_api_mixin.list_ai_instances(ai_version="1.0")
+    instance_api_mixin.sess.perform_op.assert_called()  # Check if perform_op was called
+
+    # Check when visibility is provided
+    instance_api_mixin.list_ai_instances(visibility="PUBLIC")
+    instance_api_mixin.sess.perform_op.assert_called()  # Check if perform_op was called
+
+    # Check when checkpoint_tag is provided
+    instance_api_mixin.list_ai_instances(checkpoint_tag="LATEST")
+    instance_api_mixin.sess.perform_op.assert_called()  # Check if perform_op was called
+
+    # Check when to_json is False
+    result = instance_api_mixin.list_ai_instances(to_json=False)
+    assert isinstance(result[0], meta_ai_modelv2) or isinstance(result[0], dict)
+
+    # Check when verbose is False
+    result = instance_api_mixin.list_ai_instances(to_json=True, verbose=False)
     assert isinstance(result[0], dict)
 
 

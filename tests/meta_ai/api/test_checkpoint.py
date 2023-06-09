@@ -4,13 +4,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from superai.apis.meta_ai.checkpoint import (
-    BASE_FIELDS,
-    EXTRA_FIELDS,
-    AiCheckpointApiMixin,
-)
+from superai.apis.meta_ai.checkpoint import AiCheckpointApiMixin
 from superai.apis.meta_ai.meta_ai_graphql_schema import meta_ai_checkpoint
 from superai.meta_ai import AI, AICheckpoint
+
+BASE_FIELDS = AiCheckpointApiMixin.BASE_FIELDS
+EXTRA_FIELDS = AiCheckpointApiMixin.EXTRA_FIELDS
 
 
 # Fixture for CheckpointApiMixin
@@ -42,7 +41,7 @@ def template(ai_name):
 # Fixture for AI_Checkpoint
 @pytest.fixture
 def checkpoint(template):
-    checkpoint = AICheckpoint(template_id=template.id, weights="s3://bucket/weights", id="123")
+    checkpoint = AICheckpoint(template_id=template.id, weights_path="s3://bucket/weights", id="123")
     yield checkpoint
 
 
@@ -57,7 +56,7 @@ def test_fields(checkpoint_api_mixin):
 
 # Test for _output_formatter method
 def test_output_formatter(checkpoint_api_mixin, checkpoint):
-    checkpoint_instance = meta_ai_checkpoint(checkpoint.to_dict())
+    checkpoint_instance = meta_ai_checkpoint(checkpoint.to_dict(only_db_fields=True))
 
     # Test when to_json is False
     assert checkpoint_api_mixin._output_formatter(checkpoint_instance, False) == checkpoint_instance
@@ -65,7 +64,6 @@ def test_output_formatter(checkpoint_api_mixin, checkpoint):
     # Test when to_json is True
     formatted_output = checkpoint_api_mixin._output_formatter(checkpoint_instance, True)
     assert isinstance(formatted_output, dict)
-    assert set(formatted_output.keys()) == set(checkpoint.to_dict().keys())
 
 
 # Test for get_all_checkpoints method

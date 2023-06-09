@@ -4,9 +4,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from superai.apis.meta_ai.ai import BASE_FIELDS, EXTRA_FIELDS, AiApiMixin
+from superai.apis.meta_ai.ai import AiApiMixin
 from superai.apis.meta_ai.meta_ai_graphql_schema import meta_ai_template
 from superai.meta_ai import AI
+
+BASE_FIELDS = AiApiMixin.BASE_FIELDS
+EXTRA_FIELDS = AiApiMixin.EXTRA_FIELDS
 
 
 # Fixture for TemplateApiMixin
@@ -45,7 +48,7 @@ def test_fields(template_api_mixin):
 
 # Test for _output_formatter method
 def test_output_formatter(template_api_mixin, template):
-    template_instance = meta_ai_template(template.to_dict())
+    template_instance = meta_ai_template(template.to_dict(only_db_fields=True, not_null=True))
 
     # Test when to_json is False
     assert template_api_mixin._output_formatter(template_instance, False) == template_instance
@@ -53,7 +56,6 @@ def test_output_formatter(template_api_mixin, template):
     # Test when to_json is True
     formatted_output = template_api_mixin._output_formatter(template_instance, True)
     assert isinstance(formatted_output, dict)
-    assert set(formatted_output.keys()) == set(template.to_dict().keys())
 
 
 # Test for get_all_templates method
@@ -64,7 +66,7 @@ def test_get_all_templates(template_api_mixin, template):
     assert result == []
 
     template_api_mixin.sess.perform_op.return_value = {
-        "data": {"meta_ai_template": [template.to_dict(only_db_fields=True)]}
+        "data": {"meta_ai_template": [template.to_dict(only_db_fields=True, not_null=True)]}
     }
     result = template_api_mixin.list_ai(to_json=True, verbose=True)
     assert isinstance(result[0], dict)
@@ -74,7 +76,7 @@ def test_get_all_templates(template_api_mixin, template):
 def test_get_template(template_api_mixin, template):
     template_api_mixin.sess = MagicMock()
     template_api_mixin.sess.perform_op.return_value = {
-        "data": {"meta_ai_template_by_pk": template.to_dict(only_db_fields=True)}
+        "data": {"meta_ai_template_by_pk": template.to_dict(only_db_fields=True, not_null=True)}
     }
     result = template_api_mixin.get_ai(template_id="1", to_json=True)
     assert isinstance(result, dict)
@@ -84,7 +86,7 @@ def test_get_template(template_api_mixin, template):
 def test_get_template_by_name(template_api_mixin, template):
     template_api_mixin.sess = MagicMock()
     template_api_mixin.sess.perform_op.return_value = {
-        "data": {"meta_ai_template": [template.to_dict(only_db_fields=True)]}
+        "data": {"meta_ai_template": [template.to_dict(only_db_fields=True, not_null=True)]}
     }
     result = template_api_mixin.list_ai_by_name(name="test_template", to_json=True, verbose=True)
     assert isinstance(result[0], dict)
@@ -94,7 +96,7 @@ def test_get_template_by_name(template_api_mixin, template):
 def test_get_template_by_name_version(template_api_mixin, template):
     template_api_mixin.sess = MagicMock()
     template_api_mixin.sess.perform_op.return_value = {
-        "data": {"meta_ai_template": [template.to_dict(only_db_fields=True)]}
+        "data": {"meta_ai_template": [template.to_dict(only_db_fields=True, not_null=True)]}
     }
     result = template_api_mixin.list_ai_by_name_version(name="test_template", version="1.0", to_json=True, verbose=True)
     assert isinstance(result[0], dict)

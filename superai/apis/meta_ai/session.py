@@ -41,13 +41,16 @@ class MetaAISession(RequestsEndpoint):
         try:
             # get hasura port using docker client
             hasura_port = (
-                subprocess.check_output(["docker", "port", "meta-ai_hasura_1", "8080"]).decode().strip().split(":")[1]
+                subprocess.check_output(["docker", "port", "meta-ai_hasura_1", "8080"], stderr=subprocess.DEVNULL)
+                .decode()
+                .strip()
+                .split(":")[1]
             )
         except subprocess.CalledProcessError:
             # If not found try spelling with all dashes
             try:
                 hasura_port = (
-                    subprocess.check_output(["docker", "port", "meta-ai-hasura-1", "8080"])
+                    subprocess.check_output(["docker", "port", "meta-ai-hasura-1", "8080"], stderr=subprocess.DEVNULL)
                     .decode()
                     .strip()
                     .split(":")[1]
