@@ -38,6 +38,7 @@ class Prompt(BaseModel, ABC):
     input: str = None
     output: str = None
     output_format: str = None
+    output_constraints: str = None
     memories: List[str] = []
 
     actions: List[str] = []
@@ -131,6 +132,9 @@ class Prompt(BaseModel, ABC):
         else:
             prompt += f"complete what is outlined above and below."
 
+        if self.output_constraints:
+            prompt += f"""\nOutput Constraints:\nThe outputs should satisfy the following constraints:\n{self.output_constraints}"""
+
         if self.output_format:
             prompt += f"""\nYou should only respond with a JSON output of the form:\n{self.output_format}\nEnsure the response can be parsed by Python json.loads."""
 
@@ -198,6 +202,7 @@ class Prompt(BaseModel, ABC):
         input=None,
         output=None,
         output_format=None,
+        output_constraints=None,
         actions=[],
         user_feedback=[],
         performance_evaluations=[],
@@ -221,6 +226,7 @@ class Prompt(BaseModel, ABC):
         cls.input = input or cls.input
         cls.output = output or cls.output
         cls.output_format = output_format or cls.output_format
+        cls.output_constraints = output_constraints or cls.output_constraints
         cls.actions = actions or cls.actions
         cls.user_feedback = user_feedback or cls.user_feedback
         cls.performance_evaluations = performance_evaluations or cls.performance_evaluations

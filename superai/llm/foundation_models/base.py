@@ -6,6 +6,10 @@ import tiktoken
 from openai.error import RateLimitError
 from pydantic import BaseModel, Extra
 from requests.exceptions import ConnectionError
+from tiktoken.model import MODEL_TO_ENCODING
+
+# TODO: remove when tiktoken model registry will be updated
+MODEL_TO_ENCODING.setdefault("gpt-35-turbo", "cl100k_base")
 
 
 class FoundationModel(ABC, BaseModel):

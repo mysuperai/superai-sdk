@@ -39,6 +39,7 @@ class LLM(BaseModel):
     input: Optional[str] = None
     output: Optional[str] = None
     prompt_output_format: Optional[str] = None
+    prompt_output_constraints: Optional[str] = None
     prompt_preprocessing_function: Optional[Callable] = None
     prompt_postprocessing_function: Optional[Callable] = None
 
@@ -147,6 +148,7 @@ class LLM(BaseModel):
         input=None,
         output=None,
         prompt_output_format=None,
+        prompt_output_constraints=None,
         prompt_preprocessing_function=None,
         prompt_postprocessing_function=None,
         max_send_tokens=None,
@@ -165,6 +167,7 @@ class LLM(BaseModel):
         self.input = input or self.input
         self.output = output or self.output
         self.prompt_output_format = prompt_output_format or self.prompt_output_format
+        self.prompt_output_constraints = prompt_output_constraints or self.prompt_output_constraints
         self.prompt_preprocessing_function = prompt_preprocessing_function or self.prompt_preprocessing_function
         self.prompt_postprocessing_function = prompt_postprocessing_function or self.prompt_postprocessing_function
         self.max_send_tokens = max_send_tokens or self.max_send_tokens
@@ -180,6 +183,7 @@ class LLM(BaseModel):
             input=self.input,
             output=self.output,
             output_format=self.prompt_output_format,
+            output_constraints=self.prompt_output_constraints,
             max_send_tokens=self.max_send_tokens,
             metadata=self.metadata,
             advice=self.advice,
@@ -200,6 +204,7 @@ class LLM(BaseModel):
             context=self.context,
             input=self.input,
             output_format=self.prompt_output_format,
+            output_constraints=self.prompt_output_constraints,
             max_send_tokens=self.max_send_tokens,
             metadata=self.metadata,
         )
@@ -219,6 +224,9 @@ class LLM(BaseModel):
 
     def set_prompt_output_format(self, prompt_output_format):
         self.prompt_output_format = prompt_output_format
+
+    def set_prompt_output_constraints(self, prompt_output_constraints):
+        self.prompt_output_constraints = prompt_output_constraints
 
     def set_output(self, output):
         self.output = output
