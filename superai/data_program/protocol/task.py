@@ -11,7 +11,8 @@ from copy import deepcopy
 from enum import Enum
 from functools import wraps
 from random import randint
-from typing import Optional
+from threading import Thread
+from typing import List, Optional
 
 import requests
 import sentry_sdk
@@ -1207,5 +1208,8 @@ def urgent_task(
     )
 
 
-def start_threading():
-    start_threads()
+def start_threading(join=True) -> List[Thread]:
+    threads = start_threads()
+    if threads and join:
+        for t in threads:
+            t.join()

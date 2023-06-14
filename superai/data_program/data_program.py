@@ -185,6 +185,7 @@ class DataProgram(DataProgramBase):
         *,
         workflows: List[WorkflowConfig],
         service: Optional[Union[ServiceType, str]] = None,
+        wait: bool = True,
         **service_kwargs,
     ):
         """
@@ -197,6 +198,7 @@ class DataProgram(DataProgramBase):
         Args:
             workflows: List of workflows to be handled by the service.
             service: DataProgram or Schema
+            wait: If True, the service will block until the service is stopped.
             **service_kwargs: Additional arguments for the service.
 
         """
@@ -233,8 +235,9 @@ class DataProgram(DataProgramBase):
             for task_schema in self._super_task_models:
                 st = SuperTaskWorkflow(task_schema, prefix=self._name)
                 self._add_supertask(st)
-
-            start_threading()
+            if wait:
+                log.info("Starting transport threads and waiting for them to finish... Cancel with Ctrl+C")
+            start_threading(join=wait)
 
         elif service == DataProgram.ServiceType.SCHEMA:
             dp_server_port = settings.schema_port
