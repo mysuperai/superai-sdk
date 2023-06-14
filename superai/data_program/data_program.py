@@ -235,6 +235,9 @@ class DataProgram(DataProgramBase):
             for task_schema in self._super_task_models:
                 st = SuperTaskWorkflow(task_schema, prefix=self._name)
                 self._add_supertask(st)
+
+            self._validate_workflow_registration(workflows)
+
             if wait:
                 log.info("Starting transport threads and waiting for them to finish... Cancel with Ctrl+C")
             start_threading(join=wait)
@@ -912,6 +915,19 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
             "default_parameters": supertask._schema.config.params.dict(),
         }
         self.client.update_supertask(task_template_name=supertask.qualified_name, body=body)
+
+    def _validate_workflow_registration(self, workflows):
+        """Check that all workflows in the DP are registered in the transport layer"""
+        try:
+            import superai_transport.transport.transport as qumes
+
+            expected_workflows = len(workflows) + 1 + len(self._super_task_models)  # +1 for the basic router
+            assert expected_workflows == len(
+                qumes._workflow_functions
+            ), f"Expected {expected_workflows} workflows, but found {len(qumes._workflow_functions)}. "
+            log.info(f"Workflows registered in transport layer: {qumes._workflow_functions.keys()}")
+        except ImportError:
+            log.warning("Could not import superai_transport, skipping workflow validation")
 
 
 def _validate_necessary_workflows(workflows):

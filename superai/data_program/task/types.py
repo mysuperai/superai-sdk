@@ -273,6 +273,9 @@ class DPSuperTasks(BaseModel):
             value = {item.name: item for item in value}
         super().__init__(__root__=value)
 
+    def __len__(self):
+        return len(self.__root__)
+
     def get_configs(self) -> DPSuperTaskConfigs:
         return DPSuperTaskConfigs.parse_obj({name: task.config for name, task in self.__root__.items()})
 
