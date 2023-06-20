@@ -68,3 +68,10 @@ def test_document_batching(form_ocr):
     serialized_doc = extractor.get_document_representation(form_ocr["__ocr_values__"], form_ocr["__key_values__"], None)
     assert len(serialized_doc) != 0
     assert len(serialized_doc) > 1
+
+
+def test_line_numbers(form_ocr):
+    extractor = DocumentToString(True, False, "whitespace", None, 4000, include_line_number=True)
+    serialized_doc = extractor.get_document_representation(form_ocr["__ocr_values__"], form_ocr["__key_values__"], None)
+    assert serialized_doc[0][0:2] == "0:"
+    assert serialized_doc[0].split("\n")[3][0] == "3"

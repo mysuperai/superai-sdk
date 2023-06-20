@@ -6,7 +6,14 @@ import tiktoken
 
 class DocumentToString:
     def __init__(
-        self, format_kv_checkboxes, format_tables, representation, max_pages, max_token, tokenizer_model="gpt-3.5-turbo"
+        self,
+        format_kv_checkboxes: bool,
+        format_tables: bool,
+        representation: str,
+        max_pages: int,
+        max_token: int,
+        tokenizer_model: int = "gpt-3.5-turbo",
+        include_line_number: bool = False,
     ):
         """Creates an instance of a document to string converter.
 
@@ -21,6 +28,7 @@ class DocumentToString:
         :param representation: Output representation: `whitespace` or `line`
         :param max_pages: Number of pages that will be converted
         :param max_token: Limit of tokens each output chunk will maximally have once encoded for LLM
+        :param include_line_number: Will add a line number at the beginning of each line in the output representation
         :param tokenizer_model:
         """
         self.format_kv_checkboxes = format_kv_checkboxes
@@ -29,6 +37,7 @@ class DocumentToString:
         self.max_pages = max_pages
         self.max_token = max_token
         self.tokenizer_model = tokenizer_model
+        self.include_line_number = include_line_number
 
     def get_document_representation(
         self, ocr_values: list, ocr_key_values: Optional[list], ocr_general_tables: Optional[list]
@@ -57,7 +66,7 @@ class DocumentToString:
     def _get_per_page_representation(self, ocr_values, ocr_key_values, ocr_general_tables):
         if self.format_kv_checkboxes:
             if ocr_key_values is not None:
-                ocr_values = replace_checkbox_kv_pairs(ocr_values, ocr_key_values)
+                ocr_values = _replace_checkbox_kv_pairs(ocr_values, ocr_key_values)
             else:
                 logging.info("No key value pairs were provided to be included into document serialization")
         if self.format_tables:
@@ -84,9 +93,11 @@ class DocumentToString:
         included_lines = []
         document_chunks = []
         chunk_length = 0
+        line_number = 0
         for page in per_page_representation:
             lines = page.split("\n")
             for line in lines:
+                line_number_seq = f"{line_number}:  " if self.include_line_number else ""
                 line_length = len(encoder.encode("line"))
                 if line_length > self.max_token:
                     raise ValueError(
@@ -96,11 +107,13 @@ class DocumentToString:
 
                 if chunk_length + line_length < self.max_token:
                     chunk_length += line_length
-                    included_lines.append(line)
+                    included_lines.append(line_number_seq + line)
                 else:
                     document_chunks.append("\n".join(included_lines))
-                    included_lines = [line]
+                    included_lines = [line_number_seq + line]
                     chunk_length = line_length
+
+                line_number += 1
 
             if page_separation:
                 document_chunks.append("\n".join(included_lines))
@@ -115,10 +128,10 @@ class DocumentToString:
         return filtered_document_chunks
 
 
-def replace_checkbox_kv_pairs(ocr_values, ocr_key_values):
+def _replace_checkbox_kv_pairs(ocr_values, ocr_key_values):
     kv = [item for item in ocr_key_values if "value" in item]
     kv = [item for item in kv if item["value"]["content"] == ":selected:" or item["value"]["content"] == ":unselected:"]
-    kv = deduplicate_boxes(kv)
+    kv = _deduplicate_boxes(kv)
     for e in kv:
         page_number = e["value"]["pageNumber"]
         desc_bbox = e["key"]["boundingBox"]
@@ -131,7 +144,7 @@ def replace_checkbox_kv_pairs(ocr_values, ocr_key_values):
     return ocr_values
 
 
-def deduplicate_boxes(kv_list):
+def _deduplicate_boxes(kv_list):
     keep = []
     matched = []
     for i, kv_pair in enumerate(kv_list):
