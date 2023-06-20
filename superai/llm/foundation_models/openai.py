@@ -1,11 +1,15 @@
 import json
+import random
+import time
 
 import openai
+from openai.error import RateLimitError
 
 from superai.llm.configuration import Configuration
 from superai.llm.data_types.message import ChatMessage
-from superai.llm.foundation_models.base import FoundationModel, retry
+from superai.llm.foundation_models.base import FoundationModel
 from superai.log import logger
+from superai.utils import retry
 
 config = Configuration()
 
@@ -43,7 +47,6 @@ class ChatGPT(OpenAIFoundation):
     logit_bias: dict = None
     token_limit: int = 8000 if engine == "gpt-4" else 4096
 
-    @retry
     def predict(self, input: ChatMessage):
         self.initialize_openai()
 
@@ -88,7 +91,7 @@ class ChatGPT(OpenAIFoundation):
         filtered_params = {k: v for k, v in params.items() if v is not None}
 
         log.debug(f"ChatGPT params: {filtered_params}")
-        response = openai.ChatCompletion.create(**filtered_params)
+        response = self._openai_call(filtered_params)
 
         if "choices" in response:
             output = response["choices"][0]["message"]["content"]
@@ -100,6 +103,29 @@ class ChatGPT(OpenAIFoundation):
             return output
         else:
             raise Exception("No choices in response")
+
+    @staticmethod
+    @retry(RateLimitError, tries=10, delay=0, backoff=0)  # no need for backoff, we're sleeping the amount required.
+    def _openai_call(openai_params: dict, min_additional_sleep: float = 1.0, max_additional_sleep: float = 5.0):
+        try:
+            response = openai.ChatCompletion.create(**openai_params)
+        except RateLimitError as e:
+            reset_rate_header = e.headers.get("x-ratelimit-reset-requests", "30s")
+
+            sleep_time = 30.0
+            if reset_rate_header.endswith("s") and "m" not in reset_rate_header:
+                try:
+                    sleep_time = float(reset_rate_header[:-1])
+                except ValueError:
+                    logger.info(f"Could not cast {reset_rate_header[:-1]} to float")
+            additional_sleep = random.uniform(min_additional_sleep, max_additional_sleep)
+
+            sleep_time = sleep_time + additional_sleep
+            logger.info(f"Rate limit exceeded, request throttling will reset in {sleep_time} seconds, sleeping")
+
+            time.sleep(sleep_time)
+            raise RateLimitError
+        return response
 
     def check_api_key(self, api_key):
         self.verify_api_key(api_key)
