@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import pytest
+import tiktoken
 
 from superai.llm.data_processing.document_preparation import DocumentToString
 
@@ -51,22 +52,24 @@ def test_line_extractor_kv(form_ocr):
 
 def test_whitespace_extractor_kv(form_ocr):
     extractor = DocumentToString(True, False, "whitespace", None, 4000)
+    encoder = tiktoken.encoding_for_model(extractor.tokenizer_model)
     serialized_doc = extractor.get_document_representation(form_ocr["__ocr_values__"], form_ocr["__key_values__"], None)
-    assert len(serialized_doc) != 0
-    assert len(serialized_doc) == 1
+    assert all(len(encoder.encode(chunk)) < 4000 for chunk in serialized_doc)
+    assert len(serialized_doc) == 2
     assert len(serialized_doc[0]) > 0
 
     # Even if there are no key value pairs provided it should not fail
     serialized_doc = extractor.get_document_representation(form_ocr["__ocr_values__"], None, None)
-    assert len(serialized_doc) != 0
-    assert len(serialized_doc) == 1
+    assert all(len(encoder.encode(chunk)) < 4000 for chunk in serialized_doc)
+    assert len(serialized_doc) == 2
     assert len(serialized_doc[0]) > 0
 
 
 def test_document_batching(form_ocr):
-    extractor = DocumentToString(True, False, "line", None, 50)
+    extractor = DocumentToString(True, False, "line", None, 100)
     serialized_doc = extractor.get_document_representation(form_ocr["__ocr_values__"], form_ocr["__key_values__"], None)
-    assert len(serialized_doc) != 0
+    encoder = tiktoken.encoding_for_model(extractor.tokenizer_model)
+    assert all(len(encoder.encode(chunk)) < 100 for chunk in serialized_doc)
     assert len(serialized_doc) > 1
 
 

@@ -98,20 +98,21 @@ class DocumentToString:
             lines = page.split("\n")
             for line in lines:
                 line_number_seq = f"{line_number}:  " if self.include_line_number else ""
-                line_length = len(encoder.encode("line"))
-                if line_length > self.max_token:
+                final_line = line_number_seq + line
+                updated_chunk_length = len(encoder.encode("\n".join(included_lines + [final_line])))
+                if updated_chunk_length > self.max_token and not included_lines:
                     raise ValueError(
-                        f"Line has {line_length} token. This is more than the {self.max_token} per chunk. "
+                        f"Line has {updated_chunk_length} token. This is more than the {self.max_token} per chunk. "
                         f"Please increase chunk size of input representation."
                     )
 
-                if chunk_length + line_length < self.max_token:
-                    chunk_length += line_length
-                    included_lines.append(line_number_seq + line)
+                if updated_chunk_length < self.max_token:
+                    chunk_length += updated_chunk_length
+                    included_lines.append(final_line)
                 else:
                     document_chunks.append("\n".join(included_lines))
-                    included_lines = [line_number_seq + line]
-                    chunk_length = line_length
+                    included_lines = [final_line]
+                    chunk_length = len(encoder.encode(final_line))
 
                 line_number += 1
 
