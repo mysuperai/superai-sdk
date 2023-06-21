@@ -27,9 +27,9 @@ class Data(BaseModel):
         metadata: Dict[str, Any] = {},
     ):
         super().__init__(input=None, output=None, metadata=metadata)
-        if input or input_url or input_path:
+        if input is not None or input_url or input_path:
             self.set_input(value=input, url=input_url, path=input_path)
-        if output or output_url or output_path:
+        if output is not None or output_url or output_path:
             self.set_output(value=output, url=output_url, path=output_path)
 
     def set_input(
@@ -38,7 +38,7 @@ class Data(BaseModel):
         if sum(x is not None for x in [value, url, path]) != 1:
             raise ValueError("You must provide only one of input value, url, or path.")
 
-        if value:
+        if value is not None:
             self.input = value
         elif url:
             self.input = self.load_data(url=url)
@@ -56,7 +56,7 @@ class Data(BaseModel):
         if sum(x is not None for x in [value, url, path]) != 1:
             raise ValueError("You must provide only one of input value, url, or path.")
 
-        if value:
+        if value is not None:
             self.output = value
         elif url:
             self.output = self.load_data(url=url)
@@ -85,7 +85,7 @@ class Data(BaseModel):
             raise ValueError("You must provide either a URL or a path to load data from.")
 
     def __str__(self):
-        return f"Data(input={self.input}, output={self.output}, metadata={self.metadata}, url={self.metadata.get('input_url')}, url={self.metadata.get('output_url')}, path={self.metadata.get('input_path')}, path={self.metadata.get('output_path')})"
+        return f"Data(input={self.input}, output={self.output}, metadata={self.metadata}, input_url={self.metadata.get('input_url')}, output_url={self.metadata.get('output_url')}, input_path={self.metadata.get('input_path')}, output_path={self.metadata.get('output_path')})"
 
     def __repr__(self):
         return self.__str__()
