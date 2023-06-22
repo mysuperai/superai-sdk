@@ -12,7 +12,9 @@ class DocumentToString:
         representation: str,
         max_pages: int,
         max_token: int,
-        tokenizer_model: int = "gpt-3.5-turbo",
+        pixels_per_line: int = 10,
+        pixels_per_char: int = 4,
+        tokenizer_model: str = "gpt-3.5-turbo",
         include_line_number: bool = False,
     ):
         """Creates an instance of a document to string converter.
@@ -28,6 +30,8 @@ class DocumentToString:
         :param representation: Output representation: `whitespace` or `line`
         :param max_pages: Number of pages that will be converted
         :param max_token: Limit of tokens each output chunk will maximally have once encoded for LLM
+        :param pixels_per_line: Assumed average height of a character only relevant for whitespace representation
+        :param pixels_per_char: Assumed average width of a character only relevant for whitespace representation
         :param include_line_number: Will add a line number at the beginning of each line in the output representation
         :param tokenizer_model:
         """
@@ -36,6 +40,8 @@ class DocumentToString:
         self.representation = representation
         self.max_pages = max_pages
         self.max_token = max_token
+        self.pixels_per_line = pixels_per_line
+        self.pixels_per_char = pixels_per_char
         self.tokenizer_model = tokenizer_model
         self.include_line_number = include_line_number
 
@@ -76,7 +82,9 @@ class DocumentToString:
         if self.representation == "line":
             return get_line_based_representation(ocr_values)
         elif self.representation == "whitespace":
-            return get_white_space_representation(ocr_values)
+            return get_white_space_representation(
+                ocr_values, pixels_per_line=self.pixels_per_line, pixels_per_char=self.pixels_per_char
+            )
         else:
             raise NotImplementedError(f"There is no document representation of type {self.representation}")
 
@@ -127,6 +135,9 @@ class DocumentToString:
         filtered_document_chunks = [chunk for chunk in document_chunks if len(chunk) > 0]
 
         return filtered_document_chunks
+
+    def get_ocr_tokens_for_line(self, line: int) -> List[dict]:
+        raise NotImplementedError()
 
 
 def _replace_checkbox_kv_pairs(ocr_values, ocr_key_values):
@@ -251,8 +262,14 @@ def get_white_space_representation(ocr_values, pixels_per_line=10, pixels_per_ch
     :param pixels_per_char: Assumed average width of a character
     :return: String representation of the document
     """
-    # Sort tokens by page number and 'top' position (y-coordinate)
-    ocr_values.sort(key=lambda ocr_token: (ocr_token["pageNumber"], ocr_token["boundingBox"]["top"]))
+    # Sort tokens by page number, y-position in grid and x-position in grid
+    ocr_values.sort(
+        key=lambda ocr_token: (
+            ocr_token["pageNumber"],
+            ocr_token["boundingBox"]["top"] // pixels_per_line,
+            ocr_token["boundingBox"]["left"] // pixels_per_char,
+        )
+    )
 
     # Initialize the document
     page_tokens = []
