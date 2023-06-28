@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import tiktoken
 
@@ -10,7 +10,7 @@ class DocumentToString:
         format_kv_checkboxes: bool,
         format_tables: bool,
         representation: str,
-        max_pages: int,
+        max_pages: Optional[int],
         max_token: int,
         pixels_per_line: int = 10,
         pixels_per_char: int = 4,
@@ -136,8 +136,37 @@ class DocumentToString:
 
         return filtered_document_chunks
 
-    def get_ocr_tokens_for_line(self, line: int) -> List[dict]:
-        raise NotImplementedError()
+    def get_white_space_line_dict(self, ocr_values: List[dict]) -> Dict[int, list]:
+        """Collects ocr tokens by the line they are assigned to in the white space representation.
+
+        :param ocr_values: List of ocr values in standard format
+        :return: A dictionary indexed by the line in white space representation and a list of token
+        """
+        # Part of this code a duplicated from the actual white space representaiton
+        # Sort tokens by page number, y-position in grid and x-position in grid
+        ocr_values.sort(
+            key=lambda ocr_token: (
+                ocr_token["pageNumber"],
+                ocr_token["boundingBox"]["top"] // self.pixels_per_line,
+                ocr_token["boundingBox"]["left"] // self.pixels_per_char,
+            )
+        )
+
+        line_base = 0
+        line_id = 0
+        current_page = 1
+        line_dict = {}
+        for token in ocr_values:
+            page_number = token["pageNumber"]
+            # Handle new page
+            if page_number > current_page:
+                line_base += line_id + 1  # Pages are separated with a new line
+                current_page = page_number
+
+            line_id = token["boundingBox"]["top"] // self.pixels_per_line
+            line_number = line_base + line_id
+            line_dict.setdefault(line_number, []).append(token)
+        return line_dict
 
 
 def _replace_checkbox_kv_pairs(ocr_values, ocr_key_values):

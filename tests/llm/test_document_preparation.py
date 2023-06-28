@@ -78,3 +78,14 @@ def test_line_numbers(form_ocr):
     serialized_doc = extractor.get_document_representation(form_ocr["__ocr_values__"], form_ocr["__key_values__"], None)
     assert serialized_doc[0][0:2] == "0:"
     assert serialized_doc[0].split("\n")[3][0] == "3"
+
+
+def test_get_white_space_line_dict(invoice_ocr):
+    extractor = DocumentToString(False, False, "whitespace", None, 4000, include_line_number=True)
+    serialized_doc = extractor.get_document_representation(invoice_ocr["__ocr_values__"], None, None)
+    line_dict = extractor.get_white_space_line_dict(invoice_ocr["__ocr_values__"])
+
+    split_doc = serialized_doc[0].split("\n")
+    assert line_dict[int(split_doc[4][0])][0]["content"] in split_doc[4]
+    assert line_dict[int(split_doc[26][0:2])][3]["content"] in split_doc[26]
+    assert line_dict[int(split_doc[101][0:3])][0]["content"] in split_doc[101]
