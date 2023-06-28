@@ -3,8 +3,17 @@ import random
 import time
 
 import openai
-from openai.error import RateLimitError
+from openai.error import (
+    APIConnectionError,
+    APIError,
+    OpenAIError,
+    RateLimitError,
+    ServiceUnavailableError,
+    Timeout,
+    TryAgain,
+)
 
+from superai import settings
 from superai.llm.configuration import Configuration
 from superai.llm.data_types.message import ChatMessage
 from superai.llm.foundation_models.base import FoundationModel
@@ -46,6 +55,8 @@ class ChatGPT(OpenAIFoundation):
     frequency_penalty: float = None
     logit_bias: dict = None
     token_limit: int = 8000 if engine == "gpt-4" else 4096
+    rpm: dict = {"gpt-4": 200, "gpt-3.5-turbo": 3500}
+    tpm: dict = {"gpt-4": 20000, "gpt-3.5-turbo": 240000}
 
     def predict(self, input: ChatMessage):
         self.initialize_openai()
@@ -91,7 +102,8 @@ class ChatGPT(OpenAIFoundation):
         filtered_params = {k: v for k, v in params.items() if v is not None}
 
         log.debug(f"ChatGPT params: {filtered_params}")
-        response = self._openai_call(filtered_params)
+        token_count = self.count_tokens(messages)
+        response = self._openai_call(filtered_params, token_count)
 
         if "choices" in response:
             output = response["choices"][0]["message"]["content"]
@@ -104,10 +116,29 @@ class ChatGPT(OpenAIFoundation):
         else:
             raise Exception("No choices in response")
 
-    @staticmethod
-    @retry(RateLimitError, tries=10, delay=0, backoff=0)  # no need for backoff, we're sleeping the amount required.
-    def _openai_call(openai_params: dict, min_additional_sleep: float = 1.0, max_additional_sleep: float = 5.0):
+    @retry(
+        (
+            APIConnectionError,
+            APIError,
+            RateLimitError,
+            ServiceUnavailableError,
+            Timeout,
+            TryAgain,
+        ),
+        tries=10,
+        delay=0,
+        backoff=0,
+    )  # no need for backoff, we're sleeping the amount required.
+    def _openai_call(
+        self,
+        openai_params: dict,
+        token_count: int,
+        min_additional_sleep: float = 1.0,
+        max_additional_sleep: float = 5.0,
+    ):
         try:
+            self._wait_for_rate_limits(self.engine, token_count)
+
             response = openai.ChatCompletion.create(**openai_params)
         except RateLimitError as e:
             reset_rate_header = e.headers.get("x-ratelimit-reset-requests", "30s")
@@ -117,15 +148,57 @@ class ChatGPT(OpenAIFoundation):
                 try:
                     sleep_time = float(reset_rate_header[:-1])
                 except ValueError:
-                    logger.info(f"Could not cast {reset_rate_header[:-1]} to float")
+                    log.info(f"Could not cast {reset_rate_header[:-1]} to float")
             additional_sleep = random.uniform(min_additional_sleep, max_additional_sleep)
 
             sleep_time = sleep_time + additional_sleep
-            logger.info(f"Rate limit exceeded, request throttling will reset in {sleep_time} seconds, sleeping")
+            log.info(f"Rate limit exceeded, request throttling will reset in {sleep_time} seconds, sleeping")
 
             time.sleep(sleep_time)
             raise RateLimitError
+
+        except (APIConnectionError, APIError, ServiceUnavailableError, Timeout, TryAgain) as e:
+            log.warning(f"OpenAi call raised {e.error} found headers: {e.headers} retying..")
+            raise e
+
+        except OpenAIError as e:
+            log.exception(f"Found an OpenAi error that can't be retried: {e} headers: {e.headers}")
+            raise e
+
+        except Exception as e:
+            log.error(f"Exception in the openai call that wasn't an OpenAiError: {e}")
+            raise e
         return response
+
+    def _wait_for_rate_limits(self, model: str, token_on_current_request: int):
+        if settings.backend != "qumes":
+            log.info("Can't check rate limits, no redis connection")
+            return
+
+        from superai_transport.transport.rate_limit import compute_api_wait_time
+
+        while True:
+            random_additional_time = random.uniform(0.0, 1.5)
+
+            try:
+                # RPM computation
+                if time_to_wait := compute_api_wait_time(model + "_RPM", self.rpm[model]):
+                    time_to_wait = time_to_wait + random_additional_time
+                    log.info(f"openai max RPM reached, waiting for {time_to_wait} and retrying")
+                    time.sleep(time_to_wait)
+                    continue
+
+                # TPM computation
+                if time_to_wait := compute_api_wait_time(model + "_TPM", self.tpm[model], token_on_current_request):
+                    time_to_wait = time_to_wait + random_additional_time
+                    log.info(f"openai max TPM reached, waiting for {time_to_wait} and retrying")
+                    time.sleep(time_to_wait)
+                    continue
+
+            except Exception as e:
+                log.error(f"Could not check RPM or TPM due to {e}")
+
+            return
 
     def check_api_key(self, api_key):
         self.verify_api_key(api_key)
