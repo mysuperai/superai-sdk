@@ -55,8 +55,8 @@ class ChatGPT(OpenAIFoundation):
     frequency_penalty: float = None
     logit_bias: dict = None
     token_limit: int = 8000 if engine == "gpt-4" else 4096
-    rpm: dict = {"gpt-4": 200, "gpt-3.5-turbo": 3500}
-    tpm: dict = {"gpt-4": 20000, "gpt-3.5-turbo": 240000}
+    rpm: dict = {"gpt-4": 200, "gpt-3.5-turbo": 3500, "gpt-35-turbo": 3500}
+    tpm: dict = {"gpt-4": 20000, "gpt-3.5-turbo": 240000, "gpt-35-turbo": 240000}
 
     def predict(self, input: ChatMessage):
         self.initialize_openai()
