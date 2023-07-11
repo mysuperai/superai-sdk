@@ -53,6 +53,8 @@ runtime-pip:
         libcairo2-dev \
         libjpeg-dev \
         libgif-dev \
+        libxml2 \
+        libxslt-dev \
         && apt-get clean  \
         && rm -rf /var/lib/apt/lists/*
 
@@ -124,6 +126,8 @@ ai-requirements:
         cmake \
         unzip \
         git \
+        libxml2 \
+        libxslt-dev \
         libcurl4-openssl-dev \
         libgeos-c1v5 \
         linux-libc-dev \
