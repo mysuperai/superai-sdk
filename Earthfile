@@ -53,13 +53,14 @@ runtime-pip:
         libcairo2-dev \
         libjpeg-dev \
         libgif-dev \
-        libxml2 \
-        libxslt-dev \
         && apt-get clean  \
         && rm -rf /var/lib/apt/lists/*
 
     # Install the runtime interface client
-    RUN pip install --upgrade --no-cache-dir pip~=23.1.2 && pip install --no-cache-dir awscli==1.27.135
+    RUN pip install --upgrade --no-cache-dir pip~=23.1.2 && pip install --no-cache-dir awscli==1.27.135 
+
+    # This a temporal workaround for missing assets in AWS CodeArtifacts
+    RUN pip install lxml==4.9.2
     
     ENV AWS_DEFAULT_REGION=us-east-1
     ARG PIP_TMP_DIR=/tmp/pip_dir
@@ -126,8 +127,6 @@ ai-requirements:
         cmake \
         unzip \
         git \
-        libxml2 \
-        libxslt-dev \
         libcurl4-openssl-dev \
         libgeos-c1v5 \
         linux-libc-dev \
@@ -158,6 +157,9 @@ ai-requirements:
     ARG SEMGREP_VERSION=0.86.5
     RUN --mount=type=cache,target=/root/.cache/pip \
         pip install pre-commit==2.17.0 semgrep==$SEMGREP_VERSION python-semantic-release==7.34.3
+
+    # This a temporal workaround for missing assets in AWS CodeArtifacts
+    RUN pip install lxml==4.9.2
 
     COPY setup.py .
 
