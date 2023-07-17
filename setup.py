@@ -76,7 +76,7 @@ BUILD_REQUIRES = [
 DP_REQUIRES = [
     "awscli>=1.18.163",
     "superai-dataclient~=0.1.0",
-    "superai-schema~=0.4.1",
+    "superai-schema~=0.14.0",
     "pyngrok>=5.1.0",
 ]
 
