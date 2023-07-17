@@ -8,6 +8,7 @@ import superai_schema.universal_schema.data_types as dt
 
 from superai import Client
 from superai.data_program.Exceptions import (
+    ChildJobExpired,
     ChildJobFailed,
     ChildJobInternalError,
     JobTypeNotImplemented,
@@ -142,6 +143,8 @@ class BasicRouter(Router):
                 raise ChildJobInternalError(failure_message)
             if status == "FAILED":
                 raise ChildJobFailed(failure_message)
+            if status == "EXPIRED":
+                raise ChildJobExpired(failure_message)
             if status != "COMPLETED":
                 raise ChildJobInternalError(failure_message)
 

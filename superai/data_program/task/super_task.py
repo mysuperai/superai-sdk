@@ -5,6 +5,7 @@ from typing import Dict, Generic, List, Optional, Union
 from pydantic.generics import GenericModel
 
 from superai.data_program.Exceptions import (
+    ChildJobExpired,
     ChildJobFailed,
     ChildJobInternalError,
     TaskExpiredMaxRetries,
@@ -120,6 +121,8 @@ class SuperTaskWorkflow(Workflow):
             raise ChildJobInternalError(failure_message)
         if status == "FAILED":
             raise ChildJobFailed(failure_message)
+        if status == "EXPIRED":
+            raise ChildJobExpired(failure_message)
         if status != "COMPLETED":
             raise ChildJobInternalError(failure_message)
 

@@ -83,6 +83,11 @@ class ChildJobInternalError(Exception):
         self.message = message
 
 
+class ChildJobExpired(Exception):
+    def __init__(self, message):
+        self.message = message
+
+
 class CancelledError(Exception):
     def __init__(self, message):
         self.message = message
