@@ -35,6 +35,7 @@ try:
             task_result,
             start_threads,
         )  # noqa # isort:skip
+        from superai_transport.transport.rate_limit import compute_api_wait_time  # noqa # isort:skip
     else:
         from .transport import (
             attach_bill,
@@ -64,6 +65,7 @@ try:
             task_result,
             start_threads,
         )  # noqa # isort:skip
+        from .rate_limit import compute_api_wait_time  # noqa # isort:skip
 
 except ImportError as e:
     logger.exception(e)

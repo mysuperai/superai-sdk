@@ -13,7 +13,7 @@ from openai.error import (
     TryAgain,
 )
 
-from superai import settings
+from superai.data_program.protocol.transport_factory import compute_api_wait_time
 from superai.llm.configuration import Configuration
 from superai.llm.data_types.message import ChatMessage
 from superai.llm.foundation_models.base import FoundationModel
@@ -171,12 +171,6 @@ class ChatGPT(OpenAIFoundation):
         return response
 
     def _wait_for_rate_limits(self, model: str, token_on_current_request: int):
-        if settings.backend != "qumes":
-            log.info("Can't check rate limits, no redis connection")
-            return
-
-        from superai_transport.transport.rate_limit import compute_api_wait_time
-
         while True:
             random_additional_time = random.uniform(0.0, 1.5)
 

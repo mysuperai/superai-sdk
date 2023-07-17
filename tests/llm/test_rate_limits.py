@@ -1,10 +1,10 @@
-import builtins
-from unittest.mock import patch
+import datetime
+from unittest.mock import Mock, patch
 
 import pytest
 from openai.error import RateLimitError
 
-from superai import settings
+from superai.data_program.protocol.rate_limit import compute_api_wait_time
 from superai.llm.foundation_models.openai import ChatGPT
 
 
@@ -44,24 +44,34 @@ def test_rate_exceeding_handling(chat_gpt_model):
 
 
 def test_wait_for_rate_limits(monkeypatch, chat_gpt_model):
-    settings.backend = "qumes"
-
     # RPM call, retrial, TPM call, RPM retrial, TPM retrial
-    return_iter = iter([0.5, 0, 0.1, 0, 0])
-    original_import = builtins.__import__
+    return_data = [0.5, 0, 0.1, 0, 0]
+    test_mock = Mock(side_effect=return_data)
+    monkeypatch.setattr(
+        "superai.llm.foundation_models.openai.compute_api_wait_time",
+        test_mock,
+    )
 
-    class MockModule:
-        @staticmethod
-        def compute_api_wait_time(entity, max_tpm, current_increase=1):
-            return next(return_iter)
+    chat_gpt_model._wait_for_rate_limits("gpt-3.5-turbo", 50)
+    assert test_mock.call_count == len(return_data)
 
-    # Redefine import, since superai transport is not installed for testing.
-    def mock_import(name, globals=None, locals=None, fromlist=(), level=0):
-        if name == "superai_transport.transport.rate_limit" and "compute_api_wait_time" in fromlist:
-            return MockModule
-        return original_import(name, globals, locals, fromlist, level)
 
-    with patch.object(builtins, "__import__", side_effect=mock_import):
-        chat_gpt_model._wait_for_rate_limits("gpt-3.5-turbo", 50)
-        with pytest.raises(StopIteration):
-            next(return_iter)
+@patch("superai.data_program.protocol.rate_limit.datetime")
+def test_compute_api_wait_time(datetime_mock):
+    model_name = "fancy_model"
+    passed_secs = 3
+
+    # Fixes time, to make tests consistent
+    datetime_mock.datetime.now = Mock(return_value=datetime.datetime(2023, 2, 26, 0, 10, passed_secs, 0))
+
+    # First call, tests fresh key
+    assert compute_api_wait_time(model_name, 30, 25) == 0
+    # Seconds call should't exceed threshold
+    assert compute_api_wait_time(model_name, 30, 1) == 0
+    # Third call should exceed.
+    assert compute_api_wait_time(model_name, 30, 10) == 60 - passed_secs
+    # New model call shouldn't exceed
+    assert compute_api_wait_time(model_name + "_NEW", 30, 10) == 0
+    # New minute should reset rates
+    datetime_mock.datetime.now = Mock(return_value=datetime.datetime(2023, 2, 26, 0, 11, passed_secs, 0))
+    assert compute_api_wait_time(model_name, 30, 1) == 0
