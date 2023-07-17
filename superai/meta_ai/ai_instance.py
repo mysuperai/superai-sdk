@@ -183,19 +183,25 @@ class AIInstance:
             self.description = description
         if checkpoint_tag is not None:
             self.checkpoint_tag = checkpoint_tag
-        if served_by is not None:
-            self.served_by = served_by
         if visibility is not None:
             self.visibility = visibility
 
+        changed = {
+            "deployment_parameters": self.deployment_parameters,
+            "name": self.name,
+            "description": self.description,
+            "checkpoint_tag": self.checkpoint_tag,
+            "visibility": self.visibility,
+        }
+
+        # Only set this when not-null to not overwrite existing value in backend
+        if served_by:
+            changed["served_by"] = served_by
+            self.served_by = served_by
+
         self.client.update_ai_instance(
             self.id,
-            name=self.name,
-            description=self.description,
-            deployment_parameters=self.deployment_parameters,
-            checkpoint_tag=self.checkpoint_tag,
-            served_by=self.served_by,
-            visibility=self.visibility,
+            **changed,
         )
         log.debug(f"AI instance {self} updated")
 
@@ -262,6 +268,7 @@ class AIInstance:
         self,
         redeploy: bool = False,
         wait_time_seconds: int = 1,
+        orchestrator: Union[Orchestrator, str] = Orchestrator.AWS_EKS_ASYNC,
     ) -> "RemotePredictor":
         """Deploys the model to the remote backend to serve predictions.
         Can wait for the deployment to be ready.
@@ -269,6 +276,8 @@ class AIInstance:
         Args:
             redeploy: Allow un-deploying existing deployment and replacing it.
             wait_time_seconds: Time to wait for the deployment to be ready.
+        Internal-Args:
+            orchestrator: Orchestrator to use for deployment.
 
         """
 
@@ -281,9 +290,9 @@ class AIInstance:
             raise AIException(
                 "AI has no Docker image stored. Try ai.build() and ai.push_image() on the AI object first."
             )
-
+        orchestrator = Orchestrator(orchestrator)
         predictor_obj: RemotePredictor = RemotePredictor(
-            orchestrator=Orchestrator.AWS_EKS,
+            orchestrator=orchestrator,
             deploy_properties=ai.default_deployment_parameters,
             ai=self,
         )

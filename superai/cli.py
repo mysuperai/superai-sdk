@@ -1676,6 +1676,13 @@ def local_undeploy_ai(config_file, clean=True):
     type=click.Choice(["True", "False"]),
     default="False",
 )
+@click.option(
+    "--orchestrator",
+    "-o",
+    help="Orchestrator to use for deployment",
+    default="AWS_EKS",
+    type=click.Choice(["AWS_EKS", "AWS_EKS_ASYNC"]),
+)
 def create_ai_instance(
     config_file,
     clean=True,
@@ -1685,6 +1692,7 @@ def create_ai_instance(
     weights_path=None,
     instance_config=None,
     force_clone_checkpoint=False,
+    orchestrator="AWS_EKS",
 ):
     """Push and deploy an AI and its artifacts (docker image, default checkpoint)."""
     from superai.meta_ai.ai import AI
@@ -1724,7 +1732,7 @@ def create_ai_instance(
 
     if deploy:
         for instance in instances:
-            instance.deploy(redeploy=True)
+            instance.deploy(redeploy=True, orchestrator=orchestrator)
             print(f"Deployed AI instance: {instance}")
 
 

@@ -115,7 +115,7 @@ class DeploymentApiMixin(AiApiBase):
             try:
                 self._wait_for_state_change(deployment_id, field="status", target_status=initial_status)
             except Exception as e:
-                log.warning(f"Exception during wait, aborting wait: {e}")
+                raise DeploymentException("Deployment failed") from e
         return deployment_id
 
     def _set_target_status(
@@ -246,6 +246,7 @@ class DeploymentApiMixin(AiApiBase):
             "min_instances",
             "scale_in_timeout",
             "ai_instance_id",
+            "type",
         )
         data = self.sess.perform_op(opq)
         return (opq + data).meta_ai_deployment_by_pk
@@ -457,6 +458,35 @@ class DeploymentApiMixin(AiApiBase):
             TaskPredictionInstance(prediction=instance.output, score=instance.score)
             for instance in prediction.instances
         ]
+
+    def predict_from_endpoint_async(
+        self,
+        model_id: str = None,
+        deployment_id: str = None,
+        input_data: dict = None,
+        parameters: dict = None,
+    ) -> str:
+        """Predict with endpoint using input data and custom parameters.
+        Endpoint is identified either by specific deployment_id or inferred using the model_id.
+
+        Returns a prediction uuid.
+
+        Args:
+            deployment_id: id of the model. Will map to an assigned deployment in the backend
+            model_id: id of the model deployed, acts as the primary key of the deployment
+            input_data: raw data or reference to stored object
+            parameters: parameters for the model inference
+
+        """
+        if model_id is None and deployment_id is None:
+            raise ValueError("Either model_id or deployment_id must be specified.")
+        if not input_data:
+            raise ValueError("Input data must be specified.")
+
+        prediction_id = self.submit_prediction_request(
+            deployment_id=deployment_id, model_id=model_id, input_data=input_data, parameters=parameters
+        )
+        return prediction_id
 
 
 class TrainingException(Exception):

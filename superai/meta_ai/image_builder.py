@@ -89,6 +89,7 @@ class AiImageBuilder:
         """Prepare entrypoints and environment variables for the image."""
         if self.orchestrator in [
             Orchestrator.AWS_EKS,
+            Orchestrator.AWS_EKS_ASYNC,
             Orchestrator.LOCAL_DOCKER_K8S,
             TrainingOrchestrator.AWS_EKS,
             TrainingOrchestrator.LOCAL_DOCKER_K8S,

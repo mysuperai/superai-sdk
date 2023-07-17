@@ -458,7 +458,15 @@ class meta_ai_deployment_type_constraint(sgqlc.types.Enum):
 
 class meta_ai_deployment_type_enum(sgqlc.types.Enum):
     __schema__ = meta_ai_graphql_schema
-    __choices__ = ("AWS_EKS", "AWS_LAMBDA", "AWS_SAGEMAKER", "AWS_SAGEMAKER_ASYNC", "DUMMY", "EKS_POLYAXON")
+    __choices__ = (
+        "AWS_EKS",
+        "AWS_EKS_ASYNC",
+        "AWS_LAMBDA",
+        "AWS_SAGEMAKER",
+        "AWS_SAGEMAKER_ASYNC",
+        "DUMMY",
+        "EKS_POLYAXON",
+    )
 
 
 class meta_ai_deployment_type_select_column(sgqlc.types.Enum):

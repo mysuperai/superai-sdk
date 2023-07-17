@@ -511,11 +511,11 @@ class AI:
     ) -> AI:
         """Build the image and return the image name.
         Args:
-            orchestrator:
             deployment_parameters: Optional deployment parameters to override the default deployment parameters.
             skip_build: Skip building and return the image name which would be built.
             cuda_devel: Build with cuda devel image.
             overwrite: Overwrite existing AI staging directory for building.
+            orchestrator:
 
         Returns:
             AI object with the image name set.

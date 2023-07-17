@@ -2,13 +2,14 @@ import json
 import os
 import shutil
 from pathlib import Path
+from unittest.mock import patch
 
 import boto3
 import pytest
 from moto import mock_s3
 
 from superai import settings
-from superai.meta_ai import AI
+from superai.meta_ai import AI, BaseAI
 from superai.meta_ai.ai_helper import PREDICTION_METRICS_JSON, load_and_predict
 from superai.meta_ai.parameters import Config
 from superai.meta_ai.schema import Schema, TaskBatchInput, TaskElement, TaskInput
@@ -183,3 +184,58 @@ def test_remove_patch_from_yaml():
     dict_with_patch = {"name": "some_name", "version": "1.0.0"}
     assert AI._remove_patch_from_version(dict_with_patch) != dict_with_patch, "Dictionary will be changed"
     assert AI._remove_patch_from_version(dict_with_patch) == {"name": "some_name", "version": "1.0"}
+
+
+class TestBaseAI:
+    class TestAI(BaseAI):
+        def load_weights(self, weights_path: str):
+            pass
+
+        def train(self, *args, **kwargs):
+            pass
+
+        def predict(self, data):
+            return {"result": True}
+
+    def test_wrapped_prediction(self):
+        # Mocking logger
+        with patch("superai.meta_ai.base.base_ai.log") as mock_log:
+            # Create instance
+            test_ai = self.TestAI()
+
+            # Inputs
+            data = {"test_key": "test_value"}
+            meta = {"puid": "test_puid", "tags": "test_tags"}
+            inputs = {"data": data, "meta": meta}
+
+            # Call the wrapped prediction function
+            result = test_ai.predict(inputs)
+
+            # Assertions
+            assert result["data"] == {"result": True}
+            assert result["meta"] == meta
+
+            # Check that log.info has been called with the correct arguments
+            mock_log.info.assert_any_call("Received prediction request for prediction_uuid=test_puid")
+            mock_log.info.assert_any_call("Received tags=test_tags")
+
+    class TestAIException(TestAI):
+        def predict(self, data):
+            raise Exception("Test exception")
+
+    def test_wrapped_prediction_exception(self):
+        # Create instance
+        test_ai = self.TestAIException()
+
+        # Inputs
+        data = {"test_key": "test_value"}
+        meta = {"puid": "test_puid", "tags": "test_tags"}
+        inputs = {"data": data, "meta": meta}
+
+        # Call the wrapped prediction function
+        result = test_ai.predict(inputs)
+
+        # Assertions
+        assert result["meta"] == meta
+        assert "exception" in result
+        assert "Test exception" in result["exception"]

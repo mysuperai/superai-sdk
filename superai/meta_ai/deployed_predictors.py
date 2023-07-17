@@ -290,17 +290,28 @@ class RemotePredictor(DeployedPredictor):
 
         self.load()
 
+        create_new = False
         if self.id:
             if not redeploy:
                 raise AIDeploymentException(
                     "Deployment with this version already exists. Try undeploy() first or set `deploy(redeploy=True)`."
                 )
             else:
-                self.terminate(wait_seconds=5)
+                current_deployment = c.get_deployment(self.id)
+                current_type = current_deployment.type
+                if current_type != self.orchestrator.value:
+                    log.warning(
+                        f"Deployment type changed. Previous {current_type}, now: {self.orchestrator.value}. Will shutdown current deployment and create new."
+                    )
+                    create_new = True
+                self.terminate(wait_seconds=3)
         else:
+            create_new = True
+
+        if create_new:
             # Create new deployment entry if no existing deployment is found
-            self.id = c.deploy(self.ai_instance.id)
-            log.info(f"Created new deployment with id {self.id}.")
+            self.id = c.deploy(self.ai_instance.id, deployment_type=self.orchestrator.value)
+            log.info(f"Created new deployment with id={self.id} and type={self.orchestrator.value}.")
 
         # Update deployment properties and AI instance
         c.set_deployment_properties(deployment_id=self.id, properties=self.deploy_properties.dict_for_db())
@@ -348,6 +359,16 @@ class RemotePredictor(DeployedPredictor):
         else:
             log.error("Prediction failed as endpoint does not seem to exist, please redeploy.")
             raise LookupError("Endpoint does not exist, redeploy")
+
+    def predict_async(self, input, **kwargs) -> str:
+        """Predict asynchronously from the remote deployment and return prediction_uuid."""
+        input_data, parameters = input.get("data", {}), input.get("parameters", {})
+        return self.client.predict_from_endpoint_async(
+            deployment_id=self.id,
+            input_data=input_data,
+            parameters=parameters,
+            model_id=self.ai_instance.id,
+        )
 
     def terminate(self, wait_seconds=1):
         """Terminate the deployment.

@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sys
 import tarfile
+import traceback
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
 from typing import List, Optional, Union
@@ -49,18 +51,67 @@ class BaseAI(metaclass=ABCMeta):
         self.default_seldon_load_path = os.environ.get("MNT_PATH", "/mnt/models")
 
     def __init_subclass__(cls, **kwargs):
-        cls.predict = cls._process_json_func(cls.predict)
+        cls.predict = cls._wrapped_prediction(cls.predict)
         super().__init_subclass__(**kwargs)
 
     @staticmethod
-    def _process_json_func(pred_func):
-        """This method json encodes a dictionary and returns the same dictionary, avoiding JSON encoding failures."""
+    def _wrapped_prediction(pred_func):
+        """Wraps the prediction function to add functionality and hide complex implementation details.
 
-        def __inner__(*args, **kwargs):
-            prediction_result = pred_func(*args, **kwargs)
-            json_string = json.dumps(prediction_result)
-            json_dict = json.loads(json_string)
-            return json_dict
+        Currently, does:
+        - logs the prediction_uuid and tags if present in the metadata
+        -  json encodes a dictionary and returns the same dictionary, avoiding JSON encoding failures.
+        - passthrough meta header for routing and logging
+
+        """
+
+        def __inner__(self, inputs: dict, meta: dict = None):
+            """
+            Args:
+                data: Input data to the model
+                meta: Metadata about the input data, used in the backend transport and for observability
+            """
+            if isinstance(inputs, dict) and "data" in inputs and "meta" in inputs:
+                meta = inputs["meta"]
+                inputs = inputs["data"]
+
+            if meta:
+                if "puid" in meta:
+                    log.info(f"Received prediction request for prediction_uuid={meta['puid']}")
+                if "tags" in meta:
+                    # TODO: add tracking of tags for jaeger here
+                    log.info(f"Received tags={meta['tags']}")
+
+            # Main function
+            exception = None
+            json_dict = None
+            try:
+                prediction_result = pred_func(self, inputs)
+                json_string = json.dumps(prediction_result)
+                json_dict = json.loads(json_string)
+            except Exception:
+                if meta:
+                    # Catch exceptions and return them in the response
+                    # This enables us to return our own payload instead of the seldon default
+                    log.exception("Exception occurred during prediction")
+
+                    exc_type, exc_value, exc_tb = sys.exc_info()
+                    exception = str(traceback.format_exception(exc_type, exc_value, exc_tb, limit=3))
+                else:
+                    # backwards compatibility
+                    # our old behaviour was based on the seldon default
+                    raise
+
+            if meta:
+                if exception:
+                    # Return the exception in the response as `exception`
+                    return dict(exception=exception, meta=meta)
+                else:
+                    # Return the prediction in the response as `data`
+                    return dict(data=json_dict, meta=meta)
+            else:
+                # Backwards compatibility
+                return json_dict
 
         return __inner__
 
