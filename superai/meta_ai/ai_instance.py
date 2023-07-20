@@ -317,7 +317,7 @@ class AIInstance:
 
         """
         if not self._predictor:
-            self._predictor = RemotePredictor(ai=self, orchestrator=Orchestrator.AWS_EKS)
+            self._predictor = RemotePredictor(ai=self, orchestrator=Orchestrator.AWS_EKS_ASYNC)
             existing = self._predictor.load()
             if not existing:
                 raise AIException("AI instance not deployed. Please deploy first with ai_instance.deploy().")
@@ -333,7 +333,7 @@ class AIInstance:
             if not self.served_by:
                 raise AIException("AI instance not deployed. Please deploy first with ai_instance.deploy().")
             if not self._predictor:
-                self._predictor = RemotePredictor(ai=self, orchestrator=Orchestrator.AWS_EKS)
+                self._predictor = RemotePredictor(ai=self, orchestrator=Orchestrator.AWS_EKS_ASYNC)
             self._predictor.terminate(wait_seconds=wait_time_seconds)
         else:
             log.info("No ID found. Is the AI instance registered in the Database?")

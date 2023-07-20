@@ -78,7 +78,7 @@ class DeploymentApiMixin(AiApiBase):
     def deploy(
         self,
         ai_instance_id: str = None,
-        deployment_type: meta_ai_deployment_type_enum = "AWS_EKS",
+        deployment_type: meta_ai_deployment_type_enum = "AWS_EKS_ASYNC",
         purpose: str = "SERVING",
         properties: dict = None,
         initial_status: meta_ai_deployment_status_enum = "OFFLINE",
