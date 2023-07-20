@@ -4,6 +4,7 @@ from functools import lru_cache
 from typing import Generator, Optional
 
 from pydantic import BaseModel
+from requests import RequestException
 from sgqlc.endpoint.requests import RequestsEndpoint
 from sgqlc.endpoint.websocket import WebSocketEndpoint
 from sgqlc.operation import Operation
@@ -62,7 +63,7 @@ class MetaAISession(RequestsEndpoint):
 
         return hasura_endpoint
 
-    @retry(TimeoutError)
+    @retry((TimeoutError, RequestException))  # noqa: F821
     def perform_op(self, op: Operation, timeout: int = 60):
         data = self(op, timeout=timeout)
         if not data.get("errors", False):
