@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 import sys
 import tarfile
@@ -13,13 +12,14 @@ from urllib.parse import urlparse
 
 import boto3
 
+from superai.log import get_logger
 from superai.meta_ai.parameters import Config, HyperParameterSpec, ModelParameters
 from superai.meta_ai.schema import Schema, SchemaParameters, TaskInput, TrainerOutput
 from superai.meta_ai.tracking import SuperTracker
 
 default_random_seed = 65778
 
-log = logging.getLogger()
+log = get_logger(__name__)
 
 
 class BaseAI(metaclass=ABCMeta):
@@ -74,6 +74,8 @@ class BaseAI(metaclass=ABCMeta):
             if isinstance(inputs, dict) and "data" in inputs and "meta" in inputs:
                 meta = inputs["meta"]
                 inputs = inputs["data"]
+            elif meta is None:
+                log.warning(f"Received inputs without meta header. Type of inputs: {type(inputs)}")
 
             if meta:
                 if "puid" in meta:
