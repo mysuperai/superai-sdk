@@ -1,8 +1,10 @@
 import datetime
+import os
+import tempfile
 
 import diskcache as dc
 
-cache = dc.Cache("rates")
+cache = dc.Cache(os.path.join(tempfile.gettempdir(), "rate"))
 
 
 def compute_api_wait_time(entity: str, max_tpm: int, current_increase: int = 1):
