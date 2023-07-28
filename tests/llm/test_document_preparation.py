@@ -4,7 +4,10 @@ from pathlib import Path
 import pytest
 import tiktoken
 
-from superai.llm.data_processing.document_preparation import DocumentToString
+from superai.llm.data_processing.document_preparation import (
+    DocumentToString,
+    _replace_checkbox_kv_pairs,
+)
 
 
 @pytest.fixture
@@ -89,3 +92,23 @@ def test_get_white_space_line_dict(invoice_ocr):
     assert line_dict[int(split_doc[4][0])][0]["content"] in split_doc[4]
     assert line_dict[int(split_doc[26][0:2])][3]["content"] in split_doc[26]
     assert line_dict[int(split_doc[101][0:3])][0]["content"] in split_doc[101]
+
+
+def test_replace_checkbox_kv_pairs(form_ocr):
+    # Test dummy removal
+    ocr_values = [
+        {"content": "Box", "pageNumber": 1, "boundingBox": {"top": 0, "left": 10, "height": 5, "width": 5}},
+        {"content": "|X", "pageNumber": 1, "boundingBox": {"top": 0, "left": 0, "height": 5, "width": 5}},
+    ]
+    ocr_key_values = [
+        {
+            "key": {"content": "Box", "pageNumber": 1, "boundingBox": {"top": 0, "left": 10, "height": 5, "width": 5}},
+            "value": {
+                "content": ":selected:",
+                "pageNumber": 1,
+                "boundingBox": {"top": 0, "left": 0, "height": 5, "width": 5},
+            },
+        }
+    ]
+    ocr_values = _replace_checkbox_kv_pairs(ocr_values, ocr_key_values)
+    assert ocr_values[0]["content"] == "Box-[X]"

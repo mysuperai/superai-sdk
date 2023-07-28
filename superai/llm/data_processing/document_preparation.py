@@ -175,13 +175,15 @@ def _replace_checkbox_kv_pairs(ocr_values, ocr_key_values):
     kv = _deduplicate_boxes(kv)
     for e in kv:
         page_number = e["value"]["pageNumber"]
-        desc_bbox = e["key"]["boundingBox"]
+        checkbox_bbox = e["key"]["boundingBox"]
+        value_bbox = e["value"]["boundingBox"]
         box_str = "[ ]" if e["value"]["content"] == ":unselected:" else "[X]"
         content = f"{e['key']['content']}-{box_str}"
 
-        ocr_values, filtered = filter_tokens_by_text_box(ocr_values, desc_bbox, page_number)
+        ocr_values = filter_tokens_by_text_box(ocr_values, checkbox_bbox, page_number)
+        ocr_values = filter_tokens_by_text_box(ocr_values, value_bbox, page_number)
 
-        ocr_values.append({"content": content, "boundingBox": desc_bbox, "pageNumber": page_number})
+        ocr_values.append({"content": content, "boundingBox": checkbox_bbox, "pageNumber": page_number})
     return ocr_values
 
 
@@ -223,7 +225,6 @@ def intersect(box1, box2):
 
 
 def filter_tokens_by_text_box(tokens, text_box, page_number):
-    filtered_tokens = []
     kept_tokens = []
     text_area = text_box["width"] * text_box["height"]
     for token in tokens:
@@ -237,11 +238,9 @@ def filter_tokens_by_text_box(tokens, text_box, page_number):
         intersection = max(0, x2 - x1) * max(0, y2 - y1)
         # Check if the token area within the text area is at least 90%
         token_area = bbox["width"] * bbox["height"]
-        if intersection >= 0.9 * token_area and token_area <= text_area and token["pageNumber"] == page_number:
-            filtered_tokens.append(token)
-        else:
+        if not (token["pageNumber"] == page_number and token_area <= text_area and intersection >= 0.9 * token_area):
             kept_tokens.append(token)
-    return kept_tokens, filtered_tokens
+    return kept_tokens
 
 
 def get_line_based_representation(ocr_outputs, tolerance=2):
