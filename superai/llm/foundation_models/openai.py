@@ -28,12 +28,13 @@ log = logger.get_logger(__name__)
 
 class OpenAIFoundation(FoundationModel):
     user: str = None
+    api_key: str = config.open_ai_api_key
 
     def initialize_openai(self):
         openai.api_type = config.openai_api_type
         openai.api_base = config.openai_api_base
         openai.api_version = config.openai_api_version
-        openai.api_key = config.open_ai_api_key
+        openai.api_key = self.api_key
 
     def verify_api_key(self, api_key):
         try:
