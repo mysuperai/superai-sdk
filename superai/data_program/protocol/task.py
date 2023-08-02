@@ -11,8 +11,7 @@ from copy import deepcopy
 from enum import Enum
 from functools import wraps
 from random import randint
-from threading import Thread
-from typing import List, Optional
+from typing import Optional
 
 import requests
 import sentry_sdk
@@ -23,11 +22,11 @@ from superai_schema.universal_schema.data_types import (
     list_to_schema,
     validate,
 )
-from superai_schema.universal_schema.task_schema_functions import text
 
 from superai.data_program.experimental import memo
 from superai.log import logger
 from superai.utils import load_api_key, sentry_helper
+from superai.utils.opentelemetry import tracer
 
 from .transport_factory import (  # noqa # isort:skip
     attach_bill,
@@ -65,6 +64,7 @@ sentry_helper.init()
 CACHE_FOLDER = "tmp"
 
 
+@tracer.start_as_current_span("task")
 def task(
     input,
     output,
@@ -499,6 +499,7 @@ def get_task_type(resp, idx=0):
     return []
 
 
+@tracer.start_as_current_span("wait_tasks_OR")
 def wait_tasks_OR(tasks, timeout=None):
     """Waits for a list of tasks until one of the tasks is completed. Idempotency safe.
 
@@ -529,6 +530,7 @@ def wait_tasks_OR(tasks, timeout=None):
     return results
 
 
+@tracer.start_as_current_span("wait_tasks_AND")
 def wait_tasks_AND(tasks, timeout=None):
     """Waits for list of tasks until all of the tasks are completed. Idempotency safe.
 
@@ -649,18 +651,7 @@ def disqualify(hero_id, metric):
         print(f'delete metric["{hero_id}"]["{metric}"]')
 
 
-def serve_predict(predict_func, port=8080, context=None, use_sagemaker=True):
-    """Registers the predict_func as the prediction handler and starts the prediction service by listening to the port.
-
-    If use_sagemaker flag is set, it creates a prediction endpoint on SageMaker fabric.
-    """
-    if use_sagemaker:
-        # sm.serve_predict(predict_func, context, port=port)
-        raise NotImplementedError("Sagemaker deploy is not implemented")
-    else:
-        run_model_predict(predict_func, port=port, context=context)
-
-
+@tracer.start_as_current_span("tasks_parallel")
 def tasks_parallel(records, task_fn, concurrency=1, task_callback=None):
     """Executes tasks in parallel from the given input `records`.
 
@@ -702,6 +693,7 @@ def tasks_parallel(records, task_fn, concurrency=1, task_callback=None):
                 task_callback(t.cookie()["seq"], t.result())
 
 
+@tracer.start_as_current_span("execute_parallel")
 def execute_parallel(records, method_fn, concurrency=10, callback=None):
     """Executes a method that return future in parallel.
 
@@ -745,42 +737,6 @@ def execute_parallel(records, method_fn, concurrency=10, callback=None):
         if callback:
             for t in wait_result.done:
                 callback(t.cookie()["seq"], t.result())
-
-
-def task_from_semantic_ui(
-    record,
-    completed,
-    total_tasks,
-    price_tag="default",
-    task_name=None,
-    ai=None,
-    ai_input=None,
-    time_to_update_secs=None,
-):
-    """Dispatches a task from Semantic UI record.
-    {
-        "name": [...],
-        "input": [...],
-        "output": [...]
-        "response": [...]
-    }
-    """
-    # Merge the response to output
-    if record.get("response"):
-        for i in range(len(record["output"])):
-            record["output"][i]["value"] = record["response"][i]["value"]
-
-    return task(
-        input=record["input"],
-        output=record["output"],
-        ai=ai,
-        ai_input=ai_input,
-        name=record["name"] if task_name is None else task_name,
-        price=price_tag,
-        completed_tasks=completed,
-        total_tasks=total_tasks,
-        time_to_update_secs=time_to_update_secs,
-    )
 
 
 class WorkflowType(str, Enum):
@@ -1108,107 +1064,7 @@ def export_data(json_output):
     return folder
 
 
-def mtask(
-    input,
-    output,
-    name=None,
-    qualifications=None,
-    title=None,
-    description=None,
-    amount=None,
-    paragraphs=None,
-    show_reject=True,
-    sandbox=None,
-    timeToResolveSec=None,
-    timeToExpireSec=None,
-):
-    """Routes a task for labeling to one or more supervision sources.
-
-    Args:
-        input: A list of input semantic items.
-        output: A list of output semantic items.
-        name: Task type.
-        price: Price tag to be associated with the task.
-        title: Task title.
-        description: Task description.
-        paragraphs: Task details.
-        show_reject: Show reject button.
-        amount: Price to pay crowd heroes.
-        sandbox: Send to sandbox for debug.
-        timeToResolveSec: Time in seconds for MTurk to resolve the task once they accept it.
-        timeToExpireSec: Time in seconds for the task to expire after creation.
-    """
-    if "CANOTIC_AGENT" in os.environ:
-        return schedule_mtask(
-            name,
-            input,
-            output,
-            title,
-            description,
-            paragraphs,
-            show_reject,
-            amount,
-            sandbox,
-            timeToResolveSec,
-            timeToExpireSec,
-            qualifications,
-        )
-
-
-def urgent_task(
-    inputs,
-    output,
-    humans=None,
-    ai=None,
-    ai_input=None,
-    qualifications=None,
-    name=None,
-    price="default",
-    title=None,
-    description=None,
-    paragraphs=None,
-    completed_tasks=None,
-    total_tasks=None,
-    included_ids=None,
-    excluded_ids=None,
-    explicit_id=None,
-    groups=None,
-    excluded_groups=None,
-    time_to_resolve_secs=None,
-    time_to_update_secs=None,
-    time_to_expire_secs=None,
-    show_reject=False,
-    amount=None,
-):
-    inputs = [text("**URGENT TASK**")] + inputs
-    return task(
-        inputs,
-        output,
-        humans=humans,
-        ai=ai,
-        ai_input=ai_input,
-        qualifications=qualifications,
-        name=name,
-        price=price,
-        title=title,
-        description=description,
-        paragraphs=paragraphs,
-        completed_tasks=completed_tasks,
-        total_tasks=total_tasks,
-        included_ids=included_ids,
-        excluded_ids=excluded_ids,
-        explicit_id=explicit_id,
-        groups=groups,
-        excluded_groups=excluded_groups,
-        time_to_resolve_secs=time_to_resolve_secs,
-        time_to_update_secs=time_to_update_secs,
-        time_to_expire_secs=time_to_expire_secs,
-        show_reject=show_reject,
-        amount=amount,
-    )
-
-
-def start_threading(join=True) -> List[Thread]:
+def start_threading(join=True):
     threads = start_threads()
     if threads and join:
         for t in threads:

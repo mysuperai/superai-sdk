@@ -19,6 +19,7 @@ from superai.data_program.protocol.task import (
     wait_tasks_OR,
 )
 from superai.log import logger
+from superai.utils.opentelemetry import tracer
 
 from ..workflow import Workflow
 from .basic import Task, model_to_task_io_payload
@@ -89,6 +90,7 @@ class SuperTaskWorkflow(Workflow):
         Register Task schema in the backend (Schema service).
         """
 
+    @tracer.start_as_current_span(name="super_task_schedule")
     def schedule(
         self, task_input: Input, task_output: Output, super_task_params: SuperTaskConfig
     ) -> TaskResponse[Output]:
@@ -129,6 +131,7 @@ class SuperTaskWorkflow(Workflow):
         response = job.result().response()
         return response
 
+    @tracer.start_as_current_span(name="super_task_workflow")
     def execute_workflow(
         self,
         job_input: SuperTaskJobInput,
@@ -254,6 +257,7 @@ class TaskRouter:
         if self.task_config.params.strategy not in allowed_strategies:
             raise ValueError("Unknown task strategy.")
 
+    @tracer.start_as_current_span("supertask_map")
     def map(self, task_input, task_output) -> Optional[Dict[int, TaskHandler]]:
         tasks = {}
         for index, worker in enumerate(self.task_config.workers):
@@ -264,6 +268,7 @@ class TaskRouter:
             tasks[index] = task_handler
         return tasks
 
+    @tracer.start_as_current_span("supertask_reduce")
     def reduce(self, task_futures: Dict[int, TaskHandler]) -> dict:
         """Handles retrial and aggregation of results"""
         results = self._handle_retrial(task_futures)
@@ -278,6 +283,7 @@ class TaskRouter:
         # for example in the case of combination of tasks. So we return the result.
         return selected.result()["values"]
 
+    @tracer.start_as_current_span("handle_retrial")
     def _handle_retrial(self, task_futures: Dict[int, TaskHandler]) -> List[task_future]:
         while True:
             futures = wait_tasks_OR([handler.task_future for handler in task_futures.values()])

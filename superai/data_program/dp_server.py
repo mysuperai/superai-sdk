@@ -33,6 +33,7 @@ from superai.data_program.utils import _call_handler
 from superai.data_program.workflow import WorkflowConfig
 from superai.log import logger
 from superai.utils import load_api_key, load_auth_token, load_id_token, retry
+from superai.utils.opentelemetry import instrumented_lifespan
 
 log = logger.get_logger(__name__)
 
@@ -135,7 +136,7 @@ class DPServer:
             yield
 
     def run(self):
-        app = fastapi.FastAPI()
+        app = fastapi.FastAPI(lifespan=instrumented_lifespan)
         cls = self.params.__class__
 
         class RequestModel(BaseModel):

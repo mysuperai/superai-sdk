@@ -14,6 +14,7 @@ from superai.exceptions import SuperAIAuthorizationError
 from superai.log import get_logger
 from superai.utils.apikey_manager import load_api_key
 from superai.utils.decorators import retry
+from superai.utils.opentelemetry import tracer
 
 log = get_logger(__name__)
 
@@ -64,6 +65,7 @@ class MetaAISession(RequestsEndpoint):
         return hasura_endpoint
 
     @retry((TimeoutError, RequestException))  # noqa: F821
+    @tracer.start_as_current_span("MetaAISession.perform_op")
     def perform_op(self, op: Operation, timeout: int = 60):
         data = self(op, timeout=timeout)
         if not data.get("errors", False):

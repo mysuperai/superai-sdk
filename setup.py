@@ -54,6 +54,10 @@ REQUIRES = [
     "sentry-sdk>=0.19.4",
     "sgqlc[websocket]>=16.2",
     "uvicorn>=0.15.0",
+    "opentelemetry-distro[otlp]>=0.40b0",
+    "opentelemetry-instrumentation-botocore>=0.40b0",
+    "opentelemetry-instrumentation-requests>=0.40b0",
+    "opentelemetry-instrumentation-fastapi>=0.40b0",
 ]
 
 AI_REQUIRES = [
@@ -96,7 +100,6 @@ TEST_REQUIRES = [
     "pytest-mock~=3.10.0",
     "pytest-vcr>=1.0.2",
     "pytest>=6.1.2",
-    "seldon-core>=1.11.2",
     "superai-builder>=0.6.2",
     "tox>=2.9.1",
     "vcrpy>=4.1.1",
@@ -153,7 +156,7 @@ setup(
         "build": DP_REQUIRES + BUILD_REQUIRES,
         "dp": DP_REQUIRES,
         "ai": AI_REQUIRES + DP_REQUIRES,
-        "llm": LLM_REQUIRES + BUILD_REQUIRES + AI_REQUIRES + AI_EXPERIMENTAL_REQUIRES + DP_REQUIRES,
+        "llm": LLM_REQUIRES + AI_REQUIRES + AI_EXPERIMENTAL_REQUIRES + DP_REQUIRES,
         "test": LLM_REQUIRES + TEST_REQUIRES + DP_REQUIRES + AI_REQUIRES + AI_EXPERIMENTAL_REQUIRES,
         "complete": BUILD_REQUIRES
         + DP_REQUIRES

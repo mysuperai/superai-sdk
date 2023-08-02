@@ -24,3 +24,9 @@ exclude = '''
 
 [tool.isort]
 profile = "black"
+
+[build-system]
+# Fixes editable installs with PEP 660 and new setuptools
+# https://github.com/pypa/setuptools/issues/3499
+requires = ["setuptools>=58,<63"]
+build-backend = "setuptools.build_meta"

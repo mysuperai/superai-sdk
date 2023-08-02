@@ -2,6 +2,7 @@ import enum
 import inspect
 import json
 import os
+import sys
 import threading
 from typing import Callable, Dict, List, Optional, Union
 
@@ -38,6 +39,7 @@ from superai.data_program.utils import _call_handler
 from superai.log import logger
 from superai.utils import load_api_key, load_auth_token, load_id_token
 
+from ..utils.opentelemetry import tracer
 from .task import model_to_task_io_payload
 from .workflow import Workflow, WorkflowConfig
 
@@ -278,7 +280,7 @@ class DataProgram(DataProgramBase):
                 **service_kwargs,
             )
 
-        self._dp_thread = threading.Thread(target=start_dp, name="dp_starter")
+        self._dp_thread = threading.Thread(target=start_dp, name="dp_starter", daemon=True)
         self._dp_thread.start()
 
         def start_dp_server():
@@ -288,12 +290,16 @@ class DataProgram(DataProgramBase):
                 **service_kwargs,
             )
 
-        self._dp_schema_server_thread = threading.Thread(target=start_dp_server, name="dp_schema_server")
+        self._dp_schema_server_thread = threading.Thread(target=start_dp_server, name="dp_schema_server", daemon=True)
         self._dp_schema_server_thread.start()
-
+        threads = [self._dp_thread, self._dp_schema_server_thread]
         if wait:
-            self._dp_thread.join()
-            self._dp_schema_server_thread.join()
+            try:
+                for thread in threads:
+                    thread.join()
+            except KeyboardInterrupt:
+                log.info("Stopping DataProgram...")
+                sys.exit(0)
 
     def schema_server_reachable(self):
         """
@@ -647,6 +653,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
             if not (handler_output.templates or len(handler_output.templates) < 1):
                 raise NotImplementedError("Can't send a task with no templates defined")
 
+            @tracer.start_as_current_span("send_task")
             def send_task(
                 name: str,
                 *,
@@ -674,6 +681,7 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
                     hero_id=my_task.output["hero"]["workerId"],
                 )
 
+            @tracer.start_as_current_span("send_supertask")
             def send_supertask(
                 name: Union[str, SuperTaskModel],
                 task_input: Input,
