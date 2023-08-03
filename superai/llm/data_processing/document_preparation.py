@@ -321,7 +321,7 @@ def get_white_space_representation(ocr_values, pixels_per_line=10, pixels_per_ch
             current_line += 1
 
         # Add spaces for horizontal position
-        char_pos = token["boundingBox"]["left"] // pixels_per_char
+        char_pos = int(token["boundingBox"]["left"] // pixels_per_char)
         if len(page_tokens[current_line - 1]) < char_pos:
             page_tokens[current_line - 1] += " " * (char_pos - len(page_tokens[current_line - 1]))
 
