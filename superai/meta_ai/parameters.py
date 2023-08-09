@@ -344,8 +344,13 @@ class AiDeploymentParameters(BaseModel):
     )
     enable_cuda: Optional[bool] = Field(
         False,
-        description="Enable CUDA capable deployment. Is used to build correct image and deploy on Compute nodes with NVIDIA GPU.",
+        description="Enable CUDA runtime deployment. Is used to build correct image and deploy on Compute nodes with NVIDIA GPU.",
         alias="enableCuda",
+    )
+    cuda_devel: Optional[bool] = Field(
+        False,
+        description="Enable CUDA development deployment. Is used to build CUDA extensions and deploy on Compute nodes with NVIDIA GPU.",
+        alias="cudaDevel",
     )
     queue_length: Optional[int] = Field(
         20,

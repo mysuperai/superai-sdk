@@ -505,15 +505,13 @@ class AI:
         self,
         orchestrator: BaseAIOrchestrator = Orchestrator.AWS_EKS,
         deployment_parameters: Optional[AiDeploymentParameters] = None,
-        skip_build=False,
-        cuda_devel=False,
-        overwrite=True,
+        skip_build: bool = False,
+        overwrite: bool = True,
     ) -> AI:
         """Build the image and return the image name.
         Args:
             deployment_parameters: Optional deployment parameters to override the default deployment parameters.
             skip_build: Skip building and return the image name which would be built.
-            cuda_devel: Build with cuda devel image.
             overwrite: Overwrite existing AI staging directory for building.
             orchestrator:
 
@@ -526,13 +524,10 @@ class AI:
         image_builder = AiImageBuilder(
             orchestrator,
             ai=self,
-            deployment_parameters=deployment_parameters,
+            deployment_parameters=deployment_parameters or self.default_deployment_parameters,
             overwrite=overwrite,
         )
-        local_image_name = image_builder.build_image(
-            cuda_devel=cuda_devel,
-            skip_build=skip_build,
-        )
+        local_image_name = image_builder.build_image(skip_build=skip_build)
         self._local_image = local_image_name
 
         return self

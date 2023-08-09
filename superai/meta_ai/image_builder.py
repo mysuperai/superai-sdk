@@ -104,12 +104,10 @@ class AiImageBuilder:
 
     def build_image(
         self,
-        cuda_devel: bool = False,
         skip_build: bool = False,
     ) -> str:
         """Build the image and return the image name.
         Args:
-            cuda_devel
             skip_build:
 
         Returns:
@@ -130,7 +128,7 @@ class AiImageBuilder:
                 self.name,
                 self.version,
                 enable_cuda=self.deployment_parameters.enable_cuda,
-                cuda_devel=cuda_devel,
+                cuda_devel=self.deployment_parameters.cuda_devel,
                 user_base_image=self.deployment_parameters.base_image,
             )
             logger.info(f"Built image {image}")
@@ -216,9 +214,9 @@ class AiImageBuilder:
             String image name
         """
         if cuda_devel:
-            return "nvidia/cuda:10.2-cudnn7-devel-ubuntu18.04"
+            return "nvidia/cuda:11.3.1-cudnn8-devel-ubuntu18.04"
         elif enable_cuda:
-            return "nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04"
+            return "nvidia/cuda:11.3.1-cudnn8-runtime-ubuntu18.04"
         else:
             return f"python:{python_version}-slim-buster"
 
