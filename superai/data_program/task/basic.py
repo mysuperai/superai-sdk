@@ -112,14 +112,21 @@ class Task:
         )
         return self._task_future
 
-    def _create_task_future(self, worker_type=None, groups=None, **kwargs) -> task_future:
-        worker_type = self.worker_type_mapping[worker_type] if worker_type else None
-
+    def _create_task_future(self, worker_type=None, groups=None, included_ids=None, **kwargs) -> task_future:
         if worker_type == WorkerType.bots:
             groups = ["BOTS"]
         name = kwargs.pop("name", self.name)
 
-        task_future = task(name=name, worker_type=worker_type, groups=groups, **kwargs)
+        explicit_id = None
+        if worker_type == WorkerType.ai:
+            # Needs ID
+            if not included_ids or len(included_ids) != 1:
+                raise ValueError("Invalid configuration. AI worker requires one and only one model ID")
+            explicit_id = included_ids[0]
+
+        mapped_worker_type = self.worker_type_mapping[worker_type] if worker_type else None
+
+        task_future = task(name=name, worker_type=mapped_worker_type, groups=groups, explicit_id=explicit_id, **kwargs)
         return task_future
 
     def process(
