@@ -234,7 +234,8 @@ earthly -P \
 ```
 
 ### AI Components
-The SDK allow defining and deploying AI models which integrate with the Super.AI platform. Check out the [AI Quickstart Notebook](docs/ai_quickstart.ipynb) for a first glance.
+The SDK allows defining and deploying AI models which integrate with the Super.AI platform. Check out the [AI Quickstart Notebook](docs/ai_quickstart.ipynb) for a first glance.
+For more information on AI model development check the [AI Readme](docs/AI_README.md).
 
 ### AI CI/CD
-The earthly file creates a base image used in the Jenkins pipeline used for AI automation. The definition of the Jenkinsfile is here https://github.com/mysuperai/ai-automation. 
+The earthly file creates a base image used in the Jenkins pipeline used for AI automation. The definition of the Jenkinsfile is here https://github.com/mysuperai/ai-automation.

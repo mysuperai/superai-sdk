@@ -344,13 +344,8 @@ class AiDeploymentParameters(BaseModel):
     )
     enable_cuda: Optional[bool] = Field(
         False,
-        description="Enable CUDA runtime deployment. Is used to build correct image and deploy on Compute nodes with NVIDIA GPU.",
+        description="Enables CUDA compatible deployment. This is used to deploy on Compute nodes with NVIDIA GPU.",
         alias="enableCuda",
-    )
-    cuda_devel: Optional[bool] = Field(
-        False,
-        description="Enable CUDA development deployment. Is used to build CUDA extensions and deploy on Compute nodes with NVIDIA GPU.",
-        alias="cudaDevel",
     )
     queue_length: Optional[int] = Field(
         20,
@@ -443,7 +438,7 @@ class AiDeploymentParameters(BaseModel):
         cls,
         template_parameters: Union[dict, AiDeploymentParameters],
         properties: Union[dict, AiDeploymentParameters],
-        enable_cuda,
+        enable_cuda: bool,
     ) -> AiDeploymentParameters:
         """Merges deployment parameters from the AI template and the user-provided deployment parameters.
         Precedence is given to the user-provided deployment parameters.

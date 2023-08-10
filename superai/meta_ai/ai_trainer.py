@@ -115,7 +115,6 @@ class AITrainer:
 
             # Hidden kwargs
             enable_cuda: Create CUDA-Compatible image
-            cuda_devel: Create development CUDA image
             build_all_layers: Perform a fresh build of all layers
             envs: Pass custom environment variables to the deployment. Should be a dictionary like
                   {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}

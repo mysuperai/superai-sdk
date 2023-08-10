@@ -102,10 +102,7 @@ class AiImageBuilder:
     def prepare(self):
         self.prepare_entrypoint()
 
-    def build_image(
-        self,
-        skip_build: bool = False,
-    ) -> str:
+    def build_image(self, skip_build: bool = False) -> str:
         """Build the image and return the image name.
         Args:
             skip_build:
@@ -125,11 +122,7 @@ class AiImageBuilder:
             logger.info(f"Skipping build, using existing image {image} if available.")
         else:
             image = self.build_image_superai_builder(
-                self.name,
-                self.version,
-                enable_cuda=self.deployment_parameters.enable_cuda,
-                cuda_devel=self.deployment_parameters.cuda_devel,
-                user_base_image=self.deployment_parameters.base_image,
+                self.name, self.version, user_base_image=self.deployment_parameters.base_image
             )
             logger.info(f"Built image {image}")
         return image
@@ -139,17 +132,15 @@ class AiImageBuilder:
         self,
         image_name: str,
         version_tag: str = "latest",
-        enable_cuda: bool = False,
-        cuda_devel: bool = False,
+        python_version: str = "3.10",
         user_base_image: Optional[str] = None,
     ) -> str:
-        """Build the image using s2i
+        """Build the image using superai builder
 
         Args:
             image_name: Name of the image to be built
             version_tag: Version tag of the image
-            enable_cuda: Enable CUDA in the images
-            cuda_devel: Use CUDA devel base image
+            python_version: Python version to use, default is 310 = 3.10
             user_base_image: Base image provided by the user
         Returns:
             String image name
@@ -157,10 +148,7 @@ class AiImageBuilder:
         start = time.time()
         os.chdir(self.location)
 
-        base_image = user_base_image or self._get_base_name(
-            enable_cuda=enable_cuda,
-            cuda_devel=cuda_devel,
-        )
+        base_image = user_base_image or f"python:{python_version}-slim-buster"
         full_image_name = self.full_image_name(image_name, version_tag)
 
         self.environs.add_or_update("SUPERAI_CONFIG_ROOT", "/tmp/.superai")
@@ -197,28 +185,6 @@ class AiImageBuilder:
     def _get_docker_registry(region: str) -> str:
         account_id = "185169359328"  # boto3.client("sts").get_caller_identity()["Account"]
         return f"{account_id}.dkr.ecr.{region}.amazonaws.com"
-
-    @staticmethod
-    def _get_base_name(
-        enable_cuda: bool = False,
-        cuda_devel: bool = False,
-        python_version: str = "3.10",
-    ) -> str:
-        """Get Base Image given the configuration.
-
-        Args:
-            enable_cuda: Return runtime GPU image name
-            cuda_devel: Return development GPU image name
-            python_version: Python version to use, default is 310 = 3.10
-        Return:
-            String image name
-        """
-        if cuda_devel:
-            return "nvidia/cuda:11.3.1-cudnn8-devel-ubuntu18.04"
-        elif enable_cuda:
-            return "nvidia/cuda:11.3.1-cudnn8-runtime-ubuntu18.04"
-        else:
-            return f"python:{python_version}-slim-buster"
 
 
 def kwargs_warning(allowed_kwargs: List[str], **kwargs: Dict[str, Any]) -> None:
