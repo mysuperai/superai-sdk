@@ -1624,8 +1624,9 @@ def local_undeploy_ai(config_file, clean=True):
 
     predictor_obj: DeployedPredictor = DeployedPredictor.from_dict(predictor_dictionary, client)
     predictor_obj.terminate()
+    # Remove the cache path folder
     if config_path.exists():
-        shutil.rmtree(config_path)
+        shutil.rmtree(config_path.parent)
 
 
 @ai.command("create-instance", help="Create an AI instance from an AI config file")

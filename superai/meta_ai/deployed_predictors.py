@@ -206,8 +206,12 @@ class LocalPredictor(DeployedPredictor):
                 log.info(f"Container is running in the background with id:{self.container.id}")
 
     def terminate(self):
+        if self.container is None:
+            self.container: Container = self.client.containers.get(self.container_name)
+
         log.info("Stopping container")
         self.container.stop()
+        self.container = None  # Set container to None so invocations to log() return immediately
 
     def _get_port_assignment(self):
         return {self.port: self.port}
