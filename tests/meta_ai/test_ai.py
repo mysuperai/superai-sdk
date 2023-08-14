@@ -239,3 +239,19 @@ class TestBaseAI:
         assert result["meta"] == meta
         assert "exception" in result
         assert "Test exception" in result["exception"]
+
+
+def test_s3_path_ai(clean, bucket, s3) -> AI:
+    model_path = Path(__file__).parent / "fixtures" / "model"
+    ai = AI(
+        input_schema=Schema(),
+        output_schema=Schema(),
+        configuration=Config(),
+        description="Template for my dummy template used for testing",
+        model_class="DummyAI",
+        model_class_path=str(model_path.absolute()),
+        name="pytest_test_model",
+        version="1.0",
+        weights_path="s3://test-bucket/weights",
+    )
+    assert ai.weights_path == "s3://test-bucket/weights"

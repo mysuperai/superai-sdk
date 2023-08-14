@@ -275,6 +275,8 @@ def _ai_version_validator(instance, attribute, version):
 
 
 def _path_exists_validator(instance, attribute, path):
+    if isinstance(path, str) and "s3://" in path:
+        return
     if not Path(path).exists():
         raise AIException(f"Path {path} does not exist")
 
