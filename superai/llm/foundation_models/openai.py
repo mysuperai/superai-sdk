@@ -105,17 +105,27 @@ class ChatGPT(OpenAIFoundation):
         log.debug(f"ChatGPT params: {filtered_params}")
         token_count = self.count_tokens(messages)
         response = self._openai_call(filtered_params, token_count)
+        log.info("Raw LLM response: " + str(response))
 
-        if "choices" in response:
-            output = response["choices"][0]["message"]["content"]
-            # try:
-            #     output_json = json.loads(output)
-            #     return output_json
-            # except json.JSONDecodeError:
-            #     # If the output is not valid JSON, return the original output string
-            return output
-        else:
+        if "choices" not in response:
             raise Exception("No choices in response")
+
+        # One failure mode is to run out of tokens. In most cases this is caused by
+        # generating infinite loops. In case the generation did not come to a natural
+        # stop we will not be able to parse the result. We will repeat the call with a
+        # presence penalty to decrease the chance constantly repeated tokens.
+        finish_reason = response["choices"][0].get("finish_reason", "")
+        if finish_reason == "length":
+            log.info("Generated incomplete answer. Rerun prompt with presence penalty")
+            filtered_params["presence_penalty"] = 1
+            response = self._openai_call(filtered_params, token_count)
+            log.info("Raw LLM response (with penalty): " + str(response))
+
+            if "choices" not in response:
+                raise Exception("No choices in response")
+
+        output = response["choices"][0]["message"]["content"]
+        return output
 
     @retry(
         (
