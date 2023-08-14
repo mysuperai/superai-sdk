@@ -1,5 +1,6 @@
 from concurrent.futures import Future
-from time import time
+from random import randint
+from time import sleep, time
 from typing import Dict, Generic, List, Optional, Union
 
 from pydantic.generics import GenericModel
@@ -217,7 +218,11 @@ class TaskHandler:
         if self.retries_done >= self.max_retries or self.retrial_policy != "RETRY":
             raise TaskExpiredMaxRetries(f"Exhausted the retries after {str(self.retries_done)} were done.")
         self.retries_done = self.retries_done + 1
-        log.info(f"Resending task, trial no. {self.retries_done}")
+
+        backoff_time = randint(5, 20) * self.retries_done
+        log.info(f"Resending task after {backoff_time}s backoff period, trial no. {self.retries_done}")
+        sleep(backoff_time)
+
         self.submit_task()
 
     @staticmethod

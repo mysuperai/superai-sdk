@@ -207,6 +207,8 @@ def test_supertask_timeout_task_fail(monkeypatch):
 def test_supertask_timeout_task_expire(monkeypatch):
     test_future = Future()
     monkeypatch.setattr("superai.data_program.task.basic.Task._create_task_future", lambda *args, **kwargs: test_future)
+    # Patch the backoff to speed up testing
+    monkeypatch.setattr("superai.data_program.task.super_task.randint", Mock(side_effect=[1, 1]))
 
     params = SuperTaskConfig(
         workers=[
@@ -235,6 +237,8 @@ def test_supertask_timeout_task_successful(monkeypatch):
         "superai.data_program.task.basic.Task._create_task_future",
         test_mock,
     )
+    # Patch the backoff to speed up testing
+    monkeypatch.setattr("superai.data_program.task.super_task.randint", Mock(side_effect=[1, 1, 1]))
 
     params = SuperTaskConfig(
         workers=[
