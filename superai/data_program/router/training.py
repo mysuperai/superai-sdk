@@ -88,7 +88,7 @@ class Training(Router):
             result = job.result()
             status = result.status()
             if status:
-                if status == "CANCELLED":
+                if status == "CANCELED":
                     # Ignore cancellations and just return silently
                     return None, None, None
                 elif status == "COMPLETED":
