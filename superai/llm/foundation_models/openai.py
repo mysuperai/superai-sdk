@@ -114,15 +114,16 @@ class ChatGPT(OpenAIFoundation):
         # generating infinite loops. In case the generation did not come to a natural
         # stop we will not be able to parse the result. We will repeat the call with a
         # presence penalty to decrease the chance constantly repeated tokens.
-        finish_reason = response["choices"][0].get("finish_reason", "")
-        if finish_reason == "length":
-            log.info("Generated incomplete answer. Rerun prompt with presence penalty")
-            filtered_params["presence_penalty"] = 1
-            response = self._openai_call(filtered_params, token_count)
-            log.info("Raw LLM response (with penalty): " + str(response))
+        for penalty in [0.5, 1.0]:
+            finish_reason = response["choices"][0].get("finish_reason", "")
+            if finish_reason == "length":
+                log.info(f"Generated incomplete answer. Rerun prompt with presence penalty {penalty}")
+                filtered_params["frequency_penalty"] = penalty
+                response = self._openai_call(filtered_params, token_count)
+                log.info("Raw LLM response (with penalty): " + str(response))
 
-            if "choices" not in response:
-                raise Exception("No choices in response")
+                if "choices" not in response:
+                    raise Exception("No choices in response")
 
         output = response["choices"][0]["message"]["content"]
         return output
