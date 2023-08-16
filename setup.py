@@ -106,6 +106,12 @@ TEST_REQUIRES = [
 ]
 
 LLM_REQUIRES = [
+    "tabulate~=0.9.0",
+    "tiktoken~=0.4.0",
+    "openai~=0.27.2",
+]
+
+LLM_REQUIRES_EXTRA = [
     "GitPython",
     "Pillow~=9.5.0",
     "PyPDF2",
@@ -122,7 +128,6 @@ LLM_REQUIRES = [
     "jupyter",
     "langchain~=0.0.130",
     "numpy~=1.24.2",
-    "openai~=0.27.2",
     "openpyxl",
     "orjson",
     "pdf2image~=1.16.3",

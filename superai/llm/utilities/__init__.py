@@ -1,4 +1,3 @@
-from superai.llm.utilities.api_utils import get_from_dict_or_env, get_from_env
 from superai.llm.utilities.json_utils import (
     dict_has_valid_key,
     fix_json,
@@ -31,8 +30,6 @@ __all__ = [
     "fix_json",
     "is_valid_schema",
     "dict_has_valid_key",
-    "get_from_dict_or_env",
-    "get_from_env",
     "stringify_dict",
     "stringify_value",
 ]
