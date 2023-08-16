@@ -148,7 +148,7 @@ class AiImageBuilder:
         start = time.time()
         os.chdir(self.location)
 
-        base_image = user_base_image or f"python:{python_version}-slim-buster"
+        base_image = self._get_base_image(self.deployment_parameters, python_version, user_base_image)
         full_image_name = self.full_image_name(image_name, version_tag)
 
         self.environs.add_or_update("SUPERAI_CONFIG_ROOT", "/tmp/.superai")
@@ -176,6 +176,23 @@ class AiImageBuilder:
         log.info(f"Time taken to build: {time.time() - start:.2f}s")
 
         return full_image_name
+
+    @staticmethod
+    def _get_base_image(
+        deployment_parameters: AiDeploymentParameters,
+        python_version: str = "3.10",
+        user_base_image: Optional[str] = None,
+    ):
+        """Decide which base image to use based on the deployment parameters."""
+
+        # Assert that python_version is in correct format, e.g. '3.10'
+        if len(python_version.split(".")) != 2:
+            raise ValueError(f"Invalid python version {python_version}, should be like '3.10'")
+
+        default_image = f"python:{python_version}-slim-buster"
+        gpu_image = "nvidia/cuda:12.2.0-runtime-ubuntu22.04"
+
+        return user_base_image or (gpu_image if deployment_parameters.enable_cuda else default_image)
 
     @staticmethod
     def full_image_name(image_name, version_tag):
