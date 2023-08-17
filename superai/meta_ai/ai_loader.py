@@ -9,7 +9,6 @@ import tempfile
 import uuid
 from copy import deepcopy
 from pathlib import Path
-from tempfile import mkstemp
 from typing import TYPE_CHECKING, List, Optional, Union
 from urllib.parse import urlparse
 
@@ -20,10 +19,12 @@ from superai_builder.ai.image_build import AIImageBuilder
 from superai.log import logger
 from superai.meta_ai.ai_helper import _compress_folder
 from superai.meta_ai.ai_uri import AiURI
+from superai.meta_ai.base.utils import pull_weights
 from superai.meta_ai.environment_file import EnvironmentFileProcessor
 
 if TYPE_CHECKING:
     from superai.meta_ai import AI
+
 
 MODEL_WORKDIR = "AISavedModel"
 MODEL_ZIPFILE = f"{MODEL_WORKDIR}.tar.gz"
@@ -297,31 +298,28 @@ class AILoader:
         return weights_path
 
     @staticmethod
-    def _download_s3_weights(weights_s3_key: str, download_folder: Optional[str] = None) -> str:
-        """Download weights from S3 into specifed folder."""
+    def _download_s3_weights(weights_s3_key: str, download_folder: Optional[str] = None, prefix="local_weights") -> str:
+        """Download weights from S3 into specified folder.
+        If download_folder is not specified, will use a temporary folder."""
         log.info(f"Downloading weights from S3 {weights_s3_key}")
-        # Prepare download folder
-        download_folder = download_folder or mkstemp(prefix="ai_contents_")[1]
-        os.makedirs(download_folder, exist_ok=True)
 
         # Extract bucket and object key
         parsed_url = urlparse(weights_s3_key, allow_fragments=False)
-        bucket_name = parsed_url.netloc
         path_to_object = parsed_url.path.lstrip("/")
-        log.info(f"Downloading and unpacking weights from bucket '{bucket_name}' and path '{path_to_object}'")
+
+        # Prepare download folder
+        download_folder = download_folder or os.path.join(tempfile.gettempdir(), prefix, path_to_object)
+        os.makedirs(download_folder, exist_ok=True)
+        log.info(f"Using local folder for weights: {download_folder}")
 
         # Download weights
-        s3 = boto3.client("s3")
-        s3.download_file(bucket_name, path_to_object, os.path.join(download_folder, os.path.basename(weights_s3_key)))
+        path = pull_weights(weights_uri=weights_s3_key, output_path=download_folder)
 
-        # Extract weights if necessary
-        if weights_s3_key.endswith(".tar.gz"):
-            weights_s3_key = _extract_tar_gz_weights(download_folder, weights_s3_key)
-        return weights_s3_key
+        return path
 
     @classmethod
     def export_all(cls, ai, target_directory: Union[str, Path]):
-        """Save the AI ai to a given path.
+        """Save the AI to a given path.
         This will copy the code, requirements, conda environment and also dump the ai metadata to a json file.
         """
         # Copy the ai to avoid side effects when changing fields
@@ -589,6 +587,7 @@ class AILoader:
         Any exceptions raised by boto3.client or _compress_folder functions.
 
         """
+        assert bucket_name, "Bucket name cannot be empty"
         location = Path(location)
         s3_client = boto3.client("s3")
         path_to_tarfile = location / MODEL_ZIPFILE

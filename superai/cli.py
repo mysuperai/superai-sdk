@@ -1529,14 +1529,14 @@ def deploy_ai(config_file, clean=True, update_weights=False):
         shutil.rmtree(save_file)
 
     ai_object = AI.from_yaml(config_file)
-    print(f"Loaded AI: {ai_object}")
+    logger.info(f"Loaded AI: {ai_object}")
 
     ai_object.save(weights_path=ai_object.weights_path, overwrite=True, create_checkpoint=update_weights)
-    print(f"Pushed AI: {ai_object}")
+    logger.info(f"Pushed AI: {ai_object}")
     ai_object.build()
-    print(f"Built AI: {ai_object}")
+    logger.info(f"Built AI: {ai_object}")
     ai_object.push_image()
-    print(f"Pushed AI: {ai_object}")
+    logger.info(f"Pushed AI: {ai_object}")
 
 
 @ai.command("local-deploy", help="Deploy an AI from its config file")
@@ -1569,13 +1569,13 @@ def local_deploy_ai(config_file, clean=True, redeploy=True, log=False, skip_buil
         shutil.rmtree(save_file)
 
     ai_object = AI.from_yaml(config_file)
-    print(f"Loaded AI: {ai_object}")
+    logger.info(f"Loaded AI: {ai_object}")
 
     ai_object.build(skip_build=skip_build)
-    print(f"Built AI: {ai_object}")
+    logger.info(f"Built AI: {ai_object}")
 
     ai_object.save(overwrite=True, create_checkpoint=update_weights)
-    print(f"Saved AI: {ai_object}")
+    logger.info(f"Saved AI: {ai_object}")
 
     predictor_obj: LocalPredictor = LocalPredictor(
         orchestrator=Orchestrator.LOCAL_DOCKER_K8S,

@@ -8,15 +8,14 @@ import shutil
 from os import makedirs
 from pathlib import Path
 from shutil import copyfile
-from sys import exit
 from typing import Optional
 
-from rich.progress import DownloadColumn, Progress, TransferSpeedColumn
 from yaml import safe_load
 
 from superai.config import settings
 from superai.log import logdecorator, logger
 from superai.utils import load_api_key
+from superai.utils.files import s3_download_file
 
 log = logger.get_logger()
 
@@ -158,41 +157,12 @@ def copy_local(filename: str):
     reraise=True,
 )
 def copy_from_s3(bucket: str, filename: str, force_copy: bool = True):
-    import boto3
-    import botocore
-    from boto3.s3.transfer import TransferConfig
-
-    session = boto3.session.Session(profile_name="superai")
-    s3 = session.resource("s3")
-
     filename = filename.strip()
     file_path = Path(filename)
     destination_path = build_path(file_path.name)
-    s3_bucket = s3.Bucket(bucket)
 
     if force_copy or not Path(destination_path).exists():
-        log.info(f'Pulling "{filename}" from bucket "{bucket}" to "{destination_path}"')
-        try:
-            # Use Rich progress bar to track download progress
-            size_bytes = s3_bucket.Object(filename).content_length
-            with Progress(*Progress.get_default_columns(), DownloadColumn(), TransferSpeedColumn()) as progress:
-                download_task = progress.add_task("Downloading", total=size_bytes, unit="B")
-
-                def work_done(chunk):
-                    progress.update(download_task, advance=chunk)
-
-                # Disable threading during transfer to mitigate Python 3.9 threading issues
-                config = TransferConfig(use_threads=False)
-                s3_bucket.download_file(filename, destination_path, Config=config, Callback=work_done)
-        except botocore.exceptions.ClientError as e:
-            if e.response["Error"]["Code"] in ["404", "403"]:
-                log.error(f"prefix {bucket} and filename {filename} does not exist or aws access is forbidden")
-            if e.response["Error"]["Code"] == "400":
-                log.error(
-                    "S3 Operation not possible. Is session token still valid? Try `superai login` again when in doubt."
-                )
-            log.error(str(e))
-            exit(1)
+        s3_download_file(filename, destination_path, bucket, session_profile_name="superai")
     else:
         log.info(f"{destination_path} exists")
     return Path(destination_path)

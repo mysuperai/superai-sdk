@@ -49,6 +49,7 @@ from superai.meta_ai.schema import (
     TrainerOutput,
 )
 
+from .. import SuperAIAWSException
 from ..apis.meta_ai.session import GraphQlException
 from .orchestrators import BaseAIOrchestrator, Orchestrator
 
@@ -440,7 +441,12 @@ class AI:
         """Uploads the model source to S3 and stores reference in DB."""
         save_path = AILoader.save_local(self, overwrite=True)
         # Defer uploading until we have a registered id
-        model_save_path = AILoader.upload_model_folder(save_path, self.id, self.name, self.version, get_ai_bucket())
+        bucket_name = get_ai_bucket()
+        if not bucket_name:
+            raise SuperAIAWSException(
+                "Bucket name not found. Make sure you have valid credentials and are using the correct AWS account."
+            )
+        model_save_path = AILoader.upload_model_folder(save_path, self.id, self.name, self.version, bucket_name)
         self._client.update_ai(
             self.id,
             model_save_path=model_save_path,
