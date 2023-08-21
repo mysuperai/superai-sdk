@@ -105,7 +105,6 @@ class ChatGPT(OpenAIFoundation):
         log.debug(f"ChatGPT params: {filtered_params}")
         token_count = self.count_tokens(messages)
         response = self._openai_call(filtered_params, token_count)
-        log.info("Raw LLM response: " + str(response))
 
         if "choices" not in response:
             raise Exception("No choices in response")
@@ -150,8 +149,9 @@ class ChatGPT(OpenAIFoundation):
     ):
         try:
             self._wait_for_rate_limits(self.engine, token_count)
-
+            logger.info(f"Azure OpenAI call: {openai_params}")
             response = openai.ChatCompletion.create(**openai_params)
+            logger.info(f"Azure OpenAI response: {response}")
         except RateLimitError as e:
             reset_rate_header = e.headers.get("x-ratelimit-reset-requests", "30s")
 
