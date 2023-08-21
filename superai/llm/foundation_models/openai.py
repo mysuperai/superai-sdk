@@ -146,14 +146,16 @@ class ChatGPT(OpenAIFoundation):
         min_additional_sleep: float = 1.0,
         max_additional_sleep: float = 5.0,
     ):
-
         self._wait_for_rate_limits(self.engine, token_count)
         start_time = time.time()
         try:
             logger.info(f"azure_openai_call: {openai_params}")
             response = openai.ChatCompletion.create(**openai_params)
             azure_response = {
-                "azure_openai_response": {"elapsed": round(time.time() - start_time, 2), "response": response}
+                "azure_openai_response": {
+                    "elapsed": round(time.time() - start_time, 2),
+                    "response": dict(response),
+                }
             }
             logger.info(azure_response)
         except RateLimitError as e:
