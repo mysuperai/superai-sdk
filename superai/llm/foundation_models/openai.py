@@ -154,7 +154,7 @@ class ChatGPT(OpenAIFoundation):
             azure_response = {
                 "azure_openai_response": {
                     "elapsed": round(time.time() - start_time, 2),
-                    "response": dict(response),
+                    "response": response.to_dict_recursive(),
                 }
             }
             logger.info(azure_response)

@@ -8,6 +8,28 @@ from superai.data_program.protocol.rate_limit import compute_api_wait_time
 from superai.llm.foundation_models.openai import ChatGPT
 
 
+class OpenAIMockResponse:
+    def __init__(self, data):
+        self.data = data
+
+    def to_dict_recursive(self):
+        return self.data
+
+    def __contains__(self, key):
+        return key in self.data
+
+    def __getitem__(self, key):
+        if key in self.data:
+            item = self.data[key]
+            # If the item itself is a dictionary, return a new MockedResponse wrapping that dictionary
+            if isinstance(item, dict):
+                return OpenAIMockResponse(item)
+            else:
+                return item
+        else:
+            raise KeyError(key)
+
+
 @pytest.fixture()
 def chat_gpt_model():
     return ChatGPT()
@@ -37,7 +59,7 @@ def test_rate_exceeding_handling(chat_gpt_model):
         }
         chat_mock.side_effect = [
             rate_limit_exception,
-            {"choices": [{"message": {"content": "The capital of Jordan is Amman"}}]},
+            OpenAIMockResponse({"choices": [{"message": {"content": "The capital of Jordan is Amman"}}]}),
         ]
         result = chat_gpt_model.predict("what's the capital of Jordan?")
         assert result
