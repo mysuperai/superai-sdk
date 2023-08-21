@@ -3,6 +3,7 @@ import random
 import time
 
 import openai
+import tiktoken
 from openai.error import (
     APIConnectionError,
     APIError,
@@ -101,8 +102,15 @@ class ChatGPT(OpenAIFoundation):
 
         filtered_params = {k: v for k, v in params.items() if v is not None}
 
+        # Make sure that the max token are limited to the amount of token that a
+        # remaining in the context length of the current model.
         log.debug(f"ChatGPT params: {filtered_params}")
-        token_count = self.count_tokens(messages)
+        encoding = tiktoken.encoding_for_model(self.engine)
+        token_count = len(encoding.encode(filtered_params["messages"][0]["content"]))
+        remaining_token = (self.token_limit - 50) - token_count
+        filtered_params["max_tokens"] = remaining_token
+        log.info(f"Max generation token set to {filtered_params['max_tokens']}")
+
         response = self._openai_call(filtered_params, token_count)
 
         if "choices" not in response:
