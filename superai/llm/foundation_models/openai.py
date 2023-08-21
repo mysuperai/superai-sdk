@@ -167,21 +167,30 @@ class ChatGPT(OpenAIFoundation):
                 }
             }
             logger.warning(azure_response)
-            reset_rate_header = e.headers.get("x-ratelimit-reset-requests", "30s")
 
+            # Maxing out requests in order to block other openai callers
+            self._wait_for_rate_limits(self.engine, self.rpm[self.engine])
+
+            additional_sleep = random.uniform(min_additional_sleep, max_additional_sleep)
+            headers = e.headers
+
+            if retry_after := headers.get("Retry-After", None):
+                time.sleep(float(retry_after) + additional_sleep)
+                raise e
+
+            reset_rate_header = headers.get("x-ratelimit-reset-requests", "30s")
             sleep_time = 30.0
             if reset_rate_header.endswith("s") and "m" not in reset_rate_header:
                 try:
                     sleep_time = float(reset_rate_header[:-1])
                 except ValueError:
                     log.info(f"Could not cast {reset_rate_header[:-1]} to float")
-            additional_sleep = random.uniform(min_additional_sleep, max_additional_sleep)
 
             sleep_time = sleep_time + additional_sleep
             log.info(f"Rate limit exceeded, request throttling will reset in {sleep_time} seconds, sleeping")
 
             time.sleep(sleep_time)
-            raise RateLimitError
+            raise e
 
         except (APIConnectionError, APIError, ServiceUnavailableError, Timeout, TryAgain) as e:
             azure_response = {
