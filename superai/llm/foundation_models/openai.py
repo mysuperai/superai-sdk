@@ -149,9 +149,10 @@ class ChatGPT(OpenAIFoundation):
     ):
         try:
             self._wait_for_rate_limits(self.engine, token_count)
+            start_time = time.time()
             logger.info(f"Azure OpenAI call: {openai_params}")
             response = openai.ChatCompletion.create(**openai_params)
-            logger.info(f"Azure OpenAI response: {response}")
+            logger.info(f"Azure OpenAI response {time.time() - start_time:.2f} : {response}")
         except RateLimitError as e:
             reset_rate_header = e.headers.get("x-ratelimit-reset-requests", "30s")
 
