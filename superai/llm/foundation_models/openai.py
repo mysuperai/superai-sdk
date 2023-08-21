@@ -157,27 +157,19 @@ class ChatGPT(OpenAIFoundation):
         self._wait_for_rate_limits(self.engine, token_count)
         start_time = time.time()
         try:
-            logger.info(f"azure_openai_call: {openai_params}")
             response = openai.ChatCompletion.create(**openai_params)
             azure_response = {
                 "azure_openai_response": {
                     "elapsed": round(time.time() - start_time, 2),
                     "response": response.to_dict_recursive(),
+                    "openai_params": openai_params,
                 }
             }
-            logger.info(azure_response)
+            log.info(json.dumps(azure_response))
         except RateLimitError as e:
-            azure_response = {
-                "azure_openai_response": {
-                    "elapsed": round(time.time() - start_time, 2),
-                    "error": e,
-                    "headers": e.headers,
-                }
-            }
-            logger.warning(azure_response)
 
             # Maxing out requests in order to block other openai callers
-            self._wait_for_rate_limits(self.engine, self.rpm[self.engine])
+            # self._wait_for_rate_limits(self.engine, self.rpm[self.engine])
 
             additional_sleep = random.uniform(min_additional_sleep, max_additional_sleep)
             headers = e.headers
@@ -195,7 +187,17 @@ class ChatGPT(OpenAIFoundation):
                     log.info(f"Could not cast {reset_rate_header[:-1]} to float")
 
             sleep_time = sleep_time + additional_sleep
-            log.info(f"Rate limit exceeded, request throttling will reset in {sleep_time} seconds, sleeping")
+            azure_response = {
+                "azure_openai_response": {
+                    "elapsed": round(time.time() - start_time, 2),
+                    "error": e.error,
+                    "headers": e.headers,
+                    "action": "sleep",
+                    "duration": sleep_time,
+                    "openai_params": openai_params,
+                }
+            }
+            log.warning(json.dumps(azure_response))
 
             time.sleep(sleep_time)
             raise e
@@ -207,9 +209,10 @@ class ChatGPT(OpenAIFoundation):
                     "error": e.error,
                     "headers": e.headers,
                     "action": "retrying",
+                    "openai_params": openai_params,
                 }
             }
-            logger.warning(azure_response)
+            log.warning(json.dumps(azure_response))
             raise e
 
         except OpenAIError as e:
@@ -221,7 +224,7 @@ class ChatGPT(OpenAIFoundation):
                     "action": "stop",
                 }
             }
-            logger.exception(azure_response)
+            log.exception(json.dumps(azure_response))
             raise e
 
         except Exception as e:
