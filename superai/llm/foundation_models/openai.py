@@ -22,7 +22,6 @@ from superai.utils import retry
 
 config = Configuration()
 
-
 log = logger.get_logger(__name__)
 
 
@@ -147,13 +146,25 @@ class ChatGPT(OpenAIFoundation):
         min_additional_sleep: float = 1.0,
         max_additional_sleep: float = 5.0,
     ):
+
+        self._wait_for_rate_limits(self.engine, token_count)
+        start_time = time.time()
         try:
-            self._wait_for_rate_limits(self.engine, token_count)
-            start_time = time.time()
-            logger.info(f"Azure OpenAI call: {openai_params}")
+            logger.info(f"azure_openai_call: {openai_params}")
             response = openai.ChatCompletion.create(**openai_params)
-            logger.info(f"Azure OpenAI response {time.time() - start_time:.2f} : {response}")
+            azure_response = {
+                "azure_openai_response": {"elapsed": round(time.time() - start_time, 2), "response": response}
+            }
+            logger.info(azure_response)
         except RateLimitError as e:
+            azure_response = {
+                "azure_openai_response": {
+                    "elapsed": round(time.time() - start_time, 2),
+                    "error": e,
+                    "headers": e.headers,
+                }
+            }
+            logger.warning(azure_response)
             reset_rate_header = e.headers.get("x-ratelimit-reset-requests", "30s")
 
             sleep_time = 30.0
@@ -171,15 +182,31 @@ class ChatGPT(OpenAIFoundation):
             raise RateLimitError
 
         except (APIConnectionError, APIError, ServiceUnavailableError, Timeout, TryAgain) as e:
-            log.warning(f"OpenAi call raised {e.error} found headers: {e.headers} retying..")
+            azure_response = {
+                "azure_openai_response": {
+                    "elapsed": round(time.time() - start_time, 2),
+                    "error": e.error,
+                    "headers": e.headers,
+                    "action": "retrying",
+                }
+            }
+            logger.warning(azure_response)
             raise e
 
         except OpenAIError as e:
-            log.exception(f"Found an OpenAi error that can't be retried: {e} headers: {e.headers}")
+            azure_response = {
+                "azure_openai_response": {
+                    "elapsed": round(time.time() - start_time, 2),
+                    "error": e.error,
+                    "headers": e.headers,
+                    "action": "stop",
+                }
+            }
+            logger.exception(azure_response)
             raise e
 
         except Exception as e:
-            log.error(f"Exception in the openai call that wasn't an OpenAiError: {e}")
+            log.exception(f"Exception in the openai call that wasn't an OpenAiError: {e}")
             raise e
         return response
 
