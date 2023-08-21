@@ -47,7 +47,7 @@ class OpenAIFoundation(FoundationModel):
 class ChatGPT(OpenAIFoundation):
     engine: str = config.smart_foundation_model_engine
     temperature: float = 0
-    max_tokens: int = None
+    max_tokens: int = 3000
     top_p: int = None
     n: int = None
     stream: bool = None
