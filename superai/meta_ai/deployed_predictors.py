@@ -151,6 +151,7 @@ class LocalPredictor(DeployedPredictor):
                 volumes=self._get_volumes(self.weights_volume),
                 ports=self._get_port_assignment(),
                 device_requests=self._get_device_requests(),
+                stderr=True,
             )
             log.info("Started container in serving mode.")
         except APIError as e:

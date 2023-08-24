@@ -130,6 +130,7 @@ class SuperTaskConfig(BaseModel):
 
     workers: SuperTaskWorkers
     params: SuperTaskParameters = Field(SuperTaskParameters())
+    editable: Optional[bool] = Field(default=None)
 
     def get_workers_schema(self) -> dict:
         """Method to get the JSONSchema for the workers.

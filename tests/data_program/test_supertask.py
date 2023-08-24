@@ -269,3 +269,12 @@ def test_supertask_timeout_task_successful_idempotent():
     futures = router.map(task_input=sample_input, task_output=sample_output)
     results = router.reduce(futures)
     assert results == sample_output
+
+
+def test_supertask_editable():
+    params = SuperTaskConfig(
+        workers=[IdempotentWorker()],
+        strategy=TaskStrategy.FIRST_COMPLETED,
+        editable=False,
+    )
+    assert params.editable is False
