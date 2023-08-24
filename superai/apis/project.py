@@ -163,18 +163,20 @@ class ProjectApiMixin(ABC):
         reraise=True,
     )
     def list_projects(self, **kwargs):
-        """List all superAIs (Tags param is mock)
+        """
+        Retrieves a list of projects (also referred to as 'apps' in the API endpoint).
 
-        :param int page:
-        :param int size:
-        :param str sort_by:
-        :param str order_by:
-        :param bool only_owned_or_group:
-        :param list[str] input_types:
-        :param list[str] output_types:
-        :param list[str] tags:
-        :param str x_fields: An optional fields mask
-        :return: List of SuperAIs
+        :param int page: (Optional) Page number for pagination.
+        :param int size: (Optional) Number of items to be retrieved per page.
+        :param str sort_by: (Optional) Field by which to sort the results. Defaults to 'created'.
+        :param str order_by: (Optional) Order of sorting, can be 'asc' or 'desc'. Defaults to 'desc'.
+        :param str org: (Optional) The organization name. If provided, the method fetches apps specific to this organization.
+        :param List[str] status_in: (Optional) List of status to filter by. Possible values are ["ENABLED", "DISABLED"].
+        :param str x_fields: (Optional) Specifies additional fields to be included in the response.
+
+        :return: List[dict] of projects/apps.
+
+        Note: Additional parameters can be passed via **kwargs. Ensure they match the parameters described above.
         """
 
         all_params = [
@@ -182,10 +184,8 @@ class ProjectApiMixin(ABC):
             "size",
             "sort_by",
             "order_by",
-            "only_owned_or_group",
-            "input_types",
-            "output_types",
-            "tags",
+            "status_in",
+            "org",
             "x_fields",
         ]
         all_params.append("_return_http_data_only")
@@ -198,6 +198,9 @@ class ProjectApiMixin(ABC):
                 raise TypeError("Got an unexpected keyword argument '%s'" " to method list_templates" % key)
             params[key] = val
         del params["kwargs"]
+
+        params['order_by'] = 'desc' if not params.get('order_by') else params['order_by']
+        params['sort_by'] = 'created' if not params.get('sort_by') else params['sort_by']
 
         collection_formats = {}
 
@@ -212,17 +215,9 @@ class ProjectApiMixin(ABC):
             query_params.append(("sortBy", params["sort_by"]))
         if "order_by" in params:
             query_params.append(("orderBy", params["order_by"]))
-        if "only_owned_or_group" in params:
-            query_params.append(("only_owned_or_group", params["only_owned_or_group"]))
-        if "input_types" in params:
-            query_params.append(("inputTypes", params["input_types"]))
-            collection_formats["inputTypes"] = "multi"
-        if "output_types" in params:
-            query_params.append(("outputTypes", params["output_types"]))
-            collection_formats["outputTypes"] = "multi"
-        if "tags" in params:
-            query_params.append(("tags", params["tags"]))
-            collection_formats["tags"] = "multi"
+        if "status_in" in params:
+            query_params.append(("statusIn", params["status_in"]))
+
 
         header_params = {}
         if "x_fields" in params:
@@ -238,8 +233,11 @@ class ProjectApiMixin(ABC):
         # Authentication setting
         auth_settings = ["apiToken"]
 
+        org = params.get('org', None)
+        endpoint = "apps" if not org else f"organizations/{org}/apps"
+
         return self.request(
-            endpoint="apps",
+            endpoint=endpoint,
             method="GET",
             query_params=query_params,
             body_params=body_params,
