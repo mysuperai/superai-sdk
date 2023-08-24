@@ -199,8 +199,8 @@ class ProjectApiMixin(ABC):
             params[key] = val
         del params["kwargs"]
 
-        params['order_by'] = 'desc' if not params.get('order_by') else params['order_by']
-        params['sort_by'] = 'created' if not params.get('sort_by') else params['sort_by']
+        params["order_by"] = "desc" if not params.get("order_by") else params["order_by"]
+        params["sort_by"] = "created" if not params.get("sort_by") else params["sort_by"]
 
         collection_formats = {}
 
@@ -218,7 +218,6 @@ class ProjectApiMixin(ABC):
         if "status_in" in params:
             query_params.append(("statusIn", params["status_in"]))
 
-
         header_params = {}
         if "x_fields" in params:
             header_params["X-Fields"] = params["x_fields"]
@@ -233,7 +232,7 @@ class ProjectApiMixin(ABC):
         # Authentication setting
         auth_settings = ["apiToken"]
 
-        org = params.get('org', None)
+        org = params.get("org", None)
         endpoint = "apps" if not org else f"organizations/{org}/apps"
 
         return self.request(
