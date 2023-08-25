@@ -176,10 +176,8 @@ class ProjectApiMixin(ABC):
             "size",
             "sort_by",
             "order_by",
-            "only_owned_or_group",
-            "input_types",
-            "output_types",
-            "tags",
+            "status_in",
+            "org",
             "x_fields",
             "_return_http_data_only",
             "_preload_content",
@@ -192,6 +190,9 @@ class ProjectApiMixin(ABC):
                 raise TypeError(f"Got an unexpected keyword argument '{key}' to method list_templates")
             params[key] = val
         del params["kwargs"]
+
+        params["order_by"] = "desc" if not params.get("order_by") else params["order_by"]
+        params["sort_by"] = "created" if not params.get("sort_by") else params["sort_by"]
 
         collection_formats = {}
 
@@ -206,17 +207,8 @@ class ProjectApiMixin(ABC):
             query_params.append(("sortBy", params["sort_by"]))
         if "order_by" in params:
             query_params.append(("orderBy", params["order_by"]))
-        if "only_owned_or_group" in params:
-            query_params.append(("only_owned_or_group", params["only_owned_or_group"]))
-        if "input_types" in params:
-            query_params.append(("inputTypes", params["input_types"]))
-            collection_formats["inputTypes"] = "multi"
-        if "output_types" in params:
-            query_params.append(("outputTypes", params["output_types"]))
-            collection_formats["outputTypes"] = "multi"
-        if "tags" in params:
-            query_params.append(("tags", params["tags"]))
-            collection_formats["tags"] = "multi"
+        if "status_in" in params:
+            query_params.append(("statusIn", params["status_in"]))
 
         header_params = {}
         if "x_fields" in params:
@@ -232,8 +224,11 @@ class ProjectApiMixin(ABC):
         # Authentication setting
         auth_settings = ["apiToken"]
 
+        org = params.get("org", None)
+        endpoint = "apps" if not org else f"organizations/{org}/apps"
+
         return self.request(
-            endpoint="apps",
+            endpoint=endpoint,
             method="GET",
             query_params=query_params,
             body_params=body_params,
