@@ -9,6 +9,7 @@ from superai.apis.ground_truth import GroundTruthApiMixin
 from superai.apis.jobs import JobsApiMixin
 from superai.apis.meta_ai import AiApiMixin
 from superai.apis.project import ProjectApiMixin
+from superai.apis.super_task import SuperTaskApiMixin
 from superai.apis.tasks import TasksApiMixin
 from superai.config import settings
 from superai.exceptions import (
@@ -19,10 +20,21 @@ from superai.exceptions import (
 from superai.log import logger
 from superai.utils import update_cognito_credentials
 
-BASE_URL = settings.get("base_url")
-
 # Set up logging
 logger = logger.get_logger(__name__)
+
+__all__ = [
+    "Client",
+    "AuthApiMixin",
+    "DataApiMixin",
+    "DataProgramApiMixin",
+    "GroundTruthApiMixin",
+    "JobsApiMixin",
+    "ProjectApiMixin",
+    "AiApiMixin",
+    "TasksApiMixin",
+    "SuperTaskApiMixin",
+]
 
 
 class Client(
@@ -34,16 +46,25 @@ class Client(
     ProjectApiMixin,
     AiApiMixin,
     TasksApiMixin,
+    SuperTaskApiMixin,
 ):
     def __init__(self, api_key: str = None, auth_token: str = None, id_token: str = None, base_url: str = None):
         super(Client, self).__init__()
         self.api_key = api_key
         self.auth_token = auth_token
         self.id_token = id_token
-        if base_url is None:
-            self.base_url = BASE_URL
-        else:
-            self.base_url = base_url
+        self.base_url = base_url or settings.get("base_url")
+
+    @classmethod
+    def from_credentials(cls) -> "Client":
+        """Instantiate a client from the credentials stored in the config file."""
+        from superai.utils import load_api_key, load_auth_token, load_id_token
+
+        return cls(
+            api_key=load_api_key(),
+            auth_token=load_auth_token(),
+            id_token=load_id_token(),
+        )
 
     def request(
         self,
@@ -74,14 +95,11 @@ class Client(
         )
         try:
             resp.raise_for_status()
-            if resp.status_code == 204:
-                return None
-            else:
-                return resp.json()
+            return None if resp.status_code == 204 else resp.json()
         except requests.exceptions.HTTPError as http_e:
             try:
                 message = http_e.response.json()["message"]
-            except:
+            except Exception:
                 message = http_e.response.text
 
             if http_e.response.status_code == 401:
@@ -104,10 +122,15 @@ class Client(
                     # In this case, it is actually an authorization error and
                     # the token is not valid.
                     raise SuperAIAuthorizationError(
-                        message, http_e.response.status_code, endpoint=f"{self.base_url}/{endpoint}"
-                    )
+                        message,
+                        http_e.response.status_code,
+                        endpoint=f"{self.base_url}/{endpoint}",
+                    ) from http_e
             elif http_e.response.status_code == 409:
                 raise SuperAIEntityDuplicatedError(
-                    message, http_e.response.status_code, base_url=self.base_url, endpoint=endpoint
-                )
-            raise SuperAIError(message, http_e.response.status_code)
+                    message,
+                    http_e.response.status_code,
+                    base_url=self.base_url,
+                    endpoint=endpoint,
+                ) from http_e
+            raise SuperAIError(message, http_e.response.status_code) from http_e

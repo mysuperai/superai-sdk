@@ -1,27 +1,35 @@
+import contextlib
+import functools
 import json
 import os
 import pathlib
 import shutil
 import signal
 import sys
+import time
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Union
 from urllib.parse import urlparse
 
 import click
 import yaml
-from botocore.exceptions import ClientError
 from pycognito import Cognito
+from pycognito.exceptions import SoftwareTokenMFAChallengeException
 from requests import ReadTimeout
 from rich import print
 
 from superai import __version__
 from superai.apis.meta_ai.model import PredictionError
 from superai.client import Client
-from superai.config import get_config_dir, list_env_configs, set_env_config, settings
-from superai.exceptions import SuperAIAuthorizationError
+from superai.config import (
+    get_config_dir,
+    get_current_env,
+    list_env_configs,
+    set_env_config,
+    settings,
+)
+from superai.exceptions import SuperAIAuthorizationError, SuperAIStorageError
 from superai.log import logger
-from superai.meta_ai.parameters import AiDeploymentParameters
 from superai.utils import (
     load_api_key,
     remove_aws_credentials,
@@ -31,6 +39,7 @@ from superai.utils import (
 )
 from superai.utils.files import download_file_to_directory
 from superai.utils.pip_config import pip_configure
+from superai.utils.sso_login import sso_login
 
 BASE_FOLDER = get_config_dir()
 COGNITO_USERPOOL_ID = settings.get("cognito", {}).get("userpool_id")
@@ -38,6 +47,8 @@ COGNITO_CLIENT_ID = settings.get("cognito", {}).get("client_id")
 COGNITO_REGION = settings.get("cognito", {}).get("region")
 
 log = logger.get_logger(__name__)
+
+save_file = ".AISave"
 
 
 def _signal_handler(s, f):
@@ -49,38 +60,43 @@ def cli():
     pass
 
 
+def common_params(func):
+    @click.option("--verbose", "-v", is_flag=True, help="Verbose output")
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 @cli.command()
 @click.option("--verbose/--no-verbose", "-vvv", help="Verbose output", default=False)
 def info(verbose):
-    """Print CLI Configuration"""
+    """Prints CLI configuration."""
     click.echo("=================")
     click.echo("Super.AI CLI Info:")
     click.echo("=================")
     load_api_key()
     click.echo(f"VERSION: {__version__}")
-    click.echo(f"ENVIRONMENT: {settings.current_env}")
-    click.echo(f"USER: {settings.get('user',{}).get('username')}")
+    click.echo(f"ENVIRONMENT: {get_current_env()}")
+    click.echo(f"USER: {settings.get('user', {}).get('username')}")
     if verbose:
-        click.echo(yaml.dump(settings.as_dict(env=settings.current_env), default_flow_style=False))
+        click.echo(yaml.dump(settings.as_dict(env=get_current_env()), default_flow_style=False))
 
 
 @cli.group()
 @click.pass_context
 def env(ctx):
-    """
-    super.AI Config operations
-    """
+    """Super.AI config operations"""
 
 
 @env.command(name="list")
 @click.pass_context
 def env_list(ctx):
+    """Args:
+    ctx:
     """
-
-    :param ctx:
-    :return:
-    """
-    list_env_configs(printInConsole=True)
+    list_env_configs(verbose=True)
 
 
 @env.command(name="set")
@@ -88,9 +104,7 @@ def env_list(ctx):
 @click.option("--environment", "-e", help="Set environment", required=False)
 @click.pass_context
 def env_set(ctx, api_key, environment):
-    """
-    Set configuration
-    """
+    """Sets configuration."""
     if environment:
         set_env_config(name=environment)
     if api_key:
@@ -100,21 +114,16 @@ def env_set(ctx, api_key, environment):
 @cli.group()
 @click.pass_context
 def client(ctx):
-    """
-    super.AI API operations
-    """
+    """Super.AI API operations."""
     api_key = ""
-    try:
+    with contextlib.suppress(Exception):
         api_key = load_api_key()
-    except Exception:
-        pass
     if len(api_key) == 0:
         print("User needs to login or set api key")
         exit()
-    ctx.obj = {}
-    ctx.obj["client"] = Client(
-        api_key=api_key, auth_token=settings.get("user", {}).get("cognito", {}).get("access_token")
-    )
+    ctx.obj = {
+        "client": Client(api_key=api_key, auth_token=settings.get("user", {}).get("cognito", {}).get("access_token"))
+    }
 
 
 # Create decorator to pass client object when needed
@@ -128,16 +137,14 @@ pass_client = click.make_pass_decorator(Client, ensure=True)
 @click.option("--inputs_file", "-if", help="URL pointing to JSON file")
 @click.pass_context
 def create_jobs(ctx, app_id: str, callback_url: str, inputs: str, inputs_file: str):
-    """
-    Submit jobs
-    """
+    """Submits jobs"""
     client = ctx.obj["client"]
     print("Submitting jobs")
     json_inputs = None
     if inputs is not None:
         try:
             json_inputs = json.loads(inputs)
-        except:
+        except Exception:
             print("Couldn't read json inputs")
             exit()
     print(client.create_jobs(app_id, callback_url, json_inputs, inputs_file))
@@ -147,9 +154,7 @@ def create_jobs(ctx, app_id: str, callback_url: str, inputs: str, inputs_file: s
 @click.option("--job_id", "-j", help="Job id", required=True)
 @click.pass_context
 def fetch_job(ctx, job_id: str):
-    """
-    Get Job given job id
-    """
+    """Gets job given job ID."""
     client = ctx.obj["client"]
     print(f"Fetching job {job_id}")
     print(client.fetch_job(job_id))
@@ -159,9 +164,7 @@ def fetch_job(ctx, job_id: str):
 @click.option("--app_id", "-a", help="App id", required=True)
 @click.pass_context
 def fetch_batches_job(ctx, app_id: str):
-    """
-    Get not processed Batches given app id
-    """
+    """Gets unprocessed batches given app ID"""
     client = ctx.obj["client"]
     print(f"Fetching batches {app_id}")
     print(client.fetch_batches_job(app_id))
@@ -172,9 +175,7 @@ def fetch_batches_job(ctx, app_id: str):
 @click.option("--batch_id", "-b", help="Batch id", required=True)
 @click.pass_context
 def fetch_batch_job(ctx, app_id: str, batch_id: str):
-    """
-    Get Batch given app id and batch id
-    """
+    """Gets batch given app ID and batch ID."""
     client = ctx.obj["client"]
     print(f"Fetching batch {app_id} {batch_id}")
     print(client.fetch_batch_job(app_id, batch_id))
@@ -184,9 +185,7 @@ def fetch_batch_job(ctx, app_id: str, batch_id: str):
 @click.option("--job_id", "-j", help="Job id", required=True)
 @click.pass_context
 def get_job_response(ctx, job_id: str):
-    """
-    Get Job response given job id
-    """
+    """Gets job response given job ID."""
     client = ctx.obj["client"]
     print(f"Getting job response {job_id}")
     print(client.get_job_response(job_id))
@@ -196,9 +195,7 @@ def get_job_response(ctx, job_id: str):
 @click.option("--job_id", "-j", help="Job id", required=True)
 @click.pass_context
 def cancel_job(ctx, job_id: str):
-    """
-    Cancel a job given job id. Only for jobs in SCHEDULED, IN_PROGRESS or SUSPENDED state.
-    """
+    """Cancels a job given job ID. Only for jobs in SCHEDULED, IN_PROGRESS, or SUSPENDED state."""
     client = ctx.obj["client"]
     print(f"Cancelling job {job_id}")
     print(client.cancel_job(job_id))
@@ -262,12 +259,10 @@ def list_jobs(
     completed_end_date: datetime,
     status_in: List[str] = None,
 ):
-    """
-    Get a paginated list of jobs (without response) given an application id
-    """
+    """Gets a paginated list of jobs (without response) given an application ID."""
     client = ctx.obj["client"]
     print(f"Fetching jobs per application {app_id}")
-    if len(status_in) == 0:
+    if not status_in:
         status_in = None
     print(
         client.list_jobs(
@@ -342,12 +337,10 @@ def download_jobs(
     status_in: List[str] = None,
     with_history: bool = None,
 ):
-    """
-    Trigger processing of job responses that is sent to customer email (default) once is finished.
-    """
+    """Triggers processing of job responses that is sent to customer email (default) once is finished."""
     client = ctx.obj["client"]
     print(f"Triggering job responses processing per application {app_id}")
-    if len(status_in) == 0:
+    if not status_in:
         status_in = None
     print(
         client.download_jobs(
@@ -372,9 +365,7 @@ def get_jobs_operation(
     app_id: str,
     operation_id: str,
 ):
-    """
-    Fetch jobs operation given application id and operation id
-    """
+    """Fetch jobs operation given application id and operation id"""
     client = ctx.obj["client"]
     print(f"Fetching jobs operation per application {app_id} operation {operation_id}")
     print(client.get_jobs_operation(app_id, operation_id))
@@ -391,9 +382,7 @@ def downloaded_jobs_url(
     operation_id: str,
     seconds_ttl: int,
 ):
-    """
-    Generates downloaded jobs url given application id and operation id
-    """
+    """Generates downloaded jobs url given application id and operation id"""
     client = ctx.obj["client"]
     print(f"Generating downloaded jobs url per application {app_id} operation {operation_id}")
     print(client.generates_downloaded_jobs_url(app_id, operation_id, seconds_ttl))
@@ -442,12 +431,10 @@ def download_tasks(
     completed_end_date: datetime,
     status_in: List[str] = None,
 ):
-    """
-    Trigger download of tasks data that can be retrieved using task operation id.
-    """
+    """Trigger download of tasks data that can be retrieved using task operation id."""
     client = ctx.obj["client"]
     print(f"Triggering task download processing per application {app_id}")
-    if len(status_in) == 0:
+    if not status_in:
         status_in = None
     print(
         client.download_tasks(
@@ -470,9 +457,7 @@ def get_tasks_operation(
     app_id: str,
     operation_id: str,
 ):
-    """
-    Fetch tasks operation given application id and operation id
-    """
+    """Fetch tasks operation given application id and operation id"""
     client = ctx.obj["client"]
     print(f"Fetching tasks operation per application {app_id} operation {operation_id}")
     print(client.get_tasks_operation(app_id, operation_id))
@@ -489,12 +474,37 @@ def downloaded_tasks_url(
     operation_id: str,
     seconds_ttl: int,
 ):
-    """
-    Generates downloaded tasks url given application id and operation id
-    """
+    """Generates downloaded tasks url given application id and operation id"""
     client = ctx.obj["client"]
     print(f"Generating downloaded tasks url per application {app_id} operation {operation_id}")
     print(client.generates_downloaded_tasks_url(app_id, operation_id, seconds_ttl))
+
+
+@client.command(name="download_data")
+@click.argument("data_url", type=str)
+@click.option(
+    "--path",
+    required=False,
+    help="Path to download artifact. Default is current working directory.",
+    type=click.Path(exists=True, writable=True, dir_okay=True),
+    default=os.getcwd(),
+)
+@click.pass_context
+def download_data(ctx, data_url: str, path: str):
+    """Downloads from Super.AI Data Storage to a local file."""
+    client = ctx.obj["client"]
+    response = client.get_signed_url(data_url)
+    signed_url = response["signedUrl"]
+
+    parsed = urlparse(data_url)
+    url_path = pathlib.Path(parsed.path)
+    filename = url_path.name
+
+    logger.info(f"Downloading {filename} to {path}")
+    try:
+        download_file_to_directory(url=signed_url, filename=filename, path=path)
+    except RuntimeError as e:
+        raise SuperAIStorageError(str(e)) from e
 
 
 @client.command(name="create_ground_truth")
@@ -507,9 +517,7 @@ def downloaded_tasks_url(
 def create_ground_truth(
     ctx, app_id: str, input_json: str = None, label: str = None, tag: str = None, metadata: str = None
 ):
-    """
-    Submit fresh ground truth data
-    """
+    """Submits fresh ground truth data."""
     client = ctx.obj["client"]
     print("Submitting fresh ground truth data")
     input_dict = None
@@ -518,19 +526,19 @@ def create_ground_truth(
     if input_json is not None:
         try:
             input_dict = json.loads(input_json)
-        except:
+        except Exception:
             print("Couldn't load input json of ground truth")
             exit()
     if metadata is not None:
         try:
             metadata_dict = json.loads(metadata)
-        except:
+        except Exception:
             print("Couldn't load metadata json of ground truth")
             exit()
     if label is not None:
         try:
             label_dict = json.loads(label)
-        except:
+        except Exception:
             print("Couldn't load label json of ground truth")
             exit()
     print(client.create_ground_truth(app_id, input_dict, label_dict, tag, metadata_dict))
@@ -546,9 +554,7 @@ def create_ground_truth(
 def update_ground_truth(
     ctx, ground_truth_data_id: str, input_json: str = None, label: str = None, tag: str = None, metadata: str = None
 ):
-    """
-    Update (patch) ground truth data
-    """
+    """Updates (PATCH) ground truth data."""
     client = ctx.obj["client"]
     print(f"Updating ground truth data {ground_truth_data_id}")
     input_dict = None
@@ -557,19 +563,19 @@ def update_ground_truth(
     if input_json is not None:
         try:
             input_dict = json.loads(input_json)
-        except:
+        except Exception:
             print("Couldn't load input json of ground truth")
             exit()
     if metadata is not None:
         try:
             metadata_dict = json.loads(metadata)
-        except:
+        except Exception:
             print("Couldn't load metadata json of ground truth")
             exit()
     if label is not None:
         try:
             label_dict = json.loads(label)
-        except:
+        except Exception:
             print("Couldn't load label json of ground truth")
             exit()
     print(client.update_ground_truth(ground_truth_data_id, input_dict, label_dict, tag, metadata_dict))
@@ -581,9 +587,7 @@ def update_ground_truth(
 @click.option("--size", "-s", help="Size of page", type=int)
 @click.pass_context
 def list_ground_truth_data(ctx, app_id: str, page: int, size: int):
-    """
-    List all ground truth data for an application
-    """
+    """Lists all ground truth data for an application."""
     client = ctx.obj["client"]
     print(f"Fetching ground truth data per application {app_id}")
     print(client.list_ground_truth_data(app_id, page, size))
@@ -593,9 +597,7 @@ def list_ground_truth_data(ctx, app_id: str, page: int, size: int):
 @click.option("--ground_truth_data_id", "-g", help="Ground truth data id", required=True)
 @click.pass_context
 def get_ground_truth_data(ctx, ground_truth_data_id: str):
-    """
-    Fetch single ground truth data object
-    """
+    """Fetches single ground truth data object."""
     client = ctx.obj["client"]
     print(f"Fetching ground truth data {ground_truth_data_id}")
     print(client.get_ground_truth_data(ground_truth_data_id))
@@ -605,9 +607,7 @@ def get_ground_truth_data(ctx, ground_truth_data_id: str):
 @click.option("--ground_truth_data_id", "-g", help="Ground truth data id", required=True)
 @click.pass_context
 def delete_ground_truth_data(ctx, ground_truth_data_id: str):
-    """
-    Mark ground truth data as deleted
-    """
+    """Marks ground truth data as deleted."""
     client = ctx.obj["client"]
     print(f"Deleting ground truth data {ground_truth_data_id}")
     print(client.delete_ground_truth_data(ground_truth_data_id))
@@ -618,6 +618,7 @@ def delete_ground_truth_data(ctx, ground_truth_data_id: str):
 @click.option("-job_id", "-j", help="Job id", required=True)
 @click.pass_context
 def create_ground_truth_from_job(ctx, app_id: str, job_id: str):
+    """Create ground truth from job"""
     client = ctx.obj["client"]
     print(f"Converting job {job_id} to ground truth data")
     print(client.create_ground_truth_from_job(app_id, job_id))
@@ -630,9 +631,7 @@ def create_ground_truth_from_job(ctx, app_id: str, job_id: str):
 @click.option("workflow_name", "-w", help="The name of the workflow", required=True)
 @click.pass_context
 def delete_workflow(ctx, dp_qualified_name, workflow_name):
-    """
-    Delete an existing workflow
-    """
+    """Delete an existing workflow"""
     client = ctx.obj["client"]
     new_workflows = client.delete_workflow(dp_qualified_name, workflow_name)
     logger.info(
@@ -643,10 +642,18 @@ def delete_workflow(ctx, dp_qualified_name, workflow_name):
 @cli.command()
 @click.option("--api-key", help="Your super.AI API KEY", required=True)
 def config(api_key):
-    """
-    Set api key.
-    """
+    """Sets API key."""
     save_api_key(api_key)
+
+
+@cli.command()
+@click.option("--account-name", "-a", help="A valid account name", default="superai", show_default=True)
+@click.option("--role-name", "-r", help="A valid role name", default="SuperAIDeveloper", show_default=True)
+@click.option("--start-url", help="SSO start URL", default="https://superai.awsapps.com/start", show_default=True)
+@click.option("--region", help="AWS region", default=settings.region, show_default=True)
+def login_sso(account_name, role_name, start_url, region):
+    """Login to SSO and add temporary key to the AWS credentials file"""
+    sso_login(account_name, role_name, start_url, region)
 
 
 @cli.command()
@@ -660,9 +667,7 @@ def config(api_key):
     show_default=True,
 )
 def login(username, password, show_pip):
-    """
-    Use username and password to get super.AI api key.
-    """
+    """Uses username and password to get super.AI API key."""
     user = Cognito(
         access_key="AKIAIOSFODNN7EXAMPLE",
         secret_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
@@ -673,17 +678,23 @@ def login(username, password, show_pip):
     )
     try:
         user.authenticate(password)
-    except ClientError as e:
-        if (
-            e.response["Error"]["Code"] == "UserNotFoundException"
-            or e.response["Error"]["Code"] == "NotAuthorizedException"
-        ):
-            print("Incorrect username or password")
-            return
+    except Exception as e:
+        if type(e) is SoftwareTokenMFAChallengeException:
+            code = input("Enter the 6-digit code generated by the TOTP generator (such as Google Authenticator): ")
+            try:
+                user.respond_to_software_token_mfa_challenge(code)
+            except Exception as e:
+                print(f"Unexpected error: {e}")
+                return
         else:
-            print(f"Unexpected error: {e}")
+            if hasattr(e, "response") and e.response["Error"]["Code"] in [
+                "UserNotFoundException",
+                "NotAuthorizedException",
+            ]:
+                print("Incorrect username or password")
+            else:
+                print(f"Unexpected error: {e}")
             return
-
     client = Client(auth_token=user.access_token, id_token=user.id_token)
     api_keys = client.get_apikeys()
     if len(api_keys) > 0:
@@ -708,9 +719,7 @@ def login(username, password, show_pip):
 
 @cli.command()
 def logout():
-    """
-    Remove stored api key
-    """
+    """Removes stored API key."""
     save_api_key("")
     print("Stored api key was removed")
 
@@ -720,51 +729,98 @@ def ai():
     """View, list and control models and their deployments."""
 
 
+# Create a CLI validate command that loads the .yaml from the current directory and then instantiates a AI object with it
+@ai.command("validate-config")
+@click.option("--file", "-f", default="config.yml")
+def validate_ai_config(file: pathlib.Path):
+    """Validate model definition file"""
+    from superai.meta_ai import AI
+
+    ai = AI.from_yaml(file)
+    print(ai)
+
+
+@ai.command("migrate-config")
+@click.option("--file", "-f", default="config.yml")
+@click.option("--yes", "-y", is_flag=True, default=False)
+@click.option("--not-null", "-n", is_flag=True, default=True)
+def migrate_ai_config(file: pathlib.Path, yes: bool, not_null: bool):
+    """Migrate AI config to new schema."""
+    from superai.meta_ai import AI
+
+    ai = AI.from_yaml(file)
+    print(ai)
+    print("Migrating to new schema...")
+    if yes or click.confirm(f"This will overwrite the existing {file}. Do you want to continue?", abort=True):
+        ai.to_yaml(file, not_null=not_null)
+
+
 @ai.command("list")
-@click.option("--name", required=False, help="Filter by model name.")
-@click.option("--version", required=False, help="Filter by model version.")
+@click.option("--name", required=False, help="Filter by AI name.")
+@click.option("--version", required=False, help="Filter by AI version.")
 @pass_client
-def list_ai(client, name: str, version: str):
-    """List available models"""
+def list_ai(client, name: Union[click.UUID, str], version: str):
+    """List available AI (templates)"""
     if name is None:
-        print(client.get_all_models())
+        print(client.list_ai())
     elif version is None:
-        print(client.get_model_by_name(str(name)))
+        print(client.list_ai_by_name(str(name)))
     else:
-        print(client.get_model_by_name_version(str(name), str(version)))
+        print(client.list_ai_by_name_version(str(name), str(version)))
+
+
+@ai.command("list-instances")
+@click.option("--name", required=False, help="Filter by instance name.")
+@click.option("--ai_name", required=False, help="Filter by AI name.")
+@click.option("--ai_version", required=False, help="Filter by AI version.")
+@click.option("--visibility", required=False, help="Filter by instance visibility.")
+@click.option("--checkpoint_tag", required=False, help="Filter by instance checkpoint tag.")
+@common_params
+@pass_client
+def list_ai_instances(
+    client: Client,
+    name: str = None,
+    ai_name: str = None,
+    ai_version: str = None,
+    visibility: str = None,
+    checkpoint_tag: str = None,
+    verbose: bool = False,
+):
+    """List available AI instances."""
+    print(
+        client.list_ai_instances(
+            name=name,
+            ai_name=ai_name,
+            to_json=True,
+            ai_version=ai_version,
+            visibility=visibility,
+            checkpoint_tag=checkpoint_tag,
+            verbose=verbose,
+        )
+    )
 
 
 @ai.command("view")
 @click.argument("id", type=click.UUID)
 @pass_client
-def get_ai(client, id: str):
+def get_ai(client, id: Union[click.UUID, str]):
     """View model parameters"""
-    print(client.get_model(str(id)))
+    print(client.get_ai(str(id)))
 
 
 @ai.command("update")
 @click.argument("id", type=click.UUID)
-@click.option("--name", required=False, help="Model name")
-@click.option("--description", required=False, help="Model description")
-@click.option(
-    "--visibility",
-    required=False,
-    type=click.Choice(["PRIVATE", "PUBLIC"]),
-    help="Model visibility",
-    show_choices=True,
-)
+@click.option("--name", required=False, help="AI name")
+@click.option("--description", required=False, help="AI description")
 @pass_client
-def update_ai(client, id: str, name: str, description: str, visibility: str):
+def update_ai(client, id: Union[click.UUID, str], name: str, description: str, visibility: str):
     """Update model parameters"""
     params = {}
     if name is not None:
         params["name"] = name
     if description is not None:
         params["description"] = description
-    if visibility is not None:
-        params["visibility"] = visibility
-
-    print(client.update_model(str(id), **params))
+    print(client.update_ai(str(id), **params))
 
 
 @ai.command("download")
@@ -780,10 +836,15 @@ def update_ai(client, id: str, name: str, description: str, visibility: str):
 )
 @click.option("--timeout", required=False, help="Timeout in seconds", type=int, default=360)
 @pass_client
-def download_artifact(client, id: str, artifact_type: str, app_id: str, path: str, timeout: int):
+def download_artifact(
+    client, id: Union[str, click.UUID], artifact_type: str, app_id: Union[str, click.UUID], path: str, timeout: int
+):
     """Download model artifact"""
     url = client.get_artifact_download_url(
-        model_id=str(id), artifact_type=artifact_type, app_id=app_id, timeout=timeout
+        model_id=str(id),
+        artifact_type=artifact_type,
+        app_id=str(app_id),
+        timeout=timeout,
     )
 
     parsed = urlparse(url)
@@ -889,6 +950,7 @@ def train(
     callbacks,
     train_logger,
 ):
+    """Start training locally"""
     from superai.meta_ai.ai import AI
     from superai.meta_ai.parameters import HyperParameterSpec, ModelParameters
 
@@ -898,7 +960,7 @@ def train(
     )
     processed_hyperparameters = HyperParameterSpec.load_from_list(hyperparameters)
     processed_model_parameters = ModelParameters.load_from_list(model_parameters)
-    ai_object = AI.load_local(path)
+    ai_object = AI.load(path, weights_path=weights_path)
     ai_object.train(
         model_save_path=model_save_path,
         training_data=training_data_path,
@@ -946,6 +1008,7 @@ def train(
     type=click.Path(file_okay=False, path_type=pathlib.Path),
 )
 def predict(path, json_input=None, data_path: str = None, weights_path=None, metrics_output_dir=None):
+    """Load a model and predict"""
     from superai.meta_ai.ai_helper import load_and_predict
 
     result = load_and_predict(
@@ -960,7 +1023,7 @@ def predict(path, json_input=None, data_path: str = None, weights_path=None, met
 
 @ai.group(help="Deployed models running in our infrastructure")
 def deployment():
-    pass
+    """Deployment CLI group"""
 
 
 @deployment.command("list")
@@ -969,20 +1032,28 @@ def deployment():
     "--model_id",
     type=str,
     default=None,
-    help="Filter deployments by model id. If not provided, all deployments will be listed",
+    help="Filter deployments by model id. If provided, only deployments matching this model id will be listed",
+)
+@click.option(
+    "--model_name",
+    type=str,
+    default=None,
+    help="Filter deployments by model name. If provided, only deployments matching this model name will be listed",
 )
 @click.option(
     "--status",
     type=str,
     default=None,
     help="Filter deployments by status. "
-    "If not provided, all deployments will be listed. "
+    "If provided, only deployments matching this status will be listed. "
     "Must be one of the values "
     '"FAILED", "MAINTENANCE", "OFFLINE", "ONLINE", "PAUSED", "STARTING", "UNKNOWN"',
 )
-def list_deployments(client, model_id: Optional[str] = None, status: Optional[str] = None):
+def list_deployments(
+    client, model_id: Optional[str] = None, model_name: Optional[str] = None, status: Optional[str] = None
+):
     """List all deployments"""
-    d = client.list_deployments(model_id=model_id, status=status)
+    d = client.list_deployments(model_id=model_id, model_name=model_name, status=status)
     for deployment in d:
         print(f"[b][u]Model: {deployment.model.name}[/b][/u]")
         print(f"{deployment}\n")
@@ -991,7 +1062,7 @@ def list_deployments(client, model_id: Optional[str] = None, status: Optional[st
 @deployment.command("view")
 @click.argument("id", type=click.UUID)
 @pass_client
-def view_deployment(client, id: str):
+def view_deployment(client, id: Union[str, click.UUID]):
     """View deployment parameters"""
     print(client.get_deployment(str(id)))
 
@@ -1006,7 +1077,7 @@ def view_deployment(client, id: str):
     show_default=True,
 )
 @pass_client
-def start_deployment(client, id: str, wait: int):
+def start_deployment(client, id: Union[str, click.UUID], wait: int):
     """Create a deployment for the model."""
     print("Starting deployment...")
     if wait:
@@ -1028,7 +1099,7 @@ def start_deployment(client, id: str, wait: int):
     show_default=True,
 )
 @pass_client
-def stop_deployment(client, id: str, wait: int):
+def stop_deployment(client, id: Union[str, click.UUID], wait: int):
     """Stop and tear-down a model deployment."""
     print("Tearing down model deployment...")
     if wait:
@@ -1060,9 +1131,8 @@ def stop_deployment(client, id: str, wait: int):
     show_default=True,
 )
 @pass_client
-def predict(client, id: str, data: str, parameters: str, timeout: int):
-    """
-    Predict using a deployed model
+def predict(client, id: Union[str, click.UUID], data: str, parameters: str, timeout: int):
+    """Predict using a deployed model
 
     `DATA` is the input to be used for prediction. Expected as JSON encoded dictionary.
 
@@ -1090,7 +1160,7 @@ def prediction():
 @prediction.command("view")
 @click.argument("id", required=True, type=click.UUID)
 @pass_client
-def view_prediction(client, id):
+def view_prediction(client, id: Union[str, click.UUID]):
     """View prediction object"""
     p = client.get_prediction_with_data(str(id))
     print(p.__json_data__)
@@ -1120,8 +1190,9 @@ def view_prediction(client, id):
     show_default=True,
 )
 @pass_client
-def scaling(client, id: str, min_instances: int, scale_in_timeout: int):
-    current = client.get_deployment(str(id))
+def scaling(client, id: Union[str, click.UUID], min_instances: int, scale_in_timeout: int):
+    """Control scaling of deployed models"""
+    current = client.get_deployment(id)
     print(
         f"Current settings:"
         f"\n\tmin_instances: {current['min_instances']}"
@@ -1140,57 +1211,19 @@ def docker():
     """Docker specific commands"""
 
 
-@docker.command(name="build", help="Build a docker image for a sagemaker model.")
-@click.option("--image-name", "-i", required=True, help="Name of the image to be built")
-@click.option(
-    "--entry-point",
-    "-e",
-    required=True,
-    help="Path to file which will serve as entrypoint to the sagemaker model. Generally this is a method which calls "
-    "the predict method",
-)
-@click.option("--dockerfile", "-d", help="Path to Dockerfile.", default="Dockerfile", show_default=True)
-@click.option(
-    "--command", "-c", help="Command to run after the entrypoint in the image.", default="serve", show_default=True
-)
-@click.option("--worker-count", "-w", help="Number of workers to run.", default=1, show_default=True)
-@click.option(
-    "--entry-point-method",
-    "-em",
-    help="Method to be called inside the entry point. Make sure this method accepts the input data and context. ",
-    default="handle",
-    show_default=True,
-)
-@click.option(
-    "--use-shell", "-u", help="Use shell to run the build process, which is more verbose. Used by default", default=True
-)
-def build_docker_image(image_name, entry_point, dockerfile, command, worker_count, entry_point_method, use_shell):
-    from superai.meta_ai.dockerizer import build_image
-
-    build_image(
-        image_name=image_name,
-        entry_point=entry_point,
-        dockerfile=dockerfile,
-        command=command,
-        worker_count=worker_count,
-        entry_point_method=entry_point_method,
-        use_shell=use_shell,
-    )
-
-
 @docker.command(name="push")
 @click.argument("id", required=True, type=click.UUID)
 @click.option(
     "--image-name", "-i", required=True, help="Name of the image to be pushed. You can get this from `docker image ls`"
 )
-@click.option("--region", "-r", help="AWS region", default="us-east-1", show_default=True)
-def push_docker_image(model_id, image_name, region):
+@click.option("--region", "-r", help="AWS region", default=settings.region, show_default=True)
+def push_docker_image(model_id: Union[str, click.UUID], image_name: str, region: str):
     """Push the docker image built by `superai model docker-build` to ECR.
 
     ID is the UUID of the AI model.
     Check `superai ai list` to see the list of models with their UUIDs.
     """
-    from superai.meta_ai.dockerizer import push_image
+    from superai.meta_ai.ai_helper import push_image
 
     if ":" in image_name:
         image, version = image_name.split(":")
@@ -1221,7 +1254,8 @@ def push_docker_image(model_id, image_name, region):
     "and nvidia-container-runtime installed",
     show_default=True,
 )
-def docker_run_local(image_name, model_path, gpu):
+def docker_run_local(image_name: str, model_path: str, gpu: bool):
+    """Run model on local docker"""
     options = [f"-v {os.path.abspath(model_path)}:/opt/ml/model/", "-p 80:8080", "-p 8081:8081 "]
     if gpu:
         options.append("--rm --gpus all")
@@ -1229,28 +1263,6 @@ def docker_run_local(image_name, model_path, gpu):
     command = f"docker run {options} {image_name}"
     logger.info(f"Running command: {command}")
     os.system(command)
-
-
-@docker.command(
-    "invoke-local",
-    help="Invoke the locally deployed container. The API description of the local container can be found at "
-    "http://localhost/api-description",
-)
-@click.option(
-    "--mime",
-    "-mm",
-    default="application/json",
-    help="MIME type of the payload. `application/json` will be sent to the invocation directly. For other MIME types, "
-    "you can pass the path to file with --body. If its a valid path, it will be loaded and sent to the request. "
-    "Default: `application/json`",
-)
-@click.option(
-    "--body", "-b", required=True, help="Body of payload to be sent to the invocation. Can be a path to a file as well."
-)
-def docker_invoke_local(mime, body):
-    from superai.meta_ai.dockerizer.sagemaker_endpoint import invoke_local
-
-    invoke_local(mime, body)
 
 
 @ai.group()
@@ -1274,11 +1286,11 @@ def training():
     "--limit", "-l", help="Limit the number of returned rows", required=False, default=10, show_default=True, type=int
 )
 @pass_client
-def list_trainings(client, app_id, model_id, state, limit):
-    """
-    List trainings. Allows filtering by state and application id.
-    """
-    trainings = client.get_trainings(app_id, model_id, state=state, limit=limit)
+def list_trainings(client, app_id: Union[str, click.UUID], model_id: Union[str, click.UUID], state: str, limit: int):
+    """List trainings. Allows filtering by state and application id."""
+    model_id_str = str(model_id) if model_id else None
+    app_id_str = str(app_id) if app_id else None
+    trainings = client.get_trainings(app_id_str, model_id_str, state=state, limit=limit)
     if trainings:
         print(trainings)
 
@@ -1293,21 +1305,19 @@ def list_trainings(client, app_id, model_id, state, limit):
     required=True,
 )
 @pass_client
-def start_training(client, app_id, model_id, properties: str):
-    """
-    Start a new training
-    """
+def start_training(client, app_id: Union[str, click.UUID], model_id: Union[str, click.UUID], properties: str):
+    """Start a new training"""
     json_inputs = None
     if properties:
         try:
             json_inputs = json.loads(properties)
-        except:
+        except Exception:
             print("Couldn't read json inputs")
             exit()
 
-    id = client.create_training_entry(model_id, app_id, json_inputs)
-    if id:
-        print(f"Started a new training with ID {id}")
+    idx = client.create_training_entry(str(model_id), str(app_id), json_inputs)
+    if idx:
+        print(f"Started a new training with ID {idx}")
 
 
 @training.command(name="trigger-template")
@@ -1318,82 +1328,87 @@ def start_training(client, app_id, model_id, properties: str):
 @click.option("--properties", "-p", help="Custom properties", required=False, type=dict)
 @click.option("--metadata", "-md", help="Metadata", required=False, type=dict)
 @pass_client
-def trigger_template_training(client, app_id, model_id, training_template_id, task_name, properties, metadata):
+def trigger_template_training(
+    client,
+    app_id: Union[str, click.UUID],
+    model_id: Union[str, click.UUID],
+    training_template_id: Union[str, click.UUID],
+    task_name: str,
+    properties: dict,
+    metadata: dict,
+):
+    """Start a new training from template"""
     try:
         if properties:
             properties = json.loads(properties)
         if metadata:
             metadata = json.loads(metadata)
-    except:
+    except Exception:
         print("Could process JSON properties or metadata")
         exit()
 
-    id = client.start_training_from_app_model_template(
-        app_id=app_id,
-        model_id=model_id,
+    idx = client.start_training_from_app_model_template(
+        app_id=str(app_id),
+        ai_instance_id=str(model_id),
         task_name=task_name,
-        training_template_id=training_template_id,
+        training_template_id=str(training_template_id),
         current_properties=properties,
         metadata=metadata,
     )
-    if id:
-        print(f"Started new training with ID {id}")
+    if idx:
+        print(f"Started new training with ID {idx}")
 
 
-@training.command("deploy", help="Deploy a AI from its config file")
-@click.option(
-    "--config-file",
-    "-c",
-    help="Config YAML file containing AI properties and training deployment definition",
-    type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
-)
-@click.option("--push/--no-push", "-p/-np", help="Push the model before training", default=True)
-@click.option(
-    "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
-)
-def training_deploy(config_file, push=True, clean=True):
-    from superai.meta_ai.ai import obtain_object_template_config
-
-    if clean:
-        if os.path.exists(".AISave"):
-            shutil.rmtree(".AISave")
-    ai_object, ai_template_object, config_data = obtain_object_template_config(config_file)
-
-    if config_data.training_deploy is not None:
-        if push:
-            ai_object.push(
-                update_weights=config_data.training_deploy.update_weights,
-                overwrite=config_data.training_deploy.overwrite,
-            )
-        ai_object.training_deploy(
-            training_data_dir=config_data.training_deploy.training_data_dir,
-            skip_build=config_data.training_deploy.skip_build,
-            properties=config_data.training_deploy.properties,
-            training_parameters=config_data.training_deploy.training_parameters,
-            enable_cuda=config_data.training_deploy.enable_cuda,
-            build_all_layers=config_data.training_deploy.build_all_layers,
-            envs=config_data.training_deploy.envs,
-            download_base=config_data.training_deploy.download_base,
-        )
-    elif config_data.training_deploy_from_app is not None:
-        if push:
-            ai_object.push(
-                update_weights=config_data.training_deploy_from_app.update_weights,
-                overwrite=config_data.training_deploy_from_app.overwrite,
-            )
-        ai_object.start_training_from_app(
-            app_id=config_data.training_deploy_from_app.app_id,
-            task_name=config_data.training_deploy_from_app.task_name,
-            current_properties=config_data.training_deploy_from_app.current_properties,
-            metadata=config_data.training_deploy_from_app.metadata,
-            skip_build=config_data.training_deploy_from_app.skip_build,
-            enable_cuda=config_data.training_deploy_from_app.enable_cuda,
-            build_all_layers=config_data.training_deploy_from_app.build_all_layers,
-            envs=config_data.training_deploy_from_app.envs,
-            download_base=config_data.training_deploy_from_app.download_base,
-        )
-    else:
-        raise ValueError("configuration should contain 'training_deploy' or 'training_deploy_from_app' section")
+# @training.command("deploy", help="Deploy a AI from its config file")
+# @click.option(
+#     "--config-file",
+#     "-c",
+#     help="Config YAML file containing AI properties and training deployment definition",
+#     type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+# )
+# @click.option("--push/--no-push", "-p/-np", help="Push the model before training", default=True)
+# @click.option(
+#     "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
+# )
+# def training_deploy(config_file, push=True, clean=True):
+#     """Deploy a training from config"""
+#     from superai.meta_ai.ai import AI
+#
+#     if clean and os.path.exists(save_file):
+#         shutil.rmtree(save_file)
+#     ai_object = AI.from_yaml(config_file)
+#     ai_object.training_deployment_parameters
+#     # TODO: remove all this wrapper code with parameter loading of the AITrainer class
+#
+#     if config_data.training_deploy is not None:
+#         if push:
+#             ai_object.save(overwrite=config_data.training_deploy.overwrite)
+#         ai_object.training_deploy(
+#             training_data_dir=config_data.training_deploy.training_data_dir,
+#             skip_build=config_data.training_deploy.skip_build,
+#             properties=config_data.training_deploy.properties,
+#             training_parameters=config_data.training_deploy.default_training_parameters,
+#             enable_cuda=config_data.training_deploy.enable_cuda,
+#             build_all_layers=config_data.training_deploy.build_all_layers,
+#             envs=config_data.training_deploy.envs,
+#             download_base=config_data.training_deploy.download_base,
+#         )
+#     elif config_data.training_deploy_from_app is not None:
+#         if push:
+#             ai_object.save(overwrite=config_data.training_deploy_from_app.overwrite)
+#         ai_object.start_training_from_app(
+#             app_id=config_data.training_deploy_from_app.app_id,
+#             task_name=config_data.training_deploy_from_app.task_name,
+#             current_properties=config_data.training_deploy_from_app.current_properties,
+#             metadata=config_data.training_deploy_from_app.metadata,
+#             skip_build=config_data.training_deploy_from_app.skip_build,
+#             enable_cuda=config_data.training_deploy_from_app.enable_cuda,
+#             build_all_layers=config_data.training_deploy_from_app.build_all_layers,
+#             envs=config_data.training_deploy_from_app.envs,
+#             download_base=config_data.training_deploy_from_app.download_base,
+#         )
+#     else:
+#         raise ValueError("configuration should contain 'training_deploy' or 'training_deploy_from_app' section")
 
 
 @training.group()
@@ -1411,22 +1426,23 @@ def template():
     required=True,
 )
 @pass_client
-def create_template(client, app_id, model_id, properties: str):
-    """
-    Create a template for trainings.
+def create_template(client, app_id: Union[str, click.UUID], model_id: Union[str, click.UUID], properties: str):
+    """Create a template for trainings.
     The template is used to instantiate new training instances.
     """
     json_inputs = None
     if properties:
         try:
             json_inputs = json.loads(properties)
-        except:
+        except Exception:
             print("Couldn't read json inputs")
             exit()
 
-    id = client.create_training_template_entry(model_id=model_id, properties=json_inputs, app_id=app_id)
-    if id:
-        print(f"Created new training with ID {id}")
+    idx = client.create_training_template_entry(
+        ai_instance_id=str(model_id), properties=json_inputs, app_id=str(app_id)
+    )
+    if idx:
+        print(f"Created new training with ID {idx}")
 
 
 @template.command(name="update")
@@ -1445,35 +1461,34 @@ def create_template(client, app_id, model_id, properties: str):
     required=False,
 )
 @pass_client
-def update_template(client, app_id, model_id, properties: str, description: str):
-    """
-    Update an exising template for trainings.
+def update_template(
+    client, app_id: Union[str, click.UUID], model_id: Union[str, click.UUID], properties: str, description: str
+):
+    """Update an exising template for trainings.
     The template is used to instantiate new training instances.
     """
     if properties:
         try:
             json_inputs = json.loads(properties)
-        except:
+        except Exception:
             print("Couldn't read json inputs")
             exit()
     else:
         json_inputs = None
-    id = client.update_training_template(
-        model_id=model_id, app_id=app_id, properties=json_inputs, description=description
+    idx = client.update_training_template(
+        ai_instance_id=str(model_id), app_id=str(app_id), properties=json_inputs, description=description
     )
-    if id:
-        print(f"Updated training template with id={id}")
+    if idx:
+        print(f"Updated training template with id={idx}")
 
 
 @template.command(name="list")
 @click.option("--app_id", "-a", help="Application id", required=False, default=None)
 @click.option("--model_id", "-m", help="Model id", required=True)
 @pass_client
-def list_training_templates(client, app_id, model_id):
-    """
-    List existing training templates.
-    """
-    templates = client.get_training_templates(model_id, app_id)
+def list_training_templates(client, app_id: Union[str, click.UUID], model_id: Union[str, click.UUID]):
+    """List existing training templates."""
+    templates = client.get_training_templates(str(model_id), str(app_id))
     if templates:
         print(templates)
 
@@ -1482,68 +1497,269 @@ def list_training_templates(client, app_id, model_id):
 @click.option("--app_id", "-a", help="Application id", required=False, default=None)
 @click.option("--template_id", "-t", help="Template id", required=True)
 @pass_client
-def view_training_template(client, app_id, template_id):
-    """
-    List existing training templates.
-    """
-    template = client.get_training_template(template_id, app_id)
+def view_training_template(client, app_id: Union[str, click.UUID], template_id: Union[str, click.UUID]):
+    """List existing training templates."""
+    template = client.get_training_template(str(template_id), str(app_id))
     if template:
         print(template)
 
 
-@ai.command("deploy", help="Deploy a AI from its config file")
+@ai.command("deploy", help="Deploy an AI from its config file")
 @click.option(
     "--config-file",
     "-c",
     help="Config YAML file containing AI properties and deployment definition",
     type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+    default="config.yml",
 )
 @click.option(
     "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
 )
-@click.option("--push/--no-push", "-p/-np", help="Push to create a model entry", default=False)
-def deploy_ai(config_file, clean=True, push=False):
-    from superai.meta_ai.ai import obtain_object_template_config
+@click.option(
+    "--update-weights/--no-update-weights",
+    "-uw/-nuw",
+    help="Force updating the weights. Only respected if weights were uploaded before.",
+    default=False,
+)
+def deploy_ai(config_file, clean=True, update_weights=False):
+    """Push and deploy an AI and its artifacts (docker image, default checkpoint)."""
+    from superai.meta_ai.ai import AI
+
+    if clean and os.path.exists(save_file):
+        shutil.rmtree(save_file)
+
+    ai_object = AI.from_yaml(config_file)
+    logger.info(f"Loaded AI: {ai_object}")
+
+    ai_object.save(weights_path=ai_object.weights_path, overwrite=True, create_checkpoint=update_weights)
+    logger.info(f"Pushed AI: {ai_object}")
+    ai_object.build()
+    logger.info(f"Built AI: {ai_object}")
+    ai_object.push_image()
+    logger.info(f"Pushed AI: {ai_object}")
+
+
+@ai.command("local-deploy", help="Deploy an AI from its config file")
+@click.option(
+    "--config-file",
+    "-c",
+    help="Config YAML file containing AI properties and deployment definition",
+    type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+    default="config.yml",
+)
+@click.option(
+    "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
+)
+@click.option("--redeploy/--no-clean", "-r/-nr", help="Redeploy the existing deployment", default=True)
+@click.option("--log/--no-log", "-l/-nl", help="Log the deployment, this blocks the executor", default=False)
+@click.option("--skip-build/--no-skip-build", "-sb/-nsb", help="Skip building the docker image", default=False)
+@click.option(
+    "--update-weights/--no-update-weights",
+    "-uw/-nuw",
+    help="Force updating the weights. Only respected if weights were uploaded before.",
+    default=False,
+)
+def local_deploy_ai(config_file, clean=True, redeploy=True, log=False, skip_build=False, update_weights=False):
+    """Local Deploy an AI model for integration testing"""
+    from superai.meta_ai import Orchestrator
+    from superai.meta_ai.ai import AI
+    from superai.meta_ai.deployed_predictors import LocalPredictor
+
+    if clean and os.path.exists(save_file):
+        shutil.rmtree(save_file)
+
+    ai_object = AI.from_yaml(config_file)
+    logger.info(f"Loaded AI: {ai_object}")
+
+    ai_object.build(skip_build=skip_build)
+    logger.info(f"Built AI: {ai_object}")
+
+    ai_object.save(overwrite=True, create_checkpoint=update_weights)
+    logger.info(f"Saved AI: {ai_object}")
+
+    predictor_obj: LocalPredictor = LocalPredictor(
+        orchestrator=Orchestrator.LOCAL_DOCKER_K8S,
+        deploy_properties=ai_object.default_deployment_parameters,
+        local_image_name=ai_object.local_image,
+        weights_path=ai_object.weights_path,
+    )
+    predictor_obj.deploy(redeploy=redeploy)
+    predictor_dict = {predictor_obj.__class__.__name__: predictor_obj.to_dict()}
+    with open(ai_object.cache_path() / ".predictor_config.json", "w") as f:
+        click.echo(f"Storing predictor config in cache path {ai_object.cache_path() / '.predictor_config.json'}")
+        json.dump(predictor_dict, f)
+
+    if log:
+        predictor_obj.log()
+
+
+@ai.command("local-undeploy", help="Undeploy an AI from its config file")
+@click.option(
+    "--config-file",
+    "-c",
+    help="Config YAML file containing AI properties and deployment definition",
+    type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+    default="config.yml",
+)
+@click.option(
+    "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
+)
+def local_undeploy_ai(config_file, clean=True):
+    """Local Un-Deploy an AI model for integration testing"""
+    from superai.meta_ai.ai import AI
     from superai.meta_ai.deployed_predictors import DeployedPredictor
 
-    if clean:
-        if os.path.exists(".AISave"):
-            shutil.rmtree(".AISave")
+    if clean and os.path.exists(save_file):
+        shutil.rmtree(save_file)
 
-    ai_object, ai_template_object, config_data = obtain_object_template_config(config_file=config_file)
-    print(f"Configuration : {config_data}")
+    ai_object = AI.from_yaml(config_file)
+    print(f"Loaded AI: {ai_object}")
 
-    properties = config_data.deploy.properties
-    if isinstance(properties, str):
-        properties = json.loads(properties)
-    if isinstance(properties, dict):
-        properties = AiDeploymentParameters.parse_obj(properties)
-    else:
-        properties = AiDeploymentParameters()
+    config_path = ai_object.cache_path() / ".predictor_config.json"
+    if not config_path.exists():
+        raise click.ClickException(f"Predictor config does not exist at {config_path}")
+    with open(config_path, "r") as predictor_config:
+        predictor_dictionary = json.load(predictor_config)
+        log.info(f"Loading predictor config: {predictor_dictionary}")
 
-    if push or config_data.deploy.push:
-        ai_object.push(
-            update_weights=config_data.deploy.update_weights,
-            overwrite=config_data.deploy.overwrite,
-            weights_path=config_data.instance.weights_path,
+    predictor_obj: DeployedPredictor = DeployedPredictor.from_dict(predictor_dictionary, client)
+    predictor_obj.terminate()
+    # Remove the cache path folder
+    if config_path.exists():
+        shutil.rmtree(config_path.parent)
+
+
+@ai.command("create-instance", help="Create an AI instance from an AI config file")
+@click.option(
+    "--config-file",
+    "-c",
+    help="Config YAML file containing AI properties and deployment definition",
+    type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+    default="config.yml",
+)
+@click.option(
+    "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
+)
+@click.option(
+    "--visibility",
+    "-V",
+    help="Visibility of the AI instance",
+    type=click.Choice(["PUBLIC", "PRIVATE"]),
+    default="PRIVATE",
+)
+@click.option(
+    "--deploy",
+    "-d",
+    help="Deploy the AI instance after creation",
+    type=click.Choice(["True", "False"]),
+    default="True",
+)
+# add name and weights path options
+@click.option("--name", "-n", help="Name of the AI instance", type=str, default=None)
+@click.option(
+    "--weights-path",
+    "-wp",
+    help="Path to the weights file to be used for the AI instance. Can be a local path or a URI",
+    type=str,
+    default=None,
+)
+@click.option(
+    "--instance-config",
+    "-ic",
+    help="Instance config file",
+    type=click.Path(exists=False, readable=False, dir_okay=False, path_type=pathlib.Path),
+    default="instance_config.yml",
+)
+@click.option(
+    "--force-clone-checkpoint",
+    "-fcc",
+    help="Force cloning the checkpoint from the AI to the AI instance",
+    type=click.Choice(["True", "False"]),
+    default="False",
+)
+@click.option(
+    "--orchestrator",
+    "-o",
+    help="Orchestrator to use for deployment",
+    default="AWS_EKS_ASYNC",
+    type=click.Choice(["AWS_EKS", "AWS_EKS_ASYNC"]),
+)
+def create_ai_instance(
+    config_file,
+    clean=True,
+    visibility="PRIVATE",
+    deploy=True,
+    name=None,
+    weights_path=None,
+    instance_config=None,
+    force_clone_checkpoint=False,
+    orchestrator="AWS_EKS_ASYNC",
+):
+    """Push and deploy an AI and its artifacts (docker image, default checkpoint)."""
+    from superai.meta_ai.ai import AI
+
+    if clean and os.path.exists(save_file):
+        shutil.rmtree(save_file)
+
+    ai_object = AI.from_yaml(config_file, pull_db_data=True)
+    if visibility != ai_object.visibility:
+        ai_object.visibility = visibility
+        log.warning(f"Setting visibility of AI to {visibility}.")
+
+    print(f"Loaded AI: {ai_object}")
+    ai_object.save(overwrite=True)
+    print(f"Saved AI: {ai_object}")
+    if name or weights_path:
+        # Override config when name or weights_path is provided
+        instances = [
+            ai_object.create_instance(
+                visibility=visibility,
+                name=name,
+                weights_path=weights_path,
+                force_clone_checkpoint=force_clone_checkpoint,
+            )
+        ]
+    elif instance_config.exists():
+        from superai.meta_ai.ai_instance import instantiate_instances_from_config
+
+        print(f"Loading instance config from {instance_config}")
+        instances = instantiate_instances_from_config(
+            instance_config, ai_object, visibility=visibility, force_clone_checkpoint=force_clone_checkpoint
         )
-    predictor: DeployedPredictor = ai_object.deploy(
-        orchestrator=config_data.deploy.orchestrator,
-        skip_build=config_data.deploy.skip_build,
-        properties=properties,
-        enable_eia=config_data.deploy.enable_eia,
-        cuda_devel=config_data.deploy.cuda_devel,
-        redeploy=config_data.deploy.redeploy,
-        build_all_layers=config_data.deploy.build_all_layers,
-        download_base=config_data.deploy.download_base,
-    )
-    predictor_dictionary = {predictor.__class__.__name__: predictor.to_dict()}
-    with open(
-        os.path.join(settings.path_for(), "cache", ai_object.name, str(ai_object.version), ".predictor_config.json"),
-        "w",
-    ) as predictor_config:
-        logger.info("Storing predictor config")
-        json.dump(predictor_dictionary, predictor_config)
+    else:
+        instances = [ai_object.create_instance(visibility=visibility, force_clone_checkpoint=force_clone_checkpoint)]
+
+    print(f"Created AI instances: {instances}")
+
+    if deploy:
+        for instance in instances:
+            instance.deploy(redeploy=True, orchestrator=orchestrator)
+            print(f"Deployed AI instance: {instance}")
+
+
+@ai.command("build", help="Build an AI from its config file")
+@click.option(
+    "--config-file",
+    "-c",
+    help="Config YAML file containing AI properties and deployment definition",
+    type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+    default="config.yml",
+)
+@click.option(
+    "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
+)
+def build_ai(config_file, clean=True):
+    """Build an AI image locally. Can be used for testing (in CI/CD)."""
+    from superai.meta_ai.ai import AI
+
+    if clean and os.path.exists(save_file):
+        shutil.rmtree(save_file)
+
+    ai_object = AI.from_yaml(config_file)
+    print(f"Loaded AI: {ai_object}")
+
+    ai_object.build()
+    print(f"Built AI: {ai_object}")
 
 
 @ai.command("predictor-test", help="Test the predictor created from the deploy command")
@@ -1552,9 +1768,11 @@ def deploy_ai(config_file, clean=True, push=False):
     "-c",
     help="Points to the config file",
     type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+    default="config.yml",
 )
 @click.option("--predict-input", "-i", help="Prediction input", type=str, required=False)
 @click.option("--predict-input-file", "-if", help="Prediction input file", type=click.Path(), required=False)
+@click.option("--predict-input-folder", "-ifo", help="Prediction input folder", type=click.Path(), required=False)
 @click.option(
     "--expected-output",
     "-o",
@@ -1568,38 +1786,70 @@ def deploy_ai(config_file, clean=True, push=False):
     help="Expected output file (should only be used if your model is consistent",
     type=click.Path(),
 )
+@click.option("--wait-seconds", "-w", help="Seconds to wait for the predictor to be ready", type=int, default=1)
 @pass_client
 def predictor_test(
-    client, config_file, predict_input=None, predict_input_file=None, expected_output=None, expected_output_file=None
+    client,
+    config_file,
+    predict_input=None,
+    predict_input_file=None,
+    predict_input_folder=None,
+    expected_output=None,
+    expected_output_file=None,
+    wait_seconds=1,
 ):
-    from superai.meta_ai.ai import obtain_object_template_config
+    """Deploy and test a predictor from config file"""
+    from superai.meta_ai.ai import AI
     from superai.meta_ai.deployed_predictors import DeployedPredictor
 
-    ai_object, ai_template_object, config_data = obtain_object_template_config(config_file=config_file)
-    config_path = os.path.join(
-        settings.path_for(), "cache", ai_object.name, str(ai_object.version), ".predictor_config.json"
-    )
-    if os.path.exists(config_path):
-        with open(config_path, "r") as predictor_config:
-            predictor_dictionary = json.load(predictor_config)
-        predictor: DeployedPredictor = DeployedPredictor.from_dict(predictor_dictionary, client)
-        if predict_input is not None:
-            predict_input = json.loads(predict_input)
-        elif predict_input_file is not None:
-            with open(predict_input_file, "r") as predict_file_stream:
-                predict_input = json.load(predict_file_stream)
-        else:
-            raise ValueError("One of --predict-input or --predict-input-file should be passed")
+    log.info(f"Waiting for predictor to be ready, {wait_seconds} seconds")
+    time.sleep(wait_seconds)
+
+    ai_object = AI.from_yaml(config_file)
+    ai_object.save(overwrite=True)
+    print(ai_object.cache_path())
+    config_path = ai_object.cache_path() / ".predictor_config.json"
+    if not config_path.exists():
+        raise click.ClickException(f"Predictor config does not exist at {config_path}")
+    with open(config_path, "r") as predictor_config:
+        predictor_dictionary = json.load(predictor_config)
+        log.info(f"Loading predictor config: {predictor_dictionary}")
+    predictor: DeployedPredictor = DeployedPredictor.from_dict(predictor_dictionary, client)
+    if predict_input is not None:
+        predict_input = json.loads(predict_input)
         predicted_output = predictor.predict(predict_input)
         click.echo(predicted_output)
-        if expected_output is not None:
-            assert predicted_output == expected_output, "Expected output should be same as predicted output"
-        if expected_output_file is not None:
-            with open(expected_output_file, "r") as output_file_stream:
-                expected_output = json.load(output_file_stream)
-                assert predicted_output == expected_output, "Expected output should be same as predicted output"
+        assert predicted_output is not None
+    elif predict_input_file is not None:
+        with open(predict_input_file, "r") as predict_file_stream:
+            predict_input = json.load(predict_file_stream)
+        predicted_output = predictor.predict(predict_input)
+        click.echo(predicted_output)
+        assert predicted_output is not None
+    elif predict_input_folder is not None:
+        folder = pathlib.Path(predict_input_folder)
+        predicted_output = []
+        for file in folder.iterdir():
+            if not file.suffix == ".json":
+                continue
+            with open(file, "r") as predict_file_stream:
+                predict_input = json.load(predict_file_stream)
+                output = predictor.predict(predict_input)
+                assert output is not None
+                predicted_output.append(output)
     else:
-        raise Exception(f"Predictor config does not exist at {config_path}")
+        raise ValueError("One of --predict-input, --predict-input-file, --predict-input-folder should be passed")
+
+    expected_message = "Expected output should be same as predicted output"
+    if expected_output is not None:
+        assert predicted_output == expected_output, expected_message
+        expected_output = json.loads(expected_output)
+        assert predicted_output.dict() == expected_output, expected_message
+    if expected_output_file is not None:
+        with open(expected_output_file, "r") as output_file_stream:
+            expected_output = json.load(output_file_stream)
+            assert predicted_output == expected_output, expected_message
+            assert predicted_output.dict() == expected_output, expected_message
 
 
 @ai.command("predictor-teardown", help="Teardown the predictor in context")
@@ -1611,10 +1861,11 @@ def predictor_test(
 )
 @pass_client
 def predictor_teardown(client, config_file):
-    from superai.meta_ai.ai import obtain_object_template_config
+    """Remove a deployed predictor from config file"""
+    from superai.meta_ai.ai import AI
     from superai.meta_ai.deployed_predictors import DeployedPredictor
 
-    ai_object, ai_template_object, config_data = obtain_object_template_config(config_file=config_file)
+    ai_object = AI.from_yaml(config_file)
     config_path = os.path.join(
         settings.path_for(), "cache", ai_object.name, str(ai_object.version), ".predictor_config.json"
     )
@@ -1626,10 +1877,11 @@ def predictor_teardown(client, config_file):
         logger.info(f"Removing predictor config at {config_path}")
         os.remove(config_path)
     else:
-        raise Exception(f"Predictor config did not exist at {config_path}")
+        raise click.ClickException(f"Predictor config did not exist at {config_path}")
 
 
 def main():
+    """Entrypoint"""
     signal.signal(signal.SIGINT, _signal_handler)
     sys.exit(cli())
 

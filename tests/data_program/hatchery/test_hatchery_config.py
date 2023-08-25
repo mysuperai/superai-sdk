@@ -7,7 +7,7 @@ def test_build_config_defaults():
     assert build_config.agent.websocket.endswith("/agent")
     assert build_config.api_key
     assert isinstance(build_config.args, list)
-    assert build_config.build == False
+    assert not build_config.build
     assert build_config.build_folder == ".hatchery"
     assert build_config.version
 

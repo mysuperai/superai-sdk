@@ -3,14 +3,15 @@ from __future__ import annotations
 import ast
 import enum
 import json
-import logging
 from enum import IntEnum
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import jsonpickle  # type: ignore
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, root_validator, validator
 
-logger = logging.getLogger(__file__)
+from superai.log import logger
+
+logger = logger.get_logger(__name__)
 
 
 class Scalar:
@@ -229,7 +230,7 @@ class ModelParameters:
         self.fc_bias_initializer = fc_bias_initializer
         self.fc_activation = fc_activation
         self.fc_dropout = fc_dropout
-        for k in kwargs.keys():
+        for k in kwargs:
             setattr(self, k, kwargs[k])
 
     @classmethod
@@ -240,38 +241,24 @@ class ModelParameters:
     def get(self, key, default=None):
         if hasattr(self, key):
             return getattr(self, key)
-        else:
-            if default is None:
-                raise KeyError(f"Key {key} not found in {self.__class__.__name__} object")
-            return default
+        if default is None:
+            raise KeyError(f"Key {key} not found in {self.__class__.__name__} object")
+        return default
 
 
-class Config:
-    """Mocked config class to be shared between AI and DP objects."""
+class Config(dict):
+    """Simplified config class to be shared between AI and DP objects."""
 
     def __init__(self, **kwargs):
-        self.kwargs = kwargs
-        for k in kwargs.keys():
-            setattr(self, k, kwargs[k])
-
-    def __dir__(self):
-        return self.kwargs.keys()
-
-    def parametrize(self, **kwargs):
-        pass
+        super().__init__(**kwargs)
 
     @property
     def to_json(self):
         return jsonpickle.encode(self)
 
-    __call__ = parametrize
-
     @classmethod
     def from_json(cls, inputs):
         return jsonpickle.decode(inputs)
-
-    def __eq__(self, other):
-        return self.to_json == other.to_json
 
 
 class TrainingParameters:
@@ -357,7 +344,7 @@ class AiDeploymentParameters(BaseModel):
     )
     enable_cuda: Optional[bool] = Field(
         False,
-        description="Enable CUDA capable deployment. Is used to build correct image and deploy on Compute nodes with NVIDIA GPU.",
+        description="Enables CUDA compatible deployment. This is used to deploy on Compute nodes with NVIDIA GPU.",
         alias="enableCuda",
     )
     queue_length: Optional[int] = Field(
@@ -371,7 +358,7 @@ class AiDeploymentParameters(BaseModel):
     model_timeout_seconds: Optional[int] = Field(
         20,
         gt=0,
-        le=60,
+        le=900,
         description="""The expected time of the model to complete one average prediction.
         Will be used to cancel waiting for overwhelmed models to complete."
         The upper bound is a hard limit given by backend constraints.
@@ -379,14 +366,12 @@ class AiDeploymentParameters(BaseModel):
         alias="modelTimeoutSeconds",
     )
     lambda_ai_cache: Optional[int] = Field(32, ge=0, description="Lambda AI cache size", alias="lambdaAICache")
-    sagemaker_worker_count: Optional[int] = Field(
-        1, ge=1, description="SageMaker worker count in the same endpoint", alias="sagemakerWorkerCount"
-    )
     envs: Optional[Dict[str, str]] = Field(
         None,
         description="Pass custom environment variables to the deployment. "
         'Should be a dictionary like {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}',
     )
+    base_image: Optional[str] = Field(None, description="Base image to use for the deployment")
 
     class Config:
         use_enum_values = True
@@ -396,25 +381,37 @@ class AiDeploymentParameters(BaseModel):
     # Validate that memory is using correct format
     @validator("target_memory_requirement", "target_memory_limit")
     def validate_memory_requirement(cls, v):
-        """
-        Allowed is Mi and Gi, e.g. 512Mi or 4Gi
-        """
+        """Allowed is Mi and Gi, e.g. 512Mi or 4Gi"""
         if v is None:
             return v
         if not v.endswith("Mi") and not v.endswith("Gi"):
             raise ValueError("Memory requirement must be in Mi or Gi")
         return v
 
+    # Validate that GPU options are only set when CUDA is enabled
+    @root_validator
+    def validate_gpu_options(cls, values):
+        """
+        Validate that GPU options are only set when CUDA is enabled.
+        Otherwise there is a K8S pod toleration mismatch.
+        """
+        enable_cuda = values.get("enableCuda")
+        gpu_target_average_utilization = values.get("gpuTargetAverageUtilization")
+        gpu_memory_requirement = values.get("gpuMemoryRequirement")
+
+        if not enable_cuda:
+            if gpu_target_average_utilization is not None:
+                raise ValueError("gpuTargetAverageUtilization can only be set when enableCuda is True")
+            if gpu_memory_requirement is not None:
+                raise ValueError("gpuMemoryRequirement can only be set when enableCuda is True")
+        return values
+
     def dict_for_db(self) -> dict:
-        """
-        Method wrapping pydantics dict() method to only contain set fields.
-        """
+        """Method wrapping pydantics dict() method to only contain set fields."""
         return self.dict(exclude_unset=True, by_alias=True, exclude_defaults=True)
 
     def json_for_db(self) -> str:
-        """
-        Method dumping dict_for_db() method to JSON.
-        """
+        """Method dumping dict_for_db() method to JSON."""
         return json.dumps(self.dict_for_db())
 
     @classmethod
@@ -430,10 +427,42 @@ class AiDeploymentParameters(BaseModel):
         return deployment_parameters
 
     def merge(self, other: AiDeploymentParameters):
-        """
-        Merge two DeploymentParameters objects.
-        """
+        """Merge two DeploymentParameters objects."""
         for k, v in other.dict().items():
             if k in self.dict():
                 self.dict()[k] = v
         return self
+
+    @classmethod
+    def merge_deployment_parameters(
+        cls,
+        template_parameters: Union[dict, AiDeploymentParameters],
+        properties: Union[dict, AiDeploymentParameters],
+        enable_cuda: bool,
+    ) -> AiDeploymentParameters:
+        """Merges deployment parameters from the AI template and the user-provided deployment parameters.
+        Precedence is given to the user-provided deployment parameters.
+
+        Args:
+            properties: Optional variable to override hardware and scaling deployment parameters from the AI template.
+            enable_cuda: Legacy kwarg for backwards compatibility.
+
+        Returns:
+            Merged deployment parameters.
+
+        """
+        # Parse properties into DeploymentParameters object
+        properties = cls.parse_from_optional(properties)
+        if enable_cuda:
+            logger.warning(
+                "enable_cuda is deprecated and will be removed in future versions. Use `properties` instead."
+            )
+            properties.enable_cuda = enable_cuda
+        # Merge properties with deployment parameters from AI template with precedence to properties
+        if isinstance(template_parameters, dict):
+            template_parameters = cls.parse_obj(template_parameters)
+
+        template_deployment_parameters = template_parameters.dict_for_db()
+        template_deployment_parameters.update(properties.dict_for_db())
+        deployment_parameters = cls.parse_obj(template_deployment_parameters)
+        return deployment_parameters

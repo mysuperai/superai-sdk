@@ -4,15 +4,14 @@ from functools import wraps
 
 
 def retry(exceptions, tries=5, delay=1, backoff=2, logger=logging):
-    """
-    Retry calling the decorated function using an exponential backoff.
+    """Retries calling the decorated function using an exponential backoff.
 
     Args:
         exceptions: The exception to check. may be a tuple of
             exceptions to check.
         tries: Number of times to try (not retry) before giving up.
         delay: Initial delay between retries in seconds.
-        backoff: Backoff multiplier (e.g. value of 2 will double the delay
+        backoff: Backoff multiplier (e.g., value of 2 will double the delay
             each retry).
         logger: Logger to use. If None, print.
     """
@@ -25,7 +24,7 @@ def retry(exceptions, tries=5, delay=1, backoff=2, logger=logging):
                 try:
                     return f(*args, **kwargs)
                 except exceptions as e:
-                    msg = "{}, Retrying {} in {} seconds... {} tries left".format(e, f, mdelay, mtries)
+                    msg = f"{e}, Retrying {f} in {mdelay} seconds... {mtries} tries left"
                     if logger:
                         logger.warning(msg)
                     else:
@@ -55,7 +54,7 @@ def stopwatch(f):
         extra_args = {"func_name_override": f.__name__}
         return_val = f(*args, **kwargs)
         log.info(
-            "{}() elapsed time: {} ms.".format(f.__name__, int(round(time.time() * 1000) - start_time)),
+            f"{f.__name__}() elapsed time: {int(round(time.time() * 1000) - start_time)} ms.",
             extra=extra_args,
         )
         return return_val
@@ -64,11 +63,13 @@ def stopwatch(f):
 
 
 def experimental(func):
-    """
-    Decorator for marking APIs experimental in the docstring.
+    """Decorator for marking APIs experimental in the docstring.
 
-    :param func: A function to mark
-    :returns Decorated function.
+    Args:
+        func: A function to mark
+
+    Returns:
+        A decorated function.
     """
     notice = (
         ".. Note:: Experimental: This method is subject to change or "

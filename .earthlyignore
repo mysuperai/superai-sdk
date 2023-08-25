@@ -17,9 +17,9 @@
 */*/.git
 
 */*/.AISave
+*/*/build
+*/*/dist
 
 dist
 Earthfile
 Jenkinsfile
-
-.test

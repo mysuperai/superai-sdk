@@ -1,4 +1,4 @@
-""" Shell common utility """
+"""Shell common utility"""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import logging
@@ -8,7 +8,7 @@ import time
 
 
 def execute_verbose(command):
-    """Execute shell command and print stdout/err to the console"""
+    """Executes shell command and prints stdout/err to the console."""
     start = time.time()
     os.system(command)
     end = time.time()
@@ -16,18 +16,18 @@ def execute_verbose(command):
 
 
 def execute(command):
-    """Execute shell command with Popen"""
+    """Executes shell command with Popen."""
     start = time.time()
     FNULL = open(os.devnull, "w")
     res = subprocess.Popen(command.split(), stdout=subprocess.PIPE, stderr=FNULL)
     res.wait()
     end = time.time()
-    logging.debug("pid: {}. Exit code: {}. Message: {}".format(res.pid, res.returncode, res.stdout.read()))
+    logging.debug(f"pid: {res.pid}. Exit code: {res.returncode}. Message: {res.stdout.read()}")
     return end - start
 
 
 def get_directory_size(path="."):
-    """Get directory size
+    """Gets directory size.
 
     Implementation suggested from S.O.
     https://stackoverflow.com/questions/12480367/how-to-generate-directory-size-recursively-in-python-like-du-does
@@ -47,17 +47,17 @@ def get_directory_size(path="."):
         # can access it later
         my_size = dirs_dict[root] = size + subdir_size
 
-        logging.info("{}: {}".format(root, my_size))
+        logging.info(f"{root}: {my_size}")
         return my_size
 
 
 def create_python_command(args):
-    """Create python shell command with args"""
-    return "python {}".format(" ".join(args))
+    """Creates Python shell command with args."""
+    return f"python {' '.join(args)}"
 
 
 def which(program):
-    """Test if program is installed on local machine"""
+    """Tests if program is installed on local machine."""
 
     def is_exe(fpath):
         return os.path.isfile(fpath) and os.access(fpath, os.X_OK)

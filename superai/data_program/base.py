@@ -50,7 +50,7 @@ class DataProgramBase:
 
     def run_thread(self):
         if DataProgramBase._thread and not DataProgramBase._thread.is_alive():
-            log.info(f"[DataProgramBase.run] - Starting thread")
+            log.info("[DataProgramBase.run] - Starting thread")
             DataProgramBase._thread.start()
             DataProgramBase._thread.join()
 
@@ -73,9 +73,9 @@ class DataProgramBase:
             kwargs={"filepath": filepath},
             daemon=True,
         )
-        log.info(f"[DataProgramBase._deploy] - Thread created")
+        log.info("[DataProgramBase._deploy] - Thread created")
         atexit.register(DataProgramBase.run_thread, self)
-        log.info(f"[DataProgramBase._deploy] - Thread registered to run join before the data program closes")
+        log.info("[DataProgramBase._deploy] - Thread registered to run join before the data program closes")
 
     def __caller_info(self):
         index = -1
@@ -85,12 +85,11 @@ class DataProgramBase:
             index = index - 1
             frm = inspect.stack()[index]
         mod = inspect.getmodule(frm[0])
-        dir = os.path.dirname(mod.__file__) if os.path.dirname(mod.__file__) else os.path.abspath(os.path.curdir)
+        dirname = os.path.dirname(mod.__file__) or os.path.abspath(os.path.curdir)
         file_name = os.path.basename(mod.__file__)
-        info = {
-            "dir": dir,
+        return {
+            "dir": dirname,
             "file_name": file_name,
-            "filepath": Path(dir) / file_name,
+            "filepath": Path(dirname) / file_name,
             "object": mod,
         }
-        return info

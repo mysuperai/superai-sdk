@@ -4,9 +4,6 @@ import logging
 import re  # noqa: F401
 from abc import ABC, abstractmethod
 
-# python 2 and python 3 compatibility library
-import six
-
 from superai.log import logdecorator
 
 
@@ -30,22 +27,22 @@ class ProjectApiMixin(ABC):
         reraise=True,
     )
     def get_project(self, uuid, **kwargs):
-        """Fetch a given resource
+        """Fetches a given resource.
 
-        :param str workflow_name: The superai identifier (required)
-        :param str x_fields: An optional fields mask
-        :return: A Superai
+        Args:
+            str workflow_name: The superai identifier (required)
+            str x_fields: An optional fields mask
+
+        Returns:
+            A Superai.
         """
 
-        all_params = ["uuid", "x_fields"]
-        all_params.append("_return_http_data_only")
-        all_params.append("_preload_content")
-        all_params.append("_request_timeout")
+        all_params = ["uuid", "x_fields", "_return_http_data_only", "_preload_content", "_request_timeout"]
 
         params = locals()
-        for key, val in six.iteritems(params["kwargs"]):
+        for key, val in params["kwargs"].items():
             if key not in all_params:
-                raise TypeError("Got an unexpected keyword argument '%s'" " to method get_template" % key)
+                raise TypeError(f"Got an unexpected keyword argument '{key}' to method get_template")
             params[key] = val
         del params["kwargs"]
         if "uuid" not in params or params["uuid"] is None:
@@ -53,10 +50,7 @@ class ProjectApiMixin(ABC):
 
         collection_formats = {}
 
-        path_params = {}
-        if "uuid" in params:
-            path_params["uuid"] = params["uuid"]
-
+        path_params = {"uuid": params["uuid"]}
         query_params = []
 
         header_params = {}
@@ -96,22 +90,22 @@ class ProjectApiMixin(ABC):
         reraise=True,
     )
     def get_selected_workflow(self, uuid, **kwargs):
-        """Fetch a given resource
+        """Fetches a given resource.
 
-        :param str uuid: The superai identifier (required)
-        :param str x_fields: An optional fields mask
-        :return: Qualified workflow name
+        Args:
+            str uuid: The superai identifier (required)
+            str x_fields: An optional fields mask
+
+        Returns:
+            Qualified workflow name.
         """
 
-        all_params = ["uuid", "x_fields"]
-        all_params.append("_return_http_data_only")
-        all_params.append("_preload_content")
-        all_params.append("_request_timeout")
+        all_params = ["uuid", "x_fields", "_return_http_data_only", "_preload_content", "_request_timeout"]
 
         params = locals()
-        for key, val in six.iteritems(params["kwargs"]):
+        for key, val in params["kwargs"].items():
             if key not in all_params:
-                raise TypeError("Got an unexpected keyword argument '%s'" " to method get_template" % key)
+                raise TypeError(f"Got an unexpected keyword argument '{key}' to method get_template")
             params[key] = val
         del params["kwargs"]
 
@@ -120,10 +114,7 @@ class ProjectApiMixin(ABC):
 
         collection_formats = {}
 
-        path_params = {}
-        if "uuid" in params:
-            path_params["uuid"] = params["uuid"]
-
+        path_params = {"uuid": params["uuid"]}
         query_params = []
 
         header_params = {}
@@ -163,20 +154,21 @@ class ProjectApiMixin(ABC):
         reraise=True,
     )
     def list_projects(self, **kwargs):
-        """
-        Retrieves a list of projects (also referred to as 'apps' in the API endpoint).
+        """Lists all superAIs (Tags param is mock).
 
-        :param int page: (Optional) Page number for pagination.
-        :param int size: (Optional) Number of items to be retrieved per page.
-        :param str sort_by: (Optional) Field by which to sort the results. Defaults to 'created'.
-        :param str order_by: (Optional) Order of sorting, can be 'asc' or 'desc'. Defaults to 'desc'.
-        :param str org: (Optional) The organization name. If provided, the method fetches apps specific to this organization.
-        :param List[str] status_in: (Optional) List of status to filter by. Possible values are ["ENABLED", "DISABLED"].
-        :param str x_fields: (Optional) Specifies additional fields to be included in the response.
+        Args:
+            int page:
+            int size:
+            str sort_by:
+            str order_by:
+            bool only_owned_or_group:
+            list[str] input_types:
+            list[str] output_types:
+            list[str] tags:
+            str x_fields: An optional fields mask
 
-        :return: List[dict] of projects/apps.
-
-        Note: Additional parameters can be passed via **kwargs. Ensure they match the parameters described above.
+        Returns:
+            List of SuperAIs.
         """
 
         all_params = [
@@ -187,15 +179,15 @@ class ProjectApiMixin(ABC):
             "status_in",
             "org",
             "x_fields",
+            "_return_http_data_only",
+            "_preload_content",
+            "_request_timeout",
         ]
-        all_params.append("_return_http_data_only")
-        all_params.append("_preload_content")
-        all_params.append("_request_timeout")
 
         params = locals()
-        for key, val in six.iteritems(params["kwargs"]):
+        for key, val in params["kwargs"].items():
             if key not in all_params:
-                raise TypeError("Got an unexpected keyword argument '%s'" " to method list_templates" % key)
+                raise TypeError(f"Got an unexpected keyword argument '{key}' to method list_templates")
             params[key] = val
         del params["kwargs"]
 
@@ -258,25 +250,23 @@ class ProjectApiMixin(ABC):
         reraise=True,
     )
     def update_project(self, uuid, body, **kwargs):
-        """Update a superai given its full qualified name
+        """Updates a superai given its full qualified name. If the superai already exists and it is owned by somebody else then if will return a 409.
 
-        If the superai already exists and it is owned by  somebody else then if will throw a 409
+        Args:
+            body: (required)
+            uuid: The Project identifier (required)
+            x_fields: An optional fields mask
 
-        :param Project body: (required)
-        :param str uuid: The Project identifier (required)
-        :param str x_fields: An optional fields mask
-        :return: Project updated
+        Returns:
+            Project updated.
         """
 
-        all_params = ["body", "uuid", "x_fields"]
-        all_params.append("_return_http_data_only")
-        all_params.append("_preload_content")
-        all_params.append("_request_timeout")
+        all_params = ["body", "uuid", "x_fields", "_return_http_data_only", "_preload_content", "_request_timeout"]
 
         params = locals()
-        for key, val in six.iteritems(params["kwargs"]):
+        for key, val in params["kwargs"].items():
             if key not in all_params:
-                raise TypeError("Got an unexpected keyword argument '%s'" " to method update_template" % key)
+                raise TypeError(f"Got an unexpected keyword argument '{key}' to method update_template")
             params[key] = val
         del params["kwargs"]
         # verify the required parameter 'body' is set
@@ -288,10 +278,7 @@ class ProjectApiMixin(ABC):
 
         collection_formats = {}
 
-        path_params = {}
-        if "uuid" in params:
-            path_params["uuid"] = params["uuid"]
-
+        path_params = {"uuid": params["uuid"]}
         query_params = []
 
         header_params = {}
@@ -337,28 +324,28 @@ class ProjectApiMixin(ABC):
         reraise=True,
     )
     def create_project(self, body, org=None, **kwargs):
-        """Update a superai given its uuid
+        """Updates a superai given its UUID.
 
-        If the dataprogram already exists and it is owned by  somebody else then if will throw a 409
+        If the Data Program already exists and it is owned by somebody else, then if will return a 409.
 
-        :param DataProgram body: (required)
-        :param str x_fields: An optional fields mask
-        :return: Project
+        Args:
+            DataProgram body: (required)
+            x_fields: An optional fields mask
+
+        Returns:
+            Project.
         """
 
-        all_params = ["body", "x_fields"]
-        all_params.append("_return_http_data_only")
-        all_params.append("_preload_content")
-        all_params.append("_request_timeout")
+        all_params = ["body", "x_fields", "_return_http_data_only", "_preload_content", "_request_timeout"]
 
         params = locals()
         query_params = {}
         if org:
             query_params["org"] = org
         del params["org"]
-        for key, val in six.iteritems(params["kwargs"]):
+        for key, val in params["kwargs"].items():
             if key not in all_params:
-                raise TypeError("Got an unexpected keyword argument '%s'" " to method update_template" % key)
+                raise TypeError(f"Got an unexpected keyword argument '{key}' to method update_template")
             params[key] = val
         del params["kwargs"]
         # verify the required parameter 'body' is set
@@ -375,8 +362,7 @@ class ProjectApiMixin(ABC):
         local_var_files = {}
 
         body_params = None
-        if "body" in params:
-            body_params = params["body"]
+        body_params = params["body"]
         # HTTP header `Accept`
         header_params["Accept"] = "application/json"
 

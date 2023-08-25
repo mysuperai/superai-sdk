@@ -25,10 +25,13 @@ def _get_tag_value_map(choices_obj):
 
 
 def exclusive_choice_majority(instance_list):
-    """Combine exclusive-choice schema instances using majority vote.
+    """Combines exclusive-choice schema instances using majority vote.
 
-    :param instance_list: A list of objects that comply with the exclusive-choice schema.
-    :return: A single exclusive-choice object.
+    Args:
+        instance_list: A list of objects that comply with the exclusive-choice schema.
+
+    Returns:
+        A single exclusive-choice object.
     """
     tags = [get_exclusive_choice_tag(i) for i in instance_list]
     majority_vote_tag = basic_majority(tags)
@@ -38,10 +41,13 @@ def exclusive_choice_majority(instance_list):
 
 
 def multiple_choice_majority(instance_list):
-    """Combine multiple-choice schema objects using majority vote.
+    """Combines multiple-choice schema objects using majority vote.
 
-    :param instance_list: A list of objects that comply with the multiple-choice schema.
-    :return: A single multiple-choice object.
+    Args:
+        instance_list: A list of objects that comply with the multiple-choice schema.
+
+    Returns:
+        A single multiple-choice object.
     """
     tag_list = [get_multiple_choice_tags(i) for i in instance_list]
     majority_vote_tags = multivalue_majority(tag_list)

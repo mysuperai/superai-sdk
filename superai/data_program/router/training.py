@@ -1,5 +1,5 @@
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Tuple
 
 from superai.data_program.router import Router
 
@@ -58,7 +58,7 @@ class Training(Router):
         # self.update_wf(api_key=api_key)
 
     def subscribe_wf(self):
-        @workflow(self.name + "", self.prefix)
+        @workflow(f"{self.name}", self.prefix)
         @input_schema(name="inp", schema=self.input_schema)
         @param_schema(name="params", schema=self.parameter_schema)
         @output_schema(schema=self.output_schema)
@@ -81,12 +81,20 @@ class Training(Router):
             else:
                 raise JobTypeNotImplemented(f"Training does not support the given job type: {job_type}")
 
-        def send_workflow_job(workflow, input, params, job_type, app_uuid):
+        def send_workflow_job(
+            workflow, input, params, job_type, app_uuid
+        ) -> Tuple[Optional[object], Optional[object], Optional[object]]:
             job = execute(workflow, params=input, app_params={"params": params}, tag=app_uuid)
             result = job.result()
             status = result.status()
-            if not status or status != "COMPLETED":
-                raise ChildJobFailed(
-                    f"{workflow} method did not complete for {job_type} job. Result {result}. Status {status}"
-                )
-            return job.result().response(), job.result().data(), None
+            if status:
+                if status == "CANCELED":
+                    # Ignore cancellations and just return silently
+                    return None, None, None
+                elif status == "COMPLETED":
+                    return job.result().response(), job.result().data(), None
+
+            # Catchall
+            raise ChildJobFailed(
+                f"{workflow} method did not complete for {job_type} job. Result {result}. Status {status}"
+            )

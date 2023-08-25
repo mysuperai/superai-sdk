@@ -6,6 +6,7 @@ import boto3
 from superai.config import (
     add_secret_settings,
     get_config_dir,
+    get_current_env,
     remove_secret_settings,
     settings,
 )
@@ -18,14 +19,14 @@ COGNITO_REGION = settings.get("cognito", {}).get("region")
 log = logger.get_logger(__name__)
 
 
-def save_cognito_user(authenitcated_user: dict):
+def save_cognito_user(authenticated_user: dict):
     _save_cognito_credentials(
-        authenitcated_user.id_token, authenitcated_user.access_token, authenitcated_user.refresh_token
+        authenticated_user.id_token, authenticated_user.access_token, authenticated_user.refresh_token
     )
 
 
 def _save_cognito_credentials(id_token: str, access_token: str, refresh_token: str):
-    env = settings.current_env
+    env = get_current_env()
     cognito = {
         "id_token": id_token,
         "access_token": access_token,
@@ -64,25 +65,26 @@ def load_refresh_token() -> str:
 
 
 def remove_cognito_user():
-    env = settings.current_env
+    env = get_current_env()
     remove_secret_settings(f"{env}__user__cognito")
     log.debug(f"Cognito tokens deleted from env {env}")
 
 
 def update_cognito_credentials() -> Tuple[str, str]:
-    """
-    Update cognito credentials with the following tokens:
+    """Update cognito credentials with the following tokens:
     - access token
     - id token
     - refresh token
-    :return: Tuple[str, str] Tuple with id_token and access_token
+
+    Returns:
+        Tuple[str, str] Tuple with id_token and access_token
     """
     # Create the boto client as the pycognito library doesn't allow to update
     # credentials.
     cog_client = boto3.client("cognito-idp", COGNITO_REGION)
 
     refresh_token = load_refresh_token()
-    # Initate authentication with the refresh token.
+    # Initiate authentication with the refresh token.
     resp_auth = cog_client.initiate_auth(
         ClientId=COGNITO_CLIENT_ID, AuthFlow="REFRESH_TOKEN_AUTH", AuthParameters={"REFRESH_TOKEN": refresh_token}
     )

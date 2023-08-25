@@ -16,7 +16,7 @@ class BuildConfig(object):
         version: str = "0.1",
     ):
         self._excluded_keys = []
-        self.args = [] if args == "" else [arg.strip() for arg in args.split(",")]
+        self.args = [arg.strip() for arg in args.split(",")] if args else []
         self.build = build
         self.build_folder = build_folder
         self.clean_build = clean_build
@@ -32,7 +32,7 @@ class BuildConfig(object):
             raise ValueError(f"BuildConfig: Attributes {missing} are required")
 
     def as_dict(self):
-        return dict((key, value) for (key, value) in self.__dict__.items() if key not in self._excluded_keys)
+        return {key: value for (key, value) in self.__dict__.items() if key not in self._excluded_keys}
 
 
 class RuntimeConfig(object):
@@ -46,8 +46,10 @@ class RuntimeConfig(object):
         local: bool = True,
         serve: bool = True,
         simulation: bool = None,
-        environment: List[dict] = [],
+        environment: List[dict] = None,
     ):
+        if environment is None:
+            environment = []
         self.container = container
         self.concurrency = concurrency
         self.force_schema = force_schema
@@ -68,17 +70,13 @@ class RuntimeConfig(object):
         if self.container:
             raise NotImplementedError("RuntimeConfig: Running in container is no supported")
 
-        if not self.container and not self.local:
+        if not self.local:
             raise ValueError("RuntimeConfig: Data program has to run either in container or local mode")
 
     def as_dict(self):
         self._excluded_keys = []
-        return dict((key, value) for (key, value) in self.__dict__.items() if key not in self._excluded_keys)
+        return {key: value for (key, value) in self.__dict__.items() if key not in self._excluded_keys}
 
 
 def missing_attrs(obj: object, attr_list: List[str]) -> List[str]:
-    missing = []
-    for param in attr_list:
-        if getattr(obj, param, None) is None:
-            missing.append(param)
-    return missing
+    return [param for param in attr_list if getattr(obj, param, None) is None]

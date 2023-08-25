@@ -6,6 +6,7 @@ from .logger import (
     ERROR,
     INFO,
     WARNING,
+    console,
     debug,
     error,
     get_logger,

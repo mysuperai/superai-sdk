@@ -140,7 +140,8 @@ def test_integration():
         hyperparameters=HyperParameterSpec(trainable=True, optimizer="adam", log_learning_rate=-3, epochs=10),
         model_parameter=ModelParameters(conv1_size=32, conv2_size=64, hidden1_size=500, dropout=0.8),
     )
-    assert list(dictdiffer.diff(json.loads(tp.to_json()), ref_params)) == []
+    differences = list(dictdiffer.diff(json.loads(tp.to_json()), ref_params))
+    assert not differences
 
 
 def test_deployment_parameters():

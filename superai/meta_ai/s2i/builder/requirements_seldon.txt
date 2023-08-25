@@ -1,4 +1,0 @@
-polyaxon==1.18.2
-seldon-core==1.14.0
-superai-dataclient
-superai_schema
