@@ -22,31 +22,33 @@ class JobsApiMixin(ABC):
     def create_jobs(
         self,
         app_id: str,
-        callbackUrl: str = None,
+        callback_url: str = None,
         inputs: List[dict] = None,
-        inputsFileUrl: str = None,
+        inputs_file_url: str = None,
         metadata: dict = None,
         worker: str = None,
         parked: bool = None,
     ) -> dict:
-        """
-        Submit jobs
+        """Submits jobs.
 
-        :param app_id: Application id
-        :param callback_url: URL that should be POSTed once the job is completed for the response data.
-        :param inputs: List of objects that represent the input of the job (based on the particular app type)
-        :param inputsFileUrl: URL of json file containing list of input objects
-        :param metadata: Object you can attach to job
-        :param parked: Whether the job should be created in the parked (pending) state
-        :return: Confirmation message of submission, batch id of submission, uuid of job if len(input) == 1
+        Args:
+            app_id: Application ID
+            callback_url: A URL that should be sent a POST request once the job is completed for the response data.
+            inputs: A list of objects that represent the input of the job (based on the particular app type).
+            inputs_file_url: A URL of a JSON file containing list of input objects.
+            metadata: Object you can attach to job.
+            worker:
+            parked: Whether the job should be created in the parked (pending) state
+        Returns:
+            Confirmation message of submission, batch ID of submission, UUID of job if len(input) == 1.
         """
         body_json = {}
-        if callbackUrl is not None:
-            body_json["callbackUrl"] = callbackUrl
+        if callback_url is not None:
+            body_json["callbackUrl"] = callback_url
         if inputs is not None:
             body_json["inputs"] = inputs
-        if inputsFileUrl is not None:
-            body_json["inputsFileUrl"] = inputsFileUrl
+        if inputs_file_url is not None:
+            body_json["inputsFileUrl"] = inputs_file_url
         if metadata is not None:
             body_json["metadata"] = metadata
         if worker is not None:
@@ -58,51 +60,61 @@ class JobsApiMixin(ABC):
         return self.request(uri, method="POST", body_params=body_json, required_api_key=True)
 
     def fetch_job(self, job_id: str) -> dict:
-        """
-        Get Job given job id
+        """Gets job given job ID.
 
-        :param job_id: Job id
-        :return: Dict with job data
+        Args:
+            job_id: Job ID.
+
+        Returns:
+            Dict with job data.
         """
         uri = f"jobs/{job_id}"
         return self.request(uri, method="GET", required_api_key=True)
 
     def fetch_batches_job(self, app_id) -> dict:
-        """
-        Get not processed Batches of submitted jobs given application id
+        """Gets unprocessed batches of submitted jobs given application ID.
 
-        :param app_id: Application id
-        :return: Dict with batch data
+        Args:
+            app_id: Application ID.
+
+        Returns:
+            A dict with batch data.
         """
         uri = f"apps/{app_id}/batches"
         return self.request(uri, method="GET", required_api_key=True)
 
     def fetch_batch_job(self, app_id: str, batch_id: str) -> dict:
-        """
-        Get Batch of submitted jobs given batch id and application id
+        """Gets batch of submitted jobs given batch ID and application ID.
 
-        :param app_id: Application id
-        :param batch_id: Batch id
-        :return: Dict with batch data
+        Args:
+            app_id: Application ID.
+            batch_id: Batch ID.
+        Returns:
+            A dict with batch data.
         """
         uri = f"apps/{app_id}/batches/{batch_id}"
         return self.request(uri, method="GET", required_api_key=True)
 
     def get_job_response(self, job_id: str) -> dict:
-        """
-        Get Job Response given job id
-        :param job_id:
-        :return: Dict with job response
+        """Gets job response given job ID.
+
+        Args:
+            job_id:
+
+        Returns:
+            A dict with the job response.
         """
         uri = f"jobs/{job_id}/response"
         return self.request(uri, method="GET", required_api_key=True)
 
     def cancel_job(self, job_id: str) -> dict:
-        """
-        Cancel a job given job id. Only for jobs in SCHEDULED, IN_PROGRESS or SUSPENDED state.
+        """Cancels a job given job ID. Only for jobs in SCHEDULED, IN_PROGRESS or SUSPENDED states.
 
-        :param job_id: Job id
-        :return: Dict with job data
+        Args:
+            job_id: Job ID.
+
+        Returns:
+            A dict with job data.
         """
 
         uri = f"jobs/{job_id}/cancel"
@@ -113,27 +125,30 @@ class JobsApiMixin(ABC):
         app_id: str,
         page: int = None,
         size: int = None,
-        sortBy: str = "id",
-        orderBy: str = "asc",
-        createdStartDate: datetime = None,
-        createdEndDate: datetime = None,
-        completedStartDate: datetime = None,
-        completedEndDate: datetime = None,
-        statusIn: List[str] = None,
+        sort_by: str = "id",
+        order_by: str = "asc",
+        created_start_date: datetime = None,
+        created_end_date: datetime = None,
+        completed_start_date: datetime = None,
+        completed_end_date: datetime = None,
+        status_in: List[str] = None,
     ) -> dict:
-        """
-        Get a paginated list of jobs (without job responses) given an application id
-        :param app_id: Application id
-        :param page: Page number [0..N]
-        :param size: Size of page
-        :param sortBy: Job field to sort by
-        :param orderBy: Sort direction (asc or desc)
-        :param createdStartDate: Created start date
-        :param createdEndDate: Created end date
-        :param completedStartDate: Completed start date
-        :param completedEndDate: Completed end date
-        :param statusIn: Status of jobs
-        :return: Paginated list of dicts with jobs data
+        """Gets a paginated list of jobs (without job responses) given an application ID.
+
+        Args:
+            app_id: Application ID.
+            page: Page number [0..N].
+            size: Size of page.
+            sort_by: Job field to sort by.
+            order_by: Sort direction (asc or desc).
+            created_start_date: Created start date.
+            created_end_date: Created end date.
+            completed_start_date: Completed start date.
+            completed_end_date: Completed end date.
+            status_in: Status of jobs.
+
+        Returns:
+            Paginated list of dicts with jobs data.
         """
         uri = f"apps/{app_id}/jobs"
         query_params = {}
@@ -141,85 +156,93 @@ class JobsApiMixin(ABC):
             query_params["page"] = page
         if size is not None:
             query_params["size"] = size
-        if sortBy is not None:
-            query_params["sortBy"] = sortBy
-        if orderBy is not None:
-            query_params["orderBy"] = orderBy
-        if createdStartDate is not None:
-            query_params["createdStartDate"] = createdStartDate.strftime("%Y-%m-%dT%H:%M:%SZ")
-        if createdEndDate is not None:
-            query_params["createdEndDate"] = createdEndDate.strftime("%Y-%m-%dT%H:%M:%SZ")
-        if completedStartDate is not None:
-            query_params["completedStartDate"] = completedStartDate.strftime("%Y-%m-%dT%H:%M:%SZ")
-        if completedEndDate is not None:
-            query_params["completedEndDate"] = completedEndDate.strftime("%Y-%m-%dT%H:%M:%SZ")
-        if statusIn is not None:
-            query_params["statusIn"] = statusIn
+        if sort_by is not None:
+            query_params["sortBy"] = sort_by
+        if order_by is not None:
+            query_params["orderBy"] = order_by
+        if created_start_date is not None:
+            query_params["createdStartDate"] = created_start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if created_end_date is not None:
+            query_params["createdEndDate"] = created_end_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if completed_start_date is not None:
+            query_params["completedStartDate"] = completed_start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if completed_end_date is not None:
+            query_params["completedEndDate"] = completed_end_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if status_in is not None:
+            query_params["statusIn"] = status_in
         return self.request(uri, method="GET", query_params=query_params, required_api_key=True)
 
     def download_jobs(
         self,
         app_id: str,
-        createdStartDate: datetime = None,
-        createdEndDate: datetime = None,
-        completedStartDate: datetime = None,
-        completedEndDate: datetime = None,
-        statusIn: List[str] = None,
-        sendEmail: bool = None,
-        withHistory: bool = None,
+        created_start_date: datetime = None,
+        created_end_date: datetime = None,
+        completed_start_date: datetime = None,
+        completed_end_date: datetime = None,
+        status_in: List[str] = None,
+        send_email: bool = None,
+        with_history: bool = None,
     ) -> dict:
         """
         Trigger processing of jobs responses that are sent to customer email (default) once is finished.
-        :param app_id: Application id
-        :param createdStartDate: Filter by created start date of jobs
-        :param createdEndDate: Filter by created end date of jobs
-        :param completedStartDate: Filter by completed start date of jobs
-        :param completedEndDate: Filter by completed end date of jobs
-        :param statusIn: Filter by status of jobs
-        :param sendEmail: Email not send if False.
-        :param withHistory: Adds job history to downloaded data.
-        :return: Dict with operationId key to track status
+
+        Args:
+            app_id: Application ID.
+            created_start_date: Created start date.
+            created_end_date: Created end date.
+            completed_start_date: Completed start date.
+            completed_end_date: Completed end date.
+            status_in: Status of jobs.
+            send_email: Whether to send an email.
+            with_history: Adds job history to downloaded data.
+
+        Returns:
+            Dict with operationId key to track status
         """
         uri = f"apps/{app_id}/job_responses"
         query_params = {}
-        if createdStartDate is not None:
-            query_params["createdStartDate"] = createdStartDate.strftime("%Y-%m-%dT%H:%M:%SZ")
-        if createdEndDate is not None:
-            query_params["createdEndDate"] = createdEndDate.strftime("%Y-%m-%dT%H:%M:%SZ")
-        if completedStartDate is not None:
-            query_params["completedStartDate"] = completedStartDate.strftime("%Y-%m-%dT%H:%M:%SZ")
-        if completedEndDate is not None:
-            query_params["completedEndDate"] = completedEndDate.strftime("%Y-%m-%dT%H:%M:%SZ")
-        if statusIn is not None:
-            query_params["statusIn"] = statusIn
-        if sendEmail is not None:
-            query_params["sendEmail"] = sendEmail
-        if withHistory is not None:
-            query_params["withHistory"] = withHistory
+        if created_start_date is not None:
+            query_params["createdStartDate"] = created_start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if created_end_date is not None:
+            query_params["createdEndDate"] = created_end_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if completed_start_date is not None:
+            query_params["completedStartDate"] = completed_start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if completed_end_date is not None:
+            query_params["completedEndDate"] = completed_end_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if status_in is not None:
+            query_params["statusIn"] = status_in
+        if send_email is not None:
+            query_params["sendEmail"] = send_email
+        if with_history is not None:
+            query_params["withHistory"] = with_history
         return self.request(uri, method="POST", query_params=query_params, required_api_key=True)
 
     def get_all_jobs(
         self,
         app_id: str,
-        sortBy: str = "id",
-        orderBy: str = "asc",
-        createdStartDate: datetime = None,
-        createdEndDate: datetime = None,
-        completedStartDate: datetime = None,
-        completedEndDate: datetime = None,
-        statusIn: List[str] = None,
+        sort_by: str = "id",
+        order_by: str = "asc",
+        created_start_date: datetime = None,
+        created_end_date: datetime = None,
+        completed_start_date: datetime = None,
+        completed_end_date: datetime = None,
+        status_in: List[str] = None,
     ) -> Generator[dict, None, None]:
-        """
-        Generator that retrieves all jobs (without job responses) given an application id
-        :param app_id: Application id
-        :param sortBy: Job field to sort by
-        :param orderBy: Sort direction (asc or desc)
-        :param createdStartDate: Created start date
-        :param createdEndDate: Created end date
-        :param completedStartDate: Completed start date
-        :param completedEndDate: Completed end date
-        :param statusIn: Status of jobs
-        :return: Generator that yields complete list of dicts with jobs data
+        """Generator that retrieves all jobs (without job responses) given an application ID.
+
+        Args:
+
+            app_id: Application ID.
+            sort_by: Job field to sort by.
+            order_by: Sort direction (asc or desc).
+            created_start_date: Created start date.
+            created_end_date: Created end date.
+            completed_start_date: Completed start date.
+            completed_end_date: Completed end date.
+            status_in: Status of jobs.
+
+        Returns:
+            Generator that yields complete list of dicts with jobs data.
         """
         page = 0
         paginated_jobs = {"pages": 1}
@@ -228,35 +251,42 @@ class JobsApiMixin(ABC):
                 app_id,
                 page=page,
                 size=500,
-                sortBy=sortBy,
-                orderBy=orderBy,
-                createdStartDate=createdStartDate,
-                createdEndDate=createdEndDate,
-                completedStartDate=completedStartDate,
-                completedEndDate=completedEndDate,
-                statusIn=statusIn,
+                sort_by=sort_by,
+                order_by=order_by,
+                created_start_date=created_start_date,
+                created_end_date=created_end_date,
+                completed_start_date=completed_start_date,
+                completed_end_date=completed_end_date,
+                status_in=status_in,
             )
-            for job in paginated_jobs["jobs"]:
-                yield job
-            page = page + 1
+            yield from paginated_jobs["jobs"]
+            page += 1
 
     def get_jobs_operation(self, app_id: str, operation_id: int):
-        """
-        Fetch status of job operation given application id and operation id
-        :param app_id: Application id
-        :param operation_id: operation_id
-        :return: Dict with operation information (id, status, and other fields)
+        """Fetch status of job operation given application id and operation id
+
+        Args:
+          app_id: Application id
+          operation_id: operation_id
+
+        Returns:
+          Dict with operation information (id, status, and other fields)
+
         """
         uri = f"operations/{app_id}/{operation_id}"
         return self.request(uri, method="GET", required_api_key=True)
 
     def generates_downloaded_jobs_url(self, app_id: str, operation_id: int, seconds_ttl: int = None):
-        """
-        Generates url to retrieve downloaded zip jobs given application id and operation id
-        :param app_id: Application id
-        :param operation_id: operation_id
-        :param seconds_ttl: Seconds ttl for generated url. Default 60
-        :return: Dict with field downloadUrl
+        """Generates url to retrieve downloaded zip jobs given application id and operation id
+
+        Args:
+          app_id: Application id
+          operation_id: operation_id
+          seconds_ttl: Seconds ttl for generated url. Default 60
+
+        Returns:
+          Dict with field downloadUrl
+
         """
         uri = f"operations/{app_id}/{operation_id}/download-url"
         query_params = {}
@@ -267,30 +297,34 @@ class JobsApiMixin(ABC):
     def download_jobs_full_flow(
         self,
         app_id: str,
-        createdStartDate: datetime = None,
-        createdEndDate: datetime = None,
-        completedStartDate: datetime = None,
-        completedEndDate: datetime = None,
-        statusIn: List[str] = None,
+        created_start_date: datetime = None,
+        created_end_date: datetime = None,
+        completed_start_date: datetime = None,
+        completed_end_date: datetime = None,
+        status_in: List[str] = None,
         timeout: int = 120,
         poll_interval: int = 3,
     ) -> Optional[List[dict]]:
-        """
-        Trigger download of jobs and polls every poll_interval seconds until it
+        """Trigger download of jobs and polls every poll_interval seconds until it
         returns the list of jobs or None in case of timeout
-        :param app_id: Application id
-        :param createdStartDate: Filter by created start date of jobs
-        :param createdEndDate: Filter by created end date of jobs
-        :param completedStartDate: Filter by completed start date of jobs
-        :param completedEndDate: Filter by completed end date of jobs
-        :param statusIn: Filter by status of jobs
-        :param timeout: Timeout in seconds
-        :param poll_interval: Poll interval in seconds
-        :return: List of dict of job
+
+        Args:
+          app_id: Application id
+          created_start_date: Filter by created start date of jobs
+          created_end_date: Filter by created end date of jobs
+          completed_start_date: Filter by completed start date of jobs
+          completed_end_date: Filter by completed end date of jobs
+          status_in: Filter by status of jobs
+          timeout: Timeout in seconds
+          poll_interval: Poll interval in seconds
+
+        Returns:
+          List of dict of job
+
         """
         console = Console()
         operation_id = self.download_jobs(
-            app_id, createdStartDate, createdEndDate, completedStartDate, completedEndDate, statusIn, False
+            app_id, created_start_date, created_end_date, completed_start_date, completed_end_date, status_in, False
         )["operationId"]
         operation_completed = False
         last_operation_status = None
@@ -310,7 +344,7 @@ class JobsApiMixin(ABC):
                     time.sleep(poll_interval)
             if not operation_completed:
                 return None
-            status.update(status=f"[green]Downloading jobs...")
+            status.update(status="[green]Downloading jobs...")
             download_jobs_url = self.generates_downloaded_jobs_url(app_id, operation_id)["downloadUrl"]
             resp = requests.get(download_jobs_url)
             zipfile = ZipFile(BytesIO(resp.content))
@@ -322,13 +356,16 @@ class JobsApiMixin(ABC):
         response: dict = None,
         correct: bool = None,
     ) -> dict:
-        """
-        Review jobs
+        """Review jobs
 
-        :param job_id: Job id
-        :param response: New job response. If not present
-        :param correct: Whether the current job id should be marked as correct. If None no action would be taken.
-        :return: Status code
+        Args:
+          job_id: Job id
+          response: New job response. If not present
+          correct: Whether the current job id should be marked as correct. If None no action would be taken.
+
+        Returns:
+          Status code
+
         """
         if not response and correct is None:
             raise ValueError("Review flow requires either `response` or `correct` parameters")

@@ -1,5 +1,4 @@
-"""
-Training on the Intel Image Classification Dataset
+"""Training on the Intel Image Classification Dataset
 (https://www.kaggle.com/datasets/puneet6060/intel-image-classification)
 
 The adaptation of the model is done from https://www.kaggle.com/code/vincee/intel-image-classification-cnn-keras
@@ -14,7 +13,7 @@ import tensorflow as tf
 from sklearn.utils import shuffle
 from tqdm import tqdm
 
-from superai.meta_ai import BaseModel
+from superai.meta_ai import BaseAI
 from superai.meta_ai.base.base_ai import add_default_tracking, default_random_seed
 from superai.meta_ai.base.training_helpers import (
     AvailableCallbacks,
@@ -30,7 +29,7 @@ logger.setLevel(logging.INFO)
 directory_to_extract_to = "./directory"
 
 
-class IntelImageClassification(BaseModel):
+class IntelImageClassification(BaseAI):
     def __init__(self, **kwargs):
         super(IntelImageClassification, self).__init__(**kwargs)
         self.class_names = ["mountain", "street", "glacier", "buildings", "sea", "forest"]
@@ -62,11 +61,10 @@ class IntelImageClassification(BaseModel):
 
         # Iterate through training and test sets
         for dataset in datasets:
-
             images = []
             labels = []
 
-            print("Loading {}".format(dataset))
+            print(f"Loading {dataset}")
 
             # Iterate through each folder corresponding to a category
             for folder in os.listdir(dataset):
@@ -185,7 +183,7 @@ class IntelImageClassification(BaseModel):
         # track and save
         if not os.path.exists(model_save_path):
             os.makedirs(model_save_path)
-        model.save(model_save_path)
+        model._save_local(model_save_path)
         logger.info(f"Training complete, saved model in {model_save_path}")
 
         return TrainerOutput(metric=dict(eval_accuracy=accuracy))

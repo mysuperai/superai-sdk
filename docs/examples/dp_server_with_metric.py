@@ -2,8 +2,10 @@ from typing import List
 
 from superai_schema.types import BaseModel, Field, UiWidget
 
+from superai.data_program import Metric
 from superai.data_program.dp_server import DPServer
-from superai.data_program.types import HandlerOutput, Metric, WorkflowConfig
+from superai.data_program.types import HandlerOutput
+from superai.data_program.workflow import WorkflowConfig
 
 
 class Parameters(BaseModel):
@@ -48,10 +50,11 @@ def handler(params: Parameters):
 
 DPServer(
     params=Parameters(choices=["1", "2"]),
+    handler_fn=handler,
     name="Test_Server",
-    generate=handler,
     workflows=[WorkflowConfig("top_heroes", is_default=True), WorkflowConfig("crowd_managers", is_gold=True)],
-    template_name="",  # template name should be empty, we don't want the reverse proxy
+    template_name="",
     port=8002,
     log_level="critical",
+    force_no_tunnel=True,
 ).run()

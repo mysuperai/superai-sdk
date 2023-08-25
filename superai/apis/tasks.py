@@ -21,87 +21,105 @@ class TasksApiMixin(ABC):
     def download_tasks(
         self,
         app_id: str,
-        createdStartDate: datetime = None,
-        createdEndDate: datetime = None,
-        completedStartDate: datetime = None,
-        completedEndDate: datetime = None,
-        statusIn: List[str] = None,
+        created_start_date: datetime = None,
+        created_end_date: datetime = None,
+        completed_start_date: datetime = None,
+        completed_end_date: datetime = None,
+        status_in: List[str] = None,
     ) -> dict:
-        """
-        Trigger download of tasks data that can be retrieved using task operation id.
-        :param app_id: Application id
-        :param createdStartDate: Filter by created start date of tasks
-        :param createdEndDate: Filter by created end date of tasks
-        :param completedStartDate: Filter by completed start date of tasks
-        :param completedEndDate: Filter by completed end date of tasks
-        :param statusIn: Filter by status of tasks
-        :return: Dict with task operationId key to track status
+        """Trigger download of tasks data that can be retrieved using task operation id.
+
+        Args:
+          app_id: Application id
+          created_start_date: Filter by created start date of tasks
+          created_end_date: Filter by created end date of tasks
+          completed_start_date: Filter by completed start date of tasks
+          completed_end_date: Filter by completed end date of tasks
+          status_in: Filter by status of tasks
+
+        Returns:
+          Dict with task operationId key to track status
+
         """
         uri = f"apps/{app_id}/tasks-download"
         query_params = {}
-        if createdStartDate is not None:
-            query_params["createdStartDate"] = createdStartDate.strftime("%Y-%m-%dT%H:%M:%SZ")
-        if createdEndDate is not None:
-            query_params["createdEndDate"] = createdEndDate.strftime("%Y-%m-%dT%H:%M:%SZ")
-        if completedStartDate is not None:
-            query_params["completedStartDate"] = completedStartDate.strftime("%Y-%m-%dT%H:%M:%SZ")
-        if completedEndDate is not None:
-            query_params["completedEndDate"] = completedEndDate.strftime("%Y-%m-%dT%H:%M:%SZ")
-        if statusIn is not None:
-            query_params["statusIn"] = statusIn
+        if created_start_date is not None:
+            query_params["createdStartDate"] = created_start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if created_end_date is not None:
+            query_params["createdEndDate"] = created_end_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if completed_start_date is not None:
+            query_params["completedStartDate"] = completed_start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if completed_end_date is not None:
+            query_params["completedEndDate"] = completed_end_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        if status_in is not None:
+            query_params["statusIn"] = status_in
         return self.request(uri, method="POST", query_params=query_params, required_api_key=True)
 
     def get_tasks_operation(self, app_id: str, operation_id: int):
-        """
-        Fetch status of task operation given application id and operation id
-        :param app_id: Application id
-        :param operation_id: operation_id
-        :return: Dict with operation information (id, status, and other fields)
+        """Fetch status of task operation given application id and operation id
+
+        Args:
+          app_id: Application id
+          operation_id: operation_id
+
+
+        Returns:
+          Dict with operation information (id, status, and other fields)
+
         """
         uri = f"task-operations/{app_id}/{operation_id}"
         return self.request(uri, method="GET", required_api_key=True)
 
-    def generates_downloaded_tasks_url(self, app_id: str, operation_id: int, secondsTtl: int = None):
-        """
-        Generates url to retrieve downloaded zip tasks given application id and
+    def generates_downloaded_tasks_url(self, app_id: str, operation_id: int, seconds_ttl: int = None):
+        """Generates url to retrieve downloaded zip tasks given application id and
         operation id
-        :param app_id: Application id
-        :param operation_id: operation_id
-        :param seconds_ttl: Seconds ttl for generated url. Default 60
-        :return: Dict with field downloadUrl
+
+        Args:
+          app_id: Application id
+          operation_id: operation_id
+          seconds_ttl: Seconds ttl for generated url. Default 60
+
+
+        Returns:
+          Dict with field downloadUrl
+
         """
         uri = f"task-operations/{app_id}/{operation_id}/download-url"
         query_params = {}
-        if secondsTtl is not None:
-            query_params["secondsTtl"] = secondsTtl
+        if seconds_ttl is not None:
+            query_params["secondsTtl"] = seconds_ttl
         return self.request(uri, method="POST", query_params=query_params, required_api_key=True)
 
     def download_tasks_full_flow(
         self,
         app_id: str,
-        createdStartDate: datetime = None,
-        createdEndDate: datetime = None,
-        completedStartDate: datetime = None,
-        completedEndDate: datetime = None,
-        statusIn: List[str] = None,
+        created_start_date: datetime = None,
+        created_end_date: datetime = None,
+        completed_start_date: datetime = None,
+        completed_end_date: datetime = None,
+        status_in: List[str] = None,
         timeout: int = 120,
         poll_interval: int = 3,
     ) -> Optional[List[dict]]:
-        """
-        Trigger download of tasks and polls every poll_interval seconds until it
+        """Trigger download of tasks and polls every poll_interval seconds until it
         returns the list of tasks or None in case of timeout
-        :param app_id: Application id
-        :param createdStartDate: Filter by created start date of tasks
-        :param createdEndDate: Filter by created end date of tasks
-        :param completedStartDate: Filter by completed start date of tasks
-        :param completedEndDate: Filter by completed end date of tasks
-        :param statusIn: Filter by status of tasks
-        :param timeout: Timeout in seconds
-        :param poll_interval: Poll interval in seconds
-        :return: List of dict of tasks
+
+        Args:
+          app_id: Application id
+          created_start_date: Filter by created start date of tasks
+          created_end_date: Filter by created end date of tasks
+          completed_start_date: Filter by completed start date of tasks
+          completed_end_date: Filter by completed end date of tasks
+          status_in: Filter by status of tasks
+          timeout: Timeout in seconds
+          poll_interval: Poll interval in seconds
+
+        Returns:
+          List of dict of tasks
+
         """
         operation_id = self.download_tasks(
-            app_id, createdStartDate, createdEndDate, completedStartDate, completedEndDate, statusIn
+            app_id, created_start_date, created_end_date, completed_start_date, completed_end_date, status_in
         )["operationId"]
         operation_completed = False
         start_poll_date = datetime.now()

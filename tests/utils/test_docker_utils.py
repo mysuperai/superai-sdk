@@ -1,6 +1,6 @@
 import pytest
 
-from superai.meta_ai.dockerizer import aws_ecr_login, get_boto_session
+from superai.meta_ai.ai_helper import aws_ecr_login, get_boto_session
 
 
 @pytest.mark.skip("Not supported in CI")

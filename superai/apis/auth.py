@@ -8,17 +8,19 @@ class AuthApiMixin(ABC):
         pass
 
     def get_apikeys(self) -> List[str]:
-        """
-        Get api-keys of authenticated user
-        :return List with api-keys of authenticated user:
+        """Gets the API keys of the authenticated user.
+
+        Returns:
+            A list with the API keys of the authenticated user.
         """
         uri = "users/apiKeys"
         return self.request(uri, method="GET", required_auth_token=True, required_id_token=True)
 
     def get_awskeys(self) -> List[str]:
-        """
-        Get api-keys of authenticated user
-        :return List with api-keys of authenticated user:
+        """Gets the API keys of the authenticated user.
+
+        Returns:
+            A list with the API keys of the authenticated user.
         """
         uri = "users/awsKeys"
         return self.request(uri, method="GET", required_id_token=True)

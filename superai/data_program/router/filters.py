@@ -1,6 +1,6 @@
 def standard_filter(metric_name: str):
     if not metric_name or not isinstance(metric_name, str):
-        raise AttributeError("expected metric_name of type str instead type: {}".format(type(metric_name)))
+        raise AttributeError(f"Expected metric_name of type str instead of type: {type(metric_name)}")
 
     def router_filter(app_metrics, measured_metrics):
         at_least_one_measurement = measured_metrics["quality"]["quantity"] > 0

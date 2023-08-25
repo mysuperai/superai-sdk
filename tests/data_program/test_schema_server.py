@@ -1,3 +1,4 @@
+import contextlib
 import json
 import socket
 import time
@@ -8,14 +9,14 @@ import pytest
 import requests
 from superai_schema.types import BaseModel, Field, UiWidget
 
+from superai.data_program import Metric
 from superai.data_program.dp_server import DPServer
 from superai.data_program.types import (
     HandlerOutput,
-    Metric,
     PostProcessContext,
     PostProcessRequestModel,
-    WorkflowConfig,
 )
+from superai.data_program.workflow import WorkflowConfig
 
 
 def run_server():
@@ -58,12 +59,13 @@ def run_server():
 
     DPServer(
         params=Parameters(choices=["1", "2"]),
+        handler_fn=handler,
         name="Test_Server",
-        generate=handler,
         workflows=[WorkflowConfig("top_heroes", is_default=True), WorkflowConfig("crowd_managers", is_gold=True)],
-        template_name="",  # template name should be empty, we don't want the reverse proxy
+        template_name="",
         port=8002,
         log_level="critical",
+        force_no_tunnel=True,
     ).run()
 
 
@@ -77,15 +79,35 @@ def local_port_open():
     return result_of_check == 0
 
 
+def server_ready(max_wait_secs=10) -> bool:
+    """
+    Wait until DP Server is ready
+    Saves a bit of time compared to a fixed sleep time.
+    """
+    start = time.time()
+    while time.time() - start < max_wait_secs:
+        with contextlib.suppress(requests.exceptions.ConnectionError):
+            resp = requests.get("http://127.0.0.1:8002/health")
+            if resp.status_code == 200:
+                return True
+        time.sleep(0.2)
+    return False
+
+
 @pytest.fixture(scope="module")
 def server():
     if local_port_open():
         raise RuntimeError("Port 8002 is already in use. Is another process running on that port?")
+    assert not server_ready()
+
     proc = Process(target=run_server, args=(), daemon=True)
     proc.start()
-    time.sleep(5)  # time for the server to start
+    server_ready(max_wait_secs=10)
+
     yield
+
     proc.terminate()
+    proc.join(timeout=5)
 
 
 def test_serve_schema_ok(server):
@@ -179,7 +201,12 @@ def test_method_names(server):
 
 
 def test_post_process(server):
-    r = PostProcessRequestModel(job_uuid="123", response={"__root__": "1"}, app_uuid="123")
+    r = PostProcessRequestModel(
+        job_uuid="123",
+        response={"__root__": "1"},
+        app_uuid="123",
+        app_params={"params": {"choices": ["Dog", "Cat", "UMA"]}},
+    )
     resp = requests.post("http://127.0.0.1:8002/post-process", json=r.dict())
 
     assert resp.json() == "processed"

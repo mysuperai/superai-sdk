@@ -36,28 +36,27 @@ class TaskInstance(DataProgramBase):
     def __create_task_instance(
         self, task_template_id: Union[int, float], performance: Dict = None, name: str = None, description: str = None
     ) -> Dict:
-        """
-        Create a task instance
-        :param parameters:
-        :param performance:
-        :param name:
-        :param description:
-        :return:
+        """Creates a task instance.
+
+        Args:
+            parameters:
+            performance:
+            name:
+            description:
         """
         body_json = {}
         if performance is not None:
             body_json["performance"] = performance
         if name is None:
-            body_json["name"] = f"TaskName-{uuid.uuid5()}"
+            body_json["name"] = f"TaskName-{uuid.uuid4()}"
         if description is not None:
             body_json["description"] = description
         uri = f"task_template/{task_template_id}/instance"
         return self._request(uri, method="POST", body_params=body_json, required_api_key=False)
 
     def process(self, inputs: List[Dict]) -> Dict:
-        """
-        :param inputs:
-        :return:
+        """Args:
+        inputs:
         """
         body_json = {"inputs": inputs, "job_type": "normal"}
         if self.quality is not None:

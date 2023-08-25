@@ -17,7 +17,7 @@ NAME = "superai"
 
 # VERSION is defined in superai/version.py
 try:
-    sys.path[0:0] = [NAME]
+    sys.path[:0] = [NAME]
     from version import __version__  # type: ignore
 except ImportError:
     # Fallback in case we only want to install requirements
@@ -31,11 +31,12 @@ except ImportError:
 # http://pypi.python.org/pypi/setuptools
 
 REQUIRES = [
+    "attrs>=22.1.0",
     "awesome-pattern-matching>=0.22.0",
     "boto3>=1.15",
     "click>=7.0",
     "diskcache>=5.4.0",
-    "dynaconf>=3.1.2",
+    "dynaconf>=3.1.12",
     "fastapi>=0.70.0",
     "futures-then>=0.1.1",
     "genson>=1.2.2",
@@ -45,53 +46,106 @@ REQUIRES = [
     "jsonpickle>=1.4.1",
     "pandas>=1.2.5",
     "pip>=19.1",
-    "pycognito>=2021.3.1",
+    "pycognito>=2022.12.0",
     "pyyaml>=3.13",
     "requests>=2.22",
     "rich>=10.1",
     "scikit-learn>=0.23.2",
     "sentry-sdk>=0.19.4",
-    "sgqlc[websocket]>=16",
-    "six",
+    "sgqlc[websocket]>=16.2",
     "uvicorn>=0.15.0",
+    "opentelemetry-distro[otlp]>=0.40b0",
+    "opentelemetry-instrumentation-botocore>=0.40b0",
+    "opentelemetry-instrumentation-requests>=0.40b0",
+    "opentelemetry-instrumentation-fastapi>=0.40b0",
 ]
 
 AI_REQUIRES = [
     "docker>=5.0.0",
     "polyaxon>=1.14.3",
-    "sagemaker>=1.64.1",
-    "protobuf>=3.20.1, <4.*",
+    "protobuf>=3.20.1, <4",
     # 4.21.0 broke the sagemaker imports, see https://github.com/protocolbuffers/protobuf/issues/10051
+    "netifaces>=0.11.0",
+    "superai-builder>=0.8.1",
+    "pydantic>=1.8.2,<2",
+]
+
+AI_EXPERIMENTAL_REQUIRES = [
+    "sagemaker>=1.64",
 ]
 
 BUILD_REQUIRES = [
+    "Sphinx>=3.2.1",
     "black",
     "bump2version>=1.0.0",
     "setuptools>=50.3.2",
-    "Sphinx>=3.2.1",
     "twine>=3.2.0",
     "wheel>=0.35.1",
 ]
 
 DP_REQUIRES = [
-    "awscli>=1.18.163",
+    "pyngrok>=6.0.0",
     "superai-dataclient~=0.1.0",
-    "superai-schema~=0.4.1",
-    "pyngrok>=5.1.0",
+    "superai-schema~=0.7",
+    "pydantic>=1.8.2,<2",
 ]
 
 TEST_REQUIRES = [
     "coverage>=5.3",
     "deepdiff>=4.0.7",
     "dictdiffer>=0.9.0",
+    "moto>=3.1.12",
     "pytest-cov>=2.10.1",
     "pytest-env>=0.6.2",
     "pytest-mock~=3.10.0",
     "pytest-vcr>=1.0.2",
     "pytest>=6.1.2",
-    "seldon-core>=1.11.2",
+    "superai-builder>=0.6.2",
     "tox>=2.9.1",
     "vcrpy>=4.1.1",
+]
+
+LLM_REQUIRES = [
+    "tabulate~=0.9.0",
+    "tiktoken~=0.4.0",
+    "openai~=0.27.2",
+]
+
+LLM_REQUIRES_EXTRA = [
+    "GitPython",
+    "Pillow~=9.5.0",
+    "PyPDF2",
+    "aioconsole",
+    "aiofile",
+    "colorama",
+    "duckduckgo-search",
+    "evaluate",
+    "faker",
+    "flake8==6.0.0",
+    "google-api-python-client",
+    "google-search-results",
+    "jiwer",
+    "jupyter",
+    "langchain~=0.0.130",
+    "numpy~=1.24.2",
+    "openpyxl",
+    "orjson",
+    "pdf2image~=1.16.3",
+    "pinecone-client",
+    "pydantic>=1.8.2,<2",
+    "pytesseract",
+    "python-dotenv",
+    "reportlab",
+    "selenium",
+    "soundfile",
+    "tabulate~=0.9.0",
+    "textract-trp~=0.1.3",
+    "tiktoken~=0.4.0",
+    "tweepy",
+    "watchdog==3.0.0",
+    "webdriver-manager",
+    "wikipedia",
+    "wolframalpha",
 ]
 
 setup(
@@ -106,9 +160,15 @@ setup(
     extras_require={
         "build": DP_REQUIRES + BUILD_REQUIRES,
         "dp": DP_REQUIRES,
-        "ai": BUILD_REQUIRES + AI_REQUIRES + DP_REQUIRES,
-        "test": TEST_REQUIRES + DP_REQUIRES + AI_REQUIRES,
-        "complete": DP_REQUIRES + AI_REQUIRES + BUILD_REQUIRES + TEST_REQUIRES,
+        "ai": AI_REQUIRES + DP_REQUIRES,
+        "llm": LLM_REQUIRES + AI_REQUIRES + AI_EXPERIMENTAL_REQUIRES + DP_REQUIRES,
+        "test": LLM_REQUIRES + TEST_REQUIRES + DP_REQUIRES + AI_REQUIRES + AI_EXPERIMENTAL_REQUIRES,
+        "complete": BUILD_REQUIRES
+        + DP_REQUIRES
+        + AI_REQUIRES
+        + AI_EXPERIMENTAL_REQUIRES
+        + LLM_REQUIRES
+        + TEST_REQUIRES,
     },
     packages=find_packages(),
     include_package_data=True,

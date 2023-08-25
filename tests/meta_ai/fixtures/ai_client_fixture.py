@@ -2,7 +2,6 @@ import pathlib
 from typing import Optional
 
 import pytest
-import vcr
 
 from superai import AiApiMixin, settings
 
@@ -12,17 +11,26 @@ New shared ai_client fixture module
 - Rewrite existing tests to use this fixture
 """
 
-my_vcr = vcr.VCR(
-    serializer="yaml",
-    cassette_library_dir=f"{pathlib.Path(__file__).resolve().parent}/cassettes",
-    record_mode="new",
-    match_on=["body", "headers", "method"],
-    filter_headers=["x-api-key", "x-app-id", "Content-Length", "User-Agent"],
-    decode_compressed_response=True,
-)
+
+@pytest.fixture(scope="module")
+def vcr(vcr):
+    vcr.serializer = "yaml"
+    vcr.cassette_library_dir = f"{pathlib.Path(__file__).resolve().parent}/cassettes"
+    vcr.record_mode = "new"
+    vcr.match_on = ["body", "headers", "method"]
+    vcr.filter_headers = [
+        "x-api-key",
+        "x-app-id",
+        "Content-Length",
+        "User-Agent",
+        "Authorization",
+        "X-Amz-Security-Token",
+    ]
+    vcr.decode_compressed_response = True
+    return vcr
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def monkeysession(request):
     """Enables monkeypatching of session scoped fixtures"""
 
@@ -46,17 +54,16 @@ def _get_host_port_for_container(container_name: str, container_port: int = "808
 
     client = docker.from_env()
     containers = client.containers.list(filters={"name": container_name}, limit=2)
-    if len(containers) == 1:
-        # get port
-        hasura = containers[0]
-        port = hasura.attrs["NetworkSettings"]["Ports"][f"{container_port}/tcp"][0]["HostPort"]
-        return int(port)
-    else:
+    if len(containers) != 1:
         raise Exception(f"Multiple containers with name {container_name} found")
+    # get port
+    hasura = containers[0]
+    port = hasura.attrs["NetworkSettings"]["Ports"][f"{container_port}/tcp"][0]["HostPort"]
+    return int(port)
 
 
-@pytest.fixture(scope="session")
-def ai_client(local_endpoint, monkeysession):
+@pytest.fixture(scope="module")
+def ai_client(local_endpoint, monkeysession, vcr):
     """
     Fixture to provide a shared instance of the AiApiMixin class.
     Calls and responses are recorded in cassettes/ directory using VCR.
@@ -71,7 +78,7 @@ def ai_client(local_endpoint, monkeysession):
         monkeysession.setattr(settings, "meta_ai_request_protocol", "http")
         monkeysession.setattr(settings, "meta_ai_base", base_url)
 
-    with my_vcr.use_cassette("client.yaml"):
+    with vcr.use_cassette("client.yaml"):
         yield AiApiMixin()
 
 
@@ -85,6 +92,6 @@ def pytest_addoption(parser):
     )
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def local_endpoint(request):
     return request.config.option.local_endpoint

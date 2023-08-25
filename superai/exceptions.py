@@ -2,7 +2,7 @@ class SuperAIError(Exception):
     def __init__(self, message: str, error_code: int):
         self.error_code = error_code
         self.message = message
-        super(Exception, self).__init__(f"super.AI API returned {str(self.error_code)}: {self.message}")
+        super(Exception, self).__init__(f"super.AI API returned {self.error_code}: {self.message}")
 
 
 class SuperAIAuthorizationError(Exception):
@@ -10,7 +10,7 @@ class SuperAIAuthorizationError(Exception):
         self.error_code = error_code
         self.message = message
         super(Exception, self).__init__(
-            f"User not authorized on endpoint: {endpoint}. API returned {str(self.error_code)}: {self.message}"
+            f"User not authorized on endpoint: {endpoint}. API returned {self.error_code}: {self.message}"
         )
 
 
@@ -19,7 +19,8 @@ class SuperAIEntityDuplicatedError(Exception):
         self.error_code = error_code
         self.message = message
         super(Exception, self).__init__(
-            f"Entity duplicated on resource: {endpoint}. API returned {str(self.error_code)} on endpoint: {base_url}/{endpoint}: {self.message}"
+            f"Entity duplicated on resource: {endpoint}. API returned {self.error_code} on endpoint: "
+            f"{base_url}/{endpoint}: {self.message}"
         )
 
 
@@ -39,3 +40,9 @@ class SuperAIConfigurationError(Exception):
     def __init__(self, message: str):
         self.message = message
         super(Exception, self).__init__(f"super.AI Configuration error: {self.message}")
+
+
+class SuperAIAWSException(Exception):
+    def __init__(self, message: str):
+        self.message = message
+        super(Exception, self).__init__(f"super.AI AWS error: {self.message}")

@@ -3,13 +3,16 @@ import subprocess
 
 import boto3
 
+from superai import settings
 from superai.exceptions import SuperAIConfigurationError
 from superai.log import logger
 
 log = logger.get_logger(__name__)
 
 
-def _execute(cmd: str, env: dict = {}):
+def _execute(cmd: str, env=None):
+    if env is None:
+        env = {}
     env = env or {}
     FNULL = open(os.devnull, "w")
     for key, value in env.items():
@@ -27,11 +30,14 @@ def _execute(cmd: str, env: dict = {}):
 
 
 def get_codeartifact_token(domain="superai", aws_profile="superai"):
-    """
-    Retrieving aws codearficat token
-    AWS_PROFILE=superai aws codeartifact get-authorization-token --domain {domain} --query authorizationToken --output text
-    :param domain:
-    :return:
+    """Retrieves AWS CodeArtifact token
+
+    Is  equivalent to running:
+        $ aws_profile=superai aws codeartifact get-authorization-token --domain {domain} --query authorizationToken --output text
+
+    Args:
+        domain: AWS CodeArtifact domain
+        aws_profile: AWS profile to use
     """
     boto3.setup_default_session(profile_name=aws_profile)
     client = boto3.client("codeartifact")
@@ -47,10 +53,10 @@ def set_index_url(
     repo="pypi-superai",
     domain="superai",
     owner_id="185169359328",
-    region="us-east-1",
+    region=settings.region,
 ):
     supported_leves = ["site", "user", "global"]
-    if not pip_config_level in supported_leves:
+    if pip_config_level not in supported_leves:
         raise AttributeError(f"pip config level {pip_config_level} unsupported. Use one of {supported_leves}")
     cmd = f"pip config set --{pip_config_level} global.index-url https://aws:{token}@{domain}-{owner_id}.d.codeartifact.{region}.amazonaws.com/pypi/{repo}/simple/"
     stdout = _execute(cmd)
@@ -64,7 +70,7 @@ def pip_configure(
     repo: str = "pypi-superai",
     domain: str = "superai",
     owner_id: str = "185169359328",
-    region="us-east-1",
+    region: str = settings.region,
     show_pip: bool = False,
 ):
     try:
@@ -75,4 +81,4 @@ def pip_configure(
         if show_pip:
             print(f"Copy/Paste the following command to configure pip manually:\n{pip_cmd}")
     except Exception as e:
-        raise SuperAIConfigurationError(str(e))
+        raise SuperAIConfigurationError(str(e)) from e

@@ -28,7 +28,9 @@ def test_create_agent_run_command_defaults(agent_file_path):
     command: str = create_agent_run_command(template_name="image", version="1", script="my_dummy_script.py")
     assert (
         command.strip()
-        == f"java -jar {settings.hatchery_build_folder}/test-agent.jar --host https://bapi-test.super.ai --websocket wss://bapi-test.super.ai/agent --api_key FAKE_API_KEY --concurrency 100   --serve image --version 1 python my_dummy_script.py"
+        == f"java -jar {settings.hatchery_build_folder}/test-agent.jar --host https://bapi-test.super.ai "
+        f"--websocket wss://bapi-test.super.ai/agent --api_key FAKE_API_KEY --concurrency 100   "
+        f"--serve image --version 1 python my_dummy_script.py"
     )
 
 
@@ -47,5 +49,7 @@ def test_create_agent_run_command_with_params(agent_file_path):
     )
     assert (
         command.strip()
-        == f"java -jar {settings.hatchery_build_folder}/test-agent.jar --host https://bapi-dev.super.ai --websocket wss://bapi-dev.super.ai/agent --api_key abcapi_key --concurrency 5  --force-schema --serve image --version 0.11 python test-agent.jar"
+        == f"java -jar {settings.hatchery_build_folder}/test-agent.jar --host https://bapi-dev.super.ai "
+        f"--websocket wss://bapi-dev.super.ai/agent --api_key abcapi_key --concurrency 5  --force-schema "
+        f"--serve image --version 0.11 python test-agent.jar"
     )

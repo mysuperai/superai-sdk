@@ -4,7 +4,7 @@ import cv2
 import superai_schema.universal_schema.data_types as dt
 import superai_schema.universal_schema.task_schema_functions as df
 
-from superai.data_program import DataProgram, Project, Task, Worker
+from superai.data_program import DataProgram, Project, Task, WorkerType
 from superai.data_program.utils import download_content, sign_url
 
 dp_definition = {
@@ -13,7 +13,7 @@ dp_definition = {
     "output_schema": dt.bundle(label=dt.VIDEO_BOUNDING_BOX_KEYPOINT),
 }
 
-DP_NAME = "VideoBoundingBoxKeypoint" + str(uuid.getnode())
+DP_NAME = f"VideoBoundingBoxKeypoint {str(uuid.getnode())}"
 
 dp = DataProgram(name=DP_NAME, definition=dp_definition, add_basic_workflow=False)
 
@@ -27,7 +27,7 @@ def single_task_workflow(inputs, params):
     # Get video frame rate
     vid = cv2.VideoCapture(signed_url)
     if not vid.isOpened():
-        raise IOError("Couldn't open video file {}".format(signed_url))
+        raise IOError(f"Couldn't open video file {signed_url}")
     frames_per_sec = vid.get(cv2.CAP_PROP_FPS)
 
     # Get keypoint specs json
@@ -74,4 +74,4 @@ input_urls = [
     "https://superai-public.s3.amazonaws.com/example_imgs/vbbk/sample_mouth_1.mp4",
 ]
 job_inputs = [{"video_url": u} for u in input_urls]
-labels = project.process(inputs=job_inputs, worker=Worker.me, open_browser=True)
+labels = project.process(inputs=job_inputs, worker=WorkerType.me, open_browser=True)

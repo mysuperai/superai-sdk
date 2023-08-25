@@ -3,7 +3,7 @@ from pathlib import Path
 import tensorflow as tf
 from tensorflow import keras
 
-from superai.meta_ai import BaseModel
+from superai.meta_ai import BaseAI
 from superai.meta_ai.base.base_ai import add_default_tracking, default_random_seed
 from superai.meta_ai.base.training_helpers import (
     AvailableCallbacks,
@@ -20,9 +20,9 @@ OPTIMIZERS = {
 }
 
 
-class MnistModel(BaseModel):
+class MnistAI(BaseAI):
     def __init__(self, **kwargs):
-        super(MnistModel, self).__init__(**kwargs)
+        super(MnistAI, self).__init__(**kwargs)
         self.model = None
 
     @staticmethod

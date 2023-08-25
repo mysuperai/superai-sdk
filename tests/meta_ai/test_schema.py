@@ -35,31 +35,31 @@ def test_raw_predictions():
 
 
 def test_wrong_schema():
-    with pytest.raises(ValidationError) as execinfo:
-        preds = EasyPredictions()
-    with pytest.raises(ValidationError) as execinfo:
-        preds = EasyPredictions({"prediction": "something"})
-    with pytest.raises(ValidationError) as execinfoval:
-        preds = EasyPredictions({"prediction": "something", "score": 10})
-    with pytest.raises(ValidationError) as execinfoval:
-        preds = EasyPredictions({"prediction": "something", "score": "other"})
+    with pytest.raises(ValidationError):
+        _ = EasyPredictions()
+    with pytest.raises(ValidationError):
+        _ = EasyPredictions({"prediction": "something"})
+    with pytest.raises(ValidationError):
+        _ = EasyPredictions({"prediction": "something", "score": 10})
+    with pytest.raises(ValidationError):
+        _ = EasyPredictions({"prediction": "something", "score": "other"})
 
 
 def test_trainer_output_exceptions():
     with pytest.raises(ValueError) as e:
-        a = TrainerOutput()
+        TrainerOutput()
         assert str(e.value) == "One of `metric`, `metrics`or `collection`should be present"
     with pytest.raises(ValueError) as e:
-        a = TrainerOutput(
+        TrainerOutput(
             metric=dict(key="value"),
             metrics=[LogMetric(step=1, timestamp=datetime.datetime.now(), name="metric", value="something")],
         )
         assert str(e.value) == "Only one of `metric`, `metrics`or `collection`should be present, more than one provided"
     with pytest.raises(ValueError) as e:
-        a = TrainerOutput(metrics=[])
+        TrainerOutput(metrics=[])
         assert str(e.value) == "`metrics` should not be an empty list"
     with pytest.raises(ValueError) as e:
-        a = TrainerOutput(collection=[])
+        TrainerOutput(collection=[])
         assert str(e.value) == "`collection` should not be an empty list"
 
 
@@ -76,10 +76,10 @@ def test_trainer_output():
 
 
 def test_manymetrics():
+    with pytest.raises(ValueError):
+        ManyMetric()
     with pytest.raises(ValueError) as e:
-        m = ManyMetric()
-    with pytest.raises(ValueError) as e:
-        m = ManyMetric(step=1, timestamp=datetime.datetime.now(), metrics=[])
+        ManyMetric(step=1, timestamp=datetime.datetime.now(), metrics=[])
         assert str(e.value) == "`metrics` should not be an empty list"
     m = ManyMetric(step=1, timestamp=datetime.datetime.now(), metrics=[("key", "value"), ("key2", "value")])
     assert m

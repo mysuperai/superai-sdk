@@ -28,11 +28,10 @@ def agreement_multiple_choice(truth_instance, pred_instance_list):
     preds = mlb.transform(pred_tags_list)
     if len(choice_tags) == 1:
         return round(float(accuracy_score(y_true=truths, y_pred=preds)), 3)
-    else:
-        f1_sample_scores = []
-        for i in range(len(pred_tags_list)):
-            if sum(truths[i]) + sum(preds[i]) == 0:
-                f1_sample_scores.append(1)
-            else:
-                f1_sample_scores.append(float(f1_score(y_true=truths[i], y_pred=preds[i])))
-        return round(float(sum(f1_sample_scores) / len(f1_sample_scores)), 3)
+    f1_sample_scores = []
+    for i in range(len(pred_tags_list)):
+        if sum(truths[i]) + sum(preds[i]) == 0:
+            f1_sample_scores.append(1)
+        else:
+            f1_sample_scores.append(float(f1_score(y_true=truths[i], y_pred=preds[i])))
+    return round(float(sum(f1_sample_scores) / len(f1_sample_scores)), 3)

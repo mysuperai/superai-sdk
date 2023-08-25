@@ -22,7 +22,7 @@ pip install superai
 
 ### Requirements
 
-- Python 3.6 or later. On systems that have both Python 2 and Python 3 installed, you may need to replace the call to `pip` with `pip3`.
+- Python 3.9 or later
 - Dependencies in this package rely on the Clang build tools on MacOS. If you have recently updated or installed XCode, you may have to run `sudo xcodebuild -license` prior to installation.
 - A [super.AI](https://super.ai/) account
 
@@ -143,7 +143,7 @@ import uuid
 
 import superai_schema.universal_schema.data_types as dt
 
-from superai.data_program import Project, Worker
+from superai.data_program import Project, WorkerType
 
 # 1) First we need to create the interface of our data program. We do this using schemas that define
 #    the input, output and parameter types. In this data program we are specifying that its input has
@@ -207,7 +207,7 @@ mnist_urls = [
 ]
 inputs = [{"mnist_image_url": url} for url in mnist_urls]
 
-labels = superAI.process(inputs=inputs, worker=Worker.me, open_browser=True)
+labels = superAI.process(inputs=inputs, worker=WorkerType.me, open_browser=True)
 ```
 
 You can find more examples in docs/examples
@@ -217,3 +217,25 @@ You can find more examples in docs/examples
 For better logging when using Pycharm, please change your run configuration to have the following switch enabled. It's easier to do it once for the Python runner template for the project. 
 
 > - [x] Emulate terminal in output console
+
+
+### Build the automation release image on your machine
+
+To build the automation release image, which contains the superai-sdk installed in a virtual environment inside the docker container, run the following command:
+
+Ensure that you have the AWS credentials present in your local environment. We recommend using [aws-sso](https://github.com/synfinatic/aws-sso-cli) plugin. 
+```bash
+earthly -P \
+  --build-arg AWS_ACCESS_KEY_ID \
+  --build-arg AWS_SECRET_ACCESS_KEY \
+  --build-arg AWS_SESSION_TOKEN \
+  --secret-file aws="$HOME/.aws/credentials" \
+  +ai-requirements
+```
+
+### AI Components
+The SDK allows defining and deploying AI models which integrate with the Super.AI platform. Check out the [AI Quickstart Notebook](docs/ai_quickstart.ipynb) for a first glance.
+For more information on AI model development check the [AI Readme](docs/AI_README.md).
+
+### AI CI/CD
+The earthly file creates a base image used in the Jenkins pipeline used for AI automation. The definition of the Jenkinsfile is here https://github.com/mysuperai/ai-automation.

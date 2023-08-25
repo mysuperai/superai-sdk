@@ -22,21 +22,24 @@ class DataApiMixin(ABC):
         data_ids: List[str] = None,
         paths: List[str] = None,
         recursive: bool = False,
-        signedUrl: bool = False,
-        secondsTtl: int = 600,
+        signed_url: bool = False,
+        seconds_ttl: int = 600,
         page: int = None,
         size: int = None,
     ) -> dict:
-        """
-        Get a paginated list of datasets, that can be filtered using an array of ids xor and array of paths
-        :param data_ids: Array of data ids
-        :param paths: Array of paths
-        :param recursive: Get all datasets from recursive path (only takes first path of array)
-        :param signedUrl: Get signed url for each dataset
-        :param secondsTtl: Time to live for signed url
-        :param page: Page number [0..N]
-        :param size: Size of page
-        :return: Paginated list of datasets dicts
+        """Gets a paginated list of datasets that can be filtered using an array of IDs or an array of paths.
+
+        Args:
+            data_ids: Array of data IDs.
+            paths: Array of paths.
+            recursive: Get all datasets from recursive path (only takes first path of array).
+            signed_url: Get signed URL for each dataset.
+            seconds_ttl: Time to live for signed URL.
+            page: Page number [0..N].
+            size: Size of page.
+
+        Returns:
+            Paginated list of datasets dicts.
         """
         query_params = {}
         if data_ids is not None:
@@ -44,9 +47,9 @@ class DataApiMixin(ABC):
         elif paths is not None:
             query_params["path"] = paths
             query_params["recursive"] = recursive
-        if signedUrl:
-            query_params["signedUrl"] = signedUrl
-            query_params["secondsTtl"] = secondsTtl
+        if signed_url:
+            query_params["signedUrl"] = signed_url
+            query_params["secondsTtl"] = seconds_ttl
         if page is not None:
             query_params["page"] = page
         if size is not None:
@@ -63,17 +66,20 @@ class DataApiMixin(ABC):
         data_ids: List[str] = None,
         paths: List[str] = None,
         recursive: bool = False,
-        signedUrl: bool = False,
-        secondsTtl: int = 600,
+        signed_url: bool = False,
+        seconds_ttl: int = 600,
     ) -> Generator[dict, None, None]:
-        """
-        Generator that retrieves all data filtered using an array of ids xor and array of paths
-        :param data_ids: Array of data ids
-        :param paths: Array of paths
-        :param recursive: Get all datasets from recursive path (only takes first path of array)
-        :param signedUrl: Get signed url for each dataset
-        :param secondsTtl: Time to live for signed url
-        :return: Generator that yields complete list of dicts with data objects
+        """Generator that retrieves all data filtered using an array of IDs or an array of paths.
+
+        Args:
+            data_ids: Array of data IDs.
+            paths: Array of paths.
+            recursive: Get all datasets from recursive path (only takes first path of array).
+            signed_url: Get signed URL for each dataset.
+            seconds_ttl: Time to live for signed URL.
+
+        Returns:
+            Generator that yields complete list of dicts with data objects.
         """
         page = 0
         paginated_data = {"last": False}
@@ -82,38 +88,41 @@ class DataApiMixin(ABC):
                 data_ids=data_ids,
                 paths=paths,
                 recursive=recursive,
-                signedUrl=signedUrl,
-                secondsTtl=secondsTtl,
+                signed_url=signed_url,
+                seconds_ttl=seconds_ttl,
                 page=page,
                 size=500,
             )
-            for d in paginated_data["content"]:
-                yield d
+            yield from paginated_data["content"]
             page = page + 1
 
-    def get_signed_url(self, path: str, secondsTtl: int = 600) -> dict:
-        """
-        Get signed url for a dataset given its path.
+    def get_signed_url(self, path: str, seconds_ttl: int = 600) -> dict:
+        """Gets signed URL for a dataset given its path.
 
-        :param path: Dataset's path e.g. `"data://.."`
-        :param secondsTtl: Time to live for signed url. Max is restricted to 7 days
-        :return: Dictionary in the form {
-                    "ownerId": int # The data owner
-                    "path": str # The data path
-                    "signedUrl": str # Signed url
-                }
+        Args:
+            path: Dataset's path e.g., `"data://.."`.
+            seconds_ttl: Time to live for signed URL. Maximum is 7 days.
+
+        Returns:
+            Dictionary in the form {
+                        ownerId": int # The data owner.
+                      "path": str # The data path.
+                       "signedUrl": str # Signed URL.
+                   }
         """
         uri = f"{self.resource}/url"
         return self.request(
-            uri, method="GET", query_params={"path": path, "secondsTtl": secondsTtl}, required_api_key=True
+            uri, method="GET", query_params={"path": path, "secondsTtl": seconds_ttl}, required_api_key=True
         )
 
     def download_data(self, path: str, timeout: int = 5):
-        """
-        Downloads data given a `"data://..."` or URL path.
+        """Downloads data given a `"data://..."` or URL path.
 
-        :param path: Dataset's path
-        :return: URL content
+        Args:
+        path: Dataset's path.
+
+        Returns:
+            URL content.
         """
         signed_url = self.get_signed_url(path)
         res = requests.get(signed_url.get("signedUrl"), timeout=timeout)
@@ -121,34 +130,40 @@ class DataApiMixin(ABC):
         if res.status_code == 200:
             return res.json()
         else:
-            raise Exception(res.reason)
+            raise SuperAIStorageError(res.reason)
 
     def delete_data(self, path: str) -> dict:
-        """
-        Delete dataset given its path
-        :param path: Dataset's path
-        :return: Dict with details of deleted dataset
+        """Deletes a dataset given its path.
+
+        Args:
+            path: Dataset's path.
+
+        Returns:
+            Dict with details of deleted dataset.
         """
         return self.request(self.resource, method="DELETE", query_params={"path": path}, required_api_key=True)
 
-    def upload_data(self, path: str, description: str, mimeType: str, file: BinaryIO) -> dict:
-        """
-        Create/update a dataset given its path using file and mimeType
-        :param path: Path of dataset
-        :param description: Description of dataset
-        :param mimeType: Type of file
-        :param file: Binary File value
-        :return: Dataset created/updated
+    def upload_data(self, path: str, description: str, mime_type: str, file: BinaryIO) -> dict:
+        """Creates or updates a dataset given its path using file and mimeType.
+
+        Args:
+            path: Path of dataset.
+            description: Description of dataset.
+            mime_type: Type of file.
+            file: Binary File value.
+
+        Returns:
+            The dataset created or updated.
         """
         dataset = self.request(
             self.resource,
             method="POST",
-            query_params={"path": path, "description": description, "mimeType": mimeType, "uploadUrl": True},
+            query_params={"path": path, "description": description, "mimeType": mime_type, "uploadUrl": True},
             required_api_key=True,
         )
         try:
-            resp = requests.put(dataset.pop("uploadUrl"), data=file.read(), headers={"Content-Type": mimeType})
-            if resp.status_code == 200 or resp.status_code == 201:
+            resp = requests.put(dataset.pop("uploadUrl"), data=file.read(), headers={"Content-Type": mime_type})
+            if resp.status_code in [200, 201]:
                 return dataset
             else:
                 raise SuperAIStorageError(

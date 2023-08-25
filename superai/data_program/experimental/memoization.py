@@ -57,6 +57,7 @@ def _init_s3_client():
 
 _init_s3_client()
 
+
 # TODO removing push function
 def _push_to_s3(filename, object, s3_bucket):
     _s3_client.upload_fileobj(
@@ -84,26 +85,25 @@ def memo(method, filename, folder=None, refresh=False):
     start_time = time()
     try:
         if folder is None:
-            folder = "memo/{}".format(settings.name)
-        log.debug("Executing memo of {}/{}...".format(settings.name, filename))
+            folder = f"memo/{settings.name}"
+        log.debug(f"Executing memo of {settings.name}/{filename}...")
 
         s3_bucket = settings.memo_bucket
         filepath = os.path.join(folder, filename)
 
         # logic
         if refresh:  # if forced refresh, then redo the method
-            log.info("Refresh True {0}".format(method.__name__))
+            log.info(f"Refresh True {method.__name__}")
             return _refresh_push_to_s3(method, filepath, s3_bucket)
         if filepath in cache:  # if have local cache, great, then continue
-            log.info("Cache hit for {}".format(filepath))
-            result = cache.get(filepath)
-            return result
+            log.info(f"Cache hit for {filepath}")
+            return cache.get(filepath)
         else:  # if local cache does not exist,
             try:  # try checking s3 for cache first, if exist, then return the value
                 with BytesIO() as tmpfile:
                     _pull_from_s3(tmpfile, filename, s3_bucket)
                     result = joblib.load(tmpfile)
-                log.info("Write to local cache for {}".format(filepath))
+                log.info(f"Write to local cache for {filepath}")
                 cache[filepath] = result
                 return result
             except botocore.exceptions.ClientError as e:
@@ -111,9 +111,15 @@ def memo(method, filename, folder=None, refresh=False):
                     log.debug("The S3 and local cache does not exist.")
                     return _refresh_push_to_s3(method, filepath, s3_bucket)
                 else:
-                    raise  # other s3 errors
+                    log.error(
+                        f"Could not access s3: {e}"
+                    )  # other s3 errors, should not lead to internal error in the DP
+            except Exception as e:
+                log.error(f"Could not access memo: {e}")
+
     finally:
-        log.debug("Memo elapsed time: {} secs".format(time() - start_time))
+        log.debug(f"Memo elapsed time: {time() - start_time} secs")
+    return method()
 
 
 # TODO: this is hacky way of implementing memoization of random task
@@ -122,8 +128,8 @@ async def async_memo(method, filename, folder=None, refresh=False):
     start_time = time()
     try:
         if folder is None:
-            folder = "memo/{}".format(settings.name)
-        log.info("Executing memo of {}/{}...".format(settings.name, filename))
+            folder = f"memo/{settings.name}"
+        log.info(f"Executing memo of {settings.name}/{filename}...")
         session = boto3.session.Session()
         client = session.resource("s3")
         s3_bucket = settings.memo_bucket
@@ -152,29 +158,28 @@ async def async_memo(method, filename, folder=None, refresh=False):
 
         # logic
         if refresh:  # if forced refresh, then redo the method
-            log.info("Refresh True {0}".format(method.__name__))
+            log.info(f"Refresh True {method.__name__}")
             return await refresh_push_to_s3(method, filepath, client)
 
-        if os.path.isfile(filepath):  # if have local cache, great, then continue
+        if os.path.isfile(filepath):
             return joblib.load(filepath)
-        else:  # if local cache does not exist,
-            try:  # try checking s3 for cache first, if exist, then return the value
-                await pull_from_s3(filepath, client)
-                return joblib.load(filepath)
-            except botocore.exceptions.ClientError as e:
-                if e.response["Error"]["Code"] == "404":  # no local/s3 cache, produce the task, cache in local and s3
-                    log.warning("The S3 and local cache does not exist.")
-                    return await refresh_push_to_s3(method, filepath, client)
-                else:
-                    raise  # other s3 errors
+        try:  # try checking s3 for cache first, if exist, then return the value
+            await pull_from_s3(filepath, client)
+            return joblib.load(filepath)
+        except botocore.exceptions.ClientError as e:
+            if e.response["Error"]["Code"] == "404":  # no local/s3 cache, produce the task, cache in local and s3
+                log.warning("The S3 and local cache does not exist.")
+                return await refresh_push_to_s3(method, filepath, client)
+            else:
+                raise  # other s3 errors
     finally:
-        log.info("Memo elapsed time: {} secs".format(time() - start_time))
+        log.info(f"Memo elapsed time: {time() - start_time} secs")
 
 
 def forget_memo(filename, folder=None, prefix: str = None):
     s3_bucket = settings.memo_bucket
     if folder is None:
-        folder = "memo/{}".format(settings.name)
+        folder = f"memo/{settings.name}"
 
     if filename:
         filepath = os.path.join(folder, filename)
@@ -186,7 +191,7 @@ def forget_memo(filename, folder=None, prefix: str = None):
             client = session.resource("s3")
             client.Object(s3_bucket, filepath).delete()
         except botocore.exceptions.ClientError as e:
-            log.warning("S3 Error: {}".format(e))
+            log.warning(f"S3 Error: {e}")
 
     if prefix:
         try:
@@ -194,26 +199,24 @@ def forget_memo(filename, folder=None, prefix: str = None):
             log.info(f"Removing s3 memo for Bucket={s3_bucket} Prefix={s3_prefix}")
             delete_all_objects(Bucket=s3_bucket, Prefix=s3_prefix)
         except botocore.exceptions.ClientError as e:
-            log.info("S3 Error: {}".format(e))
+            log.info(f"S3 Error: {e}")
 
 
 def delete_all_objects(Bucket, Prefix, MaxKeys=50, KeyMarker=None):
-    """
-    TODO: Doesn't support pagination in case that a lot of keys need to be removed.
+    """TODO: Doesn't support pagination in case that a lot of keys need to be removed.
 
-    :param Bucket: Bucket name
-    :param Prefix: Key prefix
-    :param MaxKeys: Max number of keys to return
-    :param KeyMarker:AWS KeyMarker
-    :return:
+    Args:
+        Bucket: Bucket name
+        Prefix: Key prefix
+        MaxKeys: Max number of keys to return
+        KeyMarker: AWS KeyMarker
     """
     client = boto3.client("s3")
-
-    if not KeyMarker:
-        version_list = client.list_object_versions(Bucket=Bucket, MaxKeys=MaxKeys, Prefix=Prefix)
-    else:
-        version_list = client.list_object_versions(Bucket=Bucket, MaxKeys=MaxKeys, KeyMarker=KeyMarker, Prefix=Prefix)
-
+    version_list = (
+        client.list_object_versions(Bucket=Bucket, MaxKeys=MaxKeys, KeyMarker=KeyMarker, Prefix=Prefix)
+        if KeyMarker
+        else client.list_object_versions(Bucket=Bucket, MaxKeys=MaxKeys, Prefix=Prefix)
+    )
     try:
         objects = []
         versions = version_list.get("Versions", [])
@@ -224,7 +227,7 @@ def delete_all_objects(Bucket, Prefix, MaxKeys=50, KeyMarker=None):
 
         log.info(f"Deleted Memo Bucket={Bucket}, Delete='Objects': {objects}")
 
-    except:
+    except Exception:
         try:
             objects = []
             delete_markers = version_list["DeleteMarkers"]
@@ -234,6 +237,6 @@ def delete_all_objects(Bucket, Prefix, MaxKeys=50, KeyMarker=None):
                 log.info(response)
 
             log.info(f"Deleted Memo Bucket={Bucket}, Delete='Objects': {objects}")
-        except:
+        except Exception:
             IsTruncated = version_list["IsTruncated"]  # noqa
             KeyMarker = version_list["NextKeyMarker"]
