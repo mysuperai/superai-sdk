@@ -1,23 +1,18 @@
-"""
-These tests need tensorflow==2.1.0 and opencv-python-headless to run. That is why they are excluded from normal tests.
+"""These tests need tensorflow==2.1.0 and opencv-python-headless to run. That is why they are excluded from normal tests.
 """
 
 import logging
 import os
 import shutil
-import time
 
 import pytest
 
 import superai
-from superai.apis.meta_ai import DeploymentApiMixin
-from superai.meta_ai.ai import AI, DeployedPredictor, LocalPredictor
+from superai.meta_ai.ai import AI, DeployedPredictor
 from superai.meta_ai.ai_template import AITemplate
-from superai.meta_ai.deployed_predictors import RemotePredictor
-from superai.meta_ai.image_builder import Orchestrator
+from superai.meta_ai.deployed_predictors import LocalPredictor
 from superai.meta_ai.parameters import Config
 from superai.meta_ai.schema import Schema
-from superai.utils import log
 
 weights_path = os.path.join(os.path.dirname(__file__), "../../docs/examples/ai/resources/my_model")
 
@@ -124,21 +119,10 @@ def test_transition_ai_version_stage():
 
 
 def test_mock_deploy_local(ai):
-    predictor = ai.deploy(orchestrator=Orchestrator.LOCAL_DOCKER)
+    predictor = ai.deploy(local=True)
     # standard type checks
     assert type(predictor) == LocalPredictor
     assert issubclass(type(predictor), DeployedPredictor)
-
-
-@pytest.mark.skip("TODO")
-def test_mock_deploy_sagemaker(ai, monkeypatch):
-    monkeypatch.setattr(AI, "push_model", lambda *a, **k: None)
-
-    predictor = ai.deploy(orchestrator=Orchestrator.AWS_SAGEMAKER)
-    # standard type checks
-    assert type(predictor) == RemotePredictor
-    assert issubclass(type(predictor), DeployedPredictor)
-    assert predictor.endpoint_name == ai.name
 
 
 def test_predict(ai):
@@ -152,7 +136,7 @@ def test_predict(ai):
 
 def test_mock_predict_from_local_deployment(ai, monkeypatch):
     monkeypatch.setattr(LocalPredictor, "predict", ai.predict)
-    predictor = ai.deploy(orchestrator=Orchestrator.LOCAL_DOCKER)
+    predictor = ai.deploy(local=True)
 
     assert predictor
     prediction = predictor.predict(
@@ -161,12 +145,7 @@ def test_mock_predict_from_local_deployment(ai, monkeypatch):
     print(prediction)
     assert prediction
 
-
-@pytest.mark.skip("TODO: Patching for ID is missing")
-def test_mock_predict_from_sagemaker(ai, monkeypatch):
-    monkeypatch.setattr(AI, "push_model", lambda *a, **k: None)
-    monkeypatch.setattr(RemotePredictor, "predict", ai.predict)
-    predictor = ai.deploy(orchestrator=Orchestrator.AWS_SAGEMAKER)
+    predictor = ai.deploy(local=True)
     assert predictor
     prediction = predictor.predict(
         {"data": {"image_url": "https://superai-public.s3.amazonaws.com/example_imgs/digits/0zero.png"}}
@@ -174,39 +153,6 @@ def test_mock_predict_from_sagemaker(ai, monkeypatch):
 
     print(prediction)
     assert prediction
-
-
-@pytest.mark.skip("TODO: Patching for ID is missing")
-def test_predict_from_sagemaker(cleanup, caplog, monkeypatch):
-    caplog.set_level(logging.INFO)
-    template = AITemplate(
-        input_schema=Schema(),
-        output_schema=Schema(),
-        configuration=Config(),
-        name="Genre_Template",
-        description="Template for genre models",
-        model_class="MyKerasModel",
-        requirements=["torch>=1.6"],
-    )
-
-    ai = AI(
-        ai_template=template,
-        input_params=template.input_schema.parameters(),
-        output_params=template.output_schema.parameters(),
-        name="genre_model",
-        version=2,
-        weights_path=".",
-    )
-
-    predictor: LocalPredictor = ai.deploy(orchestrator=Orchestrator.AWS_SAGEMAKER, skip_build=True)
-    # predictor.log()
-    time.sleep(5)
-
-    log.info(
-        "Local predictions: {}".format(
-            predictor.predict(input={"data": {"sentences": ["Einstein was a [START_ENT] German [END_ENT] physicist."]}})
-        )
-    )
 
 
 def test_train_and_predict(cleanup):
@@ -223,7 +169,7 @@ def test_train_and_predict(cleanup):
     ai = AI(
         ai_template=template,
         input_params=template.input_schema.parameters(),
-        output_params=template.output_schema.parameters(choices=map(str, range(0, 10))),
+        output_params=template.output_schema.parameters(choices=map(str, range(10))),
         name="my_mnist_model",
         version=1,
     )
@@ -235,7 +181,7 @@ def test_train_and_predict(cleanup):
     my_ai = AI(
         ai_template=template,
         input_params=template.input_schema.parameters(),
-        output_params=template.output_schema.parameters(choices=map(str, range(0, 10))),
+        output_params=template.output_schema.parameters(choices=map(str, range(10))),
         name=model_name,
         version=2,
         weights_path=model_weights_path,
@@ -267,7 +213,7 @@ def test_build_image():
     ai = AI(
         ai_template=template,
         input_params=template.input_schema.parameters(),
-        output_params=template.output_schema.parameters(choices=map(str, range(0, 10))),
+        output_params=template.output_schema.parameters(choices=map(str, range(10))),
         name="my_mnist_model",
         version=1,
         weights_path=os.path.join(os.path.dirname(__file__), "../experiments/my_model"),
@@ -276,23 +222,3 @@ def test_build_image():
     image_name = "test_build_image"
     ai.build_image_s2i(image_name)
     os.system(f"docker inspect --type=image {image_name}")
-
-
-@pytest.mark.skip("TODO: Patching for ID is missing")
-def test_create_endpoint(ai, monkeypatch):
-    monkeypatch.setattr(AI, "push_model", lambda *a, **k: None)
-    monkeypatch.setattr(DeploymentApiMixin, "check_endpoint_is_available", lambda *a, **k: True)
-
-    predictor = ai.deploy(orchestrator=Orchestrator.AWS_SAGEMAKER)
-    assert type(predictor) == RemotePredictor
-    assert hasattr(predictor, "predict")
-
-    monkeypatch.setattr(DeploymentApiMixin, "predict_from_endpoint", lambda *a, **k: 20)
-    assert predictor.predict({"some": "data"}) == 20
-
-
-@pytest.mark.skip("TODO: Patching for ID is missing.")
-def test_delete_endpoint(ai, monkeypatch):
-    monkeypatch.setattr(DeploymentApiMixin, "undeploy", lambda *a, **k: True)
-    res = ai.undeploy()
-    assert res

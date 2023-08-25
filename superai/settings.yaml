@@ -1,7 +1,7 @@
 default:
   name: "default"
   agent:
-    file: None
+    file: null
     host: "@jinja https://bapi{{this.suffix | lower}}.super.ai"
     websocket: "@jinja wss://bapi{{this.suffix | lower}}.super.ai/agent"
   backend: "ws"
@@ -10,6 +10,7 @@ default:
   meta_ai_base: "@jinja metaai{{this.suffix | lower}}.super.ai/v1/graphql"
   meta_ai_bucket: "@jinja meta-ai-{{this.name | lower}}"
   build_manifest: "build_manifest.yml"
+  region: "us-east-1"
   cognito:
     client_id: "41t3in8ao7fesog76qtskpkkev"
     region: "us-east-1"
@@ -25,7 +26,37 @@ default:
   s3_bucket: "superai-dataprogrammer-us-west-1"
   suffix: "<<<default>>>"
   dummy_app: "82f49a16-11b0-4840-b97f-bce2572b7613"
+  # Size of the `memoization` cache in bytes, if cache size exceeds this limit, the oldest entries will be evicted.
   cache_size_in_bytes: 1073741824
+  # Default port for the Data Program Server to listen on
+  schema_port: 8002
+  cloudfront_key_name: "data-sign-key-dev"
+  secret_manager_key_name: "turbine-data-sign"
+  llm:
+    chatgpt:
+      openai_api_type: "open_ai"
+      openai_api_base: "https://api.openai.com/v1"
+      openai_api_version: null
+      openai_api_key: "FAKE_API_KEY"
+      smart_foundation_model_engine: "gpt-4"
+      fast_foundation_model_engine: "gpt-3.5-turbo"
+      embedding_model_engine: "text-embedding-ada-002"
+    memory:
+      memory_backend: local
+      memory_index: superai_llm
+      embedding_dimension: 1536
+      pinecone_api_key: "FAKE_API_KEY"
+      pinecone_region: us-east1-gcp
+    agents:
+      google_api_key: "FAKE_API_KEY"
+      google_cse_id: "FAKE_CSE_ID"
+      custom_search_engine_id: "FAKE_CSE_ID"
+      serper_api_key: "FAKE_API_KEY"
+      bing_subscription_key: "FAKE_KEY"
+      bing_search_url: https://api.bing.microsoft.com/v7.0/search
+      serp_api_key: "FAKE_API_KEY"
+      wolfram_alpha_appid: "FAKE_APP_ID"
+      user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.97 Safari/537.36"
 
 local:
   name: "local"
@@ -42,12 +73,16 @@ local:
 dev:
   name: "dev"
   cognito:
-    client_id: "41t3in8ao7fesog76qtskpkkev"
-    region: "us-east-1"
-    userpool_id: "us-east-1_I7r6GCG5K"
+    client_id: "7svibr8eh9kp7lvfv16059crto"
+    region: "eu-central-1"
+    userpool_id: "eu-central-1_dzSCh5fDL"
   dependency_version: "dev"
+  base_url: "https://api.dev-eu.super.ai/v1"
+  meta_ai_base: "meta-ai.dev-eu.super.ai/v1/graphql"
+  meta_ai_bucket: "meta-ai-prediction"
+  region: "eu-central-1"
   log:
-    level: 10 #INFO=20, DEBUG=10
+    level: 20 #INFO=20, DEBUG=10
     console: true
   suffix: "-dev"
 
@@ -84,9 +119,13 @@ stg:
 prod:
   name: "prod"
   cognito:
-    client_id: "6vt1a0uflonucrknj6sl0q3vc2"
-    region: "us-east-1"
-    userpool_id: "us-east-1_hwjZuxqbI"
+    client_id: "2e15ied3dmmeqq8qdtg645aace"
+    region: "eu-central-1"
+    userpool_id: "eu-central-1_saT6UGCu6"
+  base_url: "https://api.prod-eu.super.ai/v1"
+  meta_ai_base: "meta-ai.prod-eu.super.ai/v1/graphql"
+  meta_ai_bucket: "meta-ai-prediction"
+  region: "eu-central-1"
   log:
     level: 20 #INFO=20, DEBUG=10
     console: true

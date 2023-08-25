@@ -43,11 +43,11 @@ class TaskTemplate(DataProgramBase):
         name: str = None,
         description: str = None,
     ) -> Dict:
-        """
-        Create a task template
-        :param input_schema:
-        :param output_schema:
-        :return:
+        """Creates a task template.
+
+        Args:
+            input_schema:
+            output_schema:
         """
         body_json = {
             "input_schema": input_schema,
@@ -65,9 +65,8 @@ class TaskTemplate(DataProgramBase):
         # return self._request(uri, method='POST', body_params=body_json, required_api_key=False)
 
     def process(self, inputs: List, quality=None, cost=None, latency=None) -> Dict:
-        """
-        :param inputs:
-        :return:
+        """Args:
+        inputs:
         """
         body_json = {
             "inputs": inputs,

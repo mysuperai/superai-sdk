@@ -1,28 +1,26 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
-import tarfile
+import sys
+import traceback
 from abc import ABCMeta, abstractmethod
-from pathlib import Path
 from typing import List, Optional, Union
-from urllib.parse import urlparse
 
-import boto3
-
+from superai.log import get_logger
+from superai.meta_ai.base.utils import pull_weights
 from superai.meta_ai.parameters import Config, HyperParameterSpec, ModelParameters
 from superai.meta_ai.schema import Schema, SchemaParameters, TaskInput, TrainerOutput
 from superai.meta_ai.tracking import SuperTracker
 
 default_random_seed = 65778
 
-log = logging.getLogger()
+log = get_logger(__name__)
 
 
-class BaseModel(metaclass=ABCMeta):
-    """Represents a generic Python model that evaluates inputs and produces Data Program Project compatible outputs.
-    By subclassing :class:`~BaseModel`, users can create customized SuperAI models, leveraging custom inference logic and
+class BaseAI(metaclass=ABCMeta):
+    """Represents a generic AI that evaluates inputs and produces Data Program Project compatible outputs.
+    By subclassing :class:`~BaseAI`, users can create customized SuperAI AIs, leveraging custom inference logic and
     artifact dependencies.
     """
 
@@ -49,18 +47,69 @@ class BaseModel(metaclass=ABCMeta):
         self.default_seldon_load_path = os.environ.get("MNT_PATH", "/mnt/models")
 
     def __init_subclass__(cls, **kwargs):
-        cls.predict = cls._process_json_func(cls.predict)
+        cls.predict = cls._wrapped_prediction(cls.predict)
         super().__init_subclass__(**kwargs)
 
     @staticmethod
-    def _process_json_func(pred_func):
-        """This method json encodes a dictionary and returns the same dictionary, avoiding JSON encoding failures."""
+    def _wrapped_prediction(pred_func):
+        """Wraps the prediction function to add functionality and hide complex implementation details.
 
-        def __inner__(*args, **kwargs):
-            prediction_result = pred_func(*args, **kwargs)
-            json_string = json.dumps(prediction_result)
-            json_dict = json.loads(json_string)
-            return json_dict
+        Currently, does:
+        - logs the prediction_uuid and tags if present in the metadata
+        -  json encodes a dictionary and returns the same dictionary, avoiding JSON encoding failures.
+        - passthrough meta header for routing and logging
+
+        """
+
+        def __inner__(self, inputs: dict, meta: dict = None):
+            """
+            Args:
+                data: Input data to the model
+                meta: Metadata about the input data, used in the backend transport and for observability
+            """
+            if isinstance(inputs, dict) and "data" in inputs and "meta" in inputs:
+                meta = inputs["meta"]
+                inputs = inputs["data"]
+            elif meta is None:
+                log.warning(f"Received inputs without meta header. Type of inputs: {type(inputs)}")
+
+            if meta:
+                if "puid" in meta:
+                    log.info(f"Received prediction request for prediction_uuid={meta['puid']}")
+                if "tags" in meta:
+                    # TODO: add tracking of tags for jaeger here
+                    log.info(f"Received tags={meta['tags']}")
+
+            # Main function
+            exception = None
+            json_dict = None
+            try:
+                prediction_result = pred_func(self, inputs)
+                json_string = json.dumps(prediction_result)
+                json_dict = json.loads(json_string)
+            except Exception:
+                if meta:
+                    # Catch exceptions and return them in the response
+                    # This enables us to return our own payload instead of the seldon default
+                    log.exception("Exception occurred during prediction")
+
+                    exc_type, exc_value, exc_tb = sys.exc_info()
+                    exception = str(traceback.format_exception(exc_type, exc_value, exc_tb, limit=3))
+                else:
+                    # backwards compatibility
+                    # our old behaviour was based on the seldon default
+                    raise
+
+            if meta:
+                if exception:
+                    # Return the exception in the response as `exception`
+                    return dict(exception=exception, meta=meta)
+                else:
+                    # Return the prediction in the response as `data`
+                    return dict(data=json_dict, meta=meta)
+            else:
+                # Backwards compatibility
+                return json_dict
 
         return __inner__
 
@@ -94,62 +143,18 @@ class BaseModel(metaclass=ABCMeta):
 
     def load(self):
         """Seldon helper function to call the load_weights method. Seldon runs this method during the provision of
-        pod. The loading will be done with a default path, but we are passing some options to parametrize this"""
+        pod. The loading will be done with a default path, but we are passing some options to parametrize this
+        """
 
         if os.environ.get("WEIGHTS_PATH"):
             weights_path = os.environ.get("WEIGHTS_PATH")
             if weights_path.startswith("s3://"):
-                path = self._pull_weights(weights_path, self.default_seldon_load_path)
+                output_path = os.path.join(self.default_seldon_load_path, "weights")
+                path = pull_weights(weights_path, output_path)
                 log.info(f"Loading weights from `{path}`")
                 return self.load_weights(path)
 
         return self.load_weights(self.default_seldon_load_path)
-
-    @staticmethod
-    def _pull_weights(weights_uri: str, output_path: str) -> str:
-        """Helper function to pull weights from S3 bucket
-        Supports loading tar.gz files or whole directories
-
-        Args:
-            weights_uri: S3 URI of the weights to be loaded
-            output_path: Path to the output directory
-
-        Returns:
-            Name of the folder where weights where downloded / extracted to
-        """
-        log.info(f"Downloading weights from {weights_uri} to {output_path}")
-        s3 = boto3.client("s3")
-        parsed_url = urlparse(weights_uri, allow_fragments=False)
-        bucket_name = parsed_url.netloc
-        path_to_object = parsed_url.path if not parsed_url.path.startswith("/") else parsed_url.path[1:]
-        object_name = os.path.basename(path_to_object)
-        log.debug("Bucket name: {}, path to object: {}, tar name: {}".format(bucket_name, path_to_object, object_name))
-        OUTPUT_DIR_NAME = "weights"
-        full_path = os.path.join(output_path, OUTPUT_DIR_NAME)
-
-        if "tar.gz" in object_name:
-            log.info(f"Downloading and unpacking AI object from bucket `{bucket_name}` and path `{path_to_object}`")
-            s3.download_file(bucket_name, path_to_object, os.path.join(output_path, object_name))
-            with tarfile.open(os.path.join(output_path, object_name)) as tar:
-                tar.extractall(path=full_path)
-            log.info(f"Successfully downloaded and unpacked weights to path `{full_path}`")
-        else:
-            BaseModel._pull_s3_folder(weights_uri, full_path)
-            log.info(f"Successfully downloaded weights folder to path `{full_path}`")
-        return full_path
-
-    @staticmethod
-    def _pull_s3_folder(s3_uri, local_dir):
-        s3 = boto3.resource("s3")
-        bucket = s3.Bucket(urlparse(s3_uri).hostname)
-        s3_path = urlparse(s3_uri).path.lstrip("/")
-        local_dir = Path(local_dir)
-        for obj in bucket.objects.filter(Prefix=s3_path):
-            target = obj.key if local_dir is None else local_dir / Path(obj.key).relative_to(s3_path)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            if obj.key[-1] == "/":
-                continue
-            bucket.download_file(obj.key, str(target))
 
     def predict_raw(self, inputs):
         """Seldon uses this method to return raw predictions back to invoker. Seldon uses the predict method to
@@ -160,7 +165,8 @@ class BaseModel(metaclass=ABCMeta):
             inputs: Model input
 
         Returns
-            Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list."""
+            Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
+        """
         return self.predict(inputs)
 
     def initialize(self, context: "BaseModelContext"):
@@ -215,8 +221,7 @@ class BaseModel(metaclass=ABCMeta):
         """
 
     def predict_batch(self, input_batch: List[Union[TaskInput, List[dict]]], context=None):
-        """
-        Generate model predictions for a batch of inputs.
+        """Generate model predictions for a batch of inputs.
         Can be overridden to support more efficient batch predictions inside the model.
 
         Args:
@@ -245,8 +250,7 @@ class BaseModel(metaclass=ABCMeta):
         callbacks=None,
         random_seed=default_random_seed,
     ) -> TrainerOutput:
-        """
-        Args:
+        """Args:
             random_seed:
             callbacks:
             decoder_trainable:
@@ -319,23 +323,22 @@ class BaseModelContext(object):
     """
 
     def __init__(self, artifacts):
-        """
-        Args:
-            artifacts: A dictionary of ``<name, artifact_path>`` entries, where ``artifact_path`` is an absolute
-            filesystem path to a given artifact.
+        """Args:
+        artifacts: A dictionary of ``<name, artifact_path>`` entries, where ``artifact_path`` is an absolute
+        filesystem path to a given artifact.
         """
         self._artifacts = artifacts
 
     @property
     def artifacts(self):
         """A dictionary containing ``<name, artifact_path>`` entries, where ``artifact_path`` is an absolute
-        filesystem path to the artifact."""
+        filesystem path to the artifact.
+        """
         return self._artifacts
 
 
 def add_default_tracking(training_method):
-    """
-    Decorator to add tracking to the training method which performs basic metrics tracking that are returned by the
+    """Decorator to add tracking to the training method which performs basic metrics tracking that are returned by the
     training function. Note that the metrics signature should match the arguments of the `tracking.log_metrics` method
 
     Args:

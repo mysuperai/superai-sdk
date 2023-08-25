@@ -1,4 +1,4 @@
-""" superAi library to send task to Human or AI """
+"""Super.AI library to send task to human or AI."""
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import functools
@@ -6,28 +6,29 @@ import json
 import logging
 import os
 import time
-import warnings
 from concurrent.futures import ALL_COMPLETED, FIRST_COMPLETED, wait
 from copy import deepcopy
+from enum import Enum
 from functools import wraps
 from random import randint
+from typing import Optional
 
 import requests
 import sentry_sdk
 from genson import SchemaBuilder
-from superai_dataclient.data_helper import DataHelper
+from superai_dataclient import DataHelper
 from superai_schema.universal_schema.data_types import (
     get_current_version_id,
     list_to_schema,
     validate,
 )
-from superai_schema.universal_schema.task_schema_functions import text
 
 from superai.data_program.experimental import memo
 from superai.log import logger
 from superai.utils import load_api_key, sentry_helper
+from superai.utils.opentelemetry import tracer
 
-from .transport_factory import (  # noqa # nosort
+from .transport_factory import (  # noqa # isort:skip
     attach_bill,
     decline_result,
     get_context_app_id,
@@ -56,8 +57,6 @@ from .transport_factory import (  # noqa # nosort
     task_result,
 )
 
-# isort: off
-
 logger = logger.get_logger(__name__)
 
 sentry_helper.init()
@@ -65,6 +64,7 @@ sentry_helper.init()
 CACHE_FOLDER = "tmp"
 
 
+@tracer.start_as_current_span("task")
 def task(
     input,
     output,
@@ -89,31 +89,36 @@ def task(
     time_to_expire_secs=None,
     show_reject=False,
     amount=None,
+    worker_type: Optional[str] = None,
+    qualifier_test_id=None,
 ) -> task_future:
-    """Routing task for annotations to one or more supervision sources
-    :param input: a list of input semantic items
-    :param output: a list of output semantic items
-    :param humans: a list of crowd heroes email addresses
-    :param ai: bool, if True, the task will be sent to an AI
-    :param qualifications: list of required hero qualifications
-    :param name: task type
-    :param price: price tag to be associated with the task
-    :param title: task title
-    :param description: task description
-    :param paragraphs: task details
-    :param completed_tasks: a metadata placeholder to indicate the number of completed tasks
-    :param total_tasks: a metadata placeholder to indicate the number of total tasks
-    :param included_ids: a list of crowd hero ids to be included
-    :param excluded_ids: a list of crowd hero ids to be excluded
-    :param explicit_id: direct the task to specific hero id
-    :param groups: a list of groups
-    :param excluded_groups: a list of excluded groups
-    :param time_to_resolve_secs: time in secs before the task is resolved (default: 0)
-    :param time_to_update_secs: time in secs before the task is updated (default: 0)
-    :param time_to_expire_secs: time in secs before the task will be expired (default: 0)
-    :param show_reject: show reject button
-    :param amount: price to pay crowd heroes
-    :return:
+    """Routes task for labeling to one or more supervision sources.
+
+    Args:
+        input: A list of input semantic items.
+        output: A list of output semantic items.
+        humans: a list of crowd heroes email addresses
+        ai: If True, the task will be sent to an AI. (superseded by worker_type)
+        qualifications: List of required hero qualifications.
+        name: Task type
+        price: Price tag to be associated with the task.
+        title: Task title.
+        description: Task description.
+        paragraphs: Task details.
+        completed_tasks: A metadata placeholder to indicate the number of completed tasks.
+        total_tasks: A metadata placeholder to indicate the number of total tasks.
+        included_ids: A list of crowd hero IDs to be included.
+        excluded_ids: A list of crowd hero IDs to be excluded.
+        explicit_id: Direct the task to a specific hero ID.
+        groups: A list of groups.
+        excluded_groups: A list of excluded groups.
+        time_to_resolve_secs: Time in seconds before the task is resolved (default: 0).
+        time_to_update_secs: Time in seconds before the task is updated (default: 0).
+        time_to_expire_secs: Time in seconds before the task will be expired (default: 0).
+        show_reject: Show reject button.
+        amount: Price to pay crowd heroes.
+        worker_type: worker type to be used for the task
+        qualifier_test_id: Id of the qualifier that needs to be passed to receive the task
     """
     # TODO(veselin): the number of parameters passed to this function is getting too long, we should organize it into class or dictionary
     if "CANOTIC_AGENT" in os.environ:
@@ -141,6 +146,8 @@ def task(
             amount=amount,
             schema_version=get_current_version_id(),
             is_ai=ai,
+            worker_type=worker_type,
+            qualifier_test_id=qualifier_test_id,
         )
     else:
         raise NotImplementedError("Little piggy not supported")
@@ -163,16 +170,17 @@ def execute(
     app_metrics=None,
     app_params=None,
     metadata=None,
+    super_task_params: Optional[dict] = None,
 ):
-    """
-    Create an instance of a workflow
-    :param name: name of the workflow to create the instance
-    :param params: parameters as dictionary to the workflow instance
-    :param constraints: a set of execution constraints such as a list of emails, ids, or groups to send task to
-    :param data_folder: a data folder to be uploaded and accessed from the instance through canotic.request.data()
-    :param tag: workflow auxiliary tag
-    :param time_to_expire_secs: an expiration time in secs
-    :return:
+    """Creates an instance of a workflow.
+
+    Args:
+        name: Name of the workflow from which to create the instance.
+        params: Parameters as a dictionary to the workflow instance.
+        constraints: A set of execution constraints to which you want to send the task, such as a list of emails, IDs, or groups
+        data_folder: A data folder to be uploaded and accessed from the instance through canotic.request.data().
+        tag: Workflow auxiliary tag.
+        time_to_expire_secs: An expiration time in seconds.
     """
     if "CANOTIC_AGENT" in os.environ:
         return schedule_workflow(
@@ -186,39 +194,33 @@ def execute(
             app_metrics,
             app_params,
             metadata,
+            super_task_params=super_task_params,
         )
 
     return None
 
 
 def get_job_id():
+    """Returns:
+    Job ID of current job. For little piggy, it always returns little piggy.
     """
-    :return: job id of current job, for little piggy, it always returns little piggy
-    """
-    if "CANOTIC_AGENT" in os.environ:
-        return get_context_id()
-    else:
-        return "LITTLE_PIGGY"
+    return get_context_id() if "CANOTIC_AGENT" in os.environ else "LITTLE_PIGGY"
 
 
 def get_job_priority(api_key=None):
-    """
-    return job priority
-    """
-    if "CANOTIC_AGENT" in os.environ:
-        priority = job_priority()
-        if priority:
-            return priority
-        else:
-            logger.info("Failed to query job priority `{}`.".format(get_job_id()))
-            raise RuntimeError("Failed to query job priority id `{}`.".format(get_job_id()))
-    else:
+    """Returns job priority."""
+    if "CANOTIC_AGENT" not in os.environ:
         return "LITTLE_PIGGY"
+    priority = job_priority()
+    if priority is not None:
+        return priority
+    logger.info(f"Failed to query job priority `{get_job_id()}`.")
+    raise RuntimeError(f"Failed to query job priority id `{get_job_id()}`.")
 
 
 def get_job_app():
-    """
-    :return: app id of current job, for little piggy, it always returns little piggy
+    """Returns:
+    The app ID of the current job. For little piggy, it always returns little piggy.
     """
     if "CANOTIC_AGENT" in os.environ:
         return get_context_app_id()
@@ -227,8 +229,8 @@ def get_job_app():
 
 
 def get_job_project():
-    """
-    :return: project id of current job, for little piggy, it always returns little piggy
+    """Returns:
+    The project ID of current job. For little piggy, it always returns little piggy.
     """
     if "CANOTIC_AGENT" in os.environ:
         return get_context_project_id()
@@ -237,15 +239,14 @@ def get_job_project():
 
 
 def retry(exceptions, tries=5, delay=1, backoff=2, logger=logging):
-    """
-    Retry calling the decorated function using an exponential backoff.
+    """Retries calling the decorated function using an exponential backoff.
 
     Args:
         exceptions: The exception to check. may be a tuple of
             exceptions to check.
         tries: Number of times to try (not retry) before giving up.
         delay: Initial delay between retries in seconds.
-        backoff: Backoff multiplier (e.g. value of 2 will double the delay
+        backoff: Backoff multiplier (e.g., value of 2 will double the delay
             each retry).
         logger: Logger to use. If None, print.
     """
@@ -259,7 +260,7 @@ def retry(exceptions, tries=5, delay=1, backoff=2, logger=logging):
                 try:
                     return f(*args, **kwargs)
                 except exceptions as e:
-                    msg = "{}, Retrying {} in {} seconds... {} tries left".format(e, f, mdelay, mtries)
+                    msg = f"{e}, Retrying {f} in {mdelay} seconds... {mtries} tries left"
                     if logger:
                         logger.warning(msg)
                     else:
@@ -276,10 +277,13 @@ def retry(exceptions, tries=5, delay=1, backoff=2, logger=logging):
 
 @retry(Exception)
 def get_project_name(ID, endpoint_api_key=None, endpoint=None):
-    """
-    Get the unique project name given the project id
-    :param ID: project id
-    :return: project name
+    """Gets the unique project name given the project ID.
+
+    Args:
+        ID: The project ID
+
+    Returns:
+        The project name.
     """
     url_format = "{}/admin/projects/{}"
     headers = {"x-api-key": endpoint_api_key}
@@ -288,18 +292,18 @@ def get_project_name(ID, endpoint_api_key=None, endpoint=None):
         records = res.json()
         return records["name"]
     else:
-        logging.error("Failed to query project `{}`. Error: {}".format(ID, res.json()))
+        logging.error(f"Failed to query project `{ID}`. Error: {res.json()}")
         return None
 
 
 @retry(Exception)
 def get_job_by_id(id, active=True, api_key=None, use_memo=False, endpoint_api_key=None, endpoint=None):
-    """
-    Get job by id
-    :param id:
-    :param active: default is True # TODO: need to revisit @purnawirman
-    :param api_key: default is root api key # TODO: need to revisit @purnawirman
-    :return:
+    """Gets a job by ID.
+
+    Args:
+        id:
+        active: Default is True. # TODO: need to revisit @purnawirman
+        api_key: Default is root API key # TODO: need to revisit @purnawirman
     """
     logger.warning("DEPRECATED: Will be removed in next version")
 
@@ -314,87 +318,78 @@ def get_job_by_id(id, active=True, api_key=None, use_memo=False, endpoint_api_ke
             records = res.json()
             return records
         else:
-            logging.error("Failed to query job `{}`. Error: {}".format(id, res.json()))
+            logging.error(f"Failed to query job `{id}`. Error: {res.json()}")
             raise Exception(res.reason)
 
     if use_memo:
         return memo(
             lambda: func,
-            "{}/{}/{}_{}".format(get_job_id(), "get_job_by_id", id, active),
+            f"{get_job_id()}/get_job_by_id/{id}_{active}",
         )
     return func()
 
 
 def get_job_project_name():
+    """Returns:
+    The project ID of the current job. For little piggy, it always returns little piggy.
     """
-    :return: project id of current job, for little piggy, it always returns little piggy
-    """
-    if "CANOTIC_AGENT" in os.environ:
-        pid = get_context_project_id()
-        return get_project_name(pid)
-    else:
+    if "CANOTIC_AGENT" not in os.environ:
         return "LITTLE_PIGGY"
+    pid = get_context_project_id()
+    return get_project_name(pid)
 
 
 def get_job_tag(api_key: str = None):
-    """
-
-    :return: current job tag #
+    """Returns:
+    The current job tag number.
     """
     api_key = api_key or load_api_key()
     raise NotImplementedError("Fetching job tag is not supported")
 
 
 def get_job_simple_id(api_key=None):
-    """
-
-    :return: current job id #
+    """Returns:
+    The current job ID.
     """
     if "CANOTIC_AGENT" in os.environ:
         job_id = get_context_simple_id()
         if job_id:
             return job_id
         else:
-            logger.info("Failed to query job simple id `{}`.".format(get_job_id()))
-            raise RuntimeError("Failed to query job simple id `{}`.".format(get_job_id()))
+            logger.info(f"Failed to query job simple id `{get_job_id()}`.")
+            raise RuntimeError(f"Failed to query job simple id `{get_job_id()}`.")
     else:
         return "LITTLE_PIGGY"
 
 
 def get_metadata():
-    """
-    :return: Job Metadata
+    """Returns:
+    The job metadata.
     """
     if "CANOTIC_AGENT" in os.environ:
         return get_context_metadata()
 
 
 def get_job_type():
-    """
-    :return: Job Type
+    """Returns:
+    The job type.
     """
     if "CANOTIC_AGENT" in os.environ:
         return get_context_job_type()
 
 
 def is_job_child():
+    """Returns:
+    Whether the current job is a child job. For little piggy, it always returns False.
     """
-    :return: if current job is child, for little piggy, it always returns False
-    """
-    if "CANOTIC_AGENT" in os.environ:
-        return get_context_is_child()
-    else:
-        return False
+    return get_context_is_child() if "CANOTIC_AGENT" in os.environ else False
 
 
 def get_workflow_prefix():
+    """Returns:
+    The project ID of the current job. For little piggy, it always returns little piggy.
     """
-    :return: project id of current job, for little piggy, it always returns little piggy
-    """
-    if "WF_PREFIX" in os.environ:
-        return os.environ["WF_PREFIX"]
-    else:
-        return "lp"
+    return os.environ["WF_PREFIX"] if "WF_PREFIX" in os.environ else "lp"
 
 
 def store_snapshot(snapshot, data_folder=None):
@@ -431,19 +426,15 @@ def restore_snapshot():
     """TODO(veselin): add description"""
     if "CANOTIC_AGENT" in os.environ:
         snap = load_snapshot()
-        if snap is not None:
-            if "snapshot" in snap:
-                return snap["snapshot"]
+        if snap is not None and "snapshot" in snap:
+            return snap["snapshot"]
 
     return None
 
 
 def restore_snapshot_data():
     """TODO(veselin): add description"""
-    if "CANOTIC_AGENT" in os.environ:
-        return load_snapshot_data()
-
-    return None
+    return load_snapshot_data() if "CANOTIC_AGENT" in os.environ else None
 
 
 def report(status):
@@ -454,24 +445,27 @@ def report(status):
 
 def update_performance_database(performance):
     """TODO(purnawirman): too trivial to be in DS-SDK"""
-    print("the model performance is {}".format(performance))
+    print(f"the model performance is {performance}")
 
 
 def is_task_skipped(wf_task):
-    """
-    Check if the task is rejected/skipped by labellers.
-    :param wf_task: task, class Future
-    :return:
+    """Checks if the task is rejected or skipped by labellers.
+
+    Args:
+        wf_task: Task, class Future.
     """
     return "values" not in wf_task.result()
 
 
 def get_task_value(resp, idx=0):
-    """
-    Get value of a responded task
-    :param resp: response of a task
-    :param idx: index of the response value
-    :return: response value of a task
+    """Gets the value of a responded task.
+
+    Args:
+        resp: Response of a task.
+        idx: Index of the response value.
+
+    Returns:
+        Response value of a task.
     """
     if "values" in resp:
         try:
@@ -485,11 +479,14 @@ def get_task_value(resp, idx=0):
 
 
 def get_task_type(resp, idx=0):
-    """
-    Get type of a responded task
-    :param resp: response of a task
-    :param idx: index of the response value
-    :return: response type of a task
+    """Gets type of a responded task.
+
+    Args:
+        resp: response of a task
+        idx: index of the response value.
+
+    Returns:
+        The response type of a task.
     """
     if "values" in resp:
         try:
@@ -502,12 +499,16 @@ def get_task_type(resp, idx=0):
     return []
 
 
+@tracer.start_as_current_span("wait_tasks_OR")
 def wait_tasks_OR(tasks, timeout=None):
-    """
-    Wait for list of tasks until one of the tasks is completed, idempotency safe.
-    :param tasks: list of tasks to be wait
-    :param timeout: maximum wait time
-    :return: results contain done and not done tasks
+    """Waits for a list of tasks until one of the tasks is completed. Idempotency safe.
+
+    Args:
+        tasks: A list of tasks to be waited for.
+        timeout: The maximum wait time.
+
+    Returns:
+        Results contain done and not done tasks.
     """
     results = wait(tasks, timeout=timeout, return_when=FIRST_COMPLETED)
 
@@ -529,21 +530,28 @@ def wait_tasks_OR(tasks, timeout=None):
     return results
 
 
+@tracer.start_as_current_span("wait_tasks_AND")
 def wait_tasks_AND(tasks, timeout=None):
-    """
-    Wait for list of tasks until all of the tasks are completed, idempotency safe.
-    :param tasks: list of tasks to be wait
-    :param timeout: maximum wait time
-    :return: results contain done and not done tasks
+    """Waits for list of tasks until all of the tasks are completed. Idempotency safe.
+
+    Args:
+        tasks: A list of tasks to be waited for.
+        timeout: The maximum wait time.
+
+    Returns:
+        Results contain done and not done tasks.
     """
     return wait(tasks, timeout=timeout, return_when=ALL_COMPLETED)
 
 
 def join_futures_array(array):
-    """
-    Combine all futures into one future
-    :param array: list of futures
-    :return: combined future
+    """Combines all futures into one future.
+
+    Args:
+        array: A list of futures.
+
+    Returns:
+        The combined future.
     """
     f = array.pop()
     while array:
@@ -558,7 +566,7 @@ def join_futures(*args):
 
 
 def send_response(response=None, data_folder=None, bill=None):
-    """Post response as a result of a job completion"""
+    """Posts the response as a result of a job completion."""
     if "CANOTIC_AGENT" in os.environ:
         resolve_job(response, data_folder, bill)
     else:
@@ -566,17 +574,15 @@ def send_response(response=None, data_folder=None, bill=None):
 
 
 def qualify(hero_item, metric, value=None):
-    """Store hero metric"""
+    """Stores hero metric."""
     if "CANOTIC_AGENT" in os.environ:
         save_hero_qualification(hero_item, metric, value)
     else:
-        print('set metric["{}"]["{}"]={}'.format(hero_item, metric, value))
+        print(f'set metric["{hero_item}"]["{metric}"]={value}')
 
 
 def qualify_canotic(hero_id, metric, value=None):
-    """
-    Create a qualification for canotic hero, of id `hero_id`, and metric name of `metric`. The value is float number.
-    """
+    """Creates a qualification for canotic hero, of id `hero_id`, and metric name of `metric`. The value is float number."""
     qualify({"platform": "CANOTIC", "workerId": hero_id}, metric, value)
 
 
@@ -592,7 +598,7 @@ def qualify_mturk(
     endpoint: str = None,
 ):
     # qualify({"platform": "MTURK", "workerId": hero_id}, metric, value)
-    """ """
+    """"""
     assert isinstance(value, int), "Qualify MTURK only accept integer values"
 
     def func():
@@ -632,46 +638,36 @@ def qualify_mturk(
     if use_memo:
         return memo(
             func,
-            "{}/{}/{}_{}_{}_{}".format(get_job_id(), "qualify_mturk", mturkId, metric, value, sandbox),
+            f"{get_job_id()}/qualify_mturk/{mturkId}_{metric}_{value}_{sandbox}",
         )
     return func()
 
 
 def disqualify(hero_id, metric):
-    """Delete hero metric"""
+    """Deletes a hero metric."""
     if "CANOTIC_AGENT" in os.environ:
         remove_hero_qualification(hero_id, metric)
     else:
-        print('delete metric["{}"]["{}"]'.format(hero_id, metric))
+        print(f'delete metric["{hero_id}"]["{metric}"]')
 
 
-def serve_predict(predict_func, port=8080, context=None, use_sagemaker=True):
-    """Register the predict_func as the prediction handler and start prediction service by listening to the port
-
-    If use_sagemaker flag is set, create prediction endpoint on sagemaker fabric.
-    """
-    if use_sagemaker:
-        # sm.serve_predict(predict_func, context, port=port)
-        raise NotImplementedError("Sagemaker deploy is not implemented")
-    else:
-        run_model_predict(predict_func, port=port, context=context)
-
-
+@tracer.start_as_current_span("tasks_parallel")
 def tasks_parallel(records, task_fn, concurrency=1, task_callback=None):
-    """Execute tasks in parallel from the given input `records`.
+    """Executes tasks in parallel from the given input `records`.
 
-    Input `records` format is unknown to this executor, and the executor main responsibility is limited to scheduling
+    Input `records` format is unknown to this executor, and the executor's main responsibility is limited to scheduling
     the records by executing the `task_fn` callback defined as follows:
 
         task_fn(record, completed, total_tasks, price_tag='default', task_name=None, time_to_update_secs=None)
 
-    where,
-      `record`             : a record that contains information needed to execute a task
-      `completed`          : the number of tasks completed so far
-      `total_tasks`        : total number of tasks to be completed
-      `price_tag`          : price tag
-      `task_name`          : name of the task
-      `time_to_update_secs`: number of seconds the tasks in PENDING state before it gets RESOLVED.
+    where:
+
+      `record`             : A record that contains information needed to execute a task.
+      `completed`          : The number of tasks completed so far.
+      `total_tasks`        : The total number of tasks to be completed.
+      `price_tag`          : The price tag.
+      `task_name`          : The name of the task.
+      `time_to_update_secs`: The number of seconds the task is in the PENDING state before it gets RESOLVED.
     """
     tasks = []
     total_tasks = len(records)
@@ -679,21 +675,17 @@ def tasks_parallel(records, task_fn, concurrency=1, task_callback=None):
     completed = 0
     while completed < total_tasks:
         remaining_tasks = total_tasks - completed - outstanding_task_count
-        logger.info(
-            "Completed: {}. Remaining Tasks: {}. Total Tasks: {}".format(completed, remaining_tasks, total_tasks)
-        )
-        for i in range(0, min(remaining_tasks, concurrency - outstanding_task_count)):
+        logger.info(f"Completed: {completed}. Remaining Tasks: {remaining_tasks}. Total Tasks: {total_tasks}")
+        for i in range(min(remaining_tasks, concurrency - outstanding_task_count)):
             index = completed + i + outstanding_task_count
-            logger.info("INDEX: {}".format(index))
+            logger.info(f"INDEX: {index}")
             record = records[index]
             fn = task_fn(record, index, total_tasks)
             fn.set_cookie({"seq": index})
             tasks.append(fn)
         wait_result = wait_tasks_OR(tasks)
         outstanding_task_count = len(wait_result.not_done)
-        tasks = []
-        for t in wait_result.not_done:
-            tasks.append(t)
+        tasks = list(wait_result.not_done)
         completed += len(wait_result.done)
 
         if task_callback:
@@ -701,20 +693,21 @@ def tasks_parallel(records, task_fn, concurrency=1, task_callback=None):
                 task_callback(t.cookie()["seq"], t.result())
 
 
+@tracer.start_as_current_span("execute_parallel")
 def execute_parallel(records, method_fn, concurrency=10, callback=None):
-    """Execute a method that return future in parallel
+    """Executes a method that return future in parallel.
 
-    Input `records` format is unknown to this executor, and the executor main responsibility is limited to scheduling
-    the records by executing the `method_fn` callback defined as follows:
+    Input `records` format is unknown to this executor, and the executor's main responsibility is limited to scheduling
+    the records by executing the `method_fn` callback, which is defined as follows:
 
         method_fn(record) -> return future
 
-    The execution is concurrent with size 'concurrency'
+    The execution is concurrent with size 'concurrency'.
 
-    After execution, `callback` is invoked with the signature as follow:
+    After execution, `callback` is invoked with the signature as follows:
         callback(sequence, t.result())
     where sequence is the sequence of the task being created,
-    and t.result() is the result of the future invoked by method_fn
+    and t.result() is the result of the future invoked by method_fn.
     """
     import time
 
@@ -724,25 +717,21 @@ def execute_parallel(records, method_fn, concurrency=10, callback=None):
     completed = 0
     while completed < total_tasks:
         remaining_tasks = total_tasks - completed - outstanding_task_count
-        logger.info(
-            "Completed: {}. Remaining Tasks: {}. Total Tasks: {}".format(completed, remaining_tasks, total_tasks)
-        )
-        print("Completed: {}. Remaining Tasks: {}. Total Tasks: {}".format(completed, remaining_tasks, total_tasks))
-        for i in range(0, min(remaining_tasks, concurrency - outstanding_task_count)):
+        logger.info(f"Completed: {completed}. Remaining Tasks: {remaining_tasks}. Total Tasks: {total_tasks}")
+        print(f"Completed: {completed}. Remaining Tasks: {remaining_tasks}. Total Tasks: {total_tasks}")
+        for i in range(min(remaining_tasks, concurrency - outstanding_task_count)):
             sTime = randint(1, 8)
-            logger.debug("SLEEPING: {} SECONDS".format(sTime))
+            logger.debug(f"SLEEPING: {sTime} SECONDS")
             time.sleep(sTime)
             index = completed + i + outstanding_task_count
-            logger.info("INDEX: {}".format(index))
+            logger.info(f"INDEX: {index}")
             record = records[index]
             fn = method_fn(record)
             fn.set_cookie({"seq": index})
             tasks.append(fn)
         wait_result = wait_tasks_OR(tasks)
         outstanding_task_count = len(wait_result.not_done)
-        tasks = []
-        for t in wait_result.not_done:
-            tasks.append(t)
+        tasks = list(wait_result.not_done)
         completed += len(wait_result.done)
 
         if callback:
@@ -750,112 +739,87 @@ def execute_parallel(records, method_fn, concurrency=10, callback=None):
                 callback(t.cookie()["seq"], t.result())
 
 
-def task_from_semantic_ui(
-    record,
-    completed,
-    total_tasks,
-    price_tag="default",
-    task_name=None,
-    ai=None,
-    ai_input=None,
-    time_to_update_secs=None,
+class WorkflowType(str, Enum):
+    WORKFLOW = "workflows"
+    SUPER_TASK = "super-task-workflows"
+
+
+def serve_workflow(
+    function, suffix=None, schema=None, prefix=None, workflow_type: Optional[WorkflowType] = WorkflowType.WORKFLOW
 ):
-    """Dispatch a task from Semantic UI record
-    {
-        "name": [...],
-        "input": [...],
-        "output": [...]
-        "response": [...]
-    }
-    """
-    # Merge the response to output
-    if record.get("response"):
-        for i in range(0, len(record["output"])):
-            record["output"][i]["value"] = record["response"][i]["value"]
-
-    r = task(
-        input=record["input"],
-        output=record["output"],
-        ai=ai,
-        ai_input=ai_input,
-        name=record["name"] if task_name is None else task_name,
-        price=price_tag,
-        completed_tasks=completed,
-        total_tasks=total_tasks,
-        time_to_update_secs=time_to_update_secs,
-    )
-    return r
-
-
-def get_all_metrics(metric, owner="1"):
-    """TODO(purna): this should be part of the canotic.metrics and implemented through a proper key value store API lookup"""
-    warnings.warn("this is either a workaround or hack")
-    url = (
-        "https://prometheus-nlb-prod-internal-b5f0c5af90c09892.elb.us-east-1.amazonaws.com"
-        + "/resource/workers/metrics/{}/{}".format(owner, metric)
-    )
-    HEADERS = {"accept": "*/*", "Content-Type": "application/json"}
-    r = requests.get(url, headers=HEADERS)
-    return r.content
-
-
-def serve_workflow(function, suffix=None, schema=None, prefix=None):
-    """Register func as workflow"""
+    """Register func as workflow."""
     if "CANOTIC_AGENT" in os.environ:
-        subscribe_workflow(function=function, prefix=prefix, suffix=suffix, schema=schema)
+        if workflow_type is None:
+            workflow_type = WorkflowType.WORKFLOW
+        subscribe_workflow(
+            function=function,
+            prefix=prefix,
+            suffix=suffix,
+            schema=schema,
+            workflow_type=workflow_type,
+            api_key=load_api_key(),
+        )
 
 
-def schema_wrapper(subject, context, function):
+def schema_wrapper(subject, context, function, uses_new_schema: Optional[bool] = None):
     kwargs = {}
 
     # Validation needs to be skipped if schema without version is being in use
     # because input/output schema depends on app params.
-    # In this case, DataProgram class is responsible of ensuring validity
-    can_validate_input_output = _is_using_versioned_schema()
+    # In this case, DataProgram class is responsible for ensuring validity
+    can_validate_input_output = _is_using_versioned_schema(uses_new_schema=uses_new_schema)
 
     if hasattr(function, "__input_param__"):
         (name, schema) = function.__input_param__
         if schema is not None and can_validate_input_output:
-            logger.debug("SCHEMA NAME: {}".format(name))
-            logger.debug("VALIDATING SUBJECT: \n{} \nSCHEMA: \n{}".format(subject, schema))
+            logger.debug(f"SCHEMA NAME: {name}")
+            logger.debug(f"VALIDATING SUBJECT: \n{subject} \nSCHEMA: \n{schema}")
             validate(subject, schema, validate_remote=True, client=DataHelper())
         kwargs[name] = subject
 
     app_params = context["app_params"] if context is not None and "app_params" in context else None
-    logger.debug("APP_PARAMS\n{}".format(app_params))
+    logger.debug(f"APP_PARAMS\n{app_params}")
     if hasattr(function, "__app_params__"):
-        logger.debug("__APP_PARAMS__\n{}".format(function.__app_params__))
+        logger.debug(f"__APP_PARAMS__\n{function.__app_params__}")
         for name in function.__app_params__:
             param = app_params[name] if app_params is not None and name in app_params else None
             schema = function.__app_params__[name]
             if schema is not None:
-                logger.debug("VALIDATING {}: PARAMS\n{} \nSCHEMA\n{}".format(name, param, schema))
+                logger.debug(f"VALIDATING {name}: PARAMS\n{param} \nSCHEMA\n{schema}")
                 validate(param, schema, validate_remote=True, client=DataHelper())
             kwargs[name] = param
 
+    # Passing down the super task params coming from the router job
+    # The params are not validated until the super task is scheduled
+    # The params will then be used as App Params and validated that way
+    super_task_params = context["super_tasks"] if context is not None and "super_tasks" in context else None
+    if super_task_params:
+        logger.debug(f"SUPER_TASK_PARAMS\n{super_task_params}")
+        kwargs["super_task_params"] = super_task_params
+
     app_metrics = context["app_metrics"] if context is not None and "app_metrics" in context else None
-    logger.debug("APP_METRICS\n{}".format(app_metrics))
+    logger.debug(f"APP_METRICS\n{app_metrics}")
     if hasattr(function, "__app_metrics__"):
-        logger.debug("__APP_METRICS__\n{}".format(function.__app_metrics__))
+        logger.debug(f"__APP_METRICS__\n{function.__app_metrics__}")
         for name in function.__app_metrics__:
             metric = app_metrics[name] if app_metrics is not None and name in app_metrics else None
             schema = function.__app_metrics__[name]
             if schema is not None:
-                logger.debug("VALIDATING {}: METRIC\n{} \nSCHEMA\n{}".format(name, metric, schema))
+                logger.debug(f"VALIDATING {name}: METRIC\n{metric} \nSCHEMA\n{schema}")
                 validate(metric, schema, validate_remote=True, client=DataHelper())
             kwargs[name] = metric
 
-    logger.debug("FUNCTION KWARGS = {}".format(kwargs))
-    f_output = function(subject) if 0 == len(kwargs) and subject is not None else function(**kwargs)
+    logger.debug(f"FUNCTION KWARGS = {kwargs}")
+    f_output = function(subject) if not kwargs and subject is not None else function(**kwargs)
 
     if hasattr(function, "__output_param__") and can_validate_input_output:
         schema = function.__output_param__
         if type(f_output) == tuple:
-            logger.debug("VALIDATING OUTPUT_VALS: \n{} \nSCHEMA: \n{}".format(f_output[0], schema))
+            logger.debug(f"VALIDATING OUTPUT_VALS: \n{f_output[0]} \nSCHEMA: \n{schema}")
             validate(f_output[0], schema, validate_remote=True, client=DataHelper())
         else:
             validate(f_output, schema, validate_remote=True, client=DataHelper())
-            logger.debug("VALIDATING OUTPUT_VALS: \n{} \nSCHEMA: \n{}".format(f_output, schema))
+            logger.debug(f"VALIDATING OUTPUT_VALS: \n{f_output} \nSCHEMA: \n{schema}")
 
     return f_output
 
@@ -870,7 +834,7 @@ def _init_workflow_decorator(function, suffix, prefix):
     function.get_example_data = lambda: function.__example_data__ if "__example_data__" in dir(function) else None
 
 
-def workflow(suffix, prefix=None):
+def workflow(suffix, prefix=None, workflow_type: Optional[WorkflowType] = None, uses_new_schema=None):
     def decorator(function):
         _init_workflow_decorator(function, suffix, prefix)
 
@@ -899,60 +863,62 @@ def workflow(suffix, prefix=None):
         schema = {}
         if hasattr(function, "__input_param__"):
             (_, schema["input"]) = function.__input_param__
-            logger.debug("SCHEMA INPUT\n{}".format(schema["input"]))
+            logger.debug(f"SCHEMA INPUT\n{schema['input']}")
 
         if hasattr(function, "__output_param__"):
             schema["output"] = function.__output_param__
-            logger.debug("SCHEMA OUTPUT\n{}".format(schema["output"]))
+            logger.debug(f"SCHEMA OUTPUT\n{schema['output']}")
 
         if hasattr(function, "__app_params__"):
             schema["app_params"] = function.__app_params__
-            logger.debug("APP PARAMS\n{}".format(schema["app_params"]))
+            logger.debug(f"APP PARAMS\n{schema['app_params']}")
 
             if hasattr(function, "__default_app_params__"):
                 schema["default_app_params"] = function.__default_app_params__
-                logger.debug("DEFAULT APP PARAMS\n{}".format(schema["default_app_params"]))
+                logger.debug(f"DEFAULT APP PARAMS\n{schema['default_app_params']}")
 
         if hasattr(function, "__app_metrics__"):
             schema["app_metrics"] = function.__app_metrics__
-            logger.debug("APP METRICS\n{}".format(schema["app_metrics"]))
+            logger.debug(f"APP METRICS\n{schema['app_metrics']}")
 
             if hasattr(function, "__default_app_metrics__"):
                 schema["default_app_metrics"] = function.__default_app_metrics__
-                logger.debug("DEFAULT APP METRICS\n{}".format(schema["default_app_metrics"]))
+                logger.debug(f"DEFAULT APP METRICS\n{schema['default_app_metrics']}")
 
         if hasattr(function, "__example_data__"):
             schema["example"] = function.__example_data__
-            logger.debug("EXAMPLE DATA\n{}".format(schema["example"]))
+            logger.debug(f"EXAMPLE DATA\n{schema['example']}")
 
         def function(subject, params, f=function):
-            logger.debug("FUNCTION_SUBJECT: {}".format(subject))
-            logger.debug("FUNCTION_PARAMS: {}".format(params))
-            logger.debug("FUNCTION_F: {}".format(f))
+            logger.debug(f"FUNCTION_SUBJECT: {subject}")
+            logger.debug(f"FUNCTION_PARAMS: {params}")
+            logger.debug(f"FUNCTION_F: {f}")
 
-            return schema_wrapper(subject, params, f)
+            return schema_wrapper(subject, params, f, uses_new_schema=uses_new_schema)
 
-        logger.debug("WORFLOW_function: {}".format(function))
-        logger.debug("WORFLOW_suffix: {}".format(suffix))
-        logger.debug("WORFLOW_schema: {}".format(schema))
-        logger.debug("WORFLOW_prefix: {}".format(prefix))
+        logger.debug(f"WORFLOW_function: {function}")
+        logger.debug(f"WORFLOW_suffix: {suffix}")
+        logger.debug(f"WORFLOW_schema: {schema}")
+        logger.debug(f"WORFLOW_prefix: {prefix}")
 
-        serve_workflow(function=function, suffix=suffix, schema=schema, prefix=prefix)
+        serve_workflow(function=function, suffix=suffix, schema=schema, prefix=prefix, workflow_type=workflow_type)
         return wrapper
 
     return decorator(suffix) if callable(suffix) else decorator
 
 
-def _is_using_versioned_schema() -> bool:
-    # Not having SERVICE environment variable indicates that legacy versioned schema is in use
-    return os.getenv("SERVICE") is None
+def _is_using_versioned_schema(uses_new_schema: Optional[bool] = None) -> bool:
+    """The old schema is versioned. This function returns True if the new schema is not used."""
+    return not uses_new_schema
 
 
-def _parse_args(*args, **kwargs):
-    """
-    f(name=asdfs)
+def _parse_args(*args, uses_new_schema: Optional[bool] = None, **kwargs):
+    """f(name=asdfs)
     f(name=sdfs, schema=sdfs)
     f(name=sdfs, schema=sdfs, default=sdfs)
+
+    Args:
+        uses_new_schema: Signals whether the new schema is used or not. Controls injection of schema version for legacy schema.
     """
     if len(args) > 1:
         raise ValueError("Decorator takes max 1 positional argument")
@@ -960,55 +926,53 @@ def _parse_args(*args, **kwargs):
     if len(args) == len(kwargs) == 0:
         raise ValueError("At least one argument has to be passed to input decorator")
 
-    f_args = dict()
-    f_args["schema"] = None
-    f_args["default"] = None
-
+    f_args = {"schema": None, "default": None}
     if len(args) == 1:
         f_args["name"] = args[0]
 
     f_args.update(kwargs)
 
-    if f_args["schema"] and _is_using_versioned_schema():
+    if f_args["schema"] and _is_using_versioned_schema(uses_new_schema=uses_new_schema):
         f_args["schema"] = list_to_schema(f_args["schema"])
         f_args["schema"]["$schema"] = get_current_version_id()
 
     return f_args
 
 
-def input_schema(*args, **kwargs):
-    """
-    Supported inputs in the form of:
+def input_schema(*args, uses_new_schema: Optional[bool] = None, **kwargs):
+    """Supported inputs in the form of:
     @input_schema("param_name") -> func(param_name) with schema=None
     @input_schema(name="param_name") -> same as last example
     @input_schema(name="param_name", schema=bundle(product=data_type.STRING)) -> func(param_name) with schema=bundle(product=data_type.STRING))
     """
 
     def decorator(function):
-        dargs = _parse_args(*args, **kwargs)
+        dargs = _parse_args(*args, uses_new_schema=uses_new_schema, **kwargs)
 
         if "name" in dargs and "schema" in dargs:
             function.__input_param__ = (dargs["name"], dargs["schema"])
 
-        logger.debug("INPUT DECORATOR: {}".format(function.__input_param__))
+        logger.debug(f"INPUT DECORATOR: {function.__input_param__}")
         return function
 
     return decorator
 
 
-def output_schema(*args, **kwargs):
-    """
-    TODO: Write appropriate docu
+def output_schema(*args, uses_new_schema: Optional[bool] = None, **kwargs):
+    """TODO: Write appropriate docu
 
-    :param kwargs:
-    :return:
+    Args:
+        **kwargs
+
+    Returns:
+
     """
 
     def decorator(function):
-        dargs = _parse_args(*args, **kwargs)
+        dargs = _parse_args(*args, uses_new_schema=uses_new_schema, **kwargs)
 
         function.__output_param__ = dargs["schema"]
-        logger.debug("OUTPUT DECORATOR: {}".format(function.__output_param__))
+        logger.debug(f"OUTPUT DECORATOR: {function.__output_param__}")
 
         return function
 
@@ -1023,9 +987,9 @@ def example(data):
     return decorator
 
 
-def param_schema(*args, **kwargs):
+def param_schema(*args, uses_new_schema: Optional[bool] = None, **kwargs):
     def decorator(function):
-        dargs = _parse_args(*args, **kwargs)
+        dargs = _parse_args(*args, uses_new_schema=uses_new_schema, **kwargs)
 
         if "name" in dargs and "schema" in dargs:
             if not hasattr(function, "__app_params__"):
@@ -1039,18 +1003,16 @@ def param_schema(*args, **kwargs):
 
                 function.__default_app_params__[dargs["name"]] = dargs["default"]
 
-        logger.debug(
-            "APP_PARAMS DECORATOR: {} (default: {})".format(function.__app_params__, function.__default_app_params__)
-        )
+        logger.debug(f"APP_PARAMS DECORATOR: {function.__app_params__} (default: {function.__default_app_params__})")
 
         return function
 
     return decorator
 
 
-def metric_schema(*args, **kwargs):
+def metric_schema(*args, uses_new_schema: Optional[bool] = None, **kwargs):
     def decorator(function):
-        dargs = _parse_args(*args, **kwargs)
+        dargs = _parse_args(*args, uses_new_schema=uses_new_schema, **kwargs)
 
         if "name" in dargs and "schema" in dargs:
             if not hasattr(function, "__app_metrics__"):
@@ -1064,7 +1026,7 @@ def metric_schema(*args, **kwargs):
 
                 function.__default_app_metrics__[dargs["name"]] = dargs["default"]
 
-            logger.debug("APP_METRICS DECORATOR: {}".format(function.__app_metrics__))
+            logger.debug(f"APP_METRICS DECORATOR: {function.__app_metrics__}")
 
         return function
 
@@ -1095,111 +1057,15 @@ def bill(amount):
 
 def export_data(json_output):
     os.makedirs(".canotic", exist_ok=True)
-    folder = ".canotic/{}".format(get_job_id())
-    filepath = "{}/{}.json".format(folder, get_job_id())
+    folder = f".canotic/{get_job_id()}"
+    filepath = f"{folder}/{get_job_id()}.json"
     os.makedirs(folder, exist_ok=True)
     json.dump(json_output, open(filepath, "w"))
     return folder
 
 
-def mtask(
-    input,
-    output,
-    name=None,
-    qualifications=None,
-    title=None,
-    description=None,
-    amount=None,
-    paragraphs=None,
-    show_reject=True,
-    sandbox=None,
-    timeToResolveSec=None,
-    timeToExpireSec=None,
-):
-    """Routing task for annotations to one or more supervision sources
-    :param input: a list of input semantic items
-    :param output: a list of output semantic items
-    :param name: task type
-    :param price: price tag to be associated with the task
-    :param title: task title
-    :param description: task description
-    :param paragraphs: task details
-    :param show_reject: show reject button
-    :param amount: price to pay crowd heroes
-    :param sandbox: send to sandbox for debug
-    :param timeToResolveSec: time in second for mturk to resolve the task once they accept it
-    :param timeToExpireSec: time in second for the task to expire from its creation
-    :return:
-    """
-    if "CANOTIC_AGENT" in os.environ:
-        return schedule_mtask(
-            name,
-            input,
-            output,
-            title,
-            description,
-            paragraphs,
-            show_reject,
-            amount,
-            sandbox,
-            timeToResolveSec,
-            timeToExpireSec,
-            qualifications,
-        )
-
-
-def urgent_task(
-    input,
-    output,
-    humans=None,
-    ai=None,
-    ai_input=None,
-    qualifications=None,
-    name=None,
-    price="default",
-    title=None,
-    description=None,
-    paragraphs=None,
-    completed_tasks=None,
-    total_tasks=None,
-    included_ids=None,
-    excluded_ids=None,
-    explicit_id=None,
-    groups=None,
-    excluded_groups=None,
-    time_to_resolve_secs=None,
-    time_to_update_secs=None,
-    time_to_expire_secs=None,
-    show_reject=False,
-    amount=None,
-):
-    input = [text("**URGENT TASK**")] + input
-    return task(
-        input,
-        output,
-        humans=humans,
-        ai=ai,
-        ai_input=ai_input,
-        qualifications=qualifications,
-        name=name,
-        price=price,
-        title=title,
-        description=description,
-        paragraphs=paragraphs,
-        completed_tasks=completed_tasks,
-        total_tasks=total_tasks,
-        included_ids=included_ids,
-        excluded_ids=excluded_ids,
-        explicit_id=explicit_id,
-        groups=groups,
-        excluded_groups=excluded_groups,
-        time_to_resolve_secs=time_to_resolve_secs,
-        time_to_update_secs=time_to_update_secs,
-        time_to_expire_secs=time_to_expire_secs,
-        show_reject=show_reject,
-        amount=amount,
-    )
-
-
-def start_threading():
-    start_threads()
+def start_threading(join=True):
+    threads = start_threads()
+    if threads and join:
+        for t in threads:
+            t.join()

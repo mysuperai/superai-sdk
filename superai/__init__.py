@@ -2,7 +2,8 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from .version import __version__
 
-# Client comes first
-from .client import *  # noqa # isort: skip
+from superai.exceptions import *  # noqa # isort:skip
 
-from superai.config import settings  # noqa # isort: skip
+# Config comes first to have log level set
+from .config import settings  # noqa # isort:skip
+from .client import *  # noqa # isort:skip

@@ -1,0 +1,359 @@
+interactions:
+- request:
+    body: '{"input_schema": {"title": "JobInput", "type": "object", "properties":
+      {"url": {"title": "Original Document", "example": "https://www.super.ai", "type":
+      "string"}}, "required": ["url"]}, "input_ui_schema": {"ui:order": ["url"]},
+      "output_schema": {"title": "JobOutput", "type": "object", "properties": {"url":
+      {"title": "Document URL", "example": "https://www.super.ai", "type": "string"}},
+      "required": ["url"]}, "output_ui_schema": {"ui:order": ["url"]}, "parameter_schema":
+      {"params": {"title": "Test DP Instructions", "type": "object", "properties":
+      {"instructions": {"title": "Instructions", "example": "This is a test", "type":
+      "string"}}, "required": ["instructions"]}}, "parameter_ui_schema": {"params":
+      {"ui:order": ["instructions"]}}, "default_app_params": {"instructions": "These
+      are the DP default instructions."}, "metadata": {"name": "dp_test", "description":
+      "Description of the apps here", "author": "Canotic", "parameter_description":
+      {"inputs": {"properties": {"url": {"title": "url", "description": "url", "example":
+      ["random string #33"]}}}, "outputs": {"properties": {"url": {"title": "url",
+      "description": "url", "example": ["random string #50"]}}}, "parameters": {"properties":
+      {"instructions": {"title": "instructions", "description": "instructions", "example":
+      ["random string #34"]}}}}}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+    method: PUT
+    uri: https://api-test.super.ai/v1/templates/dp_test.router
+  response:
+    body:
+      string: '{"uuid": "ec150a62-5746-4745-a800-00971bf36fd3", "created": "2022-11-09T17:04:08.196+00:00",
+        "measurement_job_cost": 8.0, "protocol": "QUMES", "visibility": "GROUP", "dpWorkflows":
+        ["dp_test.parse"], "defaultWorkflow": "dp_test.parse", "trainingWorkflow":
+        null, "type": null, "name": "dp_test.router", "appParamsSchema": {"params":
+        {"title": "Test DP Instructions", "type": "object", "properties": {"instructions":
+        {"title": "Instructions", "example": "This is a test", "type": "string"}},
+        "required": ["instructions"]}}, "appParamsUiSchema": {"params": {"ui:order":
+        ["instructions"]}}, "appMetricsSchema": null, "defaultAppParams": {"instructions":
+        "These are the DP default instructions."}, "defaultAppMetrics": {"metric":
+        {}}, "defaultConstraints": {"priceTag": "EASY"}, "inputSchema": {"title":
+        "JobInput", "type": "object", "properties": {"url": {"title": "Original Document",
+        "example": "https://www.super.ai", "type": "string"}}, "required": ["url"]},
+        "inputUiSchema": {"ui:order": ["url"]}, "outputSchema": {"title": "JobOutput",
+        "type": "object", "properties": {"url": {"title": "Document URL", "example":
+        "https://www.super.ai", "type": "string"}}, "required": ["url"]}, "outputUiSchema":
+        {"ui:order": ["url"]}, "metadata": {"name": "dp_test", "description": "Description
+        of the apps here", "author": "lukas+admin@super.ai", "parameter_description":
+        {"inputs": {"properties": {"url": {"title": "url", "description": "url", "example":
+        ["random string #33"]}}}, "outputs": {"properties": {"url": {"title": "url",
+        "description": "url", "example": ["random string #50"]}}}, "parameters": {"properties":
+        {"instructions": {"title": "instructions", "description": "instructions",
+        "example": ["random string #34"]}}}}}, "exampleData": null, "endpoint": "http://ebb2-217-70-140-75.ngrok.io"}
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 09 Nov 2022 17:27:18 GMT
+      Via:
+      - 1.1 65e185f36e65abff9322e261be3491d4.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - E-09tKDrSv9bafcfW_3m9Nu4i9z4l5hWJgi6GIxkHWlrthDSQcJZ4w==
+      X-Amz-Cf-Pop:
+      - IAD50-C2
+      X-Amzn-Trace-Id:
+      - Root=1-636be2f5-7c1260863e9a890940d97dcd;Sampled=0
+      X-Cache:
+      - Miss from cloudfront
+      content-length:
+      - '1793'
+      x-amz-apigw-id:
+      - bWBmZHqnoAMFxkQ=
+      x-amzn-Remapped-Content-Length:
+      - '1793'
+      x-amzn-RequestId:
+      - 9aed392e-2a64-41e4-9e80-6e638471e049
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+    method: GET
+    uri: https://api-test.super.ai/v1/templates/dp_test.router
+  response:
+    body:
+      string: '{"uuid": "ec150a62-5746-4745-a800-00971bf36fd3", "created": "2022-11-09T17:04:08.196+00:00",
+        "measurement_job_cost": 7.0, "protocol": "QUMES", "visibility": "GROUP", "dpWorkflows":
+        ["dp_test.parse"], "defaultWorkflow": "dp_test.parse", "trainingWorkflow":
+        null, "type": null, "name": "dp_test.router", "appParamsSchema": {"params":
+        {"title": "Test DP Instructions", "type": "object", "properties": {"instructions":
+        {"title": "Instructions", "example": "This is a test", "type": "string"}},
+        "required": ["instructions"]}}, "appParamsUiSchema": {"params": {"ui:order":
+        ["instructions"]}}, "appMetricsSchema": null, "defaultAppParams": {"instructions":
+        "These are the DP default instructions."}, "defaultAppMetrics": {"metric":
+        {}}, "defaultConstraints": {"priceTag": "EASY"}, "inputSchema": {"title":
+        "JobInput", "type": "object", "properties": {"url": {"title": "Original Document",
+        "example": "https://www.super.ai", "type": "string"}}, "required": ["url"]},
+        "inputUiSchema": {"ui:order": ["url"]}, "outputSchema": {"title": "JobOutput",
+        "type": "object", "properties": {"url": {"title": "Document URL", "example":
+        "https://www.super.ai", "type": "string"}}, "required": ["url"]}, "outputUiSchema":
+        {"ui:order": ["url"]}, "metadata": {"name": "dp_test", "description": "Description
+        of the apps here", "author": "lukas+admin@super.ai", "parameter_description":
+        {"inputs": {"properties": {"url": {"title": "url", "description": "url", "example":
+        ["random string #33"]}}}, "outputs": {"properties": {"url": {"title": "url",
+        "description": "url", "example": ["random string #50"]}}}, "parameters": {"properties":
+        {"instructions": {"title": "instructions", "description": "instructions",
+        "example": ["random string #34"]}}}}}, "exampleData": null, "endpoint": "http://ebb2-217-70-140-75.ngrok.io"}
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 09 Nov 2022 17:27:18 GMT
+      Via:
+      - 1.1 1717f995f2ca7c5df4d0a972f90c1564.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - 4qklbsQPinSzg1MYt9JQFSUGXe75vvqqg7sfwVaWcFHBBL84rPIljw==
+      X-Amz-Cf-Pop:
+      - IAD50-C2
+      X-Amzn-Trace-Id:
+      - Root=1-636be2f6-07677e5633fd8f0b0f5780de;Sampled=0
+      X-Cache:
+      - Miss from cloudfront
+      content-length:
+      - '1793'
+      x-amz-apigw-id:
+      - bWBmjHPjoAMFlFA=
+      x-amzn-Remapped-Content-Length:
+      - '1793'
+      x-amzn-RequestId:
+      - 68be0498-bfdc-4369-95a4-8a5961249d2e
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"input_schema": {"title": "JobInput", "type": "object", "properties":
+      {"url": {"title": "Original Document", "example": "https://www.super.ai", "type":
+      "string"}}, "required": ["url"]}, "output_schema": {"title": "JobOutput", "type":
+      "object", "properties": {"url": {"title": "Document URL", "example": "https://www.super.ai",
+      "type": "string"}}, "required": ["url"]}, "parameter_schema": {"params": {"title":
+      "Test DP Instructions", "type": "object", "properties": {"instructions": {"title":
+      "Instructions", "example": "This is a test", "type": "string"}}, "required":
+      ["instructions"]}}}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+    method: PUT
+    uri: https://api-test.super.ai/v1/templates/dp_test.parse
+  response:
+    body:
+      string: '{"uuid": "050c1552-81c8-409b-a158-98fb70848350", "created": "2022-11-09T17:07:33.162+00:00",
+        "measurement_job_cost": 7.0, "protocol": "QUMES", "visibility": "GROUP", "dpWorkflows":
+        null, "defaultWorkflow": null, "trainingWorkflow": null, "type": null, "name":
+        "dp_test.parse", "appParamsSchema": {"params": {"title": "Test DP Instructions",
+        "type": "object", "properties": {"instructions": {"title": "Instructions",
+        "example": "This is a test", "type": "string"}}, "required": ["instructions"]}},
+        "appParamsUiSchema": null, "appMetricsSchema": null, "defaultAppParams": null,
+        "defaultAppMetrics": {"metric": {}}, "defaultConstraints": {"priceTag": "EASY"},
+        "inputSchema": {"title": "JobInput", "type": "object", "properties": {"url":
+        {"title": "Original Document", "example": "https://www.super.ai", "type":
+        "string"}}, "required": ["url"]}, "inputUiSchema": null, "outputSchema": {"title":
+        "JobOutput", "type": "object", "properties": {"url": {"title": "Document URL",
+        "example": "https://www.super.ai", "type": "string"}}, "required": ["url"]},
+        "outputUiSchema": null, "metadata": null, "exampleData": null, "endpoint":
+        null}
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 09 Nov 2022 17:27:19 GMT
+      Via:
+      - 1.1 1717f995f2ca7c5df4d0a972f90c1564.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - pXGclV_JUzh9GMKhDgpOco60V51t-yAApE1eC7E3hydbEU2_FexWJw==
+      X-Amz-Cf-Pop:
+      - IAD50-C2
+      X-Amzn-Trace-Id:
+      - Root=1-636be2f7-694306e37bded7db7aa3517e;Sampled=0
+      X-Cache:
+      - Miss from cloudfront
+      content-length:
+      - '1128'
+      x-amz-apigw-id:
+      - bWBmpEYNIAMF9bw=
+      x-amzn-Remapped-Content-Length:
+      - '1128'
+      x-amzn-RequestId:
+      - 6163f62d-d219-495a-bb3c-23bbc75fb65d
+    status:
+      code: 200
+      message: OK
+- request:
+    body: '{"default_workflow": "dp_test.parse"}'
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+    method: PUT
+    uri: https://api-test.super.ai/v1/templates/dp_test.router
+  response:
+    body:
+      string: '{"uuid": "ec150a62-5746-4745-a800-00971bf36fd3", "created": "2022-11-09T17:04:08.196+00:00",
+        "measurement_job_cost": 9.0, "protocol": "QUMES", "visibility": "GROUP", "dpWorkflows":
+        ["dp_test.parse"], "defaultWorkflow": "dp_test.parse", "trainingWorkflow":
+        null, "type": null, "name": "dp_test.router", "appParamsSchema": {"params":
+        {"title": "Test DP Instructions", "type": "object", "properties": {"instructions":
+        {"title": "Instructions", "example": "This is a test", "type": "string"}},
+        "required": ["instructions"]}}, "appParamsUiSchema": {"params": {"ui:order":
+        ["instructions"]}}, "appMetricsSchema": null, "defaultAppParams": {"instructions":
+        "These are the DP default instructions."}, "defaultAppMetrics": {"metric":
+        {}}, "defaultConstraints": {"priceTag": "EASY"}, "inputSchema": {"title":
+        "JobInput", "type": "object", "properties": {"url": {"title": "Original Document",
+        "example": "https://www.super.ai", "type": "string"}}, "required": ["url"]},
+        "inputUiSchema": {"ui:order": ["url"]}, "outputSchema": {"title": "JobOutput",
+        "type": "object", "properties": {"url": {"title": "Document URL", "example":
+        "https://www.super.ai", "type": "string"}}, "required": ["url"]}, "outputUiSchema":
+        {"ui:order": ["url"]}, "metadata": {"name": "dp_test", "description": "Description
+        of the apps here", "author": "lukas+admin@super.ai", "parameter_description":
+        {"inputs": {"properties": {"url": {"title": "url", "description": "url", "example":
+        ["random string #33"]}}}, "outputs": {"properties": {"url": {"title": "url",
+        "description": "url", "example": ["random string #50"]}}}, "parameters": {"properties":
+        {"instructions": {"title": "instructions", "description": "instructions",
+        "example": ["random string #34"]}}}}}, "exampleData": null, "endpoint": "http://ebb2-217-70-140-75.ngrok.io"}
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 09 Nov 2022 17:27:20 GMT
+      Via:
+      - 1.1 df08ba5d249ec7fb2513313ea66b59f8.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - mQ3rO9Y0BjDzU7anK0qPux6weB7CQyzEmCKELMD0o7JbWQ044x3_gw==
+      X-Amz-Cf-Pop:
+      - IAD50-C2
+      X-Amzn-Trace-Id:
+      - Root=1-636be2f8-7aeeff9c5141fae519130610;Sampled=0
+      X-Cache:
+      - Miss from cloudfront
+      content-length:
+      - '1793'
+      x-amz-apigw-id:
+      - bWBm0GqsIAMF99Q=
+      x-amzn-Remapped-Content-Length:
+      - '1793'
+      x-amzn-RequestId:
+      - 0e2c4105-fe03-4c2c-9d1f-18a54dd945fe
+    status:
+      code: 200
+      message: OK
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate
+      Connection:
+      - keep-alive
+    method: GET
+    uri: https://api-test.super.ai/v1/templates/dp_test.router
+  response:
+    body:
+      string: '{"uuid": "ec150a62-5746-4745-a800-00971bf36fd3", "created": "2022-11-09T17:04:08.196+00:00",
+        "measurement_job_cost": 6.0, "protocol": "QUMES", "visibility": "GROUP", "dpWorkflows":
+        ["dp_test.parse"], "defaultWorkflow": "dp_test.parse", "trainingWorkflow":
+        null, "type": null, "name": "dp_test.router", "appParamsSchema": {"params":
+        {"title": "Test DP Instructions", "type": "object", "properties": {"instructions":
+        {"title": "Instructions", "example": "This is a test", "type": "string"}},
+        "required": ["instructions"]}}, "appParamsUiSchema": {"params": {"ui:order":
+        ["instructions"]}}, "appMetricsSchema": null, "defaultAppParams": {"instructions":
+        "These are the DP default instructions."}, "defaultAppMetrics": {"metric":
+        {}}, "defaultConstraints": {"priceTag": "EASY"}, "inputSchema": {"title":
+        "JobInput", "type": "object", "properties": {"url": {"title": "Original Document",
+        "example": "https://www.super.ai", "type": "string"}}, "required": ["url"]},
+        "inputUiSchema": {"ui:order": ["url"]}, "outputSchema": {"title": "JobOutput",
+        "type": "object", "properties": {"url": {"title": "Document URL", "example":
+        "https://www.super.ai", "type": "string"}}, "required": ["url"]}, "outputUiSchema":
+        {"ui:order": ["url"]}, "metadata": {"name": "dp_test", "description": "Description
+        of the apps here", "author": "lukas+admin@super.ai", "parameter_description":
+        {"inputs": {"properties": {"url": {"title": "url", "description": "url", "example":
+        ["random string #33"]}}}, "outputs": {"properties": {"url": {"title": "url",
+        "description": "url", "example": ["random string #50"]}}}, "parameters": {"properties":
+        {"instructions": {"title": "instructions", "description": "instructions",
+        "example": ["random string #34"]}}}}}, "exampleData": null, "endpoint": "http://ebb2-217-70-140-75.ngrok.io"}
+
+        '
+    headers:
+      Access-Control-Allow-Origin:
+      - '*'
+      Connection:
+      - keep-alive
+      Content-Type:
+      - application/json
+      Date:
+      - Wed, 09 Nov 2022 17:27:21 GMT
+      Via:
+      - 1.1 4a21175361a1e842a337986b5f7399aa.cloudfront.net (CloudFront)
+      X-Amz-Cf-Id:
+      - CQZmGSrL5ZSSL0hrzUjkyPZjur3xmp1ZNUWtOPausw6y348TzgIAFQ==
+      X-Amz-Cf-Pop:
+      - IAD50-C2
+      X-Amzn-Trace-Id:
+      - Root=1-636be2f9-44acfdd525df6e9b5424e877;Sampled=0
+      X-Cache:
+      - Miss from cloudfront
+      content-length:
+      - '1793'
+      x-amz-apigw-id:
+      - bWBm-HRiIAMF6Kw=
+      x-amzn-Remapped-Content-Length:
+      - '1793'
+      x-amzn-RequestId:
+      - ebd1cff6-fd48-4476-aa78-d40a045c2ea2
+    status:
+      code: 200
+      message: OK
+version: 1

@@ -10,14 +10,17 @@ class GroundTruthApiMixin(ABC):
     def create_ground_truth(
         self, app_id: str, input_json: dict = None, label: dict = None, tag: str = None, metadata: dict = None
     ) -> dict:
-        """
-        Submit fresh ground truth data
-        :param app_id: Application instance id
-        :param input_json: Input that should match input schema of data program
-        :param label: Label, or output that should match output schema of data program
-        :param tag: Tag to identify ground truth data
-        :param metadata: Metadata of ground truth
-        :return: Ground truth data object
+        """Submits fresh ground truth data.
+
+        Args:
+            app_id: Application instance ID.
+            input_json: Input that should match input schema of Data Program.
+            label: Label, or output that should match output schema of Data Program.
+            tag: Tag to identify ground truth data.
+            metadata: Metadata of ground truth.
+
+        Returns:
+            The ground truth data object.
         """
         body_json = {}
         if input_json is not None:
@@ -39,14 +42,17 @@ class GroundTruthApiMixin(ABC):
         tag: str = None,
         metadata: dict = None,
     ) -> dict:
-        """
-        Upload (patch) ground truth data
-        :param ground_truth_data_id: Id of ground truth data
-        :param input_json: Input that should match input schema of data program
-        :param label: Label, or output that should match output schema of data program
-        :param tag: Tag to identify ground truth data
-        :param metadata: Metadata of ground truth
-        :return: Updated ground truth data object
+        """Uploads (PATCH) ground truth data.
+
+        Args:
+            ground_truth_data_id: ID of ground truth data.
+            input_json: Input that should match input schema of Data Program.
+            label: Label, or output that should match output schema of Data Program.
+            tag: Tag to identify ground truth data.
+            metadata: Metadata of ground truth.
+
+        Returns:
+            The updated ground truth data object.
         """
         body_json = {}
         if input_json is not None:
@@ -61,12 +67,15 @@ class GroundTruthApiMixin(ABC):
         return self.request(uri, "PATCH", body_params=body_json, required_api_key=True)
 
     def list_ground_truth_data(self, app_id: str, page: int = None, size: int = None) -> dict:
-        """
-        List all ground truth data for an application
-        :param app_id: Application id
-        :param page: Page number of results
-        :param size: Page size of results
-        :return: Paginated list of ground truth data objects
+        """Lists all ground truth data for an application.
+
+        Args:
+            app_id: Application ID.
+            page: Page number of results.
+            size: Page size of results.
+
+        Returns:
+            A paginated list of ground truth data objects.
         """
         uri = f"apis/{app_id}/baselineData"
         q_params = {}
@@ -77,43 +86,54 @@ class GroundTruthApiMixin(ABC):
         return self.request(uri, "GET", required_api_key=True, query_params=q_params)
 
     def get_all_ground_truth_data(self, app_id: str) -> Generator[dict, None, None]:
-        """
-        Generator that retrieves all ground truth data given an application id
-        :param app_id: Application id
-        :return: Generator that yields complete list of dicts with ground truth data objects
+        """Generator that retrieves all ground truth data given an application ID.
+
+        Args:
+            app_id: Application ID.
+
+        Yields:
+            A generator that yields a complete list of dicts with ground truth data objects.
         """
         page = 0
         paginated_ground_truth = {"last": False}
         while not paginated_ground_truth["last"]:
             paginated_ground_truth = self.list_ground_truth_data(app_id, page=page, size=500)
-            for gtd in paginated_ground_truth["content"]:
-                yield gtd
+            yield from paginated_ground_truth["content"]
             page = page + 1
 
     def get_ground_truth_data(self, ground_truth_data_id: str) -> dict:
-        """
-        Fetch single ground truth data object
-        :param ground_truth_data_id: Id of ground truth data
-        :return: Ground truth data object
+        """Fetches a single ground truth data object.
+
+        Args:
+            ground_truth_data_id: ID of ground truth data.
+
+        Returns:
+            The ground truth data object.
         """
         uri = f"baselineData/{ground_truth_data_id}"
         return self.request(uri, "GET", required_api_key=True)
 
     def delete_ground_truth_data(self, ground_truth_data_id) -> dict:
-        """
-        Mark ground truth data as deleted
-        :param ground_truth_data_id: If of ground truth data
-        :return Deleted ground truth daata object:
+        """Marks ground truth data as deleted.
+
+        Args:
+            ground_truth_data_id: ID of the ground truth data.
+
+        Returns:
+            The deleted ground truth daata object.
         """
         uri = f"baselineData/{ground_truth_data_id}"
         return self.request(uri, "DELETE", required_api_key=True)
 
     def create_ground_truth_from_job(self, app_id: str, job_id: str) -> dict:
-        """
-        Convert completed job to ground truth data
-        :param app_id: Application id
-        :param job_id: Job id
-        :return: Ground truth data object
+        """Converts a completed job to ground truth data.
+
+        Args:
+            app_id: Application ID
+            job_id: Job ID
+
+        Returns:
+            The ground truth data object.
         """
         uri = f"apis/{app_id}/baselineData/job/{job_id}"
         return self.request(uri, "POST", required_api_key=True)

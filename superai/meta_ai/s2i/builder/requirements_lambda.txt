@@ -1,3 +1,0 @@
-awslambdaric
-superai_schema
-superai-dataclient

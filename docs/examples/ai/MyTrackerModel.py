@@ -5,18 +5,18 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 
-from superai.meta_ai import BaseModel
+from superai.meta_ai import BaseAI
 from superai.utils import log
 
 
 ###########################################################################
 # Tracking a training operation
 ###########################################################################
-class MyTrackerModel(BaseModel):
+class MyTrackerAI(BaseAI):
     model = None
 
     def __init__(self, *args, **kwargs):
-        super(MyTrackerModel, self).__init__(*args, **kwargs)
+        super(MyTrackerAI, self).__init__(*args, **kwargs)
 
     def train(
         self,
@@ -54,7 +54,7 @@ class MyTrackerModel(BaseModel):
         test_dataset = tf.data.Dataset.from_tensor_slices((x_test, y_test))
         log.info("Fit model on training data")
         for epoch in range(hyperparameters.epochs):
-            for (x, y) in train_dataset:
+            for x, y in train_dataset:
                 with tf.GradientTape() as tape:
                     predictions = model(x, training=True)
                     loss = loss_obj(y, predictions)
@@ -66,7 +66,7 @@ class MyTrackerModel(BaseModel):
             self.tracker.add_scalar("loss", train_loss.result(), step=epoch)
             self.tracker.add_scalar("accuracy", train_accuracy.result(), step=epoch)
 
-            for (x, y) in test_dataset:
+            for x, y in test_dataset:
                 predictions = model(x)
                 loss = loss_obj(y, predictions)
                 test_loss(loss)
@@ -74,7 +74,7 @@ class MyTrackerModel(BaseModel):
             self.tracker.add_scalar("loss", test_loss.result(), step=epoch)
             self.tracker.add_scalar("accuracy", test_accuracy.result(), step=epoch)
         # Picked from https://www.tensorflow.org/guide/keras/save_and_serialize
-        model.save(model_save_path)
+        model._save_local(model_save_path)
 
         # we could also store the model config in a json format in the save path
         json_config = model.to_json()
@@ -85,8 +85,7 @@ class MyTrackerModel(BaseModel):
         inputs = keras.Input(shape=(784,), name="digits")
         encoder = self._encoder(trainable=train_encoder)(inputs)
         decoder = self._decoder(trainable=train_decoder)(encoder)
-        model = keras.Model(inputs=inputs, outputs=decoder)
-        return model
+        return keras.Model(inputs=inputs, outputs=decoder)
 
     def _encoder(self, input_data=None, trainable=True):
         encoder = keras.Sequential(

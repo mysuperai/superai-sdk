@@ -3,9 +3,6 @@ from __future__ import absolute_import
 import logging
 from abc import ABC, abstractmethod
 
-# python 2 and python 3 compatibility library
-import six
-
 from superai.log import logdecorator
 
 
@@ -29,22 +26,22 @@ class WorkflowApiMixin(ABC):
         reraise=True,
     )
     def get_workflow(self, workflow_name, **kwargs):
-        """Fetch a given resource
+        """Fetches a given resource.
 
-        :param str workflow_name: The workflow identifier (required)
-        :param str x_fields: An optional fields mask
-        :return: DataProgram
+        Args:
+            str workflow_name: The workflow identifier (required)
+            str x_fields: An optional fields mask
+
+        Returns:
+            DataProgram
         """
 
-        all_params = ["workflow_name", "x_fields"]
-        all_params.append("_return_http_data_only")
-        all_params.append("_preload_content")
-        all_params.append("_request_timeout")
+        all_params = ["workflow_name", "x_fields", "_return_http_data_only", "_preload_content", "_request_timeout"]
 
         params = locals()
-        for key, val in six.iteritems(params["kwargs"]):
+        for key, val in params["kwargs"].items():
             if key not in all_params:
-                raise TypeError("Got an unexpected keyword argument '%s'" " to method get_template" % key)
+                raise TypeError(f"Got an unexpected keyword argument '{key}' to method get_template")
             params[key] = val
         del params["kwargs"]
         # verify the required parameter 'workflow_name' is set
@@ -53,10 +50,7 @@ class WorkflowApiMixin(ABC):
 
         collection_formats = {}
 
-        path_params = {}
-        if "workflow_name" in params:
-            path_params["template_name"] = params["workflow_name"]
-
+        path_params = {"template_name": params["workflow_name"]}
         query_params = []
 
         header_params = {}
@@ -96,18 +90,21 @@ class WorkflowApiMixin(ABC):
         reraise=True,
     )
     def list_workflows(self, **kwargs):
-        """List all templates (Tags param is mock)
+        """Lists all templates (Tags param is mock).
 
-        :param int page:
-        :param int size:
-        :param str sort_by:
-        :param str order_by:
-        :param bool only_owned_or_group:
-        :param list[str] input_types:
-        :param list[str] output_types:
-        :param list[str] tags:
-        :param str x_fields: An optional fields mask
-        :return: TemplatesList
+        Args:
+            int page:
+            int size:
+            str sort_by:
+            str order_by:
+            bool only_owned_or_group:
+            list[str] input_types:
+            list[str] output_types:
+            list[str] tags:
+            str x_fields: An optional fields mask
+
+        Returns:
+            TemplatesList
         """
 
         all_params = [
@@ -120,15 +117,15 @@ class WorkflowApiMixin(ABC):
             "output_types",
             "tags",
             "x_fields",
+            "_return_http_data_only",
+            "_preload_content",
+            "_request_timeout",
         ]
-        all_params.append("_return_http_data_only")
-        all_params.append("_preload_content")
-        all_params.append("_request_timeout")
 
         params = locals()
-        for key, val in six.iteritems(params["kwargs"]):
+        for key, val in params["kwargs"].items():
             if key not in all_params:
-                raise TypeError("Got an unexpected keyword argument '%s'" " to method list_templates" % key)
+                raise TypeError(f"Got an unexpected keyword argument '{key}' to method list_templates")
             params[key] = val
         del params["kwargs"]
 
@@ -194,25 +191,31 @@ class WorkflowApiMixin(ABC):
         reraise=True,
     )
     def put_workflow(self, workflow_name, body, **kwargs):
-        """Create or update a workflow given its full qualified name
+        """Creates or updates a workflow given its full qualified name. If the workflow already exists and
+        it is owned by somebody else, then if will return a 409.
 
-        If the workflow already exists and it is owned by  somebody else then if will throw a 409
+        Args:
+            Workflow body: (required)
+            str workflow_name: The workflow identifier (required)
+            str x_fields: An optional fields mask
 
-        :param Workflow body: (required)
-        :param str workflow_name: The workflow identifier (required)
-        :param str x_fields: An optional fields mask
-        :return: Workflow
+        Returns:
+            Workflow
         """
 
-        all_params = ["body", "workflow_name", "x_fields"]
-        all_params.append("_return_http_data_only")
-        all_params.append("_preload_content")
-        all_params.append("_request_timeout")
+        all_params = [
+            "body",
+            "workflow_name",
+            "x_fields",
+            "_return_http_data_only",
+            "_preload_content",
+            "_request_timeout",
+        ]
 
         params = locals()
-        for key, val in six.iteritems(params["kwargs"]):
+        for key, val in params["kwargs"].items():
             if key not in all_params:
-                raise TypeError("Got an unexpected keyword argument '%s'" " to method update_template" % key)
+                raise TypeError(f"Got an unexpected keyword argument '{key}' to method update_template")
             params[key] = val
         del params["kwargs"]
         # verify the required parameter 'body' is set
@@ -224,10 +227,7 @@ class WorkflowApiMixin(ABC):
 
         collection_formats = {}
 
-        path_params = {}
-        if "workflow_name" in params:
-            path_params["template_name"] = params["workflow_name"]
-
+        path_params = {"template_name": params["workflow_name"]}
         query_params = []
 
         header_params = {}
@@ -250,7 +250,7 @@ class WorkflowApiMixin(ABC):
         auth_settings = ["apiToken"]
 
         uri = "templates/{template_name}".format(**path_params)
-        response = self.request(
+        return self.request(
             endpoint=uri,
             method="PUT",
             query_params=query_params,
@@ -258,7 +258,6 @@ class WorkflowApiMixin(ABC):
             required_api_key=True,
             required_auth_token=True,
         )
-        return response
 
     @logdecorator.log_on_start(
         logging.DEBUG,
@@ -275,13 +274,15 @@ class WorkflowApiMixin(ABC):
         reraise=True,
     )
     def update_workflow(self, workflow_name, body, **kwargs):
-        """
-        This is a proxy method for put_workflow. See above
+        """This is a proxy method for put_workflow. See above.
 
-        :param Workflow body: (required)
-        :param str workflow_name: The workflow identifier (required)
-        :param str x_fields: An optional fields mask
-        :return: Workflow
+        Args:
+            Workflow body: (required)
+            str workflow_name: The workflow identifier (required)
+            str x_fields: An optional fields mask
+
+        Returns:
+            Workflow
         """
         return self.put_workflow(workflow_name, body)
 
@@ -300,22 +301,26 @@ class WorkflowApiMixin(ABC):
         reraise=True,
     )
     def create_workflow(self, workflow_name, body, **kwargs):
-        """
-        This is a proxy method for put_workflow. See above
+        """This is a proxy method for put_workflow. See above.
 
-        :param Workflow body: (required)
-        :param str workflow_name: The workflow identifier (required)
-        :param str x_fields: An optional fields mask
-        :return: Workflow
+        Args:
+            Workflow body: (required)
+            str workflow_name: The workflow identifier (required)
+            str x_fields: An optional fields mask
+
+        Returns:
+            Workflow
         """
         return self.put_workflow(workflow_name, body)
 
     def delete_workflow(self, dp_qualified_name, workflow_name):
-        """
-        Workflow deletion
+        """Workflow deletion
 
-        :param str workflow_name: The workflow identifier (required)
-        :return: The new list of workflows
+        Args:
+            workflow_name (str): The workflow identifier (required)
+
+        Returns:
+            The new list of workflows
         """
         template = self.get_workflow(dp_qualified_name)
         workflow_list = template.get("dpWorkflows", []) or []

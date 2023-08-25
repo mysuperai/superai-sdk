@@ -2,8 +2,9 @@ import os
 import pathlib
 import warnings
 from logging import Logger
-from typing import Dict
+from typing import Dict, Optional
 
+import boto3
 import yaml
 from dynaconf import Dynaconf, Validator  # type: ignore
 from jsonmerge import merge  # type: ignore
@@ -27,14 +28,14 @@ dynaconf_setting_files = [
 ]
 
 
-def _get_config_path(log: Logger = None):
+def _get_config_path(log: Logger = None) -> str:
     log = log or logger.get_logger(__name__)
     config_path = None
     for p in reversed(dynaconf_setting_files):
         if "secrets" in p:
             continue
         if os.path.exists(p):
-            print("Reading configs from {}".format(p))
+            print(f"Reading configs from {p}")
             config_path = p
             break
         else:
@@ -46,40 +47,38 @@ def _get_config_path(log: Logger = None):
     return config_path
 
 
-def get_config_dir():
-    """Gets config root directory"""
+def get_config_dir() -> str:
+    """Gets config root directory."""
     return __superai_root_dir
 
 
-def list_env_configs(printInConsole=True, log: Logger = None) -> Dict:
-    """List all available environments"""
+def list_env_configs(verbose: bool = True, log: Logger = None) -> Dict:
+    """Lists all available environments.s"""
     log = log or logger.get_logger(__name__)
-
-    import yaml
 
     __config_path__ = _get_config_path()
 
-    if printInConsole:
+    if verbose:
         print("Available envs:")
 
     with open(os.path.expanduser(f"{__config_path__}"), "r") as f:
         envs = yaml.safe_load(f)
         envs.pop("default") if envs.get("default") else None
-        if printInConsole:
+        if verbose:
             for config in list(envs):
                 # Default and testing environments are not relevant thus hidden from the output
                 if config not in ["testing"]:
-                    print("- {}".format(config))
+                    print(f"- {config}")
 
     return envs
 
 
-def set_env_config(name, root_dir: str = __superai_root_dir, log: Logger = None):
-    """Set the active cluster name"""
+def set_env_config(name: str, root_dir: str = __superai_root_dir, log: Logger = None):
+    """Sets the active cluster name."""
     # settings.setenv("other", silent=False)
     log = log or logger.get_logger(__name__)
 
-    env_config = list_env_configs(printInConsole=False)
+    env_config = list_env_configs(verbose=False)
     if name not in env_config:
         warnings.warn(f"Error loading env {name} choose one of {list(env_config.keys())}")
         raise ValueError(f"Env {name} doesn't exists")
@@ -92,14 +91,16 @@ def set_env_config(name, root_dir: str = __superai_root_dir, log: Logger = None)
             os.environ[__env_switcher] = name
 
 
-def ensure_path_exists(f_path: str, only_dir=False):
-    """
-    Give some path, this function makes sure that the file exists. It will also take care of creating all necessary
+def ensure_path_exists(f_path: str, only_dir=False) -> str:
+    """Given a path, this function makes sure that the file exists. It will also take care of creating all necessary
     folders. If `only_dir` is set to True then the file won't be created but all folders leading to the path will.
 
-    :param f_path: File path
-    :param only_dir: Only create directories leading to the path
-    :return: Created path
+    Args:
+        f_path: File path
+        only_dir: Only create directories leading to the path
+
+    Returns:
+        The created path.
     """
     f_path = os.path.expanduser(f_path)
     in_folder = os.path.dirname(f_path)
@@ -117,12 +118,14 @@ def ensure_path_exists(f_path: str, only_dir=False):
 
 
 def add_secret_settings(content: dict = None):
-    """
-    Add content to the secrets file. The content can be any arbitrary dictionary and will be merged to the original
-    file contents. If the secrets file doesn't exist, this method will create the necessary folders and path.
+    """Adds content to the secrets file. The content can be any arbitrary dictionary and will be merged to the original
+    file contents. If the secrets file doesn't exist, this method creates the necessary folders and path.
 
-    :param content: Content to merge
-    :return: None
+    Args:
+        content: Content to merge
+
+    Returns:
+        None.
     """
     content = content or {}
     secrets_path = os.path.expanduser(__secrets_path)
@@ -142,12 +145,14 @@ def add_secret_settings(content: dict = None):
 
 
 def remove_secret_settings(path_in_settings: str):
-    """
-    Given a path in the form <key>__<nested_key>.. this function sets the value of the path to "". Each __ is parsed
+    """Given a path in the form <key>__<nested_key>.., this function sets the value of the path to "". Each __ is parsed
     as a level traversing thought dict keys.
 
-    :param path_in_settings: Path with __ operator to traverse the nested structure
-    :return: None
+    Args:
+        path_in_settings: Path with __ operator to traverse the nested structure.
+
+    Returns:
+        None.
     """
     secrets_path = os.path.expanduser(__secrets_path)
     secrets_folder = os.path.dirname(__secrets_path)
@@ -207,6 +212,11 @@ def init_config(
         warnings.warn(f"Defaults not found, available envs are: {envs.keys()}")
 
 
+def get_current_env() -> str:
+    """Gets the current configured environment"""
+    return settings.current_env.lower()
+
+
 init_config()
 
 validators = [
@@ -238,6 +248,7 @@ validators = [
     Validator("NAME", eq="local", env="local"),
     Validator("NAME", eq="sandbox", env="sandbox"),
     Validator("NAME", eq="prod", env="prod"),
+    Validator("SCHEMA_PORT", gt=0, lt=65535, is_type_of=int, default=8002),
 ]
 
 settings = Dynaconf(
@@ -253,6 +264,7 @@ settings = Dynaconf(
     root_path=os.path.expanduser(__superai_root_dir),
     validators=validators,
     merge_enabled=True,
+    loaders=["superai.utils.dp_env_loader", "dynaconf.loaders.env_loader"],
 )
 
 _log = logger.init(
@@ -261,3 +273,28 @@ _log = logger.init(
     log_level=settings.get("log", {}).get("level"),
     log_format=settings.get("log", {}).get("format"),
 )
+
+# Convenience method for dynamically switching envs
+using_env = settings.using_env
+
+
+def get_ai_bucket():
+    """Gets the bucket name from the account prefix in the settings."""
+    bucket_name_prefix = settings["meta_ai_bucket"]
+    complete_bucket_name = _get_bucket_name_from_prefix(bucket_name_prefix)
+    return complete_bucket_name
+
+
+def _get_bucket_name_from_prefix(bucket_prefix) -> Optional[str]:
+    """boto3 bucket name from a list of buckets starting with a prefix"""
+    s3 = boto3.client("s3", region_name=settings.region)
+    try:
+        bucket_list = s3.list_buckets()
+        return next(
+            (bucket["Name"] for bucket in bucket_list["Buckets"] if bucket["Name"].startswith(bucket_prefix)),
+            None,
+        )
+    except Exception:
+        # When debug is enabled, this will print the full stack trace
+        _log.warning(f"Could not get bucket name via AWS API. Try to setup your AWS credentials or login to SSO.")
+        raise

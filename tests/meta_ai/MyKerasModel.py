@@ -8,15 +8,15 @@ import superai_schema.universal_schema.task_schema_functions as df
 from tensorflow import keras
 from tensorflow.keras import layers
 
-from superai.meta_ai import BaseModel
+from superai.meta_ai import BaseAI
 from superai.utils import log
 
 
-class MyKerasModel(BaseModel):
+class MyKerasAI(BaseAI):
     model = None
 
     def __init__(self, *args, **kwargs):
-        super(MyKerasModel, self).__init__(*args, **kwargs)
+        super(MyKerasAI, self).__init__(*args, **kwargs)
 
     def load_weights(self, weights_path):
         self.model = keras.models.load_model(weights_path)
@@ -80,7 +80,7 @@ class MyKerasModel(BaseModel):
         )
 
         # Picked from https://www.tensorflow.org/guide/keras/save_and_serialize
-        model.save(model_save_path)
+        model._save_local(model_save_path)
 
         # we could also store the model config in a json format in the save path
         json_config = model.to_json()
@@ -96,12 +96,7 @@ class MyKerasModel(BaseModel):
         x = layers.Dense(64, activation="relu", name="dense_2")(x)
         outputs = layers.Dense(10, activation="softmax", name="predictions")(x)
 
-        model = keras.Model(inputs=inputs, outputs=outputs)
-
-        return model
+        return keras.Model(inputs=inputs, outputs=outputs)
 
     def to_tf(self):
-        if self.model is not None:
-            return self.model
-        else:
-            return self.define_model()
+        return self.model if self.model is not None else self.define_model()
