@@ -112,7 +112,7 @@ class LocalPredictor(DeployedPredictor):
         self.grpc_workers = grpc_workers
         self.rest_workers = rest_workers
 
-        if "s3://" in self.weights_path:
+        if self.weights_path and "s3://" in self.weights_path:
             from superai.meta_ai import AILoader
 
             self.weights_path = AILoader._load_weights(self.weights_path)
