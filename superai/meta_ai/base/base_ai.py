@@ -7,11 +7,14 @@ import traceback
 from abc import ABCMeta, abstractmethod
 from typing import List, Optional, Union
 
+from opentelemetry.trace import SpanKind
+
 from superai.log import get_logger
 from superai.meta_ai.base.utils import pull_weights
 from superai.meta_ai.parameters import Config, HyperParameterSpec, ModelParameters
 from superai.meta_ai.schema import Schema, SchemaParameters, TaskInput, TrainerOutput
 from superai.meta_ai.tracking import SuperTracker
+from superai.utils.opentelemetry import _extract_and_activate_span, tracer
 
 default_random_seed = 65778
 
@@ -73,18 +76,26 @@ class BaseAI(metaclass=ABCMeta):
             elif meta is None:
                 log.warning(f"Received inputs without meta header. Type of inputs: {type(inputs)}")
 
+            span_context = None
             if meta:
                 if "puid" in meta:
                     log.info(f"Received prediction request for prediction_uuid={meta['puid']}")
                 if "tags" in meta:
-                    # TODO: add tracking of tags for jaeger here
-                    log.info(f"Received tags={meta['tags']}")
+                    # Convert Protobuf dictionary to python dictionary
+                    tags = _parse_prediction_tags(meta["tags"])
+                    log.info(f"Received tags={tags}")
+                    span = _extract_and_activate_span(tags)
+                    if span:
+                        # Add superai attributes to the span
+                        tags.pop("traceparent", None)
+                        span.set_attributes(tags)
 
             # Main function
             exception = None
             json_dict = None
             try:
-                prediction_result = pred_func(self, inputs)
+                with tracer.start_as_current_span("predict_function", kind=SpanKind.CONSUMER, context=span_context):
+                    prediction_result = pred_func(self, inputs)
                 json_string = json.dumps(prediction_result)
                 json_dict = json.loads(json_string)
             except Exception:
@@ -361,3 +372,8 @@ def add_default_tracking(training_method):
             raise ValueError("One of the metrics should be available")
 
     return inner
+
+
+def _parse_prediction_tags(tags: dict) -> dict:
+    """Maps protobuf compatible dictionary used in Seldon tags to normal dictionary"""
+    return {k: v["string_value"] for k, v in tags.items()}

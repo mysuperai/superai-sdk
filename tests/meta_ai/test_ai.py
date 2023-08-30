@@ -11,8 +11,10 @@ from moto import mock_s3
 from superai import settings
 from superai.meta_ai import AI, BaseAI
 from superai.meta_ai.ai_helper import PREDICTION_METRICS_JSON, load_and_predict
+from superai.meta_ai.base.base_ai import _parse_prediction_tags
 from superai.meta_ai.parameters import Config
 from superai.meta_ai.schema import Schema, TaskBatchInput, TaskElement, TaskInput
+from superai.utils.opentelemetry import tracer
 
 
 @pytest.fixture(scope="function")
@@ -186,6 +188,19 @@ def test_remove_patch_from_yaml():
     assert AI._remove_patch_from_version(dict_with_patch) == {"name": "some_name", "version": "1.0"}
 
 
+class FinishedTestSpans(list):
+    def __init__(self, test, spans):
+        super().__init__(spans)
+        self.test = test
+
+    def by_name(self, name):
+        for span in self:
+            if span.name == name:
+                return span
+        self.test.fail(f"Did not find span with name {name}")
+        return None
+
+
 class TestBaseAI:
     class TestAI(BaseAI):
         def load_weights(self, weights_path: str):
@@ -205,7 +220,11 @@ class TestBaseAI:
 
             # Inputs
             data = {"test_key": "test_value"}
-            meta = {"puid": "test_puid", "tags": "test_tags"}
+            tags = {
+                "traceparent": {"string_value": "test_traceparent"},
+                "superai.job.id": {"string_value": "123"},
+            }
+            meta = {"puid": "test_puid", "tags": tags}
             inputs = {"data": data, "meta": meta}
 
             # Call the wrapped prediction function
@@ -217,7 +236,53 @@ class TestBaseAI:
 
             # Check that log.info has been called with the correct arguments
             mock_log.info.assert_any_call("Received prediction request for prediction_uuid=test_puid")
-            mock_log.info.assert_any_call("Received tags=test_tags")
+            parsed_tags = _parse_prediction_tags(tags)
+            mock_log.info.assert_any_call(f"Received tags={parsed_tags}")
+
+    @pytest.fixture
+    def in_memory_exporter(self):
+        """Fixture used to test OTEL spans"""
+        # Initialize InMemorySpanExporter
+        from opentelemetry import trace
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+        from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+            InMemorySpanExporter,
+        )
+
+        in_memory_exporter = InMemorySpanExporter()
+
+        # Initialize TracerProvider
+        tracer_provider = TracerProvider()
+
+        # Add InMemorySpanExporter to TracerProvider
+        tracer_provider.add_span_processor(SimpleSpanProcessor(in_memory_exporter))
+
+        # Assign TracerProvider to global Tracer
+        trace.set_tracer_provider(tracer_provider)
+        yield in_memory_exporter
+
+    def test_otel_attribute_parsing(self, in_memory_exporter):
+        # Create instance
+        test_ai = self.TestAI()
+
+        # Inputs
+        data = {"test_key": "test_value"}
+
+        # Call the wrapped prediction function
+        tags = {
+            "traceparent": {"string_value": "test_traceparent"},
+            "superai.job.id": {"string_value": "123"},
+        }
+        meta = {"puid": "test_puid", "tags": tags}
+        inputs = {"data": data, "meta": meta}
+
+        with tracer.start_as_current_span("test_span"):
+            result = test_ai.predict(inputs)
+        finished_spans = FinishedTestSpans(self, in_memory_exporter.get_finished_spans())
+        test_span = finished_spans.by_name("test_span")
+        assert test_span.attributes["superai.job.id"] == "123"
+        assert result["data"] == {"result": True}
 
     class TestAIException(TestAI):
         def predict(self, data):
@@ -229,7 +294,11 @@ class TestBaseAI:
 
         # Inputs
         data = {"test_key": "test_value"}
-        meta = {"puid": "test_puid", "tags": "test_tags"}
+        tags = {
+            "traceparent": {"string_value": "test_traceparent"},
+            "superai.job.id": {"string_value": "123"},
+        }
+        meta = {"puid": "test_puid", "tags": tags}
         inputs = {"data": data, "meta": meta}
 
         # Call the wrapped prediction function
