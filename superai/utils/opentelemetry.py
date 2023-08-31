@@ -1,10 +1,11 @@
 """Sets up the OpenTelemetry SDK and instruments external libraries.
 """
 from contextlib import asynccontextmanager
-from typing import Optional
+from typing import Optional, Tuple
 
 from fastapi import FastAPI
-from opentelemetry import trace
+from opentelemetry import context, trace
+from opentelemetry.context.context import Context
 from opentelemetry.instrumentation.botocore import BotocoreInstrumentor
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
@@ -35,14 +36,15 @@ def add_fastapi_instrumentation(app: FastAPI):
     FastAPIInstrumentor.instrument_app(app)
 
 
-def _extract_and_activate_span(tags: dict) -> Optional[Span]:
+def _extract_and_activate_span(tags: dict) -> Optional[Tuple[Span, Context]]:
     """Extracts the span context from the tags and activates it as the current span context"""
     try:
         span_context = TraceContextTextMapPropagator().extract(tags)
         # Set the span context as the current context
         span = trace.get_current_span()
         trace.set_span_in_context(span, span_context)
-        return span
+        context.attach(span_context)
+        return span, span_context
     except Exception as e:
         log.debug(f"Failed to extract span context from tags: {tags}. Error: {e}")
         return None

@@ -84,7 +84,7 @@ class BaseAI(metaclass=ABCMeta):
                     # Convert Protobuf dictionary to python dictionary
                     tags = _parse_prediction_tags(meta["tags"])
                     log.info(f"Received tags={tags}")
-                    span = _extract_and_activate_span(tags)
+                    span, span_context = _extract_and_activate_span(tags)
                     if span:
                         # Add superai attributes to the span
                         tags.pop("traceparent", None)
