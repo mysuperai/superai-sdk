@@ -36,7 +36,7 @@ class AiInstanceApiMixin(AiApiBase):
         "description",
         "editor_id",
         "owner_id",
-        "organisation_id",
+        "organization_id",
         "updated_at",
         "deployment_parameters",
         "ai_worker_id",
@@ -53,25 +53,38 @@ class AiInstanceApiMixin(AiApiBase):
         visibility: Optional[str] = None,
         checkpoint_tag=Optional[str],
         verbose: bool = True,
+        fuzzy: bool = False,
+        owner_id: Optional[int] = None,
+        organization_id: Optional[int] = None,
     ) -> List[Union[meta_ai_modelv2, Dict]]:
         op = Operation(query_root)
         where = {}
+        comparison = "_ilike" if fuzzy else "_eq"
+        if fuzzy:
+            name = f"%{name}%" if name else None
+            ai_name = f"%{ai_name}%" if ai_name else None
+            ai_version = f"%{ai_version}%" if ai_version else None
+
         if name:
-            where["name"] = {"_ilike": f"%{name}%"}
+            where["name"] = {comparison: name}
         if ai_name:
-            where["template"] = {"name": {"_ilike": f"%{ai_name}%"}}
+            where["template"] = {"name": {comparison: ai_name}}
         if ai_version:
-            where["template"] = {"version": {"_ilike": f"%{ai_version}%"}}
+            where["template"] = {"version": {comparison: ai_version}}
         if visibility:
             where["visibility"] = {"_eq": visibility}
         if checkpoint_tag:
             where["checkpoint_tag"] = {"_eq": checkpoint_tag}
-
+        if owner_id:
+            where["owner_id"] = {"_eq": owner_id}
+        if organization_id:
+            where["organization_id"] = {"_eq": organization_id}
+        print(where)
         instance = op.meta_ai_modelv2(where=where)
         instance.__fields__(*AiInstanceApiMixin._fields(verbose))
         instance.template.__fields__("name", "version", "visibility")
 
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         return self._output_formatter((op + data).meta_ai_modelv2, to_json)
 
     def get_ai_instance_by_name(
@@ -93,7 +106,7 @@ class AiInstanceApiMixin(AiApiBase):
         if template_id:
             where["template_id"] = {"_eq": template_id}
         op.meta_ai_modelv2(where=where).__fields__(*fields)
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         instance = self._output_formatter((op + data).meta_ai_modelv2, to_json)
         return instance[0] if instance else None
 
@@ -101,7 +114,7 @@ class AiInstanceApiMixin(AiApiBase):
         op = Operation(query_root)
         fields = AiInstanceApiMixin._fields(True)
         op.meta_ai_modelv2_by_pk(id=instance_id).__fields__(*fields)
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         instance = self._output_formatter((op + data).meta_ai_modelv2_by_pk, to_json)
         return instance if instance else None
 
@@ -125,14 +138,14 @@ class AiInstanceApiMixin(AiApiBase):
             where["ownerId"] = {"_eq": owner_id}
 
         op.meta_ai_modelv2(where=where).__fields__(*fields)
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         instance = self._output_formatter((op + data).meta_ai_modelv2, to_json)
         return instance[0] if instance else None
 
     def create_ai_instance(self, instance: AIInstance) -> str:
         op = Operation(mutation_root)
         op.insert_meta_ai_modelv2_one(object=instance.to_dict(exclude_none=True, only_db_fields=True)).__fields__("id")
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         log.info(f"Created new instance: {data}")
         return (op + data).insert_meta_ai_modelv2_one.id
 
@@ -150,11 +163,11 @@ class AiInstanceApiMixin(AiApiBase):
             _set=meta_ai_modelv2_set_input(**fields),
             pk_columns=meta_ai_modelv2_pk_columns_input(id=instance_id),
         ).__fields__("id")
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         return (op + data).update_meta_ai_modelv2_by_pk.id
 
     def delete_ai_instance(self, instance_id: str) -> str:
         op = Operation(mutation_root)
         op.delete_meta_ai_modelv2_by_pk(id=instance_id).__fields__("id")
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         return (op + data).delete_meta_ai_modelv2_by_pk.id

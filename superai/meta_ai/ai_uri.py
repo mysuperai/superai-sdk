@@ -56,3 +56,11 @@ class AiURI:
 
         # Create and return an instance of the AIURL dataclass
         return cls(**components)
+
+    def __str__(self) -> str:
+        base_str = f"ai://{self.model_name}"
+        if self.owner_name:
+            base_str = f"ai://{self.owner_name}/{self.model_name}"
+        if self.version:
+            base_str += f"/{self.version}"
+        return base_str

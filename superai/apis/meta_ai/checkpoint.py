@@ -54,13 +54,13 @@ class AiCheckpointApiMixin(AiApiBase):
     ) -> List[Union[meta_ai_checkpoint, Dict]]:
         op = Operation(query_root)
         op.meta_ai_checkpoint().__fields__(*AiCheckpointApiMixin._fields(verbose))
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         return self._output_formatter((op + data).meta_ai_checkpoint, to_json)
 
     def get_checkpoint(self, checkpoint_id: str, to_json: bool = False) -> Optional[Union[meta_ai_checkpoint, Dict]]:
         op = Operation(query_root)
         op.meta_ai_checkpoint_by_pk(id=checkpoint_id).__fields__(*AiCheckpointApiMixin._fields(verbose=True))
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         mapped: meta_ai_checkpoint = (op + data).meta_ai_checkpoint_by_pk
         return self._output_formatter(mapped, to_json)
 
@@ -69,7 +69,7 @@ class AiCheckpointApiMixin(AiApiBase):
     ) -> List[Union[meta_ai_checkpoint, Dict]]:
         op = Operation(query_root)
         op.meta_ai_checkpoint(where={"version": {"_eq": version}}).__fields__(*AiCheckpointApiMixin._fields(verbose))
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         return self._output_formatter((op + data).meta_ai_checkpoint, to_json)
 
     def get_checkpoint_for_instance(
@@ -80,7 +80,7 @@ class AiCheckpointApiMixin(AiApiBase):
             modelv2_id=uuid_comparison_exp(_eq=instance_id), tag=meta_ai_checkpoint_tag_enum_comparison_exp(_eq=tag)
         )
         op.meta_ai_checkpoint(where=check).__fields__(*AiCheckpointApiMixin._fields(verbose))
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         output = self._output_formatter((op + data).meta_ai_checkpoint, to_json)
         if len(output) > 1:
             raise AiCheckpointError(f"More than one checkpoint found for instance {instance_id} with tag {tag}")
@@ -96,7 +96,7 @@ class AiCheckpointApiMixin(AiApiBase):
             modelv2_id=uuid_comparison_exp(_is_null=True),
         )
         op.meta_ai_checkpoint(where=check).__fields__(*AiCheckpointApiMixin._fields(verbose))
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         output = self._output_formatter((op + data).meta_ai_checkpoint, to_json)
         if len(output) > 1:
             raise AiCheckpointError(f"More than one checkpoint found for template {template_id} with tag {tag}")
@@ -111,7 +111,7 @@ class AiCheckpointApiMixin(AiApiBase):
             tag=meta_ai_checkpoint_tag_enum_comparison_exp(_is_null=not with_tag),
         )
         op.meta_ai_checkpoint(where=check).__fields__(*AiCheckpointApiMixin._fields(verbose))
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         return self._output_formatter((op + data).meta_ai_checkpoint, to_json)
 
     def get_default_checkpoint_for_template(
@@ -119,7 +119,7 @@ class AiCheckpointApiMixin(AiApiBase):
     ) -> Optional[Union[meta_ai_checkpoint, Dict]]:
         op = Operation(query_root)
         op.meta_ai_template_by_pk(id=template_id).default_checkpoint()
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         mapped = (op + data).meta_ai_template_by_pk
         if mapped and mapped.default_checkpoint:
             return self.get_checkpoint(mapped.default_checkpoint, to_json)
@@ -135,7 +135,7 @@ class AiCheckpointApiMixin(AiApiBase):
             tag=meta_ai_checkpoint_tag_enum_comparison_exp(_is_null=not with_tag),
         )
         op.meta_ai_checkpoint(where=check).__fields__(*AiCheckpointApiMixin._fields(verbose))
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         return self._output_formatter((op + data).meta_ai_checkpoint, to_json)
 
     def add_checkpoint(self, checkpoint: AICheckpoint) -> str:
@@ -156,7 +156,7 @@ class AiCheckpointApiMixin(AiApiBase):
                 modelv2_id=checkpoint.ai_instance_id,
             )
         ).__fields__("id")
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         log.info(f"Created new checkpoint: {data}")
         return (op + data).insert_meta_ai_checkpoint_one.id
 
@@ -171,18 +171,18 @@ class AiCheckpointApiMixin(AiApiBase):
             _set=meta_ai_checkpoint_set_input(**fields),
             pk_columns=meta_ai_checkpoint_pk_columns_input(id=checkpoint_id),
         ).__fields__("id")
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         return (op + data).update_meta_ai_checkpoint_by_pk.id
 
     def delete_checkpoint(self, checkpoint_id: str) -> str:
         op = Operation(mutation_root)
         op.delete_meta_ai_checkpoint_by_pk(id=checkpoint_id).__fields__("id")
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         return (op + data).delete_meta_ai_checkpoint_by_pk.id
 
     def list_available_checkpoint_tags(self) -> List[str]:
         op = Operation(query_root)
         op.meta_ai_checkpoint_tag().__fields__("tag")
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         output = (op + data).meta_ai_checkpoint_tag
         return [o.tag for o in output]

@@ -54,7 +54,7 @@ class AIInstance:
         deployment_parameters: A dictionary representing the parameters used to deploy the AI instance.
         editor_id: A string representing the id of the user who edited the AI instance last.
         owner_id: A string representing the id of the user who owns the AI instance.
-        organisation_id: A string representing the id of the organization that owns the AI instance.
+        organization_id: A string representing the id of the organization that owns the AI instance.
 
     """
 
@@ -69,7 +69,7 @@ class AIInstance:
     deployment_parameters: dict = attr.field(default=None, repr=False)
     editor_id: str = attr.field(default=None)
     owner_id: int = attr.field(default=None)
-    organisation_id: int = attr.field(default=None)
+    organization_id: int = attr.field(default=None)
     ai_worker_id: str = attr.field(default=None)
     ai_worker_username: str = attr.field(default=None)
     visibility: Optional[str] = attr.field(default="PRIVATE", validator=attr.validators.in_(["PRIVATE", "PUBLIC"]))
@@ -95,6 +95,12 @@ class AIInstance:
         if not backend_data:
             raise ModelNotFoundError(f"AI instance with id {id} not found")
         return cls.from_dict(backend_data)
+
+    def reload(self):
+        """Reloads the AI instance from the backend."""
+        if self.id is None:
+            raise AIException("AI instance not saved. Please save the instance first.")
+        return self.load(self.id)
 
     def save(self):
         """Saves the AI instance to the backend
@@ -142,6 +148,9 @@ class AIInstance:
                 AICheckpoint(template_id=ai.id, weights_path=weights_path, ai_instance_id=instance.id).save()
         elif not existing_checkpoint or force_clone_checkpoint:
             instance._clone_template_checkpoint(ai)
+
+        # Reload the instance to get the latest data from backend
+        instance = instance.reload()
 
         return instance
 

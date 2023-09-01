@@ -28,14 +28,29 @@ class MetaAISession(RequestsEndpoint):
     Allows querying and mutation via the GraphQL API.
     """
 
-    def __init__(self, app_id: str = None, timeout: int = 60):
+    def __init__(
+        self,
+        timeout: int = 60,
+        owner_id: Optional[int] = None,
+        organization_id: Optional[int] = None,
+    ):
+        self._organization_id = organization_id
+        self._owner_id = owner_id
         self.base_url = f"{settings.get('meta_ai_request_protocol')}://{settings.get('meta_ai_base')}"
         if os.getenv("LOCAL_META_AI"):
             self.base_url = self._get_local_endpoint()
             log.warning(f"Using local MetaAI endpoint at {self.base_url}")
-        api_key = load_api_key()
-        headers = {"x-api-key": api_key, "x-app-id": app_id, "Accept-Encoding": "gzip"}
+
+        headers = _create_headers(organization_id=self.organization_id, owner_id=self.owner_id)
         super().__init__(self.base_url, headers, timeout=timeout)
+
+    @property
+    def organization_id(self):
+        return self._organization_id
+
+    @property
+    def owner_id(self):
+        return self._owner_id
 
     @lru_cache(maxsize=1)
     def _get_local_endpoint(self):
@@ -59,15 +74,38 @@ class MetaAISession(RequestsEndpoint):
                 )
             except subprocess.CalledProcessError:
                 return None
-
+        if "\n" in hasura_port:
+            hasura_port = hasura_port.split("\n")[0]
         hasura_endpoint = f"http://localhost:{hasura_port}/v1/graphql"
 
         return hasura_endpoint
 
     @retry((TimeoutError, RequestException))  # noqa: F821
     @tracer.start_as_current_span("MetaAISession.perform_op")
-    def perform_op(self, op: Operation, timeout: int = 60):
-        data = self(op, timeout=timeout)
+    def perform_op(
+        self, op: Operation, timeout: int = 60, extra_headers: dict = None, app_id: Optional[str] = None
+    ) -> dict:
+        """
+        Perform a GraphQL operation
+        Args:
+            op: GraphQL operation, e.g. query, mutation, composed by sgqlc
+            timeout: request timeout in seconds
+            extra_headers: Extra request headers, which get added to the base headers in the session.
+                Can be used to inject custom headers, e.g. for authentication. E.g. x-organization-id
+            app_id: App id to use for the request.
+
+        Returns:
+            dict: GraphQL response
+
+        """
+        # Refresh headers, allows mocking at runtime
+        self.base_headers = _create_headers(organization_id=self.organization_id, owner_id=self.owner_id)
+
+        extra_headers = extra_headers or {}
+        if app_id:
+            extra_headers["x-app-id"] = str(app_id)
+
+        data = self(op, timeout=timeout, extra_headers=extra_headers)
         if not data.get("errors", False):
             return data
         error = data["errors"][0]
@@ -88,12 +126,16 @@ class MetaAIWebsocketSession(WebSocketEndpoint):
     Allows GraphQL subscriptions over open websocket connection.
     """
 
-    def __init__(self, app_id: str = None):
+    def __init__(
+        self,
+        owner_id: Optional[int] = None,
+        organization_id: Optional[int] = None,
+        app_id: Optional[str] = None,
+    ):
+        self.organization_id = organization_id
+        self.owner_id = owner_id
         base_url = f"wss://{settings.get('meta_ai_base')}"
-        api_key = load_api_key()
-
-        # Websocket expects None values to be empty string (app_id)
-        headers = {"x-api-key": api_key, "x-app-id": app_id or "", "Accept-Encoding": "gzip"}
+        headers = _create_headers(app_id=app_id, organization_id=organization_id, owner_id=owner_id)
         super().__init__(base_url, connection_payload={"headers": headers})
 
     class ReturnDict(BaseModel):
@@ -115,3 +157,19 @@ class MetaAIWebsocketSession(WebSocketEndpoint):
                 raise GraphQlException(error)
             else:
                 yield dict
+
+
+def _create_headers(
+    app_id: Optional[str] = None, organization_id: Optional[int] = None, owner_id: Optional[int] = None
+):
+    """Create headers for the MetaAI session."""
+    api_key = load_api_key()
+    headers = {"x-api-key": api_key, "Accept-Encoding": "gzip"}
+    if organization_id:
+        headers["x-organization-id"] = str(organization_id)
+    if owner_id:
+        headers["x-owner-id"] = str(owner_id)
+    if app_id:
+        headers["x-app-id"] = str(app_id)
+    log.debug(f"Meta-AI headers: {headers}")
+    return headers

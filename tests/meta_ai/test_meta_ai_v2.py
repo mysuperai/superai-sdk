@@ -239,8 +239,6 @@ def test_save_model(local_ai: AI, tmp_path):
 
 @mock.patch("superai.meta_ai.image_builder.AiImageBuilder.build_image_superai_builder")
 def test_build_model(mocked_builder, local_ai: AI, tmp_path):
-    ai_uuid = local_ai.id
-    assert ai_uuid
     local_ai.build()
     assert mocked_builder.called
     assert local_ai._local_image

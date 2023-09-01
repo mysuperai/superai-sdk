@@ -9,9 +9,11 @@ class SuperAIAuthorizationError(Exception):
     def __init__(self, message: str, error_code: int, endpoint: str = None):
         self.error_code = error_code
         self.message = message
-        super(Exception, self).__init__(
-            f"User not authorized on endpoint: {endpoint}. API returned {self.error_code}: {self.message}"
-        )
+        if endpoint:
+            exception = f"User not authorized on endpoint: {endpoint}. API returned {self.error_code}: {self.message}"
+        else:
+            exception = f"User not authorized. API returned {self.error_code}: {self.message}"
+        super(Exception, self).__init__(exception)
 
 
 class SuperAIEntityDuplicatedError(Exception):

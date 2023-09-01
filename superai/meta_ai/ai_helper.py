@@ -8,7 +8,7 @@ import subprocess
 import sys
 import tarfile
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
 import boto3
 import numpy as np
@@ -20,12 +20,13 @@ from rich.prompt import Confirm
 from rich.text import Text
 from superai_builder.docker.client import get_docker_client
 
-from superai import config, settings
+from superai import Client, config, settings
 from superai.log import logger
 from superai.meta_ai.dataset import Dataset
 from superai.meta_ai.exceptions import (
     AIException,
     ExpiredTokenException,
+    ModelAlreadyExistsError,
     ModelDeploymentError,
 )
 
@@ -33,6 +34,9 @@ PREDICTION_METRICS_JSON = "metrics.json"
 ECR_MODEL_ROOT_PREFIX = "models"
 
 log = logger.get_logger(__name__)
+
+if TYPE_CHECKING:
+    from .ai_instance import AIInstance
 
 
 def list_models(
@@ -506,3 +510,34 @@ def get_public_superai_instance(name: str, version: str, client=None) -> Optiona
     SUPERAI_OWNER_ID = 1
     client = client or Client.from_credentials()
     return client.get_ai_instance_by_template_version(name, version, SUPERAI_OWNER_ID, visibility="PUBLIC")
+
+
+def instantiate_superai(ai_name: str, ai_version: str, new_instance_name: Optional[str]) -> "AIInstance":
+    """Instantiate a new AI instance from a public Super.AI.
+
+    Args:
+    ai_name: name of the existing AI template
+    new_instance_name: name of the new AI instance
+
+    Returns:
+    AIInstance object
+    """
+    client = Client.from_credentials()
+    owner_id = client._get_user_id()
+    assert owner_id, "Failed to get owner id"
+    existing_instances = client.list_ai(owner_id=owner_id, name=ai_name)
+    if existing_instances:
+        raise ModelAlreadyExistsError(
+            f"AI instance with name {ai_name} already exists for this namespace session. Please choose a different name."
+        )
+    from superai.meta_ai import AI
+    from superai.meta_ai.ai_uri import AiURI
+
+    ai_uri = AiURI(owner_name="superai", model_name=ai_name, version=ai_version)
+    ai = AI.load_essential(str(ai_uri))
+
+    instance = ai.create_instance(name=new_instance_name, visibility="PRIVATE")
+    if not instance:
+        return AIException(f"Failed to create instance for {ai_name}")
+
+    return instance

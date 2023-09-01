@@ -7,7 +7,7 @@ from superai.apis.data import DataApiMixin
 from superai.apis.data_program import DataProgramApiMixin
 from superai.apis.ground_truth import GroundTruthApiMixin
 from superai.apis.jobs import JobsApiMixin
-from superai.apis.meta_ai import AiApiMixin
+from superai.apis.meta_ai import MetaAiApiMixin
 from superai.apis.project import ProjectApiMixin
 from superai.apis.super_task import SuperTaskApiMixin
 from superai.apis.tasks import TasksApiMixin
@@ -31,7 +31,6 @@ __all__ = [
     "GroundTruthApiMixin",
     "JobsApiMixin",
     "ProjectApiMixin",
-    "AiApiMixin",
     "TasksApiMixin",
     "SuperTaskApiMixin",
 ]
@@ -44,19 +43,48 @@ class Client(
     DataApiMixin,
     DataProgramApiMixin,
     ProjectApiMixin,
-    AiApiMixin,
+    MetaAiApiMixin,
     TasksApiMixin,
     SuperTaskApiMixin,
 ):
-    def __init__(self, api_key: str = None, auth_token: str = None, id_token: str = None, base_url: str = None):
-        super(Client, self).__init__()
+    def __init__(
+        self,
+        api_key: str = None,
+        auth_token: str = None,
+        id_token: str = None,
+        base_url: str = None,
+        organization_name: Optional[str] = None,
+    ):
+        # super(Client, self).__init__()
         self.api_key = api_key
         self.auth_token = auth_token
         self.id_token = id_token
         self.base_url = base_url or settings.get("base_url")
+        self._organization_id = None
+        self._organization_name = organization_name
+        self._user_id = None
+        from superai.apis.meta_ai.session import MetaAISession
+
+        self.ai_session: Optional[MetaAISession] = None
+
+        if organization_name:
+            self._get_org_context(organization_name)
+
+        super(Client, self).__init__(organization_id=self._organization_id, user_id=self._user_id)
+
+    def _get_org_context(self, organization_name):
+        logger.info(f"Using organisation context: {organization_name}")
+        user = self.get_user()
+
+        if organization_name == "superai":
+            self._organization_id = 1
+        else:
+            self._organization_id = self._get_organization_id(organization_name, user=user)
+
+        self._user_id = self._get_user_id(user=user)
 
     @classmethod
-    def from_credentials(cls) -> "Client":
+    def from_credentials(cls, organization_name: Optional[str] = None) -> "Client":
         """Instantiate a client from the credentials stored in the config file."""
         from superai.utils import load_api_key, load_auth_token, load_id_token
 
@@ -64,6 +92,7 @@ class Client(
             api_key=load_api_key(),
             auth_token=load_auth_token(),
             id_token=load_id_token(),
+            organization_name=organization_name,
         )
 
     def request(
@@ -90,6 +119,9 @@ class Client(
                 logger.warning("ID token is required, but not present")
             headers["ID-TOKEN"] = self.id_token
 
+        # Enable gzip compression
+        headers["Accept-Encoding"] = "gzip"
+        logger.debug(f"Requesting {method} {self.base_url}/{endpoint}, headers={headers}")
         resp = requests.request(
             method, f"{self.base_url}/{endpoint}", params=query_params, json=body_params, headers=headers
         )
@@ -134,3 +166,22 @@ class Client(
                     endpoint=endpoint,
                 ) from http_e
             raise SuperAIError(message, http_e.response.status_code) from http_e
+
+    def _get_organization_id(self, organization_name: str, user: Optional[object] = None) -> int:
+        """Check if the user is part of the organization"""
+        user = user or self.get_user()
+
+        if organization_name == "superai":
+            # TODO: replace this with correct non-membership org resolver once we have it
+            return 1
+
+        orgs = [org for org in user.organizationMemberships if org.orgUsername == organization_name]
+        if any(orgs):
+            return orgs[0].orgId
+        else:
+            raise SuperAIAuthorizationError(f"User is not part of the organization {organization_name}", 403)
+
+    def _get_user_id(self, user: Optional[object] = None) -> int:
+        """Retrieve the user id for the current user"""
+        user = user or self.get_user()
+        return user.id

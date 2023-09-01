@@ -66,6 +66,7 @@ class AICheckpoint:
 
         client = Client.from_credentials()
         backend_data = client.get_checkpoint(id, to_json=True)
+        assert backend_data, f"Checkpoint with id {id} not accessible."
         return cls.from_dict(backend_data)
 
     def save(self, overwrite: bool = False, weights_path: Optional[Union[Path, str]] = None):

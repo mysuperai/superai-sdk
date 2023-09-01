@@ -68,12 +68,12 @@ def test_output_formatter(checkpoint_api_mixin, checkpoint):
 
 # Test for get_all_checkpoints method
 def test_get_all_checkpoints(checkpoint_api_mixin, checkpoint):
-    checkpoint_api_mixin.sess = MagicMock()
-    checkpoint_api_mixin.sess.perform_op.return_value = {"data": {"meta_ai_checkpoint": []}}
+    checkpoint_api_mixin.ai_session = MagicMock()
+    checkpoint_api_mixin.ai_session.perform_op.return_value = {"data": {"meta_ai_checkpoint": []}}
     result = checkpoint_api_mixin.list_all_checkpoints(to_json=False, verbose=False)
     assert result == []
 
-    checkpoint_api_mixin.sess.perform_op.return_value = {
+    checkpoint_api_mixin.ai_session.perform_op.return_value = {
         "data": {"meta_ai_checkpoint": [checkpoint.to_dict(only_db_fields=True)]}
     }
     result = checkpoint_api_mixin.list_all_checkpoints(to_json=True, verbose=True)
@@ -82,8 +82,8 @@ def test_get_all_checkpoints(checkpoint_api_mixin, checkpoint):
 
 # Test for get_checkpoint method
 def test_get_checkpoint(checkpoint_api_mixin, checkpoint):
-    checkpoint_api_mixin.sess = MagicMock()
-    checkpoint_api_mixin.sess.perform_op.return_value = {
+    checkpoint_api_mixin.ai_session = MagicMock()
+    checkpoint_api_mixin.ai_session.perform_op.return_value = {
         "data": {"meta_ai_checkpoint_by_pk": checkpoint.to_dict(only_db_fields=True)}
     }
     result = checkpoint_api_mixin.get_checkpoint(checkpoint_id="1", to_json=True)
@@ -92,16 +92,16 @@ def test_get_checkpoint(checkpoint_api_mixin, checkpoint):
 
 # Test for add_checkpoint method
 def test_add_checkpoint(checkpoint_api_mixin, checkpoint):
-    checkpoint_api_mixin.sess = MagicMock()
-    checkpoint_api_mixin.sess.perform_op.return_value = {"data": {"insert_meta_ai_checkpoint_one": {"id": "1"}}}
+    checkpoint_api_mixin.ai_session = MagicMock()
+    checkpoint_api_mixin.ai_session.perform_op.return_value = {"data": {"insert_meta_ai_checkpoint_one": {"id": "1"}}}
     result = checkpoint_api_mixin.add_checkpoint(checkpoint)
     assert result == "1"
 
 
 # Test for update_checkpoint method
 def test_update_checkpoint(checkpoint_api_mixin, checkpoint):
-    checkpoint_api_mixin.sess = MagicMock()
-    checkpoint_api_mixin.sess.perform_op.return_value = {"data": {"update_meta_ai_checkpoint_by_pk": {"id": "1"}}}
+    checkpoint_api_mixin.ai_session = MagicMock()
+    checkpoint_api_mixin.ai_session.perform_op.return_value = {"data": {"update_meta_ai_checkpoint_by_pk": {"id": "1"}}}
     checkpoint.id = "1"
     result = checkpoint_api_mixin.update_checkpoint(checkpoint)
     assert result == "1"
@@ -109,7 +109,7 @@ def test_update_checkpoint(checkpoint_api_mixin, checkpoint):
 
 # Test for delete_checkpoint method
 def test_delete_checkpoint(checkpoint_api_mixin):
-    checkpoint_api_mixin.sess = MagicMock()
-    checkpoint_api_mixin.sess.perform_op.return_value = {"data": {"delete_meta_ai_checkpoint_by_pk": {"id": "1"}}}
+    checkpoint_api_mixin.ai_session = MagicMock()
+    checkpoint_api_mixin.ai_session.perform_op.return_value = {"data": {"delete_meta_ai_checkpoint_by_pk": {"id": "1"}}}
     result = checkpoint_api_mixin.delete_checkpoint(checkpoint_id="1")
     assert result == "1"

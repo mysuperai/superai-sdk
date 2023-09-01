@@ -68,9 +68,6 @@ class DeploymentApiMixin(AiApiBase):
 
     _resource = "deployment"
 
-    def __init__(self):
-        self.sess = MetaAISession()
-
     @property
     def resource(self):
         return self._resource
@@ -108,7 +105,7 @@ class DeploymentApiMixin(AiApiBase):
                 properties=json.dumps(properties),
             )
         ).__fields__("id", "ai_instance_id", "target_status", "created_at")
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         log.info(f"Created new deployment: {data}")
         deployment_id = (op + data).insert_meta_ai_deployment_one.id
         if wait:
@@ -119,14 +116,14 @@ class DeploymentApiMixin(AiApiBase):
         return deployment_id
 
     def _set_target_status(
-        self, deployment_id: str, target_status: meta_ai_deployment_status_enum
+        self, deployment_id: str, target_status: Union[meta_ai_deployment_status_enum, str]
     ) -> meta_ai_deployment_status_enum:
         op = Operation(mutation_root)
         op.update_meta_ai_deployment_by_pk(
             _set=meta_ai_deployment_set_input(target_status=target_status),
             pk_columns=meta_ai_deployment_pk_columns_input(id=deployment_id),
         ).__fields__("target_status")
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         try:
             return (op + data).update_meta_ai_deployment_by_pk.target_status
         except Exception as e:
@@ -186,7 +183,7 @@ class DeploymentApiMixin(AiApiBase):
             _set=meta_ai_deployment_set_input(min_instances=min_instances),
             pk_columns=meta_ai_deployment_pk_columns_input(id=deployment_id),
         ).__fields__("id", "model_id", "min_instances")
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         return (op + data).update_meta_ai_deployment_by_pk
 
     def set_scale_in_timeout(self, deployment_id: str, timeout_mins: int) -> object:
@@ -204,7 +201,7 @@ class DeploymentApiMixin(AiApiBase):
             _set=meta_ai_deployment_set_input(scale_in_timeout=timeout_mins),
             pk_columns=meta_ai_deployment_pk_columns_input(id=deployment_id),
         ).__fields__("id", "model_id", "scale_in_timeout")
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         return (op + data).update_meta_ai_deployment_by_pk
 
     def set_deployment_properties(self, deployment_id: str, properties: dict) -> object:
@@ -219,7 +216,7 @@ class DeploymentApiMixin(AiApiBase):
             _set=meta_ai_deployment_set_input(properties=json.dumps(properties)),
             pk_columns=meta_ai_deployment_pk_columns_input(id=deployment_id),
         ).__fields__("id", "ai_instance_id", "properties")
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         return (op + data).update_meta_ai_deployment_by_pk
 
     def undeploy(self, deployment_id: str) -> bool:
@@ -248,7 +245,7 @@ class DeploymentApiMixin(AiApiBase):
             "ai_instance_id",
             "type",
         )
-        data = self.sess.perform_op(opq)
+        data = self.ai_session.perform_op(opq)
         return (opq + data).meta_ai_deployment_by_pk
 
     def list_deployments(
@@ -289,7 +286,7 @@ class DeploymentApiMixin(AiApiBase):
             "min_instances",
             "scale_in_timeout",
         )
-        data = self.sess.perform_op(opq)
+        data = self.ai_session.perform_op(opq)
         return (opq + data).meta_ai_deployment
 
     def check_endpoint_is_available(self, deployment_id) -> bool:
@@ -301,7 +298,7 @@ class DeploymentApiMixin(AiApiBase):
         op = Operation(query_root)
         p = op.meta_ai_prediction_by_pk(id=prediction_id)
         p.__fields__("error_message", "state", "completed_at", "started_at")
-        data = self.sess.perform_op(op)
+        data = self.ai_session.perform_op(op)
         try:
             return (op + data).meta_ai_prediction_by_pk
         except AttributeError:
@@ -358,8 +355,7 @@ class DeploymentApiMixin(AiApiBase):
                     raise PredictionError(error_object["error_message"])
             raise TimeoutError("Waiting for Prediction result timed out. Try increasing timeout.")
 
-    @staticmethod
-    def get_prediction_with_data(prediction_id: str, app_id: str = None) -> Optional[meta_ai_prediction]:
+    def get_prediction_with_data(self, prediction_id: str, app_id: str = None) -> Optional[meta_ai_prediction]:
         """Retrieve existing prediction with data from database.
         Args:
             prediction_id: str
@@ -371,13 +367,12 @@ class DeploymentApiMixin(AiApiBase):
         Returns:
 
         """
-        sess = MetaAISession(app_id=app_id)
         op = Operation(query_root)
         p = op.meta_ai_prediction_by_pk(id=prediction_id)
         p.__fields__("id", "state", "created_at", "completed_at", "started_at", "error_message")
         p.model.__fields__("id", "name")
         p.instances().__fields__("id", "output", "score")
-        data = sess.perform_op(op)
+        data = self.ai_session.perform_op(op, app_id=app_id)
         try:
             return (op + data).meta_ai_prediction_by_pk
         except AttributeError:
@@ -410,7 +405,7 @@ class DeploymentApiMixin(AiApiBase):
         }
         opq = Operation(query_root)
         opq.predict_with_deployment_async(request=request).__fields__("prediction_id")
-        data = self.sess.perform_op(opq)
+        data = self.ai_session.perform_op(opq)
         res = (opq + data).predict_with_deployment_async
         prediction_id = res.prediction_id
         return prediction_id
@@ -498,16 +493,12 @@ class TrainApiMixin(AiApiBase):
 
     _resource = "train"
 
-    def __init__(self):
-        self.sess = MetaAISession()
-
     @property
     def resource(self):
         return self._resource
 
-    @staticmethod
     def create_training_template_entry(
-        ai_instance_id: Union[uuid, str], properties: dict, app_id: uuid = None, description: Optional[str] = None
+        self, ai_instance_id: Union[uuid, str], properties: dict, app_id: uuid = None, description: Optional[str] = None
     ) -> Optional[meta_ai_training_template]:
         """Creates a new training template entry.
 
@@ -519,8 +510,6 @@ class TrainApiMixin(AiApiBase):
             app_id: id of the app the template belongs to
             description: Description of template
         """
-        app_id_str = str(app_id) if app_id else None
-        sess = MetaAISession(app_id=app_id_str)
 
         op = Operation(mutation_root)
         op.insert_meta_ai_training_template_one(
@@ -532,7 +521,7 @@ class TrainApiMixin(AiApiBase):
             )
         ).__fields__("id", "app_id", "ai_instance_id", "properties", "description")
         try:
-            data = sess.perform_op(op)
+            data = self.ai_session.perform_op(op, app_id=app_id)
             log.info(f"Created training template {data}")
             return (op + data).insert_meta_ai_training_template_one
         except GraphQlException as e:
@@ -541,8 +530,8 @@ class TrainApiMixin(AiApiBase):
                     "Training template already exists. Currently only one template is allowed per app/model."
                 ) from e
 
-    @staticmethod
     def update_training_template(
+        self,
         template_id: uuid = None,
         ai_instance_id: uuid = None,
         app_id: uuid = None,
@@ -560,11 +549,9 @@ class TrainApiMixin(AiApiBase):
             description: optional description for the template
             template_id:
         """
-        app_id_str = str(app_id) if app_id else None
-        sess = MetaAISession(app_id=app_id_str)
         op = Operation(mutation_root)
         if not template_id:
-            templates = TrainApiMixin.get_training_templates(ai_instance_id, app_id)
+            templates = self.get_training_templates(ai_instance_id, app_id)
             if len(templates) < 1:
                 raise TrainingException("Cannot update template. Template does not exist.")
             template_id = templates[0].id
@@ -579,13 +566,12 @@ class TrainApiMixin(AiApiBase):
             _set=meta_ai_training_template_set_input(**update_dict),
             pk_columns=meta_ai_training_template_pk_columns_input(id=template_id),
         ).__fields__("id", "app_id", "ai_instance_id", "properties", "description")
-        data = sess.perform_op(op)
+        data = self.ai_session.perform_op(op, app_id=app_id)
         log.info(f"Updated training template {data}")
         return (op + data).update_meta_ai_training_template_by_pk.id
 
-    @staticmethod
     def get_training_templates(
-        ai_instance_id: Union[uuid, str], app_id: uuid = None
+        self, ai_instance_id: Union[uuid, str], app_id: uuid = None
     ) -> List[meta_ai_training_template]:
         """Finds training templates from the app id and model id keys.
 
@@ -596,7 +582,6 @@ class TrainApiMixin(AiApiBase):
             ai_instance_id: model if for the template
         """
         app_id_str = str(app_id) if app_id else None
-        sess = MetaAISession(app_id=app_id_str)
         op = Operation(query_root)
 
         filters = {
@@ -604,7 +589,7 @@ class TrainApiMixin(AiApiBase):
             "app_id": {"_eq": app_id_str} if app_id_str else {"_is_null": True},
         }
         op.meta_ai_training_template(where=filters).__fields__("id", "name", "properties", "created_at", "description")
-        instance_data = sess.perform_op(op)
+        instance_data = self.ai_session.perform_op(op, app_id=app_id)
         try:
             q_out = (op + instance_data).meta_ai_training_template
         except AttributeError:
@@ -613,9 +598,8 @@ class TrainApiMixin(AiApiBase):
 
         return q_out
 
-    @staticmethod
     def get_training_template(
-        template_id: Union[uuid, str], app_id: Optional[uuid]
+        self, template_id: Union[uuid, str], app_id: Optional[uuid]
     ) -> Optional[meta_ai_training_template]:
         """Query single training template by id if it exists.
 
@@ -625,8 +609,6 @@ class TrainApiMixin(AiApiBase):
             template_id: id of the template
             app_id: app id for the template
         """
-        app_id_str = str(app_id) if app_id else None
-        sess = MetaAISession(app_id=app_id_str)
         op = Operation(query_root)
 
         op.meta_ai_training_template_by_pk(id=str(template_id)).__fields__(
@@ -639,7 +621,7 @@ class TrainApiMixin(AiApiBase):
             "ai_instance_id",
             "name",
         )
-        instance_data = sess.perform_op(op)
+        instance_data = self.ai_session.perform_op(op, app_id=app_id)
         try:
             q_out = (op + instance_data).meta_ai_training_template_by_pk
         except AttributeError:
@@ -648,8 +630,7 @@ class TrainApiMixin(AiApiBase):
 
         return q_out
 
-    @staticmethod
-    def delete_training_template(id: uuid, app_id: uuid):
+    def delete_training_template(self, id: uuid, app_id: uuid):
         """Deletes an existing template.
 
         Returns: the id of the deleted entry
@@ -658,11 +639,9 @@ class TrainApiMixin(AiApiBase):
             id: the id of the template you want to remove
             app_id: ref app id for the template
         """
-        app_id_str = str(app_id) if app_id else None
-        sess = MetaAISession(app_id=app_id_str)
         op = Operation(mutation_root)
         op.delete_meta_ai_training_template_by_pk(id=id).__fields__("id")
-        data = sess.perform_op(op)
+        data = self.ai_session.perform_op(op, app_id=app_id)
         return (op + data).delete_meta_ai_training_template_by_pk.id
 
     def create_training_entry(
@@ -690,9 +669,6 @@ class TrainApiMixin(AiApiBase):
         """
         assert starting_state in [None, "STOPPED", "STARTING"], "starting_state must be one of: STOPPED, STARTING"
         properties = properties or {}
-
-        app_id_str = str(app_id) if app_id else None
-        sess = MetaAISession(app_id=app_id_str)
 
         template = None
         if template_id:
@@ -726,13 +702,13 @@ class TrainApiMixin(AiApiBase):
             )
         ).__fields__("id", "training_template_id", "current_properties", "source_checkpoint_id", "state")
 
-        data = sess.perform_op(op)
+        data = self.ai_session.perform_op(op, app_id=app_id)
 
         log.info(f"Created training instance {data}")
         return (op + data).insert_meta_ai_training_instance_one.id
 
-    @staticmethod
     def get_trainings(
+        self,
         app_id: uuid = None,
         ai_instance_id: uuid = None,
         state: str = "",
@@ -749,8 +725,6 @@ class TrainApiMixin(AiApiBase):
             limit: the maximum number of results to return
 
         """
-        # app_id_str = str(app_id) if app_id else None
-        sess = MetaAISession(app_id=app_id)
         op = Operation(query_root)
 
         filters = {}
@@ -766,7 +740,7 @@ class TrainApiMixin(AiApiBase):
         op.meta_ai_training_instance(**instance_query).__fields__(
             "state", "id", "created_at", "artifacts", "ai_instance_id", "training_template_id", "updated_at"
         )
-        instance_data = sess.perform_op(op)
+        instance_data = self.ai_session.perform_op(op, app_id=app_id)
         instances = (op + instance_data).meta_ai_training_instance
 
         logger.info(
@@ -774,8 +748,7 @@ class TrainApiMixin(AiApiBase):
         )
         return instances
 
-    @staticmethod
-    def delete_training(id: uuid, app_id: uuid):
+    def delete_training(self, id: uuid, app_id: uuid):
         """Deletes an existing training run.
 
         Returns: the id of the deleted entry
@@ -784,23 +757,20 @@ class TrainApiMixin(AiApiBase):
             id: the id of the training run you want to remove
             app_id: ref app id for the training run
         """
-        sess = MetaAISession(app_id=str(app_id) if app_id else None)
         op = Operation(mutation_root)
         op.delete_meta_ai_training_instance_by_pk(id=id).__fields__("id")
-        data = sess.perform_op(op)
+        data = self.ai_session.perform_op(op, app_id=app_id)
         return (op + data).delete_meta_ai_training_instance_by_pk.id
 
-    @staticmethod
-    def update_training_instance(instance_id: uuid, app_id: Union[click.UUID, str] = None, state: str = None):
+    def update_training_instance(self, instance_id: uuid, app_id: Union[click.UUID, str] = None, state: str = None):
         assert state in {None, "STARTING"}, "Only STARTING state is supported for now."
-        sess = MetaAISession(app_id=str(app_id) if app_id else None)
         op = Operation(mutation_root)
 
         op.update_meta_ai_training_instance_by_pk(
             _set=meta_ai_training_instance_set_input(**dict(state=state)),
             pk_columns=meta_ai_training_instance_pk_columns_input(id=instance_id),
         ).__fields__("id", "model_id", "current_properties", "state")
-        data = sess.perform_op(op)
+        data = self.ai_session.perform_op(op, app_id)
         return (op + data).update_meta_ai_training_instance_by_pk.id
 
     def get_training_instance(self, id: uuid, app_id: Optional[uuid] = None) -> meta_ai_training_instance:
@@ -812,16 +782,15 @@ class TrainApiMixin(AiApiBase):
             id: the id of the training run you want to fetch
             app_id: app id for the training run if it was based on app data
         """
-        sess = MetaAISession(app_id=str(app_id) if app_id else None)
         op = Operation(query_root)
         op.meta_ai_training_instance_by_pk(id=id).__fields__(
             "state", "id", "created_at", "artifacts", "ai_instance_id", "training_template_id", "updated_at"
         )
-        data = sess.perform_op(op)
+        data = self.ai_session.perform_op(op, app_id=app_id)
         return (op + data).meta_ai_training_instance_by_pk
 
-    @staticmethod
     def start_training_from_app_model_template(
+        self,
         app_id: uuid,
         ai_instance_id: uuid,
         task_name: str,
@@ -842,7 +811,6 @@ class TrainApiMixin(AiApiBase):
         Returns:
              Instance ID of the training created
         """
-        sess = MetaAISession(app_id=str(app_id))
 
         opq = Operation(query_root)
         request = {
@@ -856,14 +824,13 @@ class TrainApiMixin(AiApiBase):
         if metadata:
             request["metadata"] = json.dumps(metadata)
         opq.start_training(request=request).__fields__("training_instance_id")
-        data = sess.perform_op(opq)
+        data = self.ai_session.perform_op(opq, app_id=app_id)
         res = (opq + data).start_training
         training_instance_id = res.training_instance_id
         return training_instance_id
 
-    @staticmethod
     def get_artifact_download_url(
-        model_id: Union[str, uuid], artifact_type: str, app_id: uuid = None, timeout: int = 360
+        self, model_id: Union[str, uuid], artifact_type: str, app_id: uuid = None, timeout: int = 360
     ) -> str:
         """Get the download url for an artifact.
 
@@ -878,12 +845,11 @@ class TrainApiMixin(AiApiBase):
         timeout : int, Optional
             Timeout in seconds for the artifact download. Default is 360 seconds.
         """
-        app_id_str = str(app_id) if app_id else None
 
         if artifact_type not in ["weights", "source"]:
             raise ValueError("artifact_type must be one of ['weights', 'source']")
 
-        sess = MetaAIWebsocketSession(app_id=app_id_str)
+        sess = MetaAIWebsocketSession(app_id=app_id)
 
         # Start artifact compression in backend and get operation id
         op = Operation(mutation_root)

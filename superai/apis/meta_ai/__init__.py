@@ -5,7 +5,7 @@ from .model import DeploymentApiMixin, TrainApiMixin
 from .project_ai import ProjectAiApiMixin
 
 
-class AiApiMixin(
+class MetaAiApiMixin(
     ProjectAiApiMixin,
     DeploymentApiMixin,
     TrainApiMixin,

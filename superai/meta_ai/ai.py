@@ -6,11 +6,12 @@ import re
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Union
 
 import attr
 import attrs.validators
 import boto3  # type: ignore
+import botocore.exceptions
 import yaml
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import ValidationError
@@ -168,7 +169,7 @@ class AI:
     """
 
     name: str = attr.field(validator=_ai_name_validator)
-    model_class: str
+    model_class: Optional[str] = None
     description: Optional[str] = None
     configuration: Optional[Config] = None
     version: Optional[str] = attr.field(default=DEFAULT_VERSION, validator=_ai_version_validator)
@@ -194,6 +195,8 @@ class AI:
     default_image: Optional[str] = None
     default_checkpoint: Optional[str] = None
     visibility: Optional[str] = attr.field(default="PRIVATE", validator=attr.validators.in_(["PRIVATE", "PUBLIC"]))
+    owner_id: Optional[str] = None
+    organization_id: Optional[str] = None
     _model_save_path: Optional[str] = None
     _created_at: Optional[datetime] = None
     _updated_at: Optional[datetime] = None
@@ -266,6 +269,13 @@ class AI:
                 Will reload the model class even if it was already loaded before.
 
         """
+        if not self.model_class:
+            raise AIException(
+                "Model class (model_class) not specified."
+                "Model class is the name of the class that inherits from BaseAI."
+                "If you are loading an existing AI, use `AI.load()` instead."
+                "AI.load_essential() can be used to load an AI without any local functionality."
+            )
         if self._model_class_instance is None or force_reload:
             model_class_template = get_user_model_class(
                 model_name=self.model_class, save_location=self.model_class_path
@@ -296,13 +306,27 @@ class AI:
             pull_db_data: If True, will pull the latest data from the database.
 
         Returns:
-            An instance of the `AI_Template` class.
+            An instance of the `AI` class.
 
         Raises:
             ValueError: If the path is not valid.
         """
         weights_path = Path(weights_path) if weights_path else None
-        return AILoader.load_ai(path, weights_path, pull_db_data=pull_db_data)
+
+        try:
+            return AILoader.load_ai(path, weights_path, pull_db_data=pull_db_data)
+        except botocore.exceptions.NoCredentialsError:
+            # Handle NoCredentialsError here
+            # You can log the error or raise a custom exception
+            raise SuperAIAWSException("AWS credentials are missing or invalid. Unable to load AI from S3.")
+
+    @classmethod
+    def load_essential(
+        cls,
+        identifier: str,
+    ):
+        """Loads an AI from the database without any local functionality."""
+        return AILoader.load_essential(identifier)
 
     def cache_path(self) -> Path:
         """Static cache path for storing the deployed predictor configuration"""
@@ -336,7 +360,7 @@ class AI:
         except GraphQlException as e:
             if "Uniqueness violation" not in str(e):
                 raise e
-            self.id = self._client.list_ai_by_name_version(self.name, self.version)[0]["id"]
+            self.id = self._client.list_ai(name=self.name, version=self.version)[0]["id"]
         return self.id
 
     def predict(self, inputs: Union[TaskInput, List[dict]]) -> List[TaskPredictionInstance]:
@@ -495,7 +519,7 @@ class AI:
         """Load the id from the database if it exists."""
         if not self.id:
             with contextlib.suppress(GraphQlException, IndexError):
-                potential_ais = self._client.list_ai_by_name_version(self.name, self.version)
+                potential_ais = self._client.list_ai(name=self.name, version=self.version)
                 if len(potential_ais) > 1:
                     raise AIException(
                         f"Multiple AIs found with name {self.name} and version {self.version}. "
@@ -625,6 +649,21 @@ class AI:
             yaml_dict.update(db_dict)
         yaml_dict = cls._remove_patch_from_version(yaml_dict)
         return AI.from_dict(yaml_dict)
+
+    from typing import Optional
+
+    @classmethod
+    def from_db(cls, ai_id: Optional[str] = None, ai_uri: Optional[str] = None) -> "AI":
+        if ai_id is None and ai_uri is None:
+            raise ValueError("Either 'ai_id' or 'ai_uri' must be provided.")
+
+        db_dict = None
+        if ai_id:
+            db_dict = AILoader._get_ai_dict_by_id(ai_id)
+
+        # Add logic for `ai_uri` if needed
+
+        return AI.from_dict(db_dict)
 
     @staticmethod
     def _remove_patch_from_version(yaml_input: Dict) -> Dict:

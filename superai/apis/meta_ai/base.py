@@ -1,9 +1,7 @@
 from abc import ABC
-from typing import Dict, Iterable, List, Union
+from typing import Dict, Iterable, List, Optional, Union
 
 import sgqlc
-
-from .session import MetaAISession
 
 
 class AiApiBase(ABC):
@@ -11,8 +9,10 @@ class AiApiBase(ABC):
     BASE_FIELDS: List[str] = []
     EXTRA_FIELDS: List[str] = []
 
-    def __init__(self):
-        self.sess = MetaAISession()
+    def __init__(self, organization_id: Optional[int] = None, user_id: Optional[int] = None):
+        from .session import MetaAISession
+
+        self.ai_session = MetaAISession(organization_id=organization_id, owner_id=user_id)
 
     @property
     def resource(self) -> str:

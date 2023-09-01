@@ -5,14 +5,15 @@ endif
 
 ifdef LOCAL
 	# get hasura port using docker client
-	HASURA_PORT=$(shell eval docker port meta-ai_hasura_1 8080 | grep -o "\:[0-9]*" | cut -d ":" -f 2)
+	HASURA_PORT=$(shell eval docker port meta-ai_hasura_1 8080 | grep -o "\:[0-9]*" | cut -d ":" -f 2 | head -n 1)
 	# If not found try spelling with all dashes
 	ifeq ("$(HASURA_PORT)","")
-		HASURA_PORT=$(shell eval docker port meta-ai-hasura-1 8080 | grep -o "\:[0-9]*" | cut -d ":" -f 2)
+		HASURA_PORT=$(shell eval docker port meta-ai-hasura-1 8080 | grep -o "\:[0-9]*" | cut -d ":" -f 2 | head -n 1)
 	endif
 	HASURA_ENDPOINT="http://localhost:${HASURA_PORT}/v1/graphql"
 	HASURA_ADMIN_SECRET="myadminsecretkey"
 endif
+
 
 meta_ai_schema.json:
 	@echo "Local=${LOCAL}"
