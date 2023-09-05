@@ -54,6 +54,7 @@ REQUIRES = [
     "sentry-sdk>=0.19.4",
     "sgqlc[websocket]>=16.2",
     "uvicorn>=0.15.0",
+    "superai_logging>=0.1.0",
     "opentelemetry-distro[otlp]>=0.40b0",
     "opentelemetry-instrumentation-botocore>=0.40b0",
     "opentelemetry-instrumentation-requests>=0.40b0",

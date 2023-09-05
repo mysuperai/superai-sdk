@@ -165,7 +165,7 @@ class ChatGPT(OpenAIFoundation):
                     "openai_params": openai_params,
                 }
             }
-            log.info(json.dumps(azure_response))
+            log.info("Azure OpenAI call successful", extra=azure_response)
         except RateLimitError as e:
 
             # Maxing out requests in order to block other openai callers
@@ -197,7 +197,7 @@ class ChatGPT(OpenAIFoundation):
                     "openai_params": openai_params,
                 }
             }
-            log.warning(json.dumps(azure_response))
+            log.warning("Azure OpenAI call cause RateLimitError", extra=azure_response)
 
             time.sleep(sleep_time)
             raise e
@@ -212,7 +212,7 @@ class ChatGPT(OpenAIFoundation):
                     "openai_params": openai_params,
                 }
             }
-            log.warning(json.dumps(azure_response))
+            log.warning(f"Azure OpenAI call caused {e.error}", extra=azure_response)
             raise e
 
         except OpenAIError as e:
@@ -224,7 +224,7 @@ class ChatGPT(OpenAIFoundation):
                     "action": "stop",
                 }
             }
-            log.exception(json.dumps(azure_response))
+            log.exception("Azure OpenAI call caused OpenAIError", extra=azure_response)
             raise e
 
         except Exception as e:
