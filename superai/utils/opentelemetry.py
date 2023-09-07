@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from typing import Optional, Tuple
 
 from fastapi import FastAPI
-from opentelemetry import context, trace
+from opentelemetry import trace
 from opentelemetry.context.context import Context
 from opentelemetry.instrumentation.botocore import BotocoreInstrumentor
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -43,7 +43,8 @@ def _extract_and_activate_span(tags: dict) -> Optional[Tuple[Span, Context]]:
         # Set the span context as the current context
         span = trace.get_current_span()
         trace.set_span_in_context(span, span_context)
-        context.attach(span_context)
+        # Try disabling attach to not clear traceid from global context
+        # context.attach(span_context)
         return span, span_context
     except Exception as e:
         log.debug(f"Failed to extract span context from tags: {tags}. Error: {e}")

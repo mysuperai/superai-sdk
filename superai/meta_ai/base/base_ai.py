@@ -76,7 +76,7 @@ class BaseAI(metaclass=ABCMeta):
             elif meta is None:
                 log.warning(f"Received inputs without meta header. Type of inputs: {type(inputs)}")
 
-            span_context = None
+            span, span_context, tags = None, None, None
             if meta:
                 if "puid" in meta:
                     log.info(f"Received prediction request for prediction_uuid={meta['puid']}")
@@ -88,13 +88,15 @@ class BaseAI(metaclass=ABCMeta):
                     if span:
                         # Add superai attributes to the span
                         tags.pop("traceparent", None)
-                        span.set_attributes(tags)
 
             # Main function
             exception = None
             json_dict = None
             try:
                 with tracer.start_as_current_span("predict_function", kind=SpanKind.CONSUMER, context=span_context):
+                    if span and tags:
+                        # Attach attributes in child span
+                        span.set_attributes(tags)
                     prediction_result = pred_func(self, inputs)
                 json_string = json.dumps(prediction_result)
                 json_dict = json.loads(json_string)
