@@ -47,6 +47,7 @@ REQUIRES = [
     "pandas>=1.2.5",
     "pip>=19.1",
     "pycognito>=2022.12.0",
+    "pydantic<2.0.0",
     "pyyaml>=3.13",
     "requests>=2.22",
     "rich>=10.1",
