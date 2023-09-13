@@ -36,6 +36,7 @@ class MetaAISession(RequestsEndpoint):
     ):
         self._organization_id = organization_id
         self._owner_id = owner_id
+        log.debug(f"MetaAI session created with organization_id={organization_id} and owner_id={owner_id}")
         self.base_url = f"{settings.get('meta_ai_request_protocol')}://{settings.get('meta_ai_base')}"
         if os.getenv("LOCAL_META_AI"):
             self.base_url = self._get_local_endpoint()

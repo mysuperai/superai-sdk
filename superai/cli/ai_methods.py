@@ -108,7 +108,7 @@ def train(
     )
     processed_hyperparameters = HyperParameterSpec.load_from_list(hyperparameters)
     processed_model_parameters = ModelParameters.load_from_list(model_parameters)
-    ai_object = AI.load(path, weights_path=weights_path)
+    ai_object = AI.load(path, weights_path=weights_path, pull_db_data=False)
     ai_object.train(
         model_save_path=model_save_path,
         training_data=training_data_path,

@@ -65,20 +65,26 @@ def list_ai_instances(
 @click.option(
     "--ai_uri",
     "-a",
-    required=True,
     help="URI of the AI you want to instantiate. E.g. 'ai://superai/doc-processor'",
 )
-@click.option("--name", "-n", required=True, help="Name of the new instance.")
-def instantiate(ai_uri: str, name: str):
+@click.option("--name", "-n", help="Name of the new instance.")
+@click.option("--ai_uuid", "-u", help="UUID of the AI you want to instantiate.")
+def instantiate(ai_uri: str = None, name: str = None, ai_uuid: str = None):
     """Instantiate a new AI instance from an existing AI."""
-    from superai.meta_ai.ai_uri import AiURI
-
-    uri = AiURI.parse(ai_uri)
-    if uri.owner_name != "superai":
-        log.warning("Only superai models can be instantiated currently.")
+    if not ai_uri and not ai_uuid:
+        log.warning("Please provide either an AI URI or an AI UUID.")
         return
 
     from superai.meta_ai.ai_helper import instantiate_superai
 
-    instance = instantiate_superai(ai_name=uri.model_name, ai_version=uri.version, new_instance_name=name)
+    if ai_uri:
+        from superai.meta_ai.ai_uri import AiURI
+
+        uri = AiURI.parse(ai_uri)
+        if uri.owner_name != "superai":
+            log.warning("Only superai models can be instantiated currently.")
+            return
+        instance = instantiate_superai(ai_name=uri.model_name, ai_version=uri.version, new_instance_name=name)
+    else:
+        instance = instantiate_superai(ai_uuid=ai_uuid, new_instance_name=name)
     log.info(f"Instantiated new AI instance: {instance}")

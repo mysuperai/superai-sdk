@@ -466,9 +466,12 @@ def test_ai_instance_config(tmp_path):
     assert config_file2.instances[0].weights_path == "s3://test"
 
 
-def test_get_public_superai_instance(saved_ai):
+def test_get_public_superai_instance(saved_ai, mocker):
     ai_instance = saved_ai.create_instance(visibility="PUBLIC")
     assert ai_instance.id
+
+    # Imitate superai owner id with our own user id
+    mocker.patch("superai.meta_ai.ai_helper.SUPERAI_OWNER_ID", ai_instance.owner_id)
 
     assert get_public_superai_instance(name=ai_instance.name, version=saved_ai.version)
     assert not get_public_superai_instance(name=ai_instance.name, version="0.0.0")

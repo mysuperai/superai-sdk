@@ -125,8 +125,6 @@ class AITrainer:
             raise ValueError("Either app_id or training_data_dir is required")
         if training_data_dir is not None and app_id is not None:
             raise ValueError("Only one of app_id or training_data_dir is allowed")
-        if app_id is not None and task_name is None:
-            raise ValueError("task_name is required when app_id is provided")
 
         # TODO: add method which works with local training
         orchestrator = TrainingOrchestrator.AWS_EKS
@@ -137,11 +135,12 @@ class AITrainer:
         deployment_parameters = AiDeploymentParameters.merge_deployment_parameters(
             self.ai.default_deployment_parameters, properties, enable_cuda
         )
-
-        # Build image and merge all parameters
-        loaded_parameters = self._prepare_training(
-            orchestrator, deployment_parameters, training_parameters, skip_build, use_internal, **kwargs
-        )
+        loaded_parameters = {}
+        if not skip_build:
+            # Build image and merge all parameters
+            loaded_parameters = self._prepare_training(
+                orchestrator, deployment_parameters, training_parameters, skip_build, use_internal, **kwargs
+            )
 
         # Create a training template
         template_id = self._get_or_create_training_entry(
@@ -153,6 +152,7 @@ class AITrainer:
         )
 
         source_checkpoint_id = self.ai_instance.get_checkpoint().id  # TODO: Allow passing of checkpoint id
+        log.info(f"Using source checkpoint {source_checkpoint_id} for training")
 
         if training_data_dir is not None:
             log.info(f"Using local training data from {training_data_dir}")
@@ -172,10 +172,10 @@ class AITrainer:
                 ai_instance_id=self.ai_instance.id,
                 task_name=task_name,
                 training_template_id=template_id,
+                checkpoint_id=source_checkpoint_id,
                 current_properties=loaded_parameters,
                 metadata=metadata,
             )
-
         # Start the training in the backend
         instance = self.ai._client.update_training_instance(instance_id, app_id, state="STARTING")
         log.info(f"Created training instance : {instance}. Will be started in the backend")
@@ -281,7 +281,7 @@ class AITrainer:
         properties = properties or {}
 
         # Check if a training template entry already exists
-        existing_templates = self.ai._client.get_training_templates(ai_instance_id=ai_instance_id, app_id=app_id)
+        existing_templates = self.ai._client.list_training_templates(ai_instance_id=ai_instance_id, app_id=app_id)
         if existing_templates:
             template_id = existing_templates[0].id
             log.info(f"Found existing training template with ID {template_id}")

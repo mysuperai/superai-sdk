@@ -354,6 +354,7 @@ class AIInstance:
         local_path: Optional[Union[str, Path]] = None,
         deployment_parameters: Optional[Union[dict, AiDeploymentParameters]] = None,
         training_parameters: Optional[TrainingParameters] = None,
+        skip_build: bool = True,
         **kwargs,
     ) -> dict:
         """Trains the AI instance (remotely).
@@ -370,13 +371,14 @@ class AIInstance:
         from superai.meta_ai import AI
         from superai.meta_ai.ai_trainer import AITrainer
 
-        ai = AI.load(self.template_id)
+        ai = AI.load_essential(self.template_id)
         trainer = AITrainer(ai, self)
         return trainer.training_deploy(
             app_id=app_id,
             training_data_dir=local_path,
             properties=deployment_parameters,
             training_parameters=training_parameters,
+            skip_build=skip_build,
             **kwargs,
         )
 

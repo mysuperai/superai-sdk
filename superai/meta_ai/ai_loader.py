@@ -280,7 +280,7 @@ class AILoader:
         save_file = load_path / TEMPLATE_SAVE_FILE_NAME
         from superai.meta_ai.ai import AI
 
-        loaded_ai = AI.from_yaml(save_file, pull_db_data=pull_db_data)
+        loaded_ai = AI.from_yaml(save_file, pull_db_data=pull_db_data, override_weights_path=weights_path)
         loaded_ai._location = load_path
         log.info(f"Loaded model {loaded_ai}")
         cls._load_weights(weights_path, str(download_folder))

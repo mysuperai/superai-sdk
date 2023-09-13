@@ -66,22 +66,26 @@ class Client(
         from superai.apis.meta_ai.session import MetaAISession
 
         self.ai_session: Optional[MetaAISession] = None
-
         if organization_name:
             self._get_org_context(organization_name)
 
         super(Client, self).__init__(organization_id=self._organization_id, user_id=self._user_id)
 
-    def _get_org_context(self, organization_name):
-        logger.info(f"Using organisation context: {organization_name}")
-        user = self.get_user()
+    def _get_org_context(self, organization_name: Optional[str]):
+        try:
+            user = self.get_user()
+            self._user_id = user.id
+        except requests.exceptions.ConnectionError:
+            logger.warning("Could not connect to Super.AI API. Skipping user context init.")
+            return
 
-        if organization_name == "superai":
+        if not organization_name:
+            return
+        elif organization_name == "superai":
             self._organization_id = 1
         else:
             self._organization_id = self._get_organization_id(organization_name, user=user)
-
-        self._user_id = self._get_user_id(user=user)
+        logger.info(f"Using organisation context: {organization_name}")
 
     @classmethod
     def from_credentials(cls, organization_name: Optional[str] = None) -> "Client":

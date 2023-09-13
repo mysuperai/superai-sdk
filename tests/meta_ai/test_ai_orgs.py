@@ -237,9 +237,9 @@ def test_load_public_ai(public_ai):
         assert not reload_ai.organization_id
 
 
-@patch("superai.client.Client._get_user_id", return_value=2)
+@patch("superai.client.Client._get_user_id", return_value=3)
 def test_instantiate_public_superai(mocked_user_id_call, public_ai):
-    my_id = 2
+    my_id = 3
     with user_session(org_id=my_id, owner_id=my_id):
         ai_uri = "ai://superai/public_ai"
         uri = AiURI.parse(ai_uri)

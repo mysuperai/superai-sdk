@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from typing import Union
 
 import click
@@ -34,73 +35,99 @@ def list_trainings(client, app_id: Union[str, click.UUID], model_id: Union[str, 
     """List trainings. Allows filtering by state and application id."""
     model_id_str = str(model_id) if model_id else None
     app_id_str = str(app_id) if app_id else None
-    trainings = client.get_trainings(app_id_str, model_id_str, state=state, limit=limit)
+    trainings = client.list_trainings(app_id_str, model_id_str, state=state, limit=limit)
     if trainings:
         print(trainings)
 
 
 @ai_training_group.command(name="start")
-@click.option("--app_id", "-a", help="Application id", required=True)
+@click.option("--app_id", "-a", help="Application id", required=False)
 @click.option("--model_id", "-m", help="Model id", required=True)
 @click.option(
-    "--properties",
-    "-p",
-    help="Custom properties, if not set default ones for the template will be used",
-    required=True,
+    "--deployment-parameters",
+    "-dp",
+    help="Custom deployment parameters, if not set default ones for the template will be used",
 )
+@click.option(
+    "--training-parameters",
+    "-tp",
+    help="Custom training parameters, if not set default ones for the template will be used",
+)
+# Add local path dir option
+@click.option("--local-path", "-lp", help="Local path to the training data", required=False, type=click.Path())
 @pass_client
-def start_training(client, app_id: Union[str, click.UUID], model_id: Union[str, click.UUID], properties: str):
-    """Start a new training"""
-    json_inputs = None
-    if properties:
+def start_training(
+    client,
+    app_id: Union[str, click.UUID],
+    model_id: Union[str, click.UUID],
+    deployment_parameters: str = None,
+    training_parameters: str = None,
+    local_path: Path = None,
+):
+    """Start a new training, either based on app data or local data."""
+    if deployment_parameters:
         try:
-            json_inputs = json.loads(properties)
+            deployment_parameters = json.loads(deployment_parameters)
+        except Exception:
+            print(JSON_ERROR_MESSAGE)
+            exit()
+    if training_parameters:
+        try:
+            training_parameters = json.loads(training_parameters)
         except Exception:
             print(JSON_ERROR_MESSAGE)
             exit()
 
-    idx = client.create_training_entry(str(model_id), str(app_id), json_inputs)
+    from superai.meta_ai import AIInstance
+
+    ai_instance = AIInstance.load(model_id)
+    idx = ai_instance.train(
+        app_id=app_id,
+        deployment_parameters=deployment_parameters,
+        training_parameters=training_parameters,
+        local_path=local_path,
+    )
     if idx:
         print(f"Started a new training with ID {idx}")
 
 
-@ai_training_group.command(name="trigger-template")
-@click.option("--app_id", "-a", help="Application id", required=True)
-@click.option("--model_id", "-m", help="Model id", required=True)
-@click.option("--training_template_id", "-tt", help="Training Template id", required=True)
-@click.option("--task-name", "-tn", help="Task name to prepare dataset", required=True, type=str)
-@click.option("--properties", "-p", help="Custom properties", required=False, type=dict)
-@click.option("--metadata", "-md", help="Metadata", required=False, type=dict)
-@pass_client
-def trigger_template_training(
-    client,
-    app_id: Union[str, click.UUID],
-    model_id: Union[str, click.UUID],
-    training_template_id: Union[str, click.UUID],
-    task_name: str,
-    properties: dict,
-    metadata: dict,
-):
-    """Start a new training from template"""
-    try:
-        if properties:
-            properties = json.loads(properties)
-        if metadata:
-            metadata = json.loads(metadata)
-    except Exception:
-        print("Could process JSON properties or metadata")
-        exit()
-
-    idx = client.start_training_from_app_model_template(
-        app_id=str(app_id),
-        ai_instance_id=str(model_id),
-        task_name=task_name,
-        training_template_id=str(training_template_id),
-        current_properties=properties,
-        metadata=metadata,
-    )
-    if idx:
-        print(f"Started new training with ID {idx}")
+# @ai_training_group.command(name="trigger-template")
+# @click.option("--app_id", "-a", help="Application id", required=True)
+# @click.option("--model_id", "-m", help="Model id", required=True)
+# @click.option("--training_template_id", "-tt", help="Training Template id", required=True)
+# @click.option("--task-name", "-tn", help="Task name to prepare dataset", required=True, type=str)
+# @click.option("--properties", "-p", help="Custom properties", required=False, type=dict)
+# @click.option("--metadata", "-md", help="Metadata", required=False, type=dict)
+# @pass_client
+# def trigger_template_training(
+#     client,
+#     app_id: Union[str, click.UUID],
+#     model_id: Union[str, click.UUID],
+#     training_template_id: Union[str, click.UUID],
+#     task_name: str,
+#     properties: dict,
+#     metadata: dict,
+# ):
+#     """Start a new training from template"""
+#     try:
+#         if properties:
+#             properties = json.loads(properties)
+#         if metadata:
+#             metadata = json.loads(metadata)
+#     except Exception:
+#         print("Could process JSON properties or metadata")
+#         exit()
+#      #FIXME: Needs AI checkpoint to use this next function
+#     idx = client.start_training_from_app_model_template(
+#         app_id=str(app_id),
+#         ai_instance_id=str(model_id),
+#         task_name=task_name,
+#         training_template_id=str(training_template_id),
+#         current_properties=properties,
+#         metadata=metadata,
+#     )
+#     if idx:
+#         print(f"Started new training with ID {idx}")
 
 
 @ai_training_group.group()
@@ -180,7 +207,7 @@ def update_template(
 @pass_client
 def list_training_templates(client, app_id: Union[str, click.UUID], model_id: Union[str, click.UUID]):
     """List existing training templates."""
-    templates = client.get_training_templates(str(model_id), str(app_id))
+    templates = client.list_training_templates(str(model_id), str(app_id))
     if templates:
         print(templates)
 

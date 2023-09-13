@@ -57,7 +57,7 @@ test: ## run tests quickly with the default Python
 	pytest --vcr-record=none --junitxml=.test/junit.xml --cov=superai --cov-report=xml:.test/coverage.xml
 
 clean-ai-cassette:
-	rm tests/meta_ai/fixtures/cassettes/*.yaml
+	rm tests/meta_ai/fixtures/cassettes/*.yaml || true
 
 record-ai-cassette: clean-ai-cassette
 	LOCAL_META_AI=1 pytest --vcr-record=once tests/meta_ai -L

@@ -1203,13 +1203,22 @@ class String_comparison_exp(sgqlc.types.Input):
 
 class TrainingParameters(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("app_id", "current_properties", "metadata", "model_id", "task_name", "training_template_id")
+    __field_names__ = (
+        "app_id",
+        "current_properties",
+        "metadata",
+        "model_id",
+        "task_name",
+        "training_template_id",
+        "checkpoint_id",
+    )
     app_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="app_id")
     current_properties = sgqlc.types.Field(json, graphql_name="current_properties")
     metadata = sgqlc.types.Field(json, graphql_name="metadata")
     model_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="model_id")
-    task_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="task_name")
+    task_name = sgqlc.types.Field(String, graphql_name="task_name")
     training_template_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="training_template_id")
+    checkpoint_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="checkpoint_id")
 
 
 class bigint_comparison_exp(sgqlc.types.Input):

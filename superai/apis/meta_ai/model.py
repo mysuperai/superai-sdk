@@ -12,6 +12,7 @@ from rich.table import Table
 from sgqlc.operation import Operation
 
 from superai.apis.meta_ai.meta_ai_graphql_schema import (
+    TrainingParameters,
     download_artifact_async,
     meta_ai_deployment,
     meta_ai_deployment_bool_exp,
@@ -551,7 +552,7 @@ class TrainApiMixin(AiApiBase):
         """
         op = Operation(mutation_root)
         if not template_id:
-            templates = self.get_training_templates(ai_instance_id, app_id)
+            templates = self.list_training_templates(ai_instance_id, app_id)
             if len(templates) < 1:
                 raise TrainingException("Cannot update template. Template does not exist.")
             template_id = templates[0].id
@@ -570,7 +571,7 @@ class TrainApiMixin(AiApiBase):
         log.info(f"Updated training template {data}")
         return (op + data).update_meta_ai_training_template_by_pk.id
 
-    def get_training_templates(
+    def list_training_templates(
         self, ai_instance_id: Union[uuid, str], app_id: uuid = None
     ) -> List[meta_ai_training_template]:
         """Finds training templates from the app id and model id keys.
@@ -658,7 +659,6 @@ class TrainApiMixin(AiApiBase):
         Returns: the id of the started training
 
         Args:
-            source_checkpoint_id:
             ai_instance_id: id of the AI instance
             app_id: id of the app the template belongs to
             properties: the default properties that will get inherited during trainings
@@ -667,22 +667,12 @@ class TrainApiMixin(AiApiBase):
             source_checkpoint_id: id of the checkpoint to use as a starting weights
 
         """
+        assert source_checkpoint_id
         assert starting_state in [None, "STOPPED", "STARTING"], "starting_state must be one of: STOPPED, STARTING"
         properties = properties or {}
 
-        template = None
-        if template_id:
-            log.info(f"Using template_id={template_id}")
-            template = self.get_training_template(str(template_id), app_id=app_id)
-        elif app_id:
-            # Pick one of the templates for this app
-            templates = self.get_training_templates(ai_instance_id, app_id)
-            if len(templates) < 1:
-                log.warning("No existing template found. Creating new one automatically.")
-                template = self.create_training_template_entry(ai_instance_id, properties, app_id)
-            else:
-                template = templates[0]
-            log.info(f"Creating new training run based on exising template: {template}")
+        # Each training run needs a template to start from
+        template = self._find_training_template(ai_instance_id, app_id, properties, template_id)
 
         if not properties and template:
             log.info("No properties specified. Using default properties from template.")
@@ -694,7 +684,7 @@ class TrainApiMixin(AiApiBase):
 
         op.insert_meta_ai_training_instance_one(
             object=meta_ai_training_instance_insert_input(
-                training_template_id=template_id or template.get("id") if template else None,
+                training_template_id=template_id or template.id if template else None,
                 current_properties=json.dumps(properties),
                 source_checkpoint_id=source_checkpoint_id,
                 state=starting_state,
@@ -707,7 +697,23 @@ class TrainApiMixin(AiApiBase):
         log.info(f"Created training instance {data}")
         return (op + data).insert_meta_ai_training_instance_one.id
 
-    def get_trainings(
+    def _find_training_template(self, ai_instance_id, app_id, properties, template_id) -> meta_ai_training_template:
+        template = None
+        if template_id:
+            log.info(f"Using template_id={template_id}")
+            template = self.get_training_template(str(template_id), app_id=app_id)
+        elif app_id:
+            # Pick one of the templates for this app
+            templates = self.list_training_templates(ai_instance_id, app_id)
+            if len(templates) < 1:
+                log.warning("No existing template found. Creating new one automatically.")
+                template = self.create_training_template_entry(ai_instance_id, properties, app_id)
+            else:
+                template = templates[0]
+            log.info(f"Creating new training run based on exising template: {template}")
+        return template
+
+    def list_trainings(
         self,
         app_id: uuid = None,
         ai_instance_id: uuid = None,
@@ -738,7 +744,7 @@ class TrainApiMixin(AiApiBase):
         instance_query = dict(where=filters, limit=limit)
         log.warning("Without providing an app_id, only trainings without associated apps will be shown.")
         op.meta_ai_training_instance(**instance_query).__fields__(
-            "state", "id", "created_at", "artifacts", "ai_instance_id", "training_template_id", "updated_at"
+            "state", "id", "created_at", "artifacts", "modelv2_id", "training_template_id", "updated_at"
         )
         instance_data = self.ai_session.perform_op(op, app_id=app_id)
         instances = (op + instance_data).meta_ai_training_instance
@@ -769,8 +775,8 @@ class TrainApiMixin(AiApiBase):
         op.update_meta_ai_training_instance_by_pk(
             _set=meta_ai_training_instance_set_input(**dict(state=state)),
             pk_columns=meta_ai_training_instance_pk_columns_input(id=instance_id),
-        ).__fields__("id", "model_id", "current_properties", "state")
-        data = self.ai_session.perform_op(op, app_id)
+        ).__fields__("id", "modelv2_id", "current_properties", "state")
+        data = self.ai_session.perform_op(op, app_id=app_id)
         return (op + data).update_meta_ai_training_instance_by_pk.id
 
     def get_training_instance(self, id: uuid, app_id: Optional[uuid] = None) -> meta_ai_training_instance:
@@ -784,7 +790,7 @@ class TrainApiMixin(AiApiBase):
         """
         op = Operation(query_root)
         op.meta_ai_training_instance_by_pk(id=id).__fields__(
-            "state", "id", "created_at", "artifacts", "ai_instance_id", "training_template_id", "updated_at"
+            "state", "id", "created_at", "artifacts", "modelv2_id", "training_template_id", "updated_at"
         )
         data = self.ai_session.perform_op(op, app_id=app_id)
         return (op + data).meta_ai_training_instance_by_pk
@@ -795,6 +801,7 @@ class TrainApiMixin(AiApiBase):
         ai_instance_id: uuid,
         task_name: str,
         training_template_id: uuid,
+        checkpoint_id: str,
         current_properties: Optional[dict] = None,
         metadata: Optional[dict] = None,
     ) -> uuid:
@@ -805,6 +812,7 @@ class TrainApiMixin(AiApiBase):
             app_id: App ID
             ai_instance_id: AI Instance ID
             task_name: Task name of the tasks to be trained on
+            checkpoint_id: ID of the AI checkpoint to be used as a starting point
             training_template_id: ID of the training template
             current_properties: properties to be passed to the training
             metadata: metadata passed to training
@@ -813,12 +821,13 @@ class TrainApiMixin(AiApiBase):
         """
 
         opq = Operation(query_root)
-        request = {
-            "app_id": app_id,
-            "ai_instance_id": ai_instance_id,
-            "task_name": task_name,
-            "training_template_id": training_template_id,
-        }
+        request = TrainingParameters(
+            app_id=app_id,
+            model_id=ai_instance_id,
+            task_name=task_name,
+            checkpoint_id=checkpoint_id,
+            training_template_id=training_template_id,
+        )
         if current_properties:
             request["current_properties"] = json.dumps(current_properties)
         if metadata:

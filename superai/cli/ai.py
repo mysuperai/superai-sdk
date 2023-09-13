@@ -51,6 +51,18 @@ def validate_ai_config(file: pathlib.Path):
     print(ai)
 
 
+@ai_group.command("export-local")
+@click.option("--file", "-f", default="config.yml")
+@click.option("--output-dir", "-o", default=".AISave", help="Output directory to save the AI config file.")
+@click.option("--overwrite", "-w", is_flag=True, default=False, help="Overwrite existing file.")
+def export_ai(file: pathlib.Path, output_dir: pathlib.Path, overwrite: bool):
+    """Exports all the files necessary to deploy the AI locally."""
+    from superai.meta_ai import AI
+
+    ai = AI.from_yaml(file)
+    ai._save_local(path=output_dir, overwrite=overwrite)
+
+
 @ai_group.command("migrate-config")
 @click.option("--file", "-f", default="config.yml")
 @click.option("--yes", "-y", is_flag=True, default=False)

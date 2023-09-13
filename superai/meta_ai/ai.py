@@ -277,8 +277,15 @@ class AI:
                 "AI.load_essential() can be used to load an AI without any local functionality."
             )
         if self._model_class_instance is None or force_reload:
+            class_path = Path(self.model_class_path)
+            if class_path.is_absolute():
+                log.warning(
+                    "Model class path is absolute. Ensure that the path is given relative to the AI config location."
+                )
+                class_path = class_path.relative_to(self._location)
+
             model_class_template = get_user_model_class(
-                model_name=self.model_class, save_location=self.model_class_path
+                model_name=self.model_class, save_location=self._location / class_path
             )
             self._model_class_instance: BaseAI = model_class_template(
                 input_schema=self.input_schema,
@@ -634,7 +641,9 @@ class AI:
         )
 
     @classmethod
-    def from_yaml(cls, yaml_file: Union[Path, str], pull_db_data=False) -> AI:
+    def from_yaml(
+        cls, yaml_file: Union[Path, str], pull_db_data=False, override_weights_path: Optional[str] = None
+    ) -> AI:
         """Create an AI_Template instance from a yaml file"""
         with open(yaml_file, "r") as f:
             yaml_dict = yaml.safe_load(f)
@@ -647,6 +656,10 @@ class AI:
         if pull_db_data and ai_id:
             db_dict = AILoader._get_ai_dict_by_id(ai_id)
             yaml_dict.update(db_dict)
+
+        if override_weights_path:
+            yaml_dict["weights_path"] = override_weights_path
+
         yaml_dict = cls._remove_patch_from_version(yaml_dict)
         return AI.from_dict(yaml_dict)
 

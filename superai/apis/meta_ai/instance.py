@@ -103,6 +103,13 @@ class AiInstanceApiMixin(AiApiBase):
         op = Operation(query_root)
         fields = AiInstanceApiMixin._fields(True)
         where = {"name": {"_eq": name}}
+
+        # Filter by organization_id and owner_id
+        if self.ai_session.owner_id:
+            where["owner_id"] = {"_eq": self.ai_session.owner_id}
+        if self.ai_session.organization_id:
+            where["organization_id"] = {"_eq": self.ai_session.organization_id}
+
         if template_id:
             where["template_id"] = {"_eq": template_id}
         op.meta_ai_modelv2(where=where).__fields__(*fields)
