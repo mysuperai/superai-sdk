@@ -30,7 +30,7 @@ class AiInstanceApiMixin(AiApiBase):
     """Instance API"""
 
     _resource = "aiInstance"
-    BASE_FIELDS = ["name", "id", "template_id", "checkpoint_tag", "visibility"]
+    BASE_FIELDS = ["name", "id", "template_id", "checkpoint_tag", "visibility", "ai_worker_id"]
     EXTRA_FIELDS = [
         "created_at",
         "description",
@@ -39,7 +39,6 @@ class AiInstanceApiMixin(AiApiBase):
         "organization_id",
         "updated_at",
         "deployment_parameters",
-        "ai_worker_id",
         "ai_worker_username",
         "served_by",
     ]
@@ -79,10 +78,11 @@ class AiInstanceApiMixin(AiApiBase):
             where["owner_id"] = {"_eq": owner_id}
         if organization_id:
             where["organization_id"] = {"_eq": organization_id}
-        print(where)
         instance = op.meta_ai_modelv2(where=where)
         instance.__fields__(*AiInstanceApiMixin._fields(verbose))
         instance.template.__fields__("name", "version", "visibility")
+        instance.checkpoint.__fields__("id", "created_at", "tag", "source_training_id")
+        instance.deployment.__fields__("status", "target_status", "created_at", "updated_at", "endpoint")
 
         data = self.ai_session.perform_op(op)
         return self._output_formatter((op + data).meta_ai_modelv2, to_json)

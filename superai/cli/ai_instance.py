@@ -1,6 +1,12 @@
+import json
+from pathlib import Path
+from typing import Optional, Union
+
 import click
+from requests import ReadTimeout
 from rich import print
 
+from superai.apis.meta_ai.model import PredictionError
 from superai.cli.helper import common_params, pass_client
 from superai.client import Client
 from superai.log import logger
@@ -88,3 +94,89 @@ def instantiate(ai_uri: str = None, name: str = None, ai_uuid: str = None):
     else:
         instance = instantiate_superai(ai_uuid=ai_uuid, new_instance_name=name)
     log.info(f"Instantiated new AI instance: {instance}")
+
+
+# Add two CLI functions to deploy and undeploy an AI instance
+@ai_instance_group.command("deploy")
+@click.option("--instance_uuid", "-i", help="UUID of the AI instance to deploy.", required=True)
+@click.option("--redeploy", help="Will force redeploy of existing deployment.", required=False, default=True)
+@click.option("--wait_time_seconds", "-w", help="Time to wait for deployment to complete.", required=False, default=10)
+def deploy(instance_uuid: str, redeploy: bool = True, wait_time_seconds: int = 10):
+    """Deploy an AI instance."""
+
+    from superai.meta_ai import AIInstance
+
+    i = AIInstance.load(instance_uuid)
+    i.deploy(redeploy=redeploy, wait_time_seconds=wait_time_seconds)
+
+
+@ai_instance_group.command("undeploy")
+@click.option("--instance_uuid", "-i", help="UUID of the AI instance to undeploy.", required=True)
+@click.option(
+    "--wait_time_seconds", "-w", help="Time to wait for undeployment to complete.", required=False, default=10
+)
+def undeploy(instance_uuid: str, wait_time_seconds: int = 10):
+    """Undeploy an AI instance."""
+
+    from superai.meta_ai import AIInstance
+
+    i = AIInstance.load(instance_uuid)
+    i.undeploy(wait_time_seconds=wait_time_seconds)
+
+
+@ai_instance_group.command("predict")
+@click.argument("instance_uuid", type=click.UUID)
+@click.option(
+    "--data",
+    "-d",
+    help="Input to be used for prediction. Expected as JSON encoded dictionary.",
+    type=str,
+)
+@click.option(
+    "--data-file",
+    "-f",
+    help="Input file to be used for prediction. Expected as JSON encoded dictionary.",
+    type=click.Path(exists=True),
+)
+@click.option(
+    "--parameters",
+    type=str,
+    help="Parameters to be used for prediction. Expected as JSON encoded dictionary.",
+    default=None,
+)
+@click.option(
+    "--timeout",
+    type=int,
+    help="Time to wait for prediction to complete. Expect worst case timeouts of 900 seconds (15 minutes) for new "
+    "deployment startups.",
+    default=60,
+    show_default=True,
+)
+@pass_client
+def predict(
+    client,
+    instance_uuid: Union[str, click.UUID],
+    data: Optional[str] = None,
+    data_file: Optional[Path] = None,
+    parameters: str = None,
+    timeout: int = None,
+):
+    """Predict using a deployed AI instance."""
+    if not data and not data_file:
+        log.warning("Please provide either --data or --data-file.")
+        return
+    if data_file:
+        with open(data_file, "r") as f:
+            data = f.read()
+    try:
+        response = client.predict_from_endpoint(
+            model_id=str(instance_uuid),
+            input_data=json.loads(data),
+            parameters=json.loads(parameters) if parameters else None,
+            timeout=timeout,
+        )
+        print(response)
+    except ReadTimeout:
+        print("Timeout waiting for prediction to complete. Try increasing --timeout value.")
+    except PredictionError as e:
+        log.exception(f"Remote prediction failed. Error message from AI: {e.args[0]}", exc_info=False)

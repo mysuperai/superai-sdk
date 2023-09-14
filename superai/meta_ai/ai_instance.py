@@ -293,7 +293,7 @@ class AIInstance:
         if redeploy and get_current_env() == "prod":
             confirm_action()
 
-        ai = AI.load(self.template_id)
+        ai = AI.load_essential(self.template_id)
 
         if not ai.image:
             raise AIException(

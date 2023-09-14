@@ -28,6 +28,7 @@ from superai.apis.meta_ai.meta_ai_graphql_schema import (
     meta_ai_prediction_state_enum,
     meta_ai_training_instance,
     meta_ai_training_instance_insert_input,
+    meta_ai_training_instance_order_by,
     meta_ai_training_instance_pk_columns_input,
     meta_ai_training_instance_set_input,
     meta_ai_training_template,
@@ -40,7 +41,7 @@ from superai.apis.meta_ai.meta_ai_graphql_schema import (
     uuid,
     uuid_comparison_exp,
 )
-from superai.log import console, logger
+from superai.log import console, get_logger
 
 from .base import AiApiBase
 from .session import (  # type: ignore
@@ -49,7 +50,7 @@ from .session import (  # type: ignore
     MetaAIWebsocketSession,
 )
 
-log = logger.get_logger(__name__)
+log = get_logger(__name__)
 
 
 if TYPE_CHECKING:
@@ -274,7 +275,7 @@ class DeploymentApiMixin(AiApiBase):
         if status:
             filters["status"] = meta_ai_deployment_status_enum_comparison_exp(_eq=status)
         deployments = opq.meta_ai_deployment(where=meta_ai_deployment_bool_exp(**filters))
-        models = deployments.modelv2()
+        models = deployments.modelv2s()
         models.__fields__("name", "id")
         deployments.__fields__(
             "id",
@@ -295,7 +296,7 @@ class DeploymentApiMixin(AiApiBase):
         deployment = self.get_deployment(deployment_id)
         return deployment is not None and deployment["status"] == "ONLINE"
 
-    def get_prediction_error(self, prediction_id: str):
+    def get_prediction_error(self, prediction_id: str) -> Optional[meta_ai_prediction]:
         op = Operation(query_root)
         p = op.meta_ai_prediction_by_pk(id=prediction_id)
         p.__fields__("error_message", "state", "completed_at", "started_at")
@@ -352,8 +353,9 @@ class DeploymentApiMixin(AiApiBase):
                     return res
                 elif res.state == meta_ai_prediction_state_enum.FAILED:
                     error_object = self.get_prediction_error(prediction_id)
-                    logger.warning(f"Prediction failed while waiting for completion:\n {error_object.error_message}")
-                    raise PredictionError(error_object["error_message"])
+                    error = str(error_object.error_message)
+                    log.warning("Prediction failed while waiting for completion", extra={"error": error})
+                    raise PredictionError(error)
             raise TimeoutError("Waiting for Prediction result timed out. Try increasing timeout.")
 
     def get_prediction_with_data(self, prediction_id: str, app_id: str = None) -> Optional[meta_ai_prediction]:
@@ -434,17 +436,17 @@ class DeploymentApiMixin(AiApiBase):
         """
         if model_id is None and deployment_id is None:
             raise ValueError("Either model_id or deployment_id must be specified.")
-        if not input_data:
+        if input_data is None:
             raise ValueError("Input data must be specified.")
 
         prediction_id = self.submit_prediction_request(
             deployment_id=deployment_id, model_id=model_id, input_data=input_data, parameters=parameters
         )
-        logger.info(f"Submitted prediction request with id: {prediction_id}")
+        log.info(f"Submitted prediction request with id: {prediction_id}")
 
         # Wait for prediction to complete
         state = self.wait_for_prediction_completion(prediction_id=prediction_id, timeout=timeout)
-        logger.info(f"Prediction {prediction_id} completed with state={state}")
+        log.info(f"Prediction {prediction_id} completed with state={state}")
 
         # Retrieve finished data
         prediction: query_root.meta_ai_prediction = self.get_prediction_with_data(prediction_id=prediction_id)
@@ -741,7 +743,9 @@ class TrainApiMixin(AiApiBase):
         if app_id:
             filters["training_template"] = {}
             filters["training_template"]["app_id"] = {"_eq": app_id}
-        instance_query = dict(where=filters, limit=limit)
+        instance_query = dict(
+            where=filters, limit=limit, order_by=[meta_ai_training_instance_order_by(created_at="asc")]
+        )
         log.warning("Without providing an app_id, only trainings without associated apps will be shown.")
         op.meta_ai_training_instance(**instance_query).__fields__(
             "state", "id", "created_at", "artifacts", "modelv2_id", "training_template_id", "updated_at"
@@ -749,7 +753,7 @@ class TrainApiMixin(AiApiBase):
         instance_data = self.ai_session.perform_op(op, app_id=app_id)
         instances = (op + instance_data).meta_ai_training_instance
 
-        logger.info(
+        log.info(
             f"Showing a total of {len(instances)}, training instances for app_id:{app_id}, ai_instance:{ai_instance_id}."
         )
         return instances

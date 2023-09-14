@@ -7,10 +7,8 @@ from typing import Optional, Union
 from urllib.parse import urlparse
 
 import click
-from requests import ReadTimeout
 from rich import print
 
-from superai.apis.meta_ai.model import PredictionError
 from superai.cli.ai_instance import ai_instance_group
 from superai.cli.ai_methods import ai_method_group
 from superai.cli.ai_training import ai_training_group
@@ -192,7 +190,7 @@ def list_deployments(
     """List all deployments"""
     d = client.list_deployments(model_id=model_id, model_name=model_name, status=status)
     for deployment in d:
-        print(f"[b][u]Model: {deployment.model.name}[/b][/u]")
+        print(f"[b][u]Model: {deployment.modelv2s.name}[/b][/u]")
         print(f"{deployment}\n")
 
 
@@ -202,91 +200,6 @@ def list_deployments(
 def view_deployment(client, id: Union[str, click.UUID]):
     """View deployment parameters"""
     print(client.get_deployment(str(id)))
-
-
-@deployment.command("start")
-@click.argument("id", type=click.UUID)
-@click.option(
-    "--wait",
-    type=click.INT,
-    default=0,
-    help="Allow command to block and wait for deployment to be ready. Returns when deployment is ONLINE.",
-    show_default=True,
-)
-@pass_client
-def start_deployment(client, id: Union[str, click.UUID], wait: int):
-    """Create a deployment for the model."""
-    print("Starting deployment...")
-    if wait:
-        print(f"Waiting for up to {wait} seconds. Note: Some deployments can take up to 15 minutes (900 seconds).")
-    reached_state = client.set_deployment_status(str(id), target_status="ONLINE", timeout=wait)
-    if reached_state:
-        print("Deployment online.")
-    else:
-        print("Stopped waiting for ONLINE status. Process is still running in the backend.")
-
-
-@deployment.command("stop")
-@click.argument("id", type=click.UUID)
-@click.option(
-    "--wait",
-    type=click.INT,
-    default=0,
-    help="Allow command to block and wait for deployment to be ready. Returns when deployment is ONLINE.",
-    show_default=True,
-)
-@pass_client
-def stop_deployment(client, id: Union[str, click.UUID], wait: int):
-    """Stop and tear-down a model deployment."""
-    print("Tearing down model deployment...")
-    if wait:
-        print(f"Waiting for up to {wait} seconds.")
-    reached_state = client.set_deployment_status(str(id), target_status="OFFLINE", timeout=wait)
-    if reached_state:
-        print("Deployment offline.")
-    else:
-        print("Stopped waiting for OFFLINE status. Process is still running in the backend.")
-
-
-@deployment.command("predict")
-@click.argument("id", type=click.UUID)
-@click.argument(
-    "data",
-    type=str,
-)
-@click.option(
-    "--parameters",
-    type=str,
-    help="Parameters to be used for prediction. Expected as JSON encoded dictionary.",
-)
-@click.option(
-    "--timeout",
-    type=int,
-    help="Time to wait for prediction to complete. Expect worst case timeouts of 900 seconds (15 minutes) for new "
-    "deployment startups.",
-    default=20,
-    show_default=True,
-)
-@pass_client
-def predict(client, id: Union[str, click.UUID], data: str, parameters: str, timeout: int):
-    """Predict using a deployed model
-
-    `DATA` is the input to be used for prediction. Expected as JSON encoded dictionary.
-
-    """
-    try:
-        response = client.predict_from_endpoint(
-            model_id=str(id),
-            input_data=json.loads(data),
-            parameters=json.loads(parameters) if parameters else None,
-            timeout=timeout,
-        )
-        print(response)
-    except ReadTimeout:
-        print("Timeout waiting for prediction to complete. Try increasing --timeout value.")
-    except PredictionError:
-        # TODO: Print error message when available in object
-        print("Prediction failed. Check the logs for more information.")
 
 
 @ai_group.group()

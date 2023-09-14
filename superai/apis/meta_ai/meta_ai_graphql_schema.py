@@ -1205,20 +1205,20 @@ class TrainingParameters(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
     __field_names__ = (
         "app_id",
+        "checkpoint_id",
         "current_properties",
         "metadata",
         "model_id",
         "task_name",
         "training_template_id",
-        "checkpoint_id",
     )
     app_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="app_id")
+    checkpoint_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="checkpoint_id")
     current_properties = sgqlc.types.Field(json, graphql_name="current_properties")
     metadata = sgqlc.types.Field(json, graphql_name="metadata")
     model_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="model_id")
     task_name = sgqlc.types.Field(String, graphql_name="task_name")
     training_template_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="training_template_id")
-    checkpoint_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="checkpoint_id")
 
 
 class bigint_comparison_exp(sgqlc.types.Input):
@@ -6325,6 +6325,7 @@ class meta_ai_modelv2_bool_exp(sgqlc.types.Input):
         "ai_worker_username",
         "apps",
         "apps_aggregate",
+        "checkpoint",
         "checkpoint_tag",
         "checkpoint_tag_relation",
         "checkpoints",
@@ -6340,6 +6341,8 @@ class meta_ai_modelv2_bool_exp(sgqlc.types.Input):
         "organisation_id",
         "organization_id",
         "owner_id",
+        "predictions",
+        "predictions_aggregate",
         "served_by",
         "template",
         "template_id",
@@ -6353,6 +6356,7 @@ class meta_ai_modelv2_bool_exp(sgqlc.types.Input):
     ai_worker_username = sgqlc.types.Field(String_comparison_exp, graphql_name="aiWorkerUsername")
     apps = sgqlc.types.Field(meta_ai_app_bool_exp, graphql_name="apps")
     apps_aggregate = sgqlc.types.Field(meta_ai_app_aggregate_bool_exp, graphql_name="apps_aggregate")
+    checkpoint = sgqlc.types.Field(meta_ai_checkpoint_bool_exp, graphql_name="checkpoint")
     checkpoint_tag = sgqlc.types.Field(String_comparison_exp, graphql_name="checkpointTag")
     checkpoint_tag_relation = sgqlc.types.Field(meta_ai_checkpoint_tag_bool_exp, graphql_name="checkpointTagRelation")
     checkpoints = sgqlc.types.Field(meta_ai_checkpoint_bool_exp, graphql_name="checkpoints")
@@ -6370,6 +6374,10 @@ class meta_ai_modelv2_bool_exp(sgqlc.types.Input):
     organisation_id = sgqlc.types.Field(bigint_comparison_exp, graphql_name="organisationId")
     organization_id = sgqlc.types.Field(bigint_comparison_exp, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(bigint_comparison_exp, graphql_name="ownerId")
+    predictions = sgqlc.types.Field("meta_ai_prediction_bool_exp", graphql_name="predictions")
+    predictions_aggregate = sgqlc.types.Field(
+        "meta_ai_prediction_aggregate_bool_exp", graphql_name="predictions_aggregate"
+    )
     served_by = sgqlc.types.Field("uuid_comparison_exp", graphql_name="servedBy")
     template = sgqlc.types.Field("meta_ai_template_bool_exp", graphql_name="template")
     template_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="templateId")
@@ -6416,6 +6424,7 @@ class meta_ai_modelv2_insert_input(sgqlc.types.Input):
         "ai_worker_id",
         "ai_worker_username",
         "apps",
+        "checkpoint",
         "checkpoint_tag",
         "checkpoint_tag_relation",
         "checkpoints",
@@ -6430,6 +6439,7 @@ class meta_ai_modelv2_insert_input(sgqlc.types.Input):
         "organisation_id",
         "organization_id",
         "owner_id",
+        "predictions",
         "served_by",
         "template",
         "template_id",
@@ -6439,6 +6449,7 @@ class meta_ai_modelv2_insert_input(sgqlc.types.Input):
     ai_worker_id = sgqlc.types.Field(Int, graphql_name="aiWorkerId")
     ai_worker_username = sgqlc.types.Field(String, graphql_name="aiWorkerUsername")
     apps = sgqlc.types.Field(meta_ai_app_arr_rel_insert_input, graphql_name="apps")
+    checkpoint = sgqlc.types.Field(meta_ai_checkpoint_obj_rel_insert_input, graphql_name="checkpoint")
     checkpoint_tag = sgqlc.types.Field(String, graphql_name="checkpointTag")
     checkpoint_tag_relation = sgqlc.types.Field(
         meta_ai_checkpoint_tag_obj_rel_insert_input, graphql_name="checkpointTagRelation"
@@ -6455,6 +6466,7 @@ class meta_ai_modelv2_insert_input(sgqlc.types.Input):
     organisation_id = sgqlc.types.Field(bigint, graphql_name="organisationId")
     organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
+    predictions = sgqlc.types.Field("meta_ai_prediction_arr_rel_insert_input", graphql_name="predictions")
     served_by = sgqlc.types.Field(uuid, graphql_name="servedBy")
     template = sgqlc.types.Field("meta_ai_template_obj_rel_insert_input", graphql_name="template")
     template_id = sgqlc.types.Field(uuid, graphql_name="templateId")
@@ -6554,6 +6566,7 @@ class meta_ai_modelv2_order_by(sgqlc.types.Input):
         "ai_worker_id",
         "ai_worker_username",
         "apps_aggregate",
+        "checkpoint",
         "checkpoint_tag",
         "checkpoint_tag_relation",
         "checkpoints_aggregate",
@@ -6568,6 +6581,7 @@ class meta_ai_modelv2_order_by(sgqlc.types.Input):
         "organisation_id",
         "organization_id",
         "owner_id",
+        "predictions_aggregate",
         "served_by",
         "template",
         "template_id",
@@ -6577,6 +6591,7 @@ class meta_ai_modelv2_order_by(sgqlc.types.Input):
     ai_worker_id = sgqlc.types.Field(order_by, graphql_name="aiWorkerId")
     ai_worker_username = sgqlc.types.Field(order_by, graphql_name="aiWorkerUsername")
     apps_aggregate = sgqlc.types.Field(meta_ai_app_aggregate_order_by, graphql_name="apps_aggregate")
+    checkpoint = sgqlc.types.Field(meta_ai_checkpoint_order_by, graphql_name="checkpoint")
     checkpoint_tag = sgqlc.types.Field(order_by, graphql_name="checkpointTag")
     checkpoint_tag_relation = sgqlc.types.Field(meta_ai_checkpoint_tag_order_by, graphql_name="checkpointTagRelation")
     checkpoints_aggregate = sgqlc.types.Field(
@@ -6593,6 +6608,9 @@ class meta_ai_modelv2_order_by(sgqlc.types.Input):
     organisation_id = sgqlc.types.Field(order_by, graphql_name="organisationId")
     organization_id = sgqlc.types.Field(order_by, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
+    predictions_aggregate = sgqlc.types.Field(
+        "meta_ai_prediction_aggregate_order_by", graphql_name="predictions_aggregate"
+    )
     served_by = sgqlc.types.Field(order_by, graphql_name="servedBy")
     template = sgqlc.types.Field("meta_ai_template_order_by", graphql_name="template")
     template_id = sgqlc.types.Field(order_by, graphql_name="templateId")
@@ -13519,6 +13537,7 @@ class meta_ai_modelv2(sgqlc.types.Type):
         "ai_worker_username",
         "apps",
         "apps_aggregate",
+        "checkpoint",
         "checkpoint_tag",
         "checkpoint_tag_relation",
         "checkpoints",
@@ -13534,6 +13553,8 @@ class meta_ai_modelv2(sgqlc.types.Type):
         "organisation_id",
         "organization_id",
         "owner_id",
+        "predictions",
+        "predictions_aggregate",
         "served_by",
         "template",
         "template_id",
@@ -13596,6 +13617,7 @@ class meta_ai_modelv2(sgqlc.types.Type):
             )
         ),
     )
+    checkpoint = sgqlc.types.Field(meta_ai_checkpoint, graphql_name="checkpoint")
     checkpoint_tag = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="checkpointTag")
     checkpoint_tag_relation = sgqlc.types.Field(meta_ai_checkpoint_tag, graphql_name="checkpointTagRelation")
     checkpoints = sgqlc.types.Field(
@@ -13671,6 +13693,60 @@ class meta_ai_modelv2(sgqlc.types.Type):
     organisation_id = sgqlc.types.Field(bigint, graphql_name="organisationId")
     organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
+    predictions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("meta_ai_prediction"))),
+        graphql_name="predictions",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "distinct_on",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_prediction_select_column)),
+                        graphql_name="distinct_on",
+                        default=None,
+                    ),
+                ),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                (
+                    "order_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_prediction_order_by)),
+                        graphql_name="order_by",
+                        default=None,
+                    ),
+                ),
+                ("where", sgqlc.types.Arg(meta_ai_prediction_bool_exp, graphql_name="where", default=None)),
+            )
+        ),
+    )
+    predictions_aggregate = sgqlc.types.Field(
+        sgqlc.types.non_null("meta_ai_prediction_aggregate"),
+        graphql_name="predictions_aggregate",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "distinct_on",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_prediction_select_column)),
+                        graphql_name="distinct_on",
+                        default=None,
+                    ),
+                ),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                (
+                    "order_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_prediction_order_by)),
+                        graphql_name="order_by",
+                        default=None,
+                    ),
+                ),
+                ("where", sgqlc.types.Arg(meta_ai_prediction_bool_exp, graphql_name="where", default=None)),
+            )
+        ),
+    )
     served_by = sgqlc.types.Field(uuid, graphql_name="servedBy")
     template = sgqlc.types.Field(sgqlc.types.non_null("meta_ai_template"), graphql_name="template")
     template_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="templateId")
