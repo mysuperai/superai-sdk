@@ -287,8 +287,8 @@ class SuperTaskSchemaResponse(BaseModel):
     super_task_workflow: str
     workers: SuperTaskWorkers
     parameters: SuperTaskParameters
-    workers_schema: dict
-    parameters_schema: dict
+    workers_schema: Optional[dict]
+    parameters_schema: Optional[dict]
 
 
 class MetricRequestModel(BaseModel):
