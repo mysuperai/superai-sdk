@@ -44,6 +44,34 @@ class OpenAIFoundation(FoundationModel):
             raise Exception("Invalid API key. Error: " + str(e))
 
 
+rpm_by_model = {
+    "gpt-4": 200,
+    "gpt-4-32k": 200,
+    "gpt-3.5-turbo": 3500,
+    "gpt-35-turbo": 3500,
+    "gpt-3.5-turbo-16k": 3500,
+    "gpt-35-turbo-16k": 3500,
+}
+
+tpm_by_model = {
+    "gpt-4": 20000,
+    "gpt-4-32k": 200,
+    "gpt-3.5-turbo": 240000,
+    "gpt-35-turbo": 240000,
+    "gpt-3.5-turbo-16k": 240000,
+    "gpt-35-turbo-16k": 240000,
+}
+
+token_limit_by_model = {
+    "gpt-4": 8192,
+    "gpt-4-32k": 32768,
+    "gpt-3.5-turbo": 4097,
+    "gpt-35-turbo": 4097,
+    "gpt-3.5-turbo-16k": 16385,
+    "gpt-35-turbo-16k": 16385,
+}
+
+
 class ChatGPT(OpenAIFoundation):
     engine: str = config.smart_foundation_model_engine
     temperature: float = 0
@@ -55,9 +83,9 @@ class ChatGPT(OpenAIFoundation):
     presence_penalty: float = None
     frequency_penalty: float = None
     logit_bias: dict = None
-    token_limit: int = 8000 if engine == "gpt-4" else 4096
-    rpm: dict = {"gpt-4": 200, "gpt-3.5-turbo": 3500, "gpt-35-turbo": 3500}
-    tpm: dict = {"gpt-4": 20000, "gpt-3.5-turbo": 240000, "gpt-35-turbo": 240000}
+    token_limit: int = token_limit_by_model[engine]
+    rpm: dict = rpm_by_model
+    tpm: dict = tpm_by_model
 
     def predict(self, input: ChatMessage):
         self.initialize_openai()
