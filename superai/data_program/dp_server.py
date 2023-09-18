@@ -178,8 +178,8 @@ class DPServer:
                             super_task_workflow=method_name,
                             parameters=st_config.params,
                             workers=st_config.workers,
-                            workers_schema=st_config.get_workers_schema(),
-                            parameters_schema=st_config.params.schema(),
+                            workers_schema=st_config.get_workers_schema() or {},
+                            parameters_schema=st_config.params.schema() or {},
                         )
                     )
 

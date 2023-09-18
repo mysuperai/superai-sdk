@@ -106,7 +106,7 @@ class SuperTaskParameters(BaseModel):
 class SuperTaskWorkers(BaseModel):
     """Contains the model for the allowed workers for a SuperTask.
     Currently only contains a list of workers.
-    Is necessary to create a correct JSONSchema.
+    It is necessary to create a correct JSONSchema.
     """
 
     __root__: List[Union[CrowdWorker, AIWorker, BotWorker, CollaboratorWorker, IdempotentWorker]]
@@ -132,7 +132,7 @@ class SuperTaskConfig(BaseModel):
     params: SuperTaskParameters = Field(SuperTaskParameters())
     editable: Optional[bool] = Field(default=None)
 
-    def get_workers_schema(self) -> dict:
+    def get_workers_schema(self) -> Optional[dict]:
         """Method to get the JSONSchema for the workers.
         Direct access to the workers is not possible, because the workers are wrapped in a list.
         """
