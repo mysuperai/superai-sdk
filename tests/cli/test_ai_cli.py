@@ -4,7 +4,14 @@ from unittest.mock import Mock, patch
 from click.testing import CliRunner
 
 from superai import Client
-from superai.cli.ai_instance import deploy, list_ai_instances, predict, undeploy
+from superai.cli.ai_instance import (
+    deploy,
+    list_ai_instances,
+    predict,
+    undeploy,
+    view_ai_instance,
+)
+from superai.cli.ai_training import list_training_templates, view_training_template
 
 
 @patch("superai.client.Client.list_ai_instances")
@@ -51,6 +58,26 @@ def test_list_ai_instances(list_instances_api):
         owner_id=None,
         fuzzy=True,
     )
+
+
+@patch("superai.client.Client.get_ai_instance")
+def test_view_ai_instance(get_ai_instance_api):
+    # Arrange
+    runner = CliRunner()
+    client = Client(api_key="test_key", auth_token="test_token")
+    instance_uuid = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+    detailed = True
+
+    # Act
+    result = runner.invoke(
+        view_ai_instance,
+        [str(instance_uuid), "--detailed"],
+        obj={"client": client},
+    )
+
+    # Assert
+    assert result.exit_code == 0
+    get_ai_instance_api.assert_called_once_with(str(instance_uuid), to_json=True, view_checkpoint=detailed)
 
 
 # Deploy function test
@@ -103,3 +130,45 @@ def test_predict_with_data_file(mock_predict_from_endpoint, tmp_path):
 
     mock_client.predict_from_endpoint.assert_called_once()
     assert result.exit_code == 0
+
+
+# Test for list_training_templates
+@patch("superai.client.Client.list_training_templates")
+def test_list_training_templates(list_training_templates_api):
+    # Arrange
+    runner = CliRunner()
+    client = Client(api_key="test_key", auth_token="test_token")
+    app_id = "app_123"
+    model_id = "model_123"
+
+    # Act
+    result = runner.invoke(
+        list_training_templates,
+        ["--app_id", app_id, "--model_id", model_id],
+        obj={"client": client},
+    )
+
+    # Assert
+    assert result.exit_code == 0
+    list_training_templates_api.assert_called_once_with(str(model_id), app_id)
+
+
+# Test for view_training_template
+@patch("superai.client.Client.get_training_template")
+def test_view_training_template(get_training_template_api):
+    # Arrange
+    runner = CliRunner()
+    client = Client(api_key="test_key", auth_token="test_token")
+    app_id = "app_123"
+    template_id = "template_123"
+
+    # Act
+    result = runner.invoke(
+        view_training_template,
+        ["--app_id", app_id, "--template_id", template_id],
+        obj={"client": client},
+    )
+
+    # Assert
+    assert result.exit_code == 0
+    get_training_template_api.assert_called_once_with(str(template_id), app_id)

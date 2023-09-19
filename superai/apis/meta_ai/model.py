@@ -596,7 +596,7 @@ class TrainApiMixin(AiApiBase):
         try:
             q_out = (op + instance_data).meta_ai_training_template
         except AttributeError:
-            log.info(f"No training templates found for app_id={app_id}, model_id={ai_instance_id}.")
+            log.info(f"No training templates found for app_id={app_id_str}, model_id={ai_instance_id}.")
             return []
 
         return q_out
@@ -744,7 +744,7 @@ class TrainApiMixin(AiApiBase):
             filters["training_template"] = {}
             filters["training_template"]["app_id"] = {"_eq": app_id}
         instance_query = dict(
-            where=filters, limit=limit, order_by=[meta_ai_training_instance_order_by(created_at="asc")]
+            where=filters, limit=limit, order_by=[meta_ai_training_instance_order_by(created_at="desc")]
         )
         log.warning("Without providing an app_id, only trainings without associated apps will be shown.")
         op.meta_ai_training_instance(**instance_query).__fields__(

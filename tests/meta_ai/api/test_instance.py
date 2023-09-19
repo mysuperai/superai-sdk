@@ -82,11 +82,17 @@ def test_get_all_instances(instance_api_mixin, instance):
 # Test for get_instance method
 def test_get_instance(instance_api_mixin, instance):
     instance_api_mixin.ai_session = MagicMock()
-    instance_api_mixin.ai_session.perform_op.return_value = {
-        "data": {"meta_ai_modelv2_by_pk": instance.to_dict(only_db_fields=True, exclude_none=True)}
-    }
+    instance_dict = instance.to_dict(only_db_fields=True, exclude_none=True)
+
+    instance_api_mixin.ai_session.perform_op.return_value = {"data": {"meta_ai_modelv2_by_pk": instance_dict}}
     result = instance_api_mixin.get_ai_instance(instance_id="1", to_json=True)
     assert isinstance(result, dict)
+
+    instance_dict["checkpoint"] = {"id": "1", "tag": "LATEST", "source_training_id": "1", "weights_path": "1"}
+    instance_dict["checkpoint"]["training_instance"] = {"id": "1", "state": "FINISHED", "dataset_id": "1"}
+    instance_api_mixin.ai_session.perform_op.return_value = {"data": {"meta_ai_modelv2_by_pk": instance_dict}}
+    result2 = instance_api_mixin.get_ai_instance(instance_id="1", to_json=False, view_checkpoint=True)
+    assert result2.checkpoint
 
 
 # Test for get_instance_by_name method

@@ -207,7 +207,8 @@ def update_template(
 @pass_client
 def list_training_templates(client, app_id: Union[str, click.UUID], model_id: Union[str, click.UUID]):
     """List existing training templates."""
-    templates = client.list_training_templates(str(model_id), str(app_id))
+
+    templates = client.list_training_templates(str(model_id), app_id)
     if templates:
         print(templates)
 
@@ -218,6 +219,6 @@ def list_training_templates(client, app_id: Union[str, click.UUID], model_id: Un
 @pass_client
 def view_training_template(client, app_id: Union[str, click.UUID], template_id: Union[str, click.UUID]):
     """List existing training templates."""
-    template = client.get_training_template(str(template_id), str(app_id))
+    template = client.get_training_template(str(template_id), app_id)
     if template:
         print(template)

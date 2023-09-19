@@ -67,6 +67,15 @@ def list_ai_instances(
     )
 
 
+@ai_instance_group.command("view")
+@click.argument("instance_uuid", type=click.UUID)
+@click.option("--detailed", "-d", is_flag=True, help="Show detailed information about the AI instance.")
+@pass_client
+def view_ai_instance(client: Client, instance_uuid: Union[str, click.UUID], detailed: bool = False):
+    """View a single AI instance."""
+    print(client.get_ai_instance(str(instance_uuid), to_json=True, view_checkpoint=detailed))
+
+
 @ai_instance_group.command("instantiate")
 @click.option(
     "--ai_uri",

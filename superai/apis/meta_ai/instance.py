@@ -81,7 +81,7 @@ class AiInstanceApiMixin(AiApiBase):
         instance = op.meta_ai_modelv2(where=where)
         instance.__fields__(*AiInstanceApiMixin._fields(verbose))
         instance.template.__fields__("name", "version", "visibility")
-        instance.checkpoint.__fields__("id", "created_at", "tag", "source_training_id")
+        instance.checkpoint.__fields__("id", "created_at", "tag", "source_training_id", "weights_path")
         instance.deployment.__fields__("status", "target_status", "created_at", "updated_at", "endpoint")
 
         data = self.ai_session.perform_op(op)
@@ -117,10 +117,27 @@ class AiInstanceApiMixin(AiApiBase):
         instance = self._output_formatter((op + data).meta_ai_modelv2, to_json)
         return instance[0] if instance else None
 
-    def get_ai_instance(self, instance_id: str, to_json: bool = False) -> Optional[Union[meta_ai_modelv2, Dict]]:
+    def get_ai_instance(
+        self, instance_id: str, view_checkpoint: bool = False, to_json: bool = False
+    ) -> Optional[Union[meta_ai_modelv2, Dict]]:
         op = Operation(query_root)
         fields = AiInstanceApiMixin._fields(True)
-        op.meta_ai_modelv2_by_pk(id=instance_id).__fields__(*fields)
+        model = op.meta_ai_modelv2_by_pk(id=instance_id)
+        model.__fields__(*fields)
+        if view_checkpoint:
+            checkpoint = model.checkpoint
+            checkpoint.__fields__(
+                "id",
+                "created_at",
+                "tag",
+                "source_training_id",
+                "weights_path",
+            )
+            training_instance = checkpoint.training_instance
+            training_instance.__fields__(
+                "id", "created_at", "updated_at", "state", "dataset_id", "source_checkpoint_id"
+            )
+
         data = self.ai_session.perform_op(op)
         instance = self._output_formatter((op + data).meta_ai_modelv2_by_pk, to_json)
         return instance if instance else None
