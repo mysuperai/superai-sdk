@@ -625,6 +625,7 @@ class AI:
         from superai.meta_ai.ai_trainer import AITrainer
 
         trainer = AITrainer(self)
+        os.environ["IS_TRAINING"] = "True"
         return trainer.train(
             model_save_path=model_save_path,
             training_data=training_data,
