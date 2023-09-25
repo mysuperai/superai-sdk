@@ -1,13 +1,37 @@
 import contextlib
 import json
+import math
 from pathlib import Path
 from typing import List, Optional
 
 import numpy as np
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, root_validator
 
 from superai.log import logger
 from superai.meta_ai.schema import TaskBatchInput, TaskBatchOutput, TaskInput
+
+
+class DatasetMetadata(BaseModel):
+    """Model to store dataset metadata.
+    The metadata is used during dataset creation and specifies the split of the dataset.
+    """
+
+    test_fraction: float = Field(0.2, alias="test_fraction", ge=0.0, lt=1.0)
+    training_fraction: float = Field(0.7, alias="training_fraction", gt=0.0, le=1.0)
+    validation_fraction: float = Field(0.1, alias="validation_fraction", ge=0.0, lt=1.0)
+
+    @root_validator
+    def check_fractions_sum(cls, values):
+        test_fraction = values.get("test_fraction", 0)
+        training_fraction = values.get("training_fraction", 0)
+        validation_fraction = values.get("validation_fraction", 0)
+
+        total = test_fraction + training_fraction + validation_fraction
+
+        if not math.isclose(total, 1.0):
+            raise ValueError("Fractions must sum up to 1.0")
+
+        return values
 
 
 class Dataset(BaseModel):

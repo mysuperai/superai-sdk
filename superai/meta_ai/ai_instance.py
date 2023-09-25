@@ -355,6 +355,7 @@ class AIInstance:
         deployment_parameters: Optional[Union[dict, AiDeploymentParameters]] = None,
         training_parameters: Optional[TrainingParameters] = None,
         skip_build: bool = True,
+        dataset_metadata: Optional["DatasetMetadata"] = None,
         **kwargs,
     ) -> dict:
         """Trains the AI instance (remotely).
@@ -379,6 +380,7 @@ class AIInstance:
             properties=deployment_parameters,
             training_parameters=training_parameters,
             skip_build=skip_build,
+            dataset_metadata=dataset_metadata,
             **kwargs,
         )
 

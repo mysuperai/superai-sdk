@@ -53,8 +53,10 @@ def list_trainings(client, app_id: Union[str, click.UUID], model_id: Union[str, 
     "-tp",
     help="Custom training parameters, if not set default ones for the template will be used",
 )
-# Add local path dir option
 @click.option("--local-path", "-lp", help="Local path to the training data", required=False, type=click.Path())
+@click.option("--test-fraction", "-tf", help="Test fraction", required=False, type=float)
+@click.option("--training-fraction", "-trf", help="Training fraction", required=False, type=float)
+@click.option("--validation-fraction", "-vf", help="Validation fraction", required=False, type=float)
 @pass_client
 def start_training(
     client,
@@ -63,6 +65,9 @@ def start_training(
     deployment_parameters: str = None,
     training_parameters: str = None,
     local_path: Path = None,
+    test_fraction: float = None,
+    training_fraction: float = None,
+    validation_fraction: float = None,
 ):
     """Start a new training, either based on app data or local data."""
     if deployment_parameters:
@@ -81,11 +86,17 @@ def start_training(
     from superai.meta_ai import AIInstance
 
     ai_instance = AIInstance.load(model_id)
+    from superai.meta_ai.dataset import DatasetMetadata
+
+    dataset_metadata = DatasetMetadata(
+        training_fraction=training_fraction, test_fraction=test_fraction, validation_fraction=validation_fraction
+    )
     idx = ai_instance.train(
         app_id=app_id,
         deployment_parameters=deployment_parameters,
         training_parameters=training_parameters,
         local_path=local_path,
+        dataset_metadata=dataset_metadata,
     )
     if idx:
         print(f"Started a new training with ID {idx}")
@@ -165,8 +176,9 @@ def create_template(client, app_id: Union[str, click.UUID], model_id: Union[str,
 
 
 @template.command(name="update")
-@click.option("--app_id", "-a", help="Application id", required=False, default=None)
-@click.option("--model_id", "-m", help="Model id", required=True)
+@click.option("--app_id", "-a", help="Application id", required=False, default=None, type=click.UUID)
+@click.option("--model_id", "-m", help="Model id", required=False, type=click.UUID)
+@click.option("--template_id", "-t", help="Template id", required=False, type=click.UUID)
 @click.option(
     "--properties",
     "-p",
@@ -181,11 +193,20 @@ def create_template(client, app_id: Union[str, click.UUID], model_id: Union[str,
 )
 @pass_client
 def update_template(
-    client, app_id: Union[str, click.UUID], model_id: Union[str, click.UUID], properties: str, description: str
+    client,
+    app_id: Union[str, click.UUID],
+    model_id: Union[str, click.UUID],
+    properties: str,
+    description: str,
+    template_id: Union[str, click.UUID],
 ):
     """Update an exising template for trainings.
     The template is used to instantiate new training instances.
     """
+    if not (model_id or template_id):
+        print("Either model_id or app_id must be provided")
+        exit()
+
     if properties:
         try:
             json_inputs = json.loads(properties)
@@ -195,7 +216,11 @@ def update_template(
     else:
         json_inputs = None
     idx = client.update_training_template(
-        ai_instance_id=str(model_id), app_id=str(app_id), properties=json_inputs, description=description
+        ai_instance_id=model_id,
+        app_id=app_id,
+        properties=json_inputs,
+        description=description,
+        template_id=template_id,
     )
     if idx:
         print(f"Updated training template with id={idx}")

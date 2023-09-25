@@ -3,6 +3,7 @@ import json
 import dictdiffer
 import pytest
 
+from superai.meta_ai.dataset import DatasetMetadata
 from superai.meta_ai.parameters import (
     GPUVRAM,
     AiDeploymentParameters,
@@ -173,3 +174,37 @@ def test_deployment_parameters():
     db_dict = big_memory_dp.dict_for_db()
     assert db_dict
     assert "enableCuda" not in db_dict
+
+    merged = always_on_dp.merge(big_memory_dp)
+    assert merged
+    assert merged.min_replica_count == big_memory_dp.min_replica_count
+    assert merged.target_memory_requirement == big_memory_dp.target_memory_requirement
+
+
+@pytest.mark.parametrize(
+    "test_fraction, training_fraction, validation_fraction, is_valid",
+    [
+        (0.2, 0.7, 0.1, True),
+        (0.3, 0.6, 0.1, True),
+        (0, 1, 0, True),
+        (0.2, 0.7, 0.2, False),
+        (0.2, 0.7, -0.1, False),
+    ],
+)
+def test_dataset_metadata_fractions(test_fraction, training_fraction, validation_fraction, is_valid):
+    try:
+        DatasetMetadata(
+            test_fraction=test_fraction,
+            training_fraction=training_fraction,
+            validation_fraction=validation_fraction,
+        )
+        assert is_valid
+    except ValueError:
+        assert not is_valid
+
+
+def test_dataset_metadata_fields():
+    data = DatasetMetadata(test_fraction=0.2, training_fraction=0.7, validation_fraction=0.1)
+    assert data.test_fraction == 0.2
+    assert data.training_fraction == 0.7
+    assert data.validation_fraction == 0.1

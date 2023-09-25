@@ -1,4 +1,5 @@
 import json
+import os
 
 import boto3
 import pytest
@@ -8,7 +9,9 @@ from superai.utils.dp_env_loader import _retrieve_secret, transform_key
 
 
 @pytest.fixture(scope="function")
-def secrets_client():
+def secrets_client(mocker):
+    # set env variable using mocker
+    mocker.patch.dict(os.environ, {"AWS_DEFAULT_REGION": "eu-west-1"})
     with mock_secretsmanager():
         yield boto3.client("secretsmanager")
 

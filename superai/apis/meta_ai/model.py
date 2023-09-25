@@ -535,11 +535,11 @@ class TrainApiMixin(AiApiBase):
 
     def update_training_template(
         self,
-        template_id: uuid = None,
-        ai_instance_id: uuid = None,
-        app_id: uuid = None,
-        properties: dict = None,
-        description: str = None,
+        template_id: Optional[str] = None,
+        ai_instance_id: Optional[str] = None,
+        app_id: Optional[str] = None,
+        properties: Optional[dict] = None,
+        description: Optional[str] = None,
     ):
         """Update existing training template entry.
 
@@ -567,7 +567,7 @@ class TrainApiMixin(AiApiBase):
 
         op.update_meta_ai_training_template_by_pk(
             _set=meta_ai_training_template_set_input(**update_dict),
-            pk_columns=meta_ai_training_template_pk_columns_input(id=template_id),
+            pk_columns=meta_ai_training_template_pk_columns_input(id=str(template_id)),
         ).__fields__("id", "app_id", "ai_instance_id", "properties", "description")
         data = self.ai_session.perform_op(op, app_id=app_id)
         log.info(f"Updated training template {data}")
@@ -807,7 +807,8 @@ class TrainApiMixin(AiApiBase):
         training_template_id: uuid,
         checkpoint_id: str,
         current_properties: Optional[dict] = None,
-        metadata: Optional[dict] = None,
+        dataset_metadata: Optional[dict] = None,
+        timeout=300,
     ) -> uuid:
         """Starts a training given the app_id, ai_instance_id, task_name, training_template_id. This automatically creates a
         dataset from the app, and starts training from the training_template_id.
@@ -819,7 +820,7 @@ class TrainApiMixin(AiApiBase):
             checkpoint_id: ID of the AI checkpoint to be used as a starting point
             training_template_id: ID of the training template
             current_properties: properties to be passed to the training
-            metadata: metadata passed to training
+            dataset_metadata: dataset metadata passed to training, can contain training/testing/validation splits
         Returns:
              Instance ID of the training created
         """
@@ -834,10 +835,10 @@ class TrainApiMixin(AiApiBase):
         )
         if current_properties:
             request["current_properties"] = json.dumps(current_properties)
-        if metadata:
-            request["metadata"] = json.dumps(metadata)
+        if dataset_metadata:
+            request["metadata"] = json.dumps(dataset_metadata)
         opq.start_training(request=request).__fields__("training_instance_id")
-        data = self.ai_session.perform_op(opq, app_id=app_id)
+        data = self.ai_session.perform_op(opq, app_id=app_id, timeout=timeout)
         res = (opq + data).start_training
         training_instance_id = res.training_instance_id
         return training_instance_id
