@@ -25,3 +25,7 @@ Sometimes, PIP or Conda packages may not suffice due to system-level dependencie
 artifacts:
     run: setup.sh
 ```
+
+##  AI Cookbook
+
+Check out the [AI Cookbook](./cookbook.md) for common use cases and examples.
