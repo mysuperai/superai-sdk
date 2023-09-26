@@ -314,7 +314,7 @@ class RemotePredictor(DeployedPredictor):
                         f"Deployment type changed. Previous {current_type}, now: {self.orchestrator.value}. Will shutdown current deployment and create new."
                     )
                     create_new = True
-                self.terminate(wait_seconds=3)
+                self.terminate(wait_seconds=15)
         else:
             create_new = True
 
