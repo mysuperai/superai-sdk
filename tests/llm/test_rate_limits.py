@@ -6,6 +6,7 @@ from openai.error import RateLimitError
 
 from superai.data_program.protocol.rate_limit import compute_api_wait_time
 from superai.llm.foundation_models.openai import ChatGPT
+from tests.llm.helpers import patch_chatgpt_settings
 
 
 class OpenAIMockResponse:
@@ -35,6 +36,7 @@ def chat_gpt_model():
     return ChatGPT()
 
 
+@patch_chatgpt_settings
 def test_rate_exceeding_handling(chat_gpt_model):
     chat_gpt_model._wait_for_rate_limits = lambda x, y: True
     with patch("openai.ChatCompletion.create") as chat_mock:
@@ -65,6 +67,7 @@ def test_rate_exceeding_handling(chat_gpt_model):
         assert result
 
 
+@patch_chatgpt_settings
 def test_wait_for_rate_limits(monkeypatch, chat_gpt_model):
     # RPM call, retrial, TPM call, RPM retrial, TPM retrial
     return_data = [0.5, 0, 0.1, 0, 0]
@@ -74,7 +77,7 @@ def test_wait_for_rate_limits(monkeypatch, chat_gpt_model):
         test_mock,
     )
 
-    chat_gpt_model._wait_for_rate_limits("gpt-3.5-turbo", 50)
+    chat_gpt_model._wait_for_rate_limits("gpt-35-turbo", 50)
     assert test_mock.call_count == len(return_data)
 
 

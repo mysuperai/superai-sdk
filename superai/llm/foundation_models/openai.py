@@ -1,7 +1,9 @@
 import json
 import random
 import time
+from typing import Union
 
+import boto3
 import openai
 import tiktoken
 from openai.error import (
@@ -14,6 +16,7 @@ from openai.error import (
     TryAgain,
 )
 
+from superai.config import settings
 from superai.data_program.protocol.transport_factory import compute_api_wait_time
 from superai.llm.configuration import Configuration
 from superai.llm.data_types.message import ChatMessage
@@ -24,6 +27,18 @@ from superai.utils import retry
 config = Configuration()
 
 log = logger.get_logger(__name__)
+
+
+def load_params_from_aws_secrets():
+    """
+    Loads parameters of different OpenAI foundation models from AWS secrets.
+    It's supposed that the format of settings is the following:
+    {"llm": {"modelname_1": {<settings>}, "modelname_1": {<settings>}, ...}}
+    """
+    secrets_client = boto3.client("secretsmanager", region_name="eu-central-1")
+
+    secret_string = secrets_client.get_secret_value(SecretId="dataprogram-openai")["SecretString"]
+    settings.update(json.loads(secret_string))
 
 
 class OpenAIFoundation(FoundationModel):
@@ -47,33 +62,39 @@ class OpenAIFoundation(FoundationModel):
 rpm_by_model = {
     "gpt-4": 200,
     "gpt-4-32k": 200,
-    "gpt-3.5-turbo": 3500,
     "gpt-35-turbo": 3500,
-    "gpt-3.5-turbo-16k": 3500,
     "gpt-35-turbo-16k": 3500,
 }
 
 tpm_by_model = {
     "gpt-4": 20000,
     "gpt-4-32k": 200,
-    "gpt-3.5-turbo": 240000,
     "gpt-35-turbo": 240000,
-    "gpt-3.5-turbo-16k": 240000,
     "gpt-35-turbo-16k": 240000,
 }
 
 token_limit_by_model = {
     "gpt-4": 8192,
     "gpt-4-32k": 32768,
-    "gpt-3.5-turbo": 4097,
     "gpt-35-turbo": 4097,
-    "gpt-3.5-turbo-16k": 16385,
     "gpt-35-turbo-16k": 16385,
 }
 
 
-class ChatGPT(OpenAIFoundation):
-    engine: str = config.smart_foundation_model_engine
+class ChatGPT(FoundationModel):
+    """
+    OpenAI ChatGPT LLM Model
+
+    "openai_model" is a name of OpenAI model name, which we want to use.
+    This name is not nessesary is the "engine" or "model" parameter of OpenAI or Azure APIs.
+    Instead, this parameter references a group in Dynaconf settings, where all the nessesary
+    OpenAI/Azure API parameters are defined, such as "completion_model_engine", "api_key", "api_base", etc.
+    Available values of "openai_model" field are defined by current settings, they are not controlled by SDK.
+    settings are read after the "predict()" method is called.
+    """
+
+    user: str = None
+    openai_model: str = "gpt-35-turbo"
     temperature: float = 0
     max_tokens: int = None
     top_p: int = None
@@ -83,12 +104,25 @@ class ChatGPT(OpenAIFoundation):
     presence_penalty: float = None
     frequency_penalty: float = None
     logit_bias: dict = None
-    token_limit: int = token_limit_by_model[engine]
     rpm: dict = rpm_by_model
     tpm: dict = tpm_by_model
 
-    def predict(self, input: ChatMessage):
-        self.initialize_openai()
+    @property
+    def engine(self):
+        model_params = settings.get("llm").get(self.openai_model, None)
+        if not model_params:
+            raise Exception(f"Unknown OpenAI model: {self.openai_model}")
+        return model_params.completion_model_engine
+
+    @property
+    def token_limit(self):
+        return token_limit_by_model[self.openai_model]
+
+    def predict(self, input: Union[ChatMessage, str, list]):
+        # we assume the following structure of settings: {"llm": {"modelname_1": {<settings>}, "modelname_1": {<settings>}, ...}}
+        model_params = settings.get("llm").get(self.openai_model, None)
+        if not model_params:
+            raise Exception(f"Unknown OpenAI model: {self.openai_model}")
 
         if isinstance(input, ChatMessage):
             messages = [
@@ -111,10 +145,13 @@ class ChatGPT(OpenAIFoundation):
                 f"Invalid input type {type(input)}: must be ChatMessage, str, dict or list of ChatMessage, str, or dict"
             )
 
-        # Filter out None values
         params = {
-            "engine": self.engine if config.openai_api_type == "azure" else None,
-            "model": self.engine if config.openai_api_type == "open_ai" else None,
+            "engine": model_params.completion_model_engine if model_params.api_type == "azure" else None,
+            "model": model_params.completion_model_engine if model_params.api_type == "open_ai" else None,
+            "api_key": model_params.api_key,
+            "api_type": model_params.api_type,
+            "api_base": model_params.api_base,
+            "api_version": model_params.api_version,
             "n": self.n,
             "messages": messages,
             "temperature": self.temperature,
@@ -128,6 +165,7 @@ class ChatGPT(OpenAIFoundation):
             "user": self.user,
         }
 
+        # Filter out None values
         filtered_params = {k: v for k, v in params.items() if v is not None}
 
         # Make sure that the max token are limited to the amount of token that a
@@ -182,7 +220,7 @@ class ChatGPT(OpenAIFoundation):
         min_additional_sleep: float = 1.0,
         max_additional_sleep: float = 5.0,
     ):
-        self._wait_for_rate_limits(self.engine, token_count)
+        self._wait_for_rate_limits(self.openai_model, token_count)
         start_time = time.time()
         try:
             response = openai.ChatCompletion.create(**openai_params)
@@ -197,7 +235,7 @@ class ChatGPT(OpenAIFoundation):
         except RateLimitError as e:
 
             # Maxing out requests in order to block other openai callers
-            # self._wait_for_rate_limits(self.engine, self.rpm[self.engine])
+            # self._wait_for_rate_limits(self.openai_model, self.rpm[self.openai_model])
 
             additional_sleep = random.uniform(min_additional_sleep, max_additional_sleep)
             headers = e.headers

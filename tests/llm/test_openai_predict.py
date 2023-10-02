@@ -1,4 +1,5 @@
 from superai.llm.foundation_models.openai import ChatGPT
+from tests.llm.helpers import patch_chatgpt_settings
 
 
 def return_mock(second_finish_reason):
@@ -13,6 +14,7 @@ def return_mock(second_finish_reason):
     return helper
 
 
+@patch_chatgpt_settings
 def test_stop_criterion():
     model = ChatGPT()
     model._openai_call = return_mock("length")
