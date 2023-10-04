@@ -73,10 +73,6 @@ AI_REQUIRES = [
     "pydantic>=1.8.2,<2",
 ]
 
-AI_EXPERIMENTAL_REQUIRES = [
-    "sagemaker>=1.64",
-]
-
 BUILD_REQUIRES = [
     "Sphinx>=3.2.1",
     "black",
@@ -164,14 +160,9 @@ setup(
         "build": DP_REQUIRES + BUILD_REQUIRES,
         "dp": DP_REQUIRES,
         "ai": AI_REQUIRES + DP_REQUIRES,
-        "llm": LLM_REQUIRES + AI_REQUIRES + AI_EXPERIMENTAL_REQUIRES + DP_REQUIRES,
-        "test": LLM_REQUIRES + TEST_REQUIRES + DP_REQUIRES + AI_REQUIRES + AI_EXPERIMENTAL_REQUIRES,
-        "complete": BUILD_REQUIRES
-        + DP_REQUIRES
-        + AI_REQUIRES
-        + AI_EXPERIMENTAL_REQUIRES
-        + LLM_REQUIRES
-        + TEST_REQUIRES,
+        "llm": LLM_REQUIRES + AI_REQUIRES + DP_REQUIRES,
+        "test": LLM_REQUIRES + TEST_REQUIRES + DP_REQUIRES + AI_REQUIRES,
+        "complete": BUILD_REQUIRES + DP_REQUIRES + AI_REQUIRES + LLM_REQUIRES + TEST_REQUIRES,
     },
     packages=find_packages(),
     include_package_data=True,
