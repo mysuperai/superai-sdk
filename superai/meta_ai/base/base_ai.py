@@ -15,7 +15,9 @@ from superai.meta_ai.parameters import Config, HyperParameterSpec, ModelParamete
 from superai.meta_ai.schema import Schema, SchemaParameters, TaskInput, TrainerOutput
 from superai.meta_ai.tracking import SuperTracker
 from superai.utils.opentelemetry import _extract_and_activate_span, tracer
+from superai.utils.sentry_helper import init
 
+init()
 default_random_seed = 65778
 
 log = get_logger(__name__)
