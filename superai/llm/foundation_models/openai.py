@@ -1,7 +1,7 @@
 import json
 import random
 import time
-from typing import Union
+from typing import Optional, Union
 
 import boto3
 import openai
@@ -118,7 +118,7 @@ class ChatGPT(FoundationModel):
     def token_limit(self):
         return token_limit_by_model[self.openai_model]
 
-    def predict(self, input: Union[ChatMessage, str, list]):
+    def predict(self, input: Union[ChatMessage, str, list], manual_token_limit: Optional[int] = None):
         # we assume the following structure of settings: {"llm": {"modelname_1": {<settings>}, "modelname_1": {<settings>}, ...}}
         model_params = settings.get("llm").get(self.openai_model, None)
         if not model_params:
@@ -174,6 +174,9 @@ class ChatGPT(FoundationModel):
         encoding = tiktoken.encoding_for_model(self.engine)
         token_count = len(encoding.encode(filtered_params["messages"][0]["content"]))
         remaining_token = (self.token_limit - 50) - token_count
+        if manual_token_limit is not None:
+            log.info(f"Manually token limit set to {manual_token_limit}")
+            remaining_token = min(remaining_token, manual_token_limit)
         filtered_params["max_tokens"] = remaining_token
         log.info(f"Max generation token set to {filtered_params['max_tokens']}")
 
@@ -233,7 +236,6 @@ class ChatGPT(FoundationModel):
             }
             log.info("Azure OpenAI call successful", extra=azure_response)
         except RateLimitError as e:
-
             # Maxing out requests in order to block other openai callers
             # self._wait_for_rate_limits(self.openai_model, self.rpm[self.openai_model])
 
