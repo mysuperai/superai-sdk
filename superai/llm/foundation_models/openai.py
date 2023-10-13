@@ -242,19 +242,20 @@ class ChatGPT(FoundationModel):
             additional_sleep = random.uniform(min_additional_sleep, max_additional_sleep)
             headers = e.headers
 
+            sleep_time = 0.0 + min_additional_sleep
             if retry_after := headers.get("Retry-After", None):
-                time.sleep(float(retry_after) + additional_sleep)
-                raise e
+                sleep_time = float(retry_after) + additional_sleep
+            elif headers.get("x-ratelimit-reset-requests", None):
+                reset_rate_header = headers.get("x-ratelimit-reset-requests", "30s")
+                sleep_time = 30.0
+                if reset_rate_header.endswith("s") and "m" not in reset_rate_header:
+                    try:
+                        sleep_time = float(reset_rate_header[:-1])
+                    except ValueError:
+                        log.info(f"Could not cast {reset_rate_header[:-1]} to float")
 
-            reset_rate_header = headers.get("x-ratelimit-reset-requests", "30s")
-            sleep_time = 30.0
-            if reset_rate_header.endswith("s") and "m" not in reset_rate_header:
-                try:
-                    sleep_time = float(reset_rate_header[:-1])
-                except ValueError:
-                    log.info(f"Could not cast {reset_rate_header[:-1]} to float")
+                sleep_time = sleep_time + additional_sleep
 
-            sleep_time = sleep_time + additional_sleep
             azure_response = {
                 "azure_openai_response": {
                     "elapsed": round(time.time() - start_time, 2),
