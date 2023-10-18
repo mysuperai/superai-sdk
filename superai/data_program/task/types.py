@@ -259,11 +259,13 @@ class DPSuperTaskConfigs(BaseModel):
             dp_name: The name of the Data Program.
         """
         """Turbines schema is a bit different from the SDK schema"""
-        super_task_params_list = [SuperTaskSchemaResponse.parse_obj(stp) for stp in response]
-        super_task_params_dict = {
-            stp.super_task_workflow.split(f"{dp_name}.")[1]: SuperTaskConfig.parse_obj(stp)
-            for stp in super_task_params_list
-        }
+
+        super_task_params_dict = {}
+        for super_task_param in response:
+            response_stp = SuperTaskSchemaResponse.parse_obj(super_task_param)
+            super_task_params_dict[response_stp.super_task_workflow.split(f"{dp_name}.")[1]] = SuperTaskConfig(
+                workers=response_stp.workers, params=response_stp.parameters
+            )
         return cls.parse_obj(super_task_params_dict)
 
 
