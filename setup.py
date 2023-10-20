@@ -109,6 +109,7 @@ LLM_REQUIRES = [
     "tabulate~=0.9.0",
     "tiktoken~=0.4.0",
     "openai~=0.27.2",
+    "shapely>=2.0.2",
 ]
 
 LLM_REQUIRES_EXTRA = [

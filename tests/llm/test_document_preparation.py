@@ -24,6 +24,13 @@ def form_ocr():
     return form_ocr
 
 
+@pytest.fixture
+def table_ocr():
+    with open(Path(__file__).parent.joinpath("ocr_outputs/table_ocr_output.json"), "r") as f:
+        table_ocr = json.load(f)
+    return table_ocr
+
+
 def test_whitespace_extractor(invoice_ocr):
     extractor = DocumentToString(False, False, "whitespace", None, 4000)
     serialized_doc = extractor.get_document_representation(invoice_ocr["__ocr_values__"], None, None)
@@ -66,6 +73,15 @@ def test_whitespace_extractor_kv(form_ocr):
     assert all(len(encoder.encode(chunk)) < 4000 for chunk in serialized_doc)
     assert len(serialized_doc) == 2
     assert len(serialized_doc[0]) > 0
+
+
+def test_whitespace_extractor_table(table_ocr):
+    extractor = DocumentToString(False, True, "whitespace", None, 4000)
+    serialized_doc = extractor.get_document_representation(
+        table_ocr["__ocr_values__"], None, table_ocr["__general_tables__"]
+    )
+    assert serialized_doc[0].count("Table") == 2
+    assert len(serialized_doc) == 1
 
 
 def test_document_batching(form_ocr):
