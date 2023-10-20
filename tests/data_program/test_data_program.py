@@ -1,11 +1,10 @@
 import os
-import pathlib
 from typing import List
 
 import pytest
 from superai_schema.types import BaseModel, Field
 
-from superai.config import get_current_env, settings
+from superai.config import settings
 from superai.data_program import (
     BotWorker,
     CollaboratorWorker,
@@ -95,45 +94,6 @@ def test_schema_port(monkeypatch):
     assert settings.schema_port == previous_port
 
 
-@pytest.fixture(scope="module")
-def vcr(vcr):
-    vcr.serializer = "yaml"
-    vcr.cassette_library_dir = f"{pathlib.Path(__file__).resolve().parent}/cassettes"
-    vcr.record_mode = "once"
-    vcr.match_on = ["method"]
-    vcr.filter_headers = [
-        "x-api-key",
-        "x-app-id",
-        "Content-Length",
-        "User-Agent",
-        "API-KEY",
-        "AUTH-TOKEN",
-        "ID-TOKEN",
-        "Authorization",
-        "Accept-Encoding",
-    ]
-    vcr.decode_compressed_response = True
-    return vcr
-
-
-@pytest.fixture
-def use_dev_env_for_vcr(vcr):
-    previous_env = get_current_env()
-    assert previous_env == "testing"
-
-    # Uncomment this for recording new cassettes in dev
-    # settings.configure(FORCE_ENV_FOR_DYNACONF="dev")
-    # settings.env_for_superai = "dev"
-    # print(settings.as_dict())
-    # assert settings.user.api_key is not None
-
-    with vcr.use_cassette("dp_test.yaml"):
-        yield
-    # Restore previous env
-    # settings.configure(FORCE_ENV_FOR_DYNACONF=previous_env)
-    # settings.env_for_superai = previous_env
-
-
 @pytest.fixture(scope="function", autouse=True)
 def reset_agent_env():
     """Some of the tests have side effects in the OS environment variables. This fixture resets the environment"""
@@ -147,7 +107,7 @@ def reset_agent_env():
 
 
 @pytest.fixture
-def set_qumes_active(use_dev_env_for_vcr):
+def set_qumes_active():
     previous_backend = settings.backend
     settings.backend = "qumes"
     assert settings.backend == "qumes"
@@ -156,7 +116,22 @@ def set_qumes_active(use_dev_env_for_vcr):
 
 
 @pytest.mark.parametrize("handler", [_dummy_handler, _dummy_handler_supertask])
-def test_data_program_creation(mocker, set_qumes_active, use_dev_env_for_vcr, handler):
+def test_data_program_creation(mocker, set_qumes_active, handler):
+    mock_client = mocker.MagicMock()
+    template_mock = {
+        "uuid": "1234",
+        "dpWorkflows": [f"{DP_NAME}.parse"],
+        "defaultWorkflow": f"{DP_NAME}.parse",
+        "name": f"{DP_NAME}.router",
+    }
+    mock_client.update_workflow.return_value = template_mock
+    mock_client.update_template.return_value = template_mock
+    mock_client.get_template.return_value = template_mock
+    mock_client.create_template.return_value = template_mock
+
+    mocker.patch("superai.data_program.data_program.Client", return_value=mock_client)
+    mocker.patch("superai.data_program.workflow.workflow.Client", return_value=mock_client)
+
     # Mock function create_template in apis/data_program.py
     default_params = ParameterModel(instructions="These are the DP default instructions.")
 

@@ -3,6 +3,7 @@ from typing import Generic, Union
 from pydantic.generics import GenericModel
 
 from superai.data_program.Exceptions import (
+    CancelledError,
     ChildJobExpired,
     ChildJobFailed,
     ChildJobInternalError,
@@ -104,15 +105,18 @@ class SuperTaskWorkflow(Workflow):
         )
         if not status:
             raise ChildJobInternalError(failure_message)
+
         if status == "FAILED":
             raise ChildJobFailed(failure_message)
-        if status == "EXPIRED":
+        elif status == "EXPIRED":
             raise ChildJobExpired(failure_message)
-        if status != "COMPLETED":
+        elif status == "CANCELED":
+            raise CancelledError(failure_message)
+        elif status == "COMPLETED":
+            response = job.result().response()
+            return response
+        else:
             raise ChildJobInternalError(failure_message)
-
-        response = job.result().response()
-        return response
 
     @tracer.start_as_current_span(name="super_task_workflow")
     def execute_workflow(

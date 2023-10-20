@@ -18,7 +18,7 @@ from superai.exceptions import (
     SuperAIError,
 )
 from superai.log import logger
-from superai.utils import update_cognito_credentials
+from superai.utils import retry, update_cognito_credentials
 
 # Set up logging
 logger = logger.get_logger(__name__)
@@ -99,6 +99,7 @@ class Client(
             organization_name=organization_name,
         )
 
+    @retry(exceptions=(requests.exceptions.HTTPError))
     def request(
         self,
         endpoint: str,
@@ -169,6 +170,9 @@ class Client(
                     base_url=self.base_url,
                     endpoint=endpoint,
                 ) from http_e
+            elif http_e.response.status_code == 502:
+                raise requests.HTTPError(message, http_e.response.status_code) from http_e
+
             raise SuperAIError(message, http_e.response.status_code) from http_e
 
     def _get_organization_id(self, organization_name: str, user: Optional[object] = None) -> int:

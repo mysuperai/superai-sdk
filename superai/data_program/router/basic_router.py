@@ -8,6 +8,7 @@ import superai_schema.universal_schema.data_types as dt
 
 from superai import Client
 from superai.data_program.Exceptions import (
+    CancelledError,
     ChildJobExpired,
     ChildJobFailed,
     ChildJobInternalError,
@@ -141,11 +142,14 @@ class BasicRouter(Router):
             failure_message = f"{workflow} method did not complete for {job_type} job. Result {result}. Status {status}"
             if not status:
                 raise ChildJobInternalError(failure_message)
+
             if status == "FAILED":
                 raise ChildJobFailed(failure_message)
-            if status == "EXPIRED":
+            elif status == "EXPIRED":
                 raise ChildJobExpired(failure_message)
-            if status != "COMPLETED":
+            elif status == "CANCELED":
+                raise CancelledError(failure_message)
+            elif status == "COMPLETED":
+                return job.result().response(), job.result().data(), None
+            else:
                 raise ChildJobInternalError(failure_message)
-
-            return job.result().response(), job.result().data(), None

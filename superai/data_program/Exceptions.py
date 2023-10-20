@@ -1,133 +1,138 @@
-class EmptyPerformanceError(Exception):
+class DataProgramError(Exception):
     def __init__(self, message):
         self.message = message
 
 
-class UnsatisfiedMetricsError(Exception):
+class EmptyPerformanceError(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class MetricNotImplementedError(Exception):
+class UnsatisfiedMetricsError(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class MetricCalculationFailed(Exception):
+class MetricNotImplementedError(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class JobTypeNotImplemented(Exception):
+class MetricCalculationFailed(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class PerformanceNotSet(Exception):
+class JobTypeNotImplemented(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class PerformanceNotReady(Exception):
+class PerformanceNotSet(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class BotInitNotSupported(Exception):
+class PerformanceNotReady(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class UnexpectedJobStatus(Exception):
+class BotInitNotSupported(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class UnexpectedDataType(Exception):
+class UnexpectedJobStatus(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class UnknownTaskStatus(Exception):
+class UnexpectedDataType(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class TaskExpired(Exception):
+class UnknownTaskStatus(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class TaskExpiredMaxRetries(Exception):
+class TaskExpired(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class TaskResponseNull(Exception):
+class TaskExpiredMaxRetries(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class TaskValueMissing(Exception):
+class TaskResponseNull(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class ChildJobFailed(Exception):
+class TaskValueMissing(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class ChildJobInternalError(Exception):
+class ChildJobFailed(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class ChildJobExpired(Exception):
+class ChildJobInternalError(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class CancelledError(Exception):
+class ChildJobExpired(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class MeasurerBaselineMismatch(Exception):
+class CancelledError(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class TruthsPredictionsMisatch(Exception):
+class MeasurerBaselineMismatch(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class MeasurerResponseNull(Exception):
+class TruthsPredictionsMisatch(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class MeasurerConfigError(Exception):
+class MeasurerResponseNull(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class MiscMeasurerError(Exception):
+class MeasurerConfigError(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class KeyMismatch(Exception):
+class MiscMeasurerError(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class InsufficientBaseline(Exception):
+class KeyMismatch(DataProgramError):
     def __init__(self, message):
         self.message = message
 
 
-class QualifierTaskExpired(Exception):
+class InsufficientBaseline(DataProgramError):
+    def __init__(self, message):
+        self.message = message
+
+
+class QualifierTaskExpired(DataProgramError):
     def __init__(self, message):
         self.message = message

@@ -29,8 +29,6 @@ from superai.utils import load_api_key, sentry_helper
 from superai.utils.opentelemetry import tracer
 
 from .transport_factory import (  # noqa # isort:skip
-    attach_bill,
-    decline_result,
     get_context_app_id,
     get_context_id,
     get_context_is_child,
@@ -38,19 +36,15 @@ from .transport_factory import (  # noqa # isort:skip
     get_context_metadata,
     get_context_project_id,
     get_context_simple_id,
-    job_priority,
     load_snapshot,
     load_snapshot_data,
     remove_hero_qualification,
     resolve_job,
-    run_model_predict,
     save_hero_qualification,
     save_snapshot,
-    schedule_mtask,
     schedule_task,
     schedule_workflow,
     send_report,
-    send_reward,
     start_threads,
     subscribe_workflow,
     task_future,
@@ -205,17 +199,6 @@ def get_job_id():
     Job ID of current job. For little piggy, it always returns little piggy.
     """
     return get_context_id() if "CANOTIC_AGENT" in os.environ else "LITTLE_PIGGY"
-
-
-def get_job_priority(api_key=None):
-    """Returns job priority."""
-    if "CANOTIC_AGENT" not in os.environ:
-        return "LITTLE_PIGGY"
-    priority = job_priority()
-    if priority is not None:
-        return priority
-    logger.info(f"Failed to query job priority `{get_job_id()}`.")
-    raise RuntimeError(f"Failed to query job priority id `{get_job_id()}`.")
 
 
 def get_job_app():
@@ -1040,21 +1023,6 @@ def schema(sample):
     return b.to_schema()
 
 
-def reward(task, amount, reason=None):
-    if "CANOTIC_AGENT" in os.environ:
-        send_reward(task, amount, reason)
-
-
-def decline(task, reason):
-    if "CANOTIC_AGENT" in os.environ:
-        decline_result(task, reason)
-
-
-def bill(amount):
-    if "CANOTIC_AGENT" in os.environ:
-        attach_bill(amount)
-
-
 def export_data(json_output):
     os.makedirs(".canotic", exist_ok=True)
     folder = f".canotic/{get_job_id()}"
@@ -1067,5 +1035,4 @@ def export_data(json_output):
 def start_threading(join=True):
     threads = start_threads()
     if threads and join:
-        for t in threads:
-            t.join()
+        threads[0].join()

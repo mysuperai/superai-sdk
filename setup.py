@@ -86,6 +86,7 @@ DP_REQUIRES = [
     "pyngrok>=6.0.0",
     "superai-dataclient~=0.1.0",
     "superai-schema~=0.7",
+    "superai-transport>=1.0",
     "pydantic>=1.8.2,<2",
 ]
 
