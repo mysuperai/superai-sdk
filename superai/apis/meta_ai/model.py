@@ -149,6 +149,17 @@ class DeploymentApiMixin(AiApiBase):
         self._set_target_status(deployment_id, target_status)
         return self._wait_for_state_change(deployment_id, field="status", target_status=target_status, timeout=timeout)
 
+    def update_deployment(self, deployment_id: str, timeout: int = 600) -> bool:
+        """This function will perform a seamless update of the deployment if the backend type supports it.
+        This enables no-downtime deployments."""
+        log.info(f"Starting seamless update of deployment {deployment_id}")
+        # Set to neutral state first to trigger event handler in any case
+        self._set_target_status(deployment_id, "UNKNOWN")
+        time.sleep(1)
+        self._set_target_status(deployment_id, "UPDATING")
+        # The backend will perform the update and finally set the status to ONLINE
+        return self._wait_for_state_change(deployment_id, field="status", target_status="ONLINE", timeout=timeout)
+
     def _wait_for_state_change(self, deployment_id: str, field: str, target_status, timeout=600):
         end_time = time.time() + timeout
         retries = 0

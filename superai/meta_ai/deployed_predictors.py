@@ -314,7 +314,11 @@ class RemotePredictor(DeployedPredictor):
                         f"Deployment type changed. Previous {current_type}, now: {self.orchestrator.value}. Will shutdown current deployment and create new."
                     )
                     create_new = True
-                self.terminate(wait_seconds=15)
+                    # Only terminate when deployment type differs
+                    self.terminate(wait_seconds=15)
+                else:
+                    # If the type is identical we can just use the seamless update feature
+                    create_new = False
         else:
             create_new = True
 
@@ -325,9 +329,11 @@ class RemotePredictor(DeployedPredictor):
 
         # Update deployment properties and AI instance
         c.set_deployment_properties(deployment_id=self.id, properties=self.deploy_properties.dict_for_db())
+        if create_new:
+            finished = c.set_deployment_status(deployment_id=self.id, target_status="ONLINE", timeout=wait_time_seconds)
+        else:
+            finished = c.update_deployment(deployment_id=self.id, timeout=wait_time_seconds)
 
-        # Set deployment status to ONLINE and fetch deployment details
-        finished = c.set_deployment_status(deployment_id=self.id, target_status="ONLINE", timeout=wait_time_seconds)
         deployment = c.get_deployment(self.id)
         if not finished:
             log.warning(f"Deployment is getting ready in the background: {deployment}")

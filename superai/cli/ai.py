@@ -152,7 +152,7 @@ def download_artifact(
     url_path = pathlib.Path(parsed.path)
     filename = url_path.name
 
-    logger.info(f"Downloading {filename} to {path}")
+    log.info(f"Downloading {filename} to {path}")
     download_file_to_directory(url=url, filename=filename, path=path)
 
 
@@ -311,7 +311,7 @@ def docker_run_local(image_name: str, model_path: str, gpu: bool):
         options.append("--rm --gpus all")
     options = " ".join(options)
     command = f"docker run {options} {image_name}"
-    logger.info(f"Running command: {command}")
+    log.info(f"Running command: {command}")
     os.system(command)
 
 
@@ -340,14 +340,14 @@ def deploy_ai(config_file, clean=True, update_weights=False):
         shutil.rmtree(save_file)
 
     ai_object = AI.from_yaml(config_file)
-    logger.info(f"Loaded AI: {ai_object}")
+    log.info(f"Loaded AI: {ai_object}")
 
     ai_object.save(weights_path=ai_object.weights_path, overwrite=True, create_checkpoint=update_weights)
-    logger.info(f"Pushed AI: {ai_object}")
+    log.info(f"Pushed AI: {ai_object}")
     ai_object.build()
-    logger.info(f"Built AI: {ai_object}")
+    log.info(f"Built AI: {ai_object}")
     ai_object.push_image()
-    logger.info(f"Pushed AI: {ai_object}")
+    log.info(f"Pushed AI: {ai_object}")
 
 
 @ai_group.command("local-deploy", help="Deploy an AI from its config file")
@@ -380,13 +380,13 @@ def local_deploy_ai(config_file, clean=True, redeploy=True, log=False, skip_buil
         shutil.rmtree(save_file)
 
     ai_object = AI.from_yaml(config_file)
-    logger.info(f"Loaded AI: {ai_object}")
+    log.info(f"Loaded AI: {ai_object}")
 
     ai_object.build(skip_build=skip_build)
-    logger.info(f"Built AI: {ai_object}")
+    log.info(f"Built AI: {ai_object}")
 
     ai_object.save(overwrite=True, create_checkpoint=update_weights)
-    logger.info(f"Saved AI: {ai_object}")
+    log.info(f"Saved AI: {ai_object}")
 
     predictor_obj: LocalPredictor = LocalPredictor(
         orchestrator=Orchestrator.LOCAL_DOCKER_K8S,
@@ -546,8 +546,15 @@ def create_ai_instance(
 
     if deploy:
         for instance in instances:
-            instance.deploy(redeploy=True, orchestrator=orchestrator)
-            print(f"Deployed AI instance: {instance}")
+            from superai.meta_ai.exceptions import DockerImageNotFoundError
+
+            try:
+                instance.deploy(redeploy=True, orchestrator=orchestrator)
+                print(f"Deployed AI instance: {instance}")
+            except DockerImageNotFoundError:
+                raise click.ClickException(
+                    f"Missing docker image for AI instance {instance.id}. Try building the image first with `superai ai build`."
+                )
 
 
 @ai_group.command("build", help="Build an AI from its config file")
@@ -687,7 +694,7 @@ def predictor_teardown(client, config_file):
             predictor_dictionary = json.load(predictor_config)
         predictor: DeployedPredictor = DeployedPredictor.from_dict(predictor_dictionary, client)
         predictor.terminate()
-        logger.info(f"Removing predictor config at {config_path}")
+        log.info(f"Removing predictor config at {config_path}")
         os.remove(config_path)
     else:
         raise click.ClickException(f"Predictor config did not exist at {config_path}")

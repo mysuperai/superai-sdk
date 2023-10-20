@@ -13,7 +13,11 @@ from superai.meta_ai import AI
 from superai.meta_ai.ai_checkpoint import CheckpointTag
 from superai.meta_ai.ai_helper import _not_none_validator, confirm_action
 from superai.meta_ai.deployed_predictors import RemotePredictor
-from superai.meta_ai.exceptions import AIException, ModelNotFoundError
+from superai.meta_ai.exceptions import (
+    AIException,
+    DockerImageNotFoundError,
+    ModelNotFoundError,
+)
 from superai.meta_ai.orchestrators import Orchestrator
 from superai.meta_ai.parameters import AiDeploymentParameters, TrainingParameters
 from superai.meta_ai.schema import TaskPredictionInstance
@@ -296,7 +300,7 @@ class AIInstance:
         ai = AI.load_essential(self.template_id)
 
         if not ai.image:
-            raise AIException(
+            raise DockerImageNotFoundError(
                 "AI has no Docker image stored. Try ai.build() and ai.push_image() on the AI object first."
             )
         orchestrator = Orchestrator(orchestrator)

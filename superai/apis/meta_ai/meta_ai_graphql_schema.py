@@ -439,7 +439,17 @@ class meta_ai_deployment_status_constraint(sgqlc.types.Enum):
 
 class meta_ai_deployment_status_enum(sgqlc.types.Enum):
     __schema__ = meta_ai_graphql_schema
-    __choices__ = ("FAILED", "FINISHED", "MAINTENANCE", "OFFLINE", "ONLINE", "PAUSED", "STARTING", "UNKNOWN")
+    __choices__ = (
+        "FAILED",
+        "FINISHED",
+        "MAINTENANCE",
+        "OFFLINE",
+        "ONLINE",
+        "PAUSED",
+        "STARTING",
+        "UNKNOWN",
+        "UPDATING",
+    )
 
 
 class meta_ai_deployment_status_select_column(sgqlc.types.Enum):
@@ -2206,6 +2216,7 @@ class meta_ai_checkpoint_bool_exp(sgqlc.types.Input):
         "model_id",
         "modelv2",
         "modelv2_id",
+        "parent",
         "parent_version",
         "predictions",
         "predictions_aggregate",
@@ -2237,6 +2248,7 @@ class meta_ai_checkpoint_bool_exp(sgqlc.types.Input):
     model_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="modelId")
     modelv2 = sgqlc.types.Field("meta_ai_modelv2_bool_exp", graphql_name="modelv2")
     modelv2_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="modelv2Id")
+    parent = sgqlc.types.Field("meta_ai_checkpoint_bool_exp", graphql_name="parent")
     parent_version = sgqlc.types.Field("uuid_comparison_exp", graphql_name="parentVersion")
     predictions = sgqlc.types.Field("meta_ai_prediction_bool_exp", graphql_name="predictions")
     predictions_aggregate = sgqlc.types.Field(
@@ -2376,6 +2388,7 @@ class meta_ai_checkpoint_insert_input(sgqlc.types.Input):
         "model_id",
         "modelv2",
         "modelv2_id",
+        "parent",
         "parent_version",
         "predictions",
         "source_training_id",
@@ -2398,6 +2411,7 @@ class meta_ai_checkpoint_insert_input(sgqlc.types.Input):
     model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
     modelv2 = sgqlc.types.Field("meta_ai_modelv2_obj_rel_insert_input", graphql_name="modelv2")
     modelv2_id = sgqlc.types.Field(uuid, graphql_name="modelv2Id")
+    parent = sgqlc.types.Field("meta_ai_checkpoint_obj_rel_insert_input", graphql_name="parent")
     parent_version = sgqlc.types.Field(uuid, graphql_name="parentVersion")
     predictions = sgqlc.types.Field("meta_ai_prediction_arr_rel_insert_input", graphql_name="predictions")
     source_training_id = sgqlc.types.Field(uuid, graphql_name="sourceTrainingId")
@@ -2500,6 +2514,7 @@ class meta_ai_checkpoint_order_by(sgqlc.types.Input):
         "model_id",
         "modelv2",
         "modelv2_id",
+        "parent",
         "parent_version",
         "predictions_aggregate",
         "source_training_id",
@@ -2522,6 +2537,7 @@ class meta_ai_checkpoint_order_by(sgqlc.types.Input):
     model_id = sgqlc.types.Field(order_by, graphql_name="modelId")
     modelv2 = sgqlc.types.Field("meta_ai_modelv2_order_by", graphql_name="modelv2")
     modelv2_id = sgqlc.types.Field(order_by, graphql_name="modelv2Id")
+    parent = sgqlc.types.Field("meta_ai_checkpoint_order_by", graphql_name="parent")
     parent_version = sgqlc.types.Field(order_by, graphql_name="parentVersion")
     predictions_aggregate = sgqlc.types.Field(
         "meta_ai_prediction_aggregate_order_by", graphql_name="predictions_aggregate"
@@ -10698,6 +10714,7 @@ class meta_ai_checkpoint(sgqlc.types.Type):
         "model_id",
         "modelv2",
         "modelv2_id",
+        "parent",
         "parent_version",
         "predictions",
         "predictions_aggregate",
@@ -10778,6 +10795,7 @@ class meta_ai_checkpoint(sgqlc.types.Type):
     model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
     modelv2 = sgqlc.types.Field("meta_ai_modelv2", graphql_name="modelv2")
     modelv2_id = sgqlc.types.Field(uuid, graphql_name="modelv2Id")
+    parent = sgqlc.types.Field("meta_ai_checkpoint", graphql_name="parent")
     parent_version = sgqlc.types.Field(uuid, graphql_name="parentVersion")
     predictions = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("meta_ai_prediction"))),

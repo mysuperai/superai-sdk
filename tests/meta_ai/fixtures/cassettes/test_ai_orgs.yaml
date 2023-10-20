@@ -1,5 +1,43 @@
 interactions:
 - request:
+    body: '{"Filters": [{"Key": "name", "Values": ["dataprograms-env-"]}]}'
+    headers:
+      Content-Type:
+      - !!binary |
+        YXBwbGljYXRpb24veC1hbXotanNvbi0xLjE=
+      X-Amz-Date:
+      - !!binary |
+        MjAyMzEwMjBUMTAwMDMyWg==
+      X-Amz-Target:
+      - !!binary |
+        c2VjcmV0c21hbmFnZXIuTGlzdFNlY3JldHM=
+      amz-sdk-invocation-id:
+      - !!binary |
+        OGJmZDliMzgtNGJlOC00ZjU5LThhNDUtMWE3Mzc1YWY5MThk
+      amz-sdk-request:
+      - !!binary |
+        YXR0ZW1wdD0x
+    method: POST
+    uri: https://secretsmanager.us-east-1.amazonaws.com/
+  response:
+    body:
+      string: '{"__type":"UnrecognizedClientException","message":"The security token
+        included in the request is invalid."}'
+    headers:
+      Connection:
+      - close
+      Content-Length:
+      - '107'
+      Content-Type:
+      - application/x-amz-json-1.1
+      Date:
+      - Fri, 20 Oct 2023 10:00:32 GMT
+      x-amzn-RequestId:
+      - d7399abb-2bef-4bb8-8978-5e352c863b1e
+    status:
+      code: 400
+      message: Bad Request
+- request:
     body: '{"query": "query {\nmeta_ai_template(where: {name: {_eq: \"public_ai\"},
       version: {_eq: \"1.0\"}}) {\nname\nversion\nid\ntrainable\nvisibility\n}\n}",
       "variables": null, "operationName": null}'
@@ -15,7 +53,7 @@ interactions:
       x-owner-id:
       - '1'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
       string: '{"data":{"meta_ai_template":[]}}'
@@ -25,11 +63,11 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:20 GMT
+      - Fri, 20 Oct 2023 10:00:33 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - 56bd7d76-30ce-4ce6-bdf8-9e4ffacd3095
+      - 8215d2db-08ff-451e-80c9-1267e3df5209
     status:
       code: 200
       message: OK
@@ -56,28 +94,28 @@ interactions:
       x-owner-id:
       - '1'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_template_one":{"id":"f1d5ded7-352d-4087-9b95-37c010b66bee"}}}'
+      string: '{"data":{"insert_meta_ai_template_one":{"id":"99f8e5ef-4813-41b1-915d-59d2414f6465"}}}'
     headers:
       Content-Length:
       - '86'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:20 GMT
+      - Fri, 20 Oct 2023 10:00:33 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - deabddd3-c30a-4250-851b-02f299947248
+      - aa54d112-0bd9-42ad-ae5d-27726307d6f3
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\nupdate_meta_ai_template_by_pk(_set: {modelSavePath:
-      \"s3://meta-ai-prediction/meta_ai_models/f1d5ded7-352d-4087-9b95-37c010b66bee/public_ai/1.0/AISavedModel.tar.gz\"},
-      pk_columns: {id: \"f1d5ded7-352d-4087-9b95-37c010b66bee\"}) {\nid\n}\n}", "variables":
+      \"s3://meta-ai-prediction/meta_ai_models/99f8e5ef-4813-41b1-915d-59d2414f6465/public_ai/1.0/AISavedModel.tar.gz\"},
+      pk_columns: {id: \"99f8e5ef-4813-41b1-915d-59d2414f6465\"}) {\nid\n}\n}", "variables":
       null, "operationName": null}'
     headers:
       Accept:
@@ -91,26 +129,26 @@ interactions:
       x-owner-id:
       - '1'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"update_meta_ai_template_by_pk":{"id":"f1d5ded7-352d-4087-9b95-37c010b66bee"}}}'
+      string: '{"data":{"update_meta_ai_template_by_pk":{"id":"99f8e5ef-4813-41b1-915d-59d2414f6465"}}}'
     headers:
       Content-Length:
       - '88'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:20 GMT
+      - Fri, 20 Oct 2023 10:00:33 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - e9a1dbf4-1c5c-4b7f-b8e2-7d2387b34c00
+      - 73a3a6e3-16b9-47a8-953b-1ced8819efc4
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_template_by_pk(id: \"f1d5ded7-352d-4087-9b95-37c010b66bee\")
+    body: '{"query": "query {\nmeta_ai_template_by_pk(id: \"99f8e5ef-4813-41b1-915d-59d2414f6465\")
       {\ndefaultCheckpoint\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -124,7 +162,7 @@ interactions:
       x-owner-id:
       - '1'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
       string: '{"data":{"meta_ai_template_by_pk":{"defaultCheckpoint":null}}}'
@@ -134,17 +172,17 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:21 GMT
+      - Fri, 20 Oct 2023 10:00:33 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - 3f9e98ae-1255-436c-826d-a7cbfc622506
+      - 88efd21c-d33a-4b61-abbf-822cc9444163
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\ninsert_meta_ai_checkpoint_one(object: {description:
-      \"\", metadata: {}, modelv2Id: null, tag: LATEST, templateId: \"f1d5ded7-352d-4087-9b95-37c010b66bee\",
+      \"\", metadata: {}, modelv2Id: null, tag: LATEST, templateId: \"99f8e5ef-4813-41b1-915d-59d2414f6465\",
       weightsPath: \"/tmp/ai_test\"}) {\nid\n}\n}", "variables": null, "operationName":
       null}'
     headers:
@@ -159,28 +197,28 @@ interactions:
       x-owner-id:
       - '1'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_checkpoint_one":{"id":"9bb53def-5e46-4957-aff6-7f8e07d633f2"}}}'
+      string: '{"data":{"insert_meta_ai_checkpoint_one":{"id":"04e60b64-d068-4c1c-8946-ab1bc364c3ad"}}}'
     headers:
       Content-Length:
       - '88'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:21 GMT
+      - Fri, 20 Oct 2023 10:00:33 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - bf9972a0-5c18-4f87-b0d1-121c81cdbb03
+      - 0c1e5acf-7155-4af2-9a13-5d2fca079ae3
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\nupdate_meta_ai_checkpoint_by_pk(_set: {weightsPath:
-      \"s3://meta-ai-prediction/meta_ai_models/saved_models/9bb53def-5e46-4957-aff6-7f8e07d633f2\"},
-      pk_columns: {id: \"9bb53def-5e46-4957-aff6-7f8e07d633f2\"}) {\nid\n}\n}", "variables":
+      \"s3://meta-ai-prediction/meta_ai_models/saved_models/04e60b64-d068-4c1c-8946-ab1bc364c3ad\"},
+      pk_columns: {id: \"04e60b64-d068-4c1c-8946-ab1bc364c3ad\"}) {\nid\n}\n}", "variables":
       null, "operationName": null}'
     headers:
       Accept:
@@ -194,27 +232,27 @@ interactions:
       x-owner-id:
       - '1'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"update_meta_ai_checkpoint_by_pk":{"id":"9bb53def-5e46-4957-aff6-7f8e07d633f2"}}}'
+      string: '{"data":{"update_meta_ai_checkpoint_by_pk":{"id":"04e60b64-d068-4c1c-8946-ab1bc364c3ad"}}}'
     headers:
       Content-Length:
       - '90'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:21 GMT
+      - Fri, 20 Oct 2023 10:00:33 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - 688a069d-68b8-4b7c-93b6-d6630992328d
+      - 2014fbb1-f800-4932-af6f-1c975eee1b75
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\nupdate_meta_ai_template_by_pk(_set: {defaultCheckpoint:
-      \"9bb53def-5e46-4957-aff6-7f8e07d633f2\"}, pk_columns: {id: \"f1d5ded7-352d-4087-9b95-37c010b66bee\"})
+      \"04e60b64-d068-4c1c-8946-ab1bc364c3ad\"}, pk_columns: {id: \"99f8e5ef-4813-41b1-915d-59d2414f6465\"})
       {\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -228,33 +266,33 @@ interactions:
       x-owner-id:
       - '1'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"update_meta_ai_template_by_pk":{"id":"f1d5ded7-352d-4087-9b95-37c010b66bee"}}}'
+      string: '{"data":{"update_meta_ai_template_by_pk":{"id":"99f8e5ef-4813-41b1-915d-59d2414f6465"}}}'
     headers:
       Content-Length:
       - '88'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:21 GMT
+      - Fri, 20 Oct 2023 10:00:33 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - 22562e43-c81f-43b0-ad23-fce16008b71f
+      - f245bf10-c2d5-47a9-8010-a8c3eaf05a75
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\nupdate_meta_ai_template_by_pk(_set: {defaultCheckpoint:
-      \"9bb53def-5e46-4957-aff6-7f8e07d633f2\", defaultDeploymentParameters: {min_replica_count:
+      \"04e60b64-d068-4c1c-8946-ab1bc364c3ad\", defaultDeploymentParameters: {min_replica_count:
       0, max_replica_count: 1, cooldown_period: 1800, target_average_utilization:
       0.5, target_memory_requirement: \"512Mi\", target_memory_limit: \"4Gi\", mount_path:
       \"/shared\", num_threads: 1, enable_cuda: false, queue_length: 20, model_timeout_seconds:
       20, lambda_ai_cache: 32}, inputSchema: {kwargs: {}}, name: \"public_ai\", outputSchema:
       {kwargs: {}}, trainable: false, version: \"1.0\", visibility: PUBLIC}, pk_columns:
-      {id: \"f1d5ded7-352d-4087-9b95-37c010b66bee\"}) {\nid\n}\n}", "variables": null,
+      {id: \"99f8e5ef-4813-41b1-915d-59d2414f6465\"}) {\nid\n}\n}", "variables": null,
       "operationName": null}'
     headers:
       Accept:
@@ -268,21 +306,21 @@ interactions:
       x-owner-id:
       - '1'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"update_meta_ai_template_by_pk":{"id":"f1d5ded7-352d-4087-9b95-37c010b66bee"}}}'
+      string: '{"data":{"update_meta_ai_template_by_pk":{"id":"99f8e5ef-4813-41b1-915d-59d2414f6465"}}}'
     headers:
       Content-Length:
       - '88'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:21 GMT
+      - Fri, 20 Oct 2023 10:00:33 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - 39c123eb-0be9-4ef3-bdd8-a6bce9d2ded4
+      - 9e05eb73-2862-41e4-9228-0b3f29a6a565
     status:
       code: 200
       message: OK
@@ -302,32 +340,32 @@ interactions:
       x-owner-id:
       - '2'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_template":[{"name":"public_ai","version":"1.0","id":"f1d5ded7-352d-4087-9b95-37c010b66bee","trainable":false,"visibility":"PUBLIC","created_at":"2023-10-20T11:58:20.963706+00:00","defaultCheckpoint":"9bb53def-5e46-4957-aff6-7f8e07d633f2","defaultTrainingParameters":null,"defaultDeploymentParameters":{"mount_path":
+      string: '{"data":{"meta_ai_template":[{"name":"public_ai","version":"1.0","id":"99f8e5ef-4813-41b1-915d-59d2414f6465","trainable":false,"visibility":"PUBLIC","created_at":"2023-10-20T10:00:33.920423+00:00","defaultCheckpoint":"04e60b64-d068-4c1c-8946-ab1bc364c3ad","defaultTrainingParameters":null,"defaultDeploymentParameters":{"mount_path":
         "/shared", "enable_cuda": false, "num_threads": 1, "queue_length": 20, "cooldown_period":
         1800, "lambda_ai_cache": 32, "max_replica_count": 1, "min_replica_count":
         0, "target_memory_limit": "4Gi", "model_timeout_seconds": 20, "target_memory_requirement":
         "512Mi", "target_average_utilization": 0.5},"description":null,"image":null,"inputSchema":{"kwargs":
-        {}},"modelSavePath":"s3://meta-ai-prediction/meta_ai_models/f1d5ded7-352d-4087-9b95-37c010b66bee/public_ai/1.0/AISavedModel.tar.gz","organizationId":null,"outputSchema":{"kwargs":
-        {}},"ownerId":1,"updated_at":"2023-10-20T11:58:21.186786+00:00"}]}}'
+        {}},"modelSavePath":"s3://meta-ai-prediction/meta_ai_models/99f8e5ef-4813-41b1-915d-59d2414f6465/public_ai/1.0/AISavedModel.tar.gz","organizationId":null,"outputSchema":{"kwargs":
+        {}},"ownerId":1,"updated_at":"2023-10-20T10:00:34.229253+00:00"}]}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:21 GMT
+      - Fri, 20 Oct 2023 10:00:33 GMT
       Server:
       - Warp/3.3.23
       content-length:
       - '937'
       x-request-id:
-      - f6f92dcc-4742-4321-bf0d-aa9da7c1389f
+      - 3c70fe86-1a31-4779-af28-b7c97315d8a3
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_template_by_pk(id: \"f1d5ded7-352d-4087-9b95-37c010b66bee\")
+    body: '{"query": "query {\nmeta_ai_template_by_pk(id: \"99f8e5ef-4813-41b1-915d-59d2414f6465\")
       {\nname\nversion\nid\ntrainable\nvisibility\ncreated_at\ndefaultCheckpoint\ndefaultTrainingParameters\ndefaultDeploymentParameters\ndescription\nimage\ninputSchema\nmodelSavePath\norganizationId\noutputSchema\nownerId\nupdated_at\n}\n}",
       "variables": null, "operationName": null}'
     headers:
@@ -342,33 +380,33 @@ interactions:
       x-owner-id:
       - '2'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_template_by_pk":{"name":"public_ai","version":"1.0","id":"f1d5ded7-352d-4087-9b95-37c010b66bee","trainable":false,"visibility":"PUBLIC","created_at":"2023-10-20T11:58:20.963706+00:00","defaultCheckpoint":"9bb53def-5e46-4957-aff6-7f8e07d633f2","defaultTrainingParameters":null,"defaultDeploymentParameters":{"mount_path":
+      string: '{"data":{"meta_ai_template_by_pk":{"name":"public_ai","version":"1.0","id":"99f8e5ef-4813-41b1-915d-59d2414f6465","trainable":false,"visibility":"PUBLIC","created_at":"2023-10-20T10:00:33.920423+00:00","defaultCheckpoint":"04e60b64-d068-4c1c-8946-ab1bc364c3ad","defaultTrainingParameters":null,"defaultDeploymentParameters":{"mount_path":
         "/shared", "enable_cuda": false, "num_threads": 1, "queue_length": 20, "cooldown_period":
         1800, "lambda_ai_cache": 32, "max_replica_count": 1, "min_replica_count":
         0, "target_memory_limit": "4Gi", "model_timeout_seconds": 20, "target_memory_requirement":
         "512Mi", "target_average_utilization": 0.5},"description":null,"image":null,"inputSchema":{"kwargs":
-        {}},"modelSavePath":"s3://meta-ai-prediction/meta_ai_models/f1d5ded7-352d-4087-9b95-37c010b66bee/public_ai/1.0/AISavedModel.tar.gz","organizationId":null,"outputSchema":{"kwargs":
-        {}},"ownerId":1,"updated_at":"2023-10-20T11:58:21.186786+00:00"}}}'
+        {}},"modelSavePath":"s3://meta-ai-prediction/meta_ai_models/99f8e5ef-4813-41b1-915d-59d2414f6465/public_ai/1.0/AISavedModel.tar.gz","organizationId":null,"outputSchema":{"kwargs":
+        {}},"ownerId":1,"updated_at":"2023-10-20T10:00:34.229253+00:00"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:21 GMT
+      - Fri, 20 Oct 2023 10:00:33 GMT
       Server:
       - Warp/3.3.23
       content-length:
       - '941'
       x-request-id:
-      - 31937b23-6a21-40ac-89d2-497e13423eeb
+      - aa7ac1ae-c346-4414-b80f-b4040ab278f9
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "query {\nmeta_ai_modelv2(where: {name: {_eq: \"user_b_instance\"},
-      organizationId: {_eq: \"2\"}, ownerId: {_eq: \"2\"}, templateId: {_eq: \"f1d5ded7-352d-4087-9b95-37c010b66bee\"}})
+      organizationId: {_eq: \"2\"}, ownerId: {_eq: \"2\"}, templateId: {_eq: \"99f8e5ef-4813-41b1-915d-59d2414f6465\"}})
       {\nname\nid\ntemplateId\ncheckpointTag\nvisibility\naiWorkerId\ncreated_at\ndescription\neditorId\nownerId\norganizationId\nupdated_at\ndeploymentParameters\naiWorkerUsername\nservedBy\n}\n}",
       "variables": null, "operationName": null}'
     headers:
@@ -383,7 +421,7 @@ interactions:
       x-owner-id:
       - '2'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
       string: '{"data":{"meta_ai_modelv2":[]}}'
@@ -393,17 +431,17 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:21 GMT
+      - Fri, 20 Oct 2023 10:00:33 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - 93d92460-9f7d-4706-9874-0e2a4df446ba
+      - 36f660c1-02e8-4e97-aaf0-4a7efe87db26
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\ninsert_meta_ai_modelv2_one(object: {checkpointTag:
-      \"LATEST\", name: \"user_b_instance\", templateId: \"f1d5ded7-352d-4087-9b95-37c010b66bee\",
+      \"LATEST\", name: \"user_b_instance\", templateId: \"99f8e5ef-4813-41b1-915d-59d2414f6465\",
       visibility: PRIVATE}) {\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -417,26 +455,26 @@ interactions:
       x-owner-id:
       - '2'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_modelv2_one":{"id":"7aa38b64-b813-43d9-a170-4a2cb798f014"}}}'
+      string: '{"data":{"insert_meta_ai_modelv2_one":{"id":"8a70e274-675c-41d4-999e-9be7008783bd"}}}'
     headers:
       Content-Length:
       - '85'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:21 GMT
+      - Fri, 20 Oct 2023 10:00:33 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - 7e3af3e9-e885-4d3c-beac-fa75854836d3
+      - 921a786f-0b6d-49fe-8452-b82a9b778bf7
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_checkpoint(where: {modelv2Id: {_eq: \"7aa38b64-b813-43d9-a170-4a2cb798f014\"},
+    body: '{"query": "query {\nmeta_ai_checkpoint(where: {modelv2Id: {_eq: \"8a70e274-675c-41d4-999e-9be7008783bd\"},
       tag: {_eq: LATEST}}) {\nid\ntag\nmodelv2Id\ntemplateId\ncreated_at\ndescription\n}\n}",
       "variables": null, "operationName": null}'
     headers:
@@ -451,7 +489,7 @@ interactions:
       x-owner-id:
       - '2'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
       string: '{"data":{"meta_ai_checkpoint":[]}}'
@@ -461,16 +499,16 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:21 GMT
+      - Fri, 20 Oct 2023 10:00:33 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - d07ae325-f13b-4065-a18a-a889a24c0619
+      - 3fe489af-161a-48aa-9cd8-c25e1b59f52a
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_checkpoint_by_pk(id: \"9bb53def-5e46-4957-aff6-7f8e07d633f2\")
+    body: '{"query": "query {\nmeta_ai_checkpoint_by_pk(id: \"04e60b64-d068-4c1c-8946-ab1bc364c3ad\")
       {\nid\ntag\nmodelv2Id\ntemplateId\ncreated_at\ndescription\nmetadata\nparentVersion\nsourceTrainingId\nupdated_at\nversion\nweightsPath\n}\n}",
       "variables": null, "operationName": null}'
     headers:
@@ -485,26 +523,26 @@ interactions:
       x-owner-id:
       - '2'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_checkpoint_by_pk":{"id":"9bb53def-5e46-4957-aff6-7f8e07d633f2","tag":"LATEST","modelv2Id":null,"templateId":"f1d5ded7-352d-4087-9b95-37c010b66bee","created_at":"2023-10-20T11:58:21.13017+00:00","description":"","metadata":{},"parentVersion":null,"sourceTrainingId":null,"updated_at":"2023-10-20T11:58:21.167232+00:00","version":null,"weightsPath":"s3://meta-ai-prediction/meta_ai_models/saved_models/9bb53def-5e46-4957-aff6-7f8e07d633f2"}}}'
+      string: '{"data":{"meta_ai_checkpoint_by_pk":{"id":"04e60b64-d068-4c1c-8946-ab1bc364c3ad","tag":"LATEST","modelv2Id":null,"templateId":"99f8e5ef-4813-41b1-915d-59d2414f6465","created_at":"2023-10-20T10:00:34.149926+00:00","description":"","metadata":{},"parentVersion":null,"sourceTrainingId":null,"updated_at":"2023-10-20T10:00:34.193241+00:00","version":null,"weightsPath":"s3://meta-ai-prediction/meta_ai_models/saved_models/04e60b64-d068-4c1c-8946-ab1bc364c3ad"}}}'
     headers:
       Content-Length:
-      - '458'
+      - '459'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:21 GMT
+      - Fri, 20 Oct 2023 10:00:33 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - ebb2c5b1-a5f3-4892-9f93-cee397697d64
+      - c26d44de-f456-4b1e-a4cc-102c80919c7e
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_checkpoint(where: {modelv2Id: {_eq: \"7aa38b64-b813-43d9-a170-4a2cb798f014\"},
+    body: '{"query": "query {\nmeta_ai_checkpoint(where: {modelv2Id: {_eq: \"8a70e274-675c-41d4-999e-9be7008783bd\"},
       tag: {_eq: LATEST}}) {\nid\ntag\nmodelv2Id\ntemplateId\ncreated_at\ndescription\n}\n}",
       "variables": null, "operationName": null}'
     headers:
@@ -519,7 +557,7 @@ interactions:
       x-owner-id:
       - '2'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
       string: '{"data":{"meta_ai_checkpoint":[]}}'
@@ -529,18 +567,18 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:21 GMT
+      - Fri, 20 Oct 2023 10:00:34 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - b6cbee8b-44f4-4762-9da6-c456906615e7
+      - b71dce34-b71f-48cd-a4cd-e6358c3d0d06
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\ninsert_meta_ai_checkpoint_one(object: {description:
-      \"\", metadata: {}, modelv2Id: \"7aa38b64-b813-43d9-a170-4a2cb798f014\", tag:
-      LATEST, templateId: \"f1d5ded7-352d-4087-9b95-37c010b66bee\", weightsPath: \"s3://meta-ai-prediction/meta_ai_models/saved_models/9bb53def-5e46-4957-aff6-7f8e07d633f2\"})
+      \"\", metadata: {}, modelv2Id: \"8a70e274-675c-41d4-999e-9be7008783bd\", tag:
+      LATEST, templateId: \"99f8e5ef-4813-41b1-915d-59d2414f6465\", weightsPath: \"s3://meta-ai-prediction/meta_ai_models/saved_models/04e60b64-d068-4c1c-8946-ab1bc364c3ad\"})
       {\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -554,26 +592,26 @@ interactions:
       x-owner-id:
       - '2'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_checkpoint_one":{"id":"2d385987-e535-4022-ac8d-eaa2bb94ce68"}}}'
+      string: '{"data":{"insert_meta_ai_checkpoint_one":{"id":"3354dbd6-b0ff-4003-b688-9de9ee1cc10d"}}}'
     headers:
       Content-Length:
       - '88'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:21 GMT
+      - Fri, 20 Oct 2023 10:00:34 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - f7b01d3e-405f-4505-96e2-4e4b2a2c64a1
+      - 28faed1d-ecf0-441e-ae65-4cc40e39b17a
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_modelv2_by_pk(id: \"7aa38b64-b813-43d9-a170-4a2cb798f014\")
+    body: '{"query": "query {\nmeta_ai_modelv2_by_pk(id: \"8a70e274-675c-41d4-999e-9be7008783bd\")
       {\nname\nid\ntemplateId\ncheckpointTag\nvisibility\naiWorkerId\ncreated_at\ndescription\neditorId\nownerId\norganizationId\nupdated_at\ndeploymentParameters\naiWorkerUsername\nservedBy\n}\n}",
       "variables": null, "operationName": null}'
     headers:
@@ -588,21 +626,21 @@ interactions:
       x-owner-id:
       - '2'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_modelv2_by_pk":{"name":"user_b_instance","id":"7aa38b64-b813-43d9-a170-4a2cb798f014","templateId":"f1d5ded7-352d-4087-9b95-37c010b66bee","checkpointTag":"LATEST","visibility":"PRIVATE","aiWorkerId":null,"created_at":"2023-10-20T11:58:21.546273+00:00","description":null,"editorId":null,"ownerId":2,"organizationId":null,"updated_at":"2023-10-20T11:58:21.546273+00:00","deploymentParameters":null,"aiWorkerUsername":null,"servedBy":null}}}'
+      string: '{"data":{"meta_ai_modelv2_by_pk":{"name":"user_b_instance","id":"8a70e274-675c-41d4-999e-9be7008783bd","templateId":"99f8e5ef-4813-41b1-915d-59d2414f6465","checkpointTag":"LATEST","visibility":"PRIVATE","aiWorkerId":null,"created_at":"2023-10-20T10:00:34.592852+00:00","description":null,"editorId":null,"ownerId":2,"organizationId":null,"updated_at":"2023-10-20T10:00:34.592852+00:00","deploymentParameters":null,"aiWorkerUsername":null,"servedBy":null}}}'
     headers:
       Content-Length:
       - '456'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:21 GMT
+      - Fri, 20 Oct 2023 10:00:34 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - 697f0a84-700e-486a-b3a9-835b509b1798
+      - 5d49a463-aba2-4885-bbed-9b52cdf2e037
     status:
       code: 200
       message: OK
@@ -622,32 +660,32 @@ interactions:
       x-owner-id:
       - '2'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_template":[{"name":"public_ai","version":"1.0","id":"f1d5ded7-352d-4087-9b95-37c010b66bee","trainable":false,"visibility":"PUBLIC","created_at":"2023-10-20T11:58:20.963706+00:00","defaultCheckpoint":"9bb53def-5e46-4957-aff6-7f8e07d633f2","defaultTrainingParameters":null,"defaultDeploymentParameters":{"mount_path":
+      string: '{"data":{"meta_ai_template":[{"name":"public_ai","version":"1.0","id":"99f8e5ef-4813-41b1-915d-59d2414f6465","trainable":false,"visibility":"PUBLIC","created_at":"2023-10-20T10:00:33.920423+00:00","defaultCheckpoint":"04e60b64-d068-4c1c-8946-ab1bc364c3ad","defaultTrainingParameters":null,"defaultDeploymentParameters":{"mount_path":
         "/shared", "enable_cuda": false, "num_threads": 1, "queue_length": 20, "cooldown_period":
         1800, "lambda_ai_cache": 32, "max_replica_count": 1, "min_replica_count":
         0, "target_memory_limit": "4Gi", "model_timeout_seconds": 20, "target_memory_requirement":
         "512Mi", "target_average_utilization": 0.5},"description":null,"image":null,"inputSchema":{"kwargs":
-        {}},"modelSavePath":"s3://meta-ai-prediction/meta_ai_models/f1d5ded7-352d-4087-9b95-37c010b66bee/public_ai/1.0/AISavedModel.tar.gz","organizationId":null,"outputSchema":{"kwargs":
-        {}},"ownerId":1,"updated_at":"2023-10-20T11:58:21.186786+00:00"}]}}'
+        {}},"modelSavePath":"s3://meta-ai-prediction/meta_ai_models/99f8e5ef-4813-41b1-915d-59d2414f6465/public_ai/1.0/AISavedModel.tar.gz","organizationId":null,"outputSchema":{"kwargs":
+        {}},"ownerId":1,"updated_at":"2023-10-20T10:00:34.229253+00:00"}]}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:21 GMT
+      - Fri, 20 Oct 2023 10:00:34 GMT
       Server:
       - Warp/3.3.23
       content-length:
       - '937'
       x-request-id:
-      - 82a9d62e-322f-49f1-9c32-759793c5ca95
+      - af03a0c7-cf20-478f-9794-6894e33df7f9
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_template_by_pk(id: \"f1d5ded7-352d-4087-9b95-37c010b66bee\")
+    body: '{"query": "query {\nmeta_ai_template_by_pk(id: \"99f8e5ef-4813-41b1-915d-59d2414f6465\")
       {\nname\nversion\nid\ntrainable\nvisibility\ncreated_at\ndefaultCheckpoint\ndefaultTrainingParameters\ndefaultDeploymentParameters\ndescription\nimage\ninputSchema\nmodelSavePath\norganizationId\noutputSchema\nownerId\nupdated_at\n}\n}",
       "variables": null, "operationName": null}'
     headers:
@@ -662,27 +700,27 @@ interactions:
       x-owner-id:
       - '2'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_template_by_pk":{"name":"public_ai","version":"1.0","id":"f1d5ded7-352d-4087-9b95-37c010b66bee","trainable":false,"visibility":"PUBLIC","created_at":"2023-10-20T11:58:20.963706+00:00","defaultCheckpoint":"9bb53def-5e46-4957-aff6-7f8e07d633f2","defaultTrainingParameters":null,"defaultDeploymentParameters":{"mount_path":
+      string: '{"data":{"meta_ai_template_by_pk":{"name":"public_ai","version":"1.0","id":"99f8e5ef-4813-41b1-915d-59d2414f6465","trainable":false,"visibility":"PUBLIC","created_at":"2023-10-20T10:00:33.920423+00:00","defaultCheckpoint":"04e60b64-d068-4c1c-8946-ab1bc364c3ad","defaultTrainingParameters":null,"defaultDeploymentParameters":{"mount_path":
         "/shared", "enable_cuda": false, "num_threads": 1, "queue_length": 20, "cooldown_period":
         1800, "lambda_ai_cache": 32, "max_replica_count": 1, "min_replica_count":
         0, "target_memory_limit": "4Gi", "model_timeout_seconds": 20, "target_memory_requirement":
         "512Mi", "target_average_utilization": 0.5},"description":null,"image":null,"inputSchema":{"kwargs":
-        {}},"modelSavePath":"s3://meta-ai-prediction/meta_ai_models/f1d5ded7-352d-4087-9b95-37c010b66bee/public_ai/1.0/AISavedModel.tar.gz","organizationId":null,"outputSchema":{"kwargs":
-        {}},"ownerId":1,"updated_at":"2023-10-20T11:58:21.186786+00:00"}}}'
+        {}},"modelSavePath":"s3://meta-ai-prediction/meta_ai_models/99f8e5ef-4813-41b1-915d-59d2414f6465/public_ai/1.0/AISavedModel.tar.gz","organizationId":null,"outputSchema":{"kwargs":
+        {}},"ownerId":1,"updated_at":"2023-10-20T10:00:34.229253+00:00"}}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:21 GMT
+      - Fri, 20 Oct 2023 10:00:34 GMT
       Server:
       - Warp/3.3.23
       content-length:
       - '941'
       x-request-id:
-      - dfbc0802-6c39-4efd-aa63-e70e0dd28e02
+      - bd472085-ba16-492e-9485-28e0c91712f4
     status:
       code: 200
       message: OK
@@ -702,7 +740,7 @@ interactions:
       x-owner-id:
       - '3'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
       string: '{"data":{"meta_ai_template":[]}}'
@@ -712,11 +750,11 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:22 GMT
+      - Fri, 20 Oct 2023 10:00:34 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - 40f28dd3-7923-41d2-8ee3-ff874efc4eda
+      - 3c7342fb-8c72-4d85-b274-2ab7ff2c8efd
     status:
       code: 200
       message: OK
@@ -736,33 +774,33 @@ interactions:
       x-owner-id:
       - '3'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_template":[{"name":"public_ai","version":"1.0","id":"f1d5ded7-352d-4087-9b95-37c010b66bee","trainable":false,"visibility":"PUBLIC","created_at":"2023-10-20T11:58:20.963706+00:00","defaultCheckpoint":"9bb53def-5e46-4957-aff6-7f8e07d633f2","defaultTrainingParameters":null,"defaultDeploymentParameters":{"mount_path":
+      string: '{"data":{"meta_ai_template":[{"name":"public_ai","version":"1.0","id":"99f8e5ef-4813-41b1-915d-59d2414f6465","trainable":false,"visibility":"PUBLIC","created_at":"2023-10-20T10:00:33.920423+00:00","defaultCheckpoint":"04e60b64-d068-4c1c-8946-ab1bc364c3ad","defaultTrainingParameters":null,"defaultDeploymentParameters":{"mount_path":
         "/shared", "enable_cuda": false, "num_threads": 1, "queue_length": 20, "cooldown_period":
         1800, "lambda_ai_cache": 32, "max_replica_count": 1, "min_replica_count":
         0, "target_memory_limit": "4Gi", "model_timeout_seconds": 20, "target_memory_requirement":
         "512Mi", "target_average_utilization": 0.5},"description":null,"image":null,"inputSchema":{"kwargs":
-        {}},"modelSavePath":"s3://meta-ai-prediction/meta_ai_models/f1d5ded7-352d-4087-9b95-37c010b66bee/public_ai/1.0/AISavedModel.tar.gz","organizationId":null,"outputSchema":{"kwargs":
-        {}},"ownerId":1,"updated_at":"2023-10-20T11:58:21.186786+00:00"}]}}'
+        {}},"modelSavePath":"s3://meta-ai-prediction/meta_ai_models/99f8e5ef-4813-41b1-915d-59d2414f6465/public_ai/1.0/AISavedModel.tar.gz","organizationId":null,"outputSchema":{"kwargs":
+        {}},"ownerId":1,"updated_at":"2023-10-20T10:00:34.229253+00:00"}]}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:22 GMT
+      - Fri, 20 Oct 2023 10:00:34 GMT
       Server:
       - Warp/3.3.23
       content-length:
       - '937'
       x-request-id:
-      - c46d9898-6ec4-4433-899b-5f599ef92a2c
+      - 5c382389-07d0-433d-8233-bf1b8d687fc9
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "query {\nmeta_ai_modelv2(where: {name: {_eq: \"user_b_instance\"},
-      organizationId: {_eq: \"3\"}, ownerId: {_eq: \"3\"}, templateId: {_eq: \"f1d5ded7-352d-4087-9b95-37c010b66bee\"}})
+      organizationId: {_eq: \"3\"}, ownerId: {_eq: \"3\"}, templateId: {_eq: \"99f8e5ef-4813-41b1-915d-59d2414f6465\"}})
       {\nname\nid\ntemplateId\ncheckpointTag\nvisibility\naiWorkerId\ncreated_at\ndescription\neditorId\nownerId\norganizationId\nupdated_at\ndeploymentParameters\naiWorkerUsername\nservedBy\n}\n}",
       "variables": null, "operationName": null}'
     headers:
@@ -777,7 +815,7 @@ interactions:
       x-owner-id:
       - '3'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
       string: '{"data":{"meta_ai_modelv2":[]}}'
@@ -787,17 +825,17 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:22 GMT
+      - Fri, 20 Oct 2023 10:00:34 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - 5771ad57-ef98-4257-997a-62f267c79688
+      - 2d464e4c-be6a-4df0-9465-867eaf21caa5
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\ninsert_meta_ai_modelv2_one(object: {checkpointTag:
-      \"LATEST\", name: \"user_b_instance\", templateId: \"f1d5ded7-352d-4087-9b95-37c010b66bee\",
+      \"LATEST\", name: \"user_b_instance\", templateId: \"99f8e5ef-4813-41b1-915d-59d2414f6465\",
       visibility: PRIVATE}) {\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -811,26 +849,26 @@ interactions:
       x-owner-id:
       - '3'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_modelv2_one":{"id":"f424641d-51e6-4781-b01d-e0b1fc71895e"}}}'
+      string: '{"data":{"insert_meta_ai_modelv2_one":{"id":"8c4727c5-98e0-4c3c-ac7a-04c6671eec14"}}}'
     headers:
       Content-Length:
       - '85'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:22 GMT
+      - Fri, 20 Oct 2023 10:00:34 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - 682feb32-a3a3-45cf-b4d9-fc040d4cccb9
+      - 82e9ace0-ca98-4f99-a030-54e2fe16e09a
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_checkpoint(where: {modelv2Id: {_eq: \"f424641d-51e6-4781-b01d-e0b1fc71895e\"},
+    body: '{"query": "query {\nmeta_ai_checkpoint(where: {modelv2Id: {_eq: \"8c4727c5-98e0-4c3c-ac7a-04c6671eec14\"},
       tag: {_eq: LATEST}}) {\nid\ntag\nmodelv2Id\ntemplateId\ncreated_at\ndescription\n}\n}",
       "variables": null, "operationName": null}'
     headers:
@@ -845,7 +883,7 @@ interactions:
       x-owner-id:
       - '3'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
       string: '{"data":{"meta_ai_checkpoint":[]}}'
@@ -855,16 +893,16 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:22 GMT
+      - Fri, 20 Oct 2023 10:00:34 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - e0f16252-c636-4070-a7db-c8304c3245e9
+      - cf9f312b-099a-42de-94c9-cb6cbed1ef70
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_checkpoint_by_pk(id: \"9bb53def-5e46-4957-aff6-7f8e07d633f2\")
+    body: '{"query": "query {\nmeta_ai_checkpoint_by_pk(id: \"04e60b64-d068-4c1c-8946-ab1bc364c3ad\")
       {\nid\ntag\nmodelv2Id\ntemplateId\ncreated_at\ndescription\nmetadata\nparentVersion\nsourceTrainingId\nupdated_at\nversion\nweightsPath\n}\n}",
       "variables": null, "operationName": null}'
     headers:
@@ -879,26 +917,26 @@ interactions:
       x-owner-id:
       - '3'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_checkpoint_by_pk":{"id":"9bb53def-5e46-4957-aff6-7f8e07d633f2","tag":"LATEST","modelv2Id":null,"templateId":"f1d5ded7-352d-4087-9b95-37c010b66bee","created_at":"2023-10-20T11:58:21.13017+00:00","description":"","metadata":{},"parentVersion":null,"sourceTrainingId":null,"updated_at":"2023-10-20T11:58:21.167232+00:00","version":null,"weightsPath":"s3://meta-ai-prediction/meta_ai_models/saved_models/9bb53def-5e46-4957-aff6-7f8e07d633f2"}}}'
+      string: '{"data":{"meta_ai_checkpoint_by_pk":{"id":"04e60b64-d068-4c1c-8946-ab1bc364c3ad","tag":"LATEST","modelv2Id":null,"templateId":"99f8e5ef-4813-41b1-915d-59d2414f6465","created_at":"2023-10-20T10:00:34.149926+00:00","description":"","metadata":{},"parentVersion":null,"sourceTrainingId":null,"updated_at":"2023-10-20T10:00:34.193241+00:00","version":null,"weightsPath":"s3://meta-ai-prediction/meta_ai_models/saved_models/04e60b64-d068-4c1c-8946-ab1bc364c3ad"}}}'
     headers:
       Content-Length:
-      - '458'
+      - '459'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:22 GMT
+      - Fri, 20 Oct 2023 10:00:34 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - cb68aba3-6725-447c-b4a8-431ae6442051
+      - b1ec59cf-125b-4912-ba29-800967a715bd
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_checkpoint(where: {modelv2Id: {_eq: \"f424641d-51e6-4781-b01d-e0b1fc71895e\"},
+    body: '{"query": "query {\nmeta_ai_checkpoint(where: {modelv2Id: {_eq: \"8c4727c5-98e0-4c3c-ac7a-04c6671eec14\"},
       tag: {_eq: LATEST}}) {\nid\ntag\nmodelv2Id\ntemplateId\ncreated_at\ndescription\n}\n}",
       "variables": null, "operationName": null}'
     headers:
@@ -913,7 +951,7 @@ interactions:
       x-owner-id:
       - '3'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
       string: '{"data":{"meta_ai_checkpoint":[]}}'
@@ -923,18 +961,18 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:22 GMT
+      - Fri, 20 Oct 2023 10:00:34 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - e786e72c-912b-4eb8-848e-30ef68286081
+      - 97dd893c-8869-43f0-9b46-549f49c1c3af
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\ninsert_meta_ai_checkpoint_one(object: {description:
-      \"\", metadata: {}, modelv2Id: \"f424641d-51e6-4781-b01d-e0b1fc71895e\", tag:
-      LATEST, templateId: \"f1d5ded7-352d-4087-9b95-37c010b66bee\", weightsPath: \"s3://meta-ai-prediction/meta_ai_models/saved_models/9bb53def-5e46-4957-aff6-7f8e07d633f2\"})
+      \"\", metadata: {}, modelv2Id: \"8c4727c5-98e0-4c3c-ac7a-04c6671eec14\", tag:
+      LATEST, templateId: \"99f8e5ef-4813-41b1-915d-59d2414f6465\", weightsPath: \"s3://meta-ai-prediction/meta_ai_models/saved_models/04e60b64-d068-4c1c-8946-ab1bc364c3ad\"})
       {\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -948,26 +986,26 @@ interactions:
       x-owner-id:
       - '3'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_checkpoint_one":{"id":"6f42ec5e-9c57-4788-a82c-708aa873b3fa"}}}'
+      string: '{"data":{"insert_meta_ai_checkpoint_one":{"id":"37de156c-6c54-49e6-9c99-86946f6c1913"}}}'
     headers:
       Content-Length:
       - '88'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:22 GMT
+      - Fri, 20 Oct 2023 10:00:34 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - b91e888d-75ca-4957-99f9-14a71ed48aa6
+      - bdb1ed9e-f542-4969-9480-5ad184c6e8b8
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_modelv2_by_pk(id: \"f424641d-51e6-4781-b01d-e0b1fc71895e\")
+    body: '{"query": "query {\nmeta_ai_modelv2_by_pk(id: \"8c4727c5-98e0-4c3c-ac7a-04c6671eec14\")
       {\nname\nid\ntemplateId\ncheckpointTag\nvisibility\naiWorkerId\ncreated_at\ndescription\neditorId\nownerId\norganizationId\nupdated_at\ndeploymentParameters\naiWorkerUsername\nservedBy\n}\n}",
       "variables": null, "operationName": null}'
     headers:
@@ -982,21 +1020,21 @@ interactions:
       x-owner-id:
       - '3'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_modelv2_by_pk":{"name":"user_b_instance","id":"f424641d-51e6-4781-b01d-e0b1fc71895e","templateId":"f1d5ded7-352d-4087-9b95-37c010b66bee","checkpointTag":"LATEST","visibility":"PRIVATE","aiWorkerId":null,"created_at":"2023-10-20T11:58:22.298504+00:00","description":null,"editorId":null,"ownerId":3,"organizationId":null,"updated_at":"2023-10-20T11:58:22.298504+00:00","deploymentParameters":null,"aiWorkerUsername":null,"servedBy":null}}}'
+      string: '{"data":{"meta_ai_modelv2_by_pk":{"name":"user_b_instance","id":"8c4727c5-98e0-4c3c-ac7a-04c6671eec14","templateId":"99f8e5ef-4813-41b1-915d-59d2414f6465","checkpointTag":"LATEST","visibility":"PRIVATE","aiWorkerId":null,"created_at":"2023-10-20T10:00:35.555231+00:00","description":null,"editorId":null,"ownerId":3,"organizationId":null,"updated_at":"2023-10-20T10:00:35.555231+00:00","deploymentParameters":null,"aiWorkerUsername":null,"servedBy":null}}}'
     headers:
       Content-Length:
       - '456'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:22 GMT
+      - Fri, 20 Oct 2023 10:00:35 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - 7c0c6458-ea30-479a-b396-c9295fe9987a
+      - aee132f2-3720-4f35-bc07-8b005d9e941d
     status:
       code: 200
       message: OK
@@ -1016,7 +1054,7 @@ interactions:
       x-owner-id:
       - '3'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
       string: '{"data":{"meta_ai_template":[]}}'
@@ -1026,11 +1064,11 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:22 GMT
+      - Fri, 20 Oct 2023 10:00:35 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - f2add500-a6f5-4539-ab7e-b0a7d78da9c1
+      - 0582838b-9b99-46bd-ba72-3fbbfa492d9f
     status:
       code: 200
       message: OK
@@ -1050,33 +1088,33 @@ interactions:
       x-owner-id:
       - '3'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_template":[{"name":"public_ai","version":"1.0","id":"f1d5ded7-352d-4087-9b95-37c010b66bee","trainable":false,"visibility":"PUBLIC","created_at":"2023-10-20T11:58:20.963706+00:00","defaultCheckpoint":"9bb53def-5e46-4957-aff6-7f8e07d633f2","defaultTrainingParameters":null,"defaultDeploymentParameters":{"mount_path":
+      string: '{"data":{"meta_ai_template":[{"name":"public_ai","version":"1.0","id":"99f8e5ef-4813-41b1-915d-59d2414f6465","trainable":false,"visibility":"PUBLIC","created_at":"2023-10-20T10:00:33.920423+00:00","defaultCheckpoint":"04e60b64-d068-4c1c-8946-ab1bc364c3ad","defaultTrainingParameters":null,"defaultDeploymentParameters":{"mount_path":
         "/shared", "enable_cuda": false, "num_threads": 1, "queue_length": 20, "cooldown_period":
         1800, "lambda_ai_cache": 32, "max_replica_count": 1, "min_replica_count":
         0, "target_memory_limit": "4Gi", "model_timeout_seconds": 20, "target_memory_requirement":
         "512Mi", "target_average_utilization": 0.5},"description":null,"image":null,"inputSchema":{"kwargs":
-        {}},"modelSavePath":"s3://meta-ai-prediction/meta_ai_models/f1d5ded7-352d-4087-9b95-37c010b66bee/public_ai/1.0/AISavedModel.tar.gz","organizationId":null,"outputSchema":{"kwargs":
-        {}},"ownerId":1,"updated_at":"2023-10-20T11:58:21.186786+00:00"}]}}'
+        {}},"modelSavePath":"s3://meta-ai-prediction/meta_ai_models/99f8e5ef-4813-41b1-915d-59d2414f6465/public_ai/1.0/AISavedModel.tar.gz","organizationId":null,"outputSchema":{"kwargs":
+        {}},"ownerId":1,"updated_at":"2023-10-20T10:00:34.229253+00:00"}]}}'
     headers:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:22 GMT
+      - Fri, 20 Oct 2023 10:00:35 GMT
       Server:
       - Warp/3.3.23
       content-length:
       - '937'
       x-request-id:
-      - 2299df5f-08c2-4b3f-b7ec-53721f2af55f
+      - 549e9dd9-32a7-4967-a6a3-9186ae355715
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "query {\nmeta_ai_modelv2(where: {name: {_eq: \"user_b_instance2\"},
-      organizationId: {_eq: \"3\"}, ownerId: {_eq: \"3\"}, templateId: {_eq: \"f1d5ded7-352d-4087-9b95-37c010b66bee\"}})
+      organizationId: {_eq: \"3\"}, ownerId: {_eq: \"3\"}, templateId: {_eq: \"99f8e5ef-4813-41b1-915d-59d2414f6465\"}})
       {\nname\nid\ntemplateId\ncheckpointTag\nvisibility\naiWorkerId\ncreated_at\ndescription\neditorId\nownerId\norganizationId\nupdated_at\ndeploymentParameters\naiWorkerUsername\nservedBy\n}\n}",
       "variables": null, "operationName": null}'
     headers:
@@ -1091,7 +1129,7 @@ interactions:
       x-owner-id:
       - '3'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
       string: '{"data":{"meta_ai_modelv2":[]}}'
@@ -1101,17 +1139,17 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:22 GMT
+      - Fri, 20 Oct 2023 10:00:35 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - cee6d17c-b124-4bc4-b50e-0cdf248e32f0
+      - 5ae706fb-cf84-4a07-a569-64946a5e1a1d
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\ninsert_meta_ai_modelv2_one(object: {checkpointTag:
-      \"LATEST\", name: \"user_b_instance2\", templateId: \"f1d5ded7-352d-4087-9b95-37c010b66bee\",
+      \"LATEST\", name: \"user_b_instance2\", templateId: \"99f8e5ef-4813-41b1-915d-59d2414f6465\",
       visibility: PRIVATE}) {\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -1125,26 +1163,26 @@ interactions:
       x-owner-id:
       - '3'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_modelv2_one":{"id":"72440b88-d5c0-4e56-a261-2b40ea6adb95"}}}'
+      string: '{"data":{"insert_meta_ai_modelv2_one":{"id":"6259a715-10d2-4127-ad64-d6d2ff401c6b"}}}'
     headers:
       Content-Length:
       - '85'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:22 GMT
+      - Fri, 20 Oct 2023 10:00:35 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - 209c1d10-aa97-455c-922a-56ab927e84b3
+      - f9fe6164-0249-45f6-819d-5ceecdd30177
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_checkpoint(where: {modelv2Id: {_eq: \"72440b88-d5c0-4e56-a261-2b40ea6adb95\"},
+    body: '{"query": "query {\nmeta_ai_checkpoint(where: {modelv2Id: {_eq: \"6259a715-10d2-4127-ad64-d6d2ff401c6b\"},
       tag: {_eq: LATEST}}) {\nid\ntag\nmodelv2Id\ntemplateId\ncreated_at\ndescription\n}\n}",
       "variables": null, "operationName": null}'
     headers:
@@ -1159,7 +1197,7 @@ interactions:
       x-owner-id:
       - '3'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
       string: '{"data":{"meta_ai_checkpoint":[]}}'
@@ -1169,16 +1207,16 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:22 GMT
+      - Fri, 20 Oct 2023 10:00:35 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - e22e0eb2-11b9-4ab0-a996-12de3ed76da7
+      - 364c44ac-82d4-4829-861f-b40bd5dc1784
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_checkpoint_by_pk(id: \"9bb53def-5e46-4957-aff6-7f8e07d633f2\")
+    body: '{"query": "query {\nmeta_ai_checkpoint_by_pk(id: \"04e60b64-d068-4c1c-8946-ab1bc364c3ad\")
       {\nid\ntag\nmodelv2Id\ntemplateId\ncreated_at\ndescription\nmetadata\nparentVersion\nsourceTrainingId\nupdated_at\nversion\nweightsPath\n}\n}",
       "variables": null, "operationName": null}'
     headers:
@@ -1193,26 +1231,26 @@ interactions:
       x-owner-id:
       - '3'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_checkpoint_by_pk":{"id":"9bb53def-5e46-4957-aff6-7f8e07d633f2","tag":"LATEST","modelv2Id":null,"templateId":"f1d5ded7-352d-4087-9b95-37c010b66bee","created_at":"2023-10-20T11:58:21.13017+00:00","description":"","metadata":{},"parentVersion":null,"sourceTrainingId":null,"updated_at":"2023-10-20T11:58:21.167232+00:00","version":null,"weightsPath":"s3://meta-ai-prediction/meta_ai_models/saved_models/9bb53def-5e46-4957-aff6-7f8e07d633f2"}}}'
+      string: '{"data":{"meta_ai_checkpoint_by_pk":{"id":"04e60b64-d068-4c1c-8946-ab1bc364c3ad","tag":"LATEST","modelv2Id":null,"templateId":"99f8e5ef-4813-41b1-915d-59d2414f6465","created_at":"2023-10-20T10:00:34.149926+00:00","description":"","metadata":{},"parentVersion":null,"sourceTrainingId":null,"updated_at":"2023-10-20T10:00:34.193241+00:00","version":null,"weightsPath":"s3://meta-ai-prediction/meta_ai_models/saved_models/04e60b64-d068-4c1c-8946-ab1bc364c3ad"}}}'
     headers:
       Content-Length:
-      - '458'
+      - '459'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:22 GMT
+      - Fri, 20 Oct 2023 10:00:35 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - 1137323d-4b8f-4a0c-a32a-b8240ede2263
+      - 94178663-acb1-4648-b7e1-01455d8f39ee
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_checkpoint(where: {modelv2Id: {_eq: \"72440b88-d5c0-4e56-a261-2b40ea6adb95\"},
+    body: '{"query": "query {\nmeta_ai_checkpoint(where: {modelv2Id: {_eq: \"6259a715-10d2-4127-ad64-d6d2ff401c6b\"},
       tag: {_eq: LATEST}}) {\nid\ntag\nmodelv2Id\ntemplateId\ncreated_at\ndescription\n}\n}",
       "variables": null, "operationName": null}'
     headers:
@@ -1227,7 +1265,7 @@ interactions:
       x-owner-id:
       - '3'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
       string: '{"data":{"meta_ai_checkpoint":[]}}'
@@ -1237,18 +1275,18 @@ interactions:
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:22 GMT
+      - Fri, 20 Oct 2023 10:00:35 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - a23bf3ee-5fd3-449b-ad11-e7fec3788266
+      - baea2da6-6799-4e64-8971-013e5fa489af
     status:
       code: 200
       message: OK
 - request:
     body: '{"query": "mutation {\ninsert_meta_ai_checkpoint_one(object: {description:
-      \"\", metadata: {}, modelv2Id: \"72440b88-d5c0-4e56-a261-2b40ea6adb95\", tag:
-      LATEST, templateId: \"f1d5ded7-352d-4087-9b95-37c010b66bee\", weightsPath: \"s3://meta-ai-prediction/meta_ai_models/saved_models/9bb53def-5e46-4957-aff6-7f8e07d633f2\"})
+      \"\", metadata: {}, modelv2Id: \"6259a715-10d2-4127-ad64-d6d2ff401c6b\", tag:
+      LATEST, templateId: \"99f8e5ef-4813-41b1-915d-59d2414f6465\", weightsPath: \"s3://meta-ai-prediction/meta_ai_models/saved_models/04e60b64-d068-4c1c-8946-ab1bc364c3ad\"})
       {\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -1262,26 +1300,26 @@ interactions:
       x-owner-id:
       - '3'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"insert_meta_ai_checkpoint_one":{"id":"37913fa0-f5df-4d38-94ba-4f2cbb1d5e77"}}}'
+      string: '{"data":{"insert_meta_ai_checkpoint_one":{"id":"2085bb51-e557-4c4e-aec6-bd76a804e5ec"}}}'
     headers:
       Content-Length:
       - '88'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:22 GMT
+      - Fri, 20 Oct 2023 10:00:35 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - ba8e4b89-d006-495e-8d7c-1b01ba45add1
+      - f2032244-b417-478e-822a-14ac66e53a30
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_modelv2_by_pk(id: \"72440b88-d5c0-4e56-a261-2b40ea6adb95\")
+    body: '{"query": "query {\nmeta_ai_modelv2_by_pk(id: \"6259a715-10d2-4127-ad64-d6d2ff401c6b\")
       {\nname\nid\ntemplateId\ncheckpointTag\nvisibility\naiWorkerId\ncreated_at\ndescription\neditorId\nownerId\norganizationId\nupdated_at\ndeploymentParameters\naiWorkerUsername\nservedBy\n}\n}",
       "variables": null, "operationName": null}'
     headers:
@@ -1296,26 +1334,26 @@ interactions:
       x-owner-id:
       - '3'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_modelv2_by_pk":{"name":"user_b_instance2","id":"72440b88-d5c0-4e56-a261-2b40ea6adb95","templateId":"f1d5ded7-352d-4087-9b95-37c010b66bee","checkpointTag":"LATEST","visibility":"PRIVATE","aiWorkerId":null,"created_at":"2023-10-20T11:58:22.804629+00:00","description":null,"editorId":null,"ownerId":3,"organizationId":null,"updated_at":"2023-10-20T11:58:22.804629+00:00","deploymentParameters":null,"aiWorkerUsername":null,"servedBy":null}}}'
+      string: '{"data":{"meta_ai_modelv2_by_pk":{"name":"user_b_instance2","id":"6259a715-10d2-4127-ad64-d6d2ff401c6b","templateId":"99f8e5ef-4813-41b1-915d-59d2414f6465","checkpointTag":"LATEST","visibility":"PRIVATE","aiWorkerId":null,"created_at":"2023-10-20T10:00:36.167026+00:00","description":null,"editorId":null,"ownerId":3,"organizationId":null,"updated_at":"2023-10-20T10:00:36.167026+00:00","deploymentParameters":null,"aiWorkerUsername":null,"servedBy":null}}}'
     headers:
       Content-Length:
       - '457'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:23 GMT
+      - Fri, 20 Oct 2023 10:00:35 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - 1ef91237-5b7e-42cf-bd17-dfb8f5d5db7c
+      - 6b169904-702a-42bf-b4e7-d365cc711cc7
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_checkpoint(where: {modelv2Id: {_eq: \"f424641d-51e6-4781-b01d-e0b1fc71895e\"},
+    body: '{"query": "query {\nmeta_ai_checkpoint(where: {modelv2Id: {_eq: \"8c4727c5-98e0-4c3c-ac7a-04c6671eec14\"},
       tag: {_eq: LATEST}}) {\nid\ntag\nmodelv2Id\ntemplateId\ncreated_at\ndescription\n}\n}",
       "variables": null, "operationName": null}'
     headers:
@@ -1330,26 +1368,26 @@ interactions:
       x-owner-id:
       - '3'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_checkpoint":[{"id":"6f42ec5e-9c57-4788-a82c-708aa873b3fa","tag":"LATEST","modelv2Id":"f424641d-51e6-4781-b01d-e0b1fc71895e","templateId":"f1d5ded7-352d-4087-9b95-37c010b66bee","created_at":"2023-10-20T11:58:22.541049+00:00","description":""}]}}'
+      string: '{"data":{"meta_ai_checkpoint":[{"id":"37de156c-6c54-49e6-9c99-86946f6c1913","tag":"LATEST","modelv2Id":"8c4727c5-98e0-4c3c-ac7a-04c6671eec14","templateId":"99f8e5ef-4813-41b1-915d-59d2414f6465","created_at":"2023-10-20T10:00:35.871664+00:00","description":""}]}}'
     headers:
       Content-Length:
       - '262'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:23 GMT
+      - Fri, 20 Oct 2023 10:00:35 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - 952837a5-5058-4e89-8747-00d36f7beec3
+      - fe7ce448-c848-4122-9c94-c234a3b8f2e7
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_checkpoint_by_pk(id: \"6f42ec5e-9c57-4788-a82c-708aa873b3fa\")
+    body: '{"query": "query {\nmeta_ai_checkpoint_by_pk(id: \"37de156c-6c54-49e6-9c99-86946f6c1913\")
       {\nid\ntag\nmodelv2Id\ntemplateId\ncreated_at\ndescription\nmetadata\nparentVersion\nsourceTrainingId\nupdated_at\nversion\nweightsPath\n}\n}",
       "variables": null, "operationName": null}'
     headers:
@@ -1364,26 +1402,26 @@ interactions:
       x-owner-id:
       - '3'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_checkpoint_by_pk":{"id":"6f42ec5e-9c57-4788-a82c-708aa873b3fa","tag":"LATEST","modelv2Id":"f424641d-51e6-4781-b01d-e0b1fc71895e","templateId":"f1d5ded7-352d-4087-9b95-37c010b66bee","created_at":"2023-10-20T11:58:22.541049+00:00","description":"","metadata":{},"parentVersion":null,"sourceTrainingId":null,"updated_at":"2023-10-20T11:58:22.541049+00:00","version":null,"weightsPath":"s3://meta-ai-prediction/meta_ai_models/saved_models/9bb53def-5e46-4957-aff6-7f8e07d633f2"}}}'
+      string: '{"data":{"meta_ai_checkpoint_by_pk":{"id":"37de156c-6c54-49e6-9c99-86946f6c1913","tag":"LATEST","modelv2Id":"8c4727c5-98e0-4c3c-ac7a-04c6671eec14","templateId":"99f8e5ef-4813-41b1-915d-59d2414f6465","created_at":"2023-10-20T10:00:35.871664+00:00","description":"","metadata":{},"parentVersion":null,"sourceTrainingId":null,"updated_at":"2023-10-20T10:00:35.871664+00:00","version":null,"weightsPath":"s3://meta-ai-prediction/meta_ai_models/saved_models/04e60b64-d068-4c1c-8946-ab1bc364c3ad"}}}'
     headers:
       Content-Length:
       - '493'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:23 GMT
+      - Fri, 20 Oct 2023 10:00:35 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - 81d1c151-c91a-40bf-a5f9-f09272725c42
+      - f30c8147-e62c-46b2-83d8-3e4f3af034da
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_checkpoint(where: {modelv2Id: {_eq: \"72440b88-d5c0-4e56-a261-2b40ea6adb95\"},
+    body: '{"query": "query {\nmeta_ai_checkpoint(where: {modelv2Id: {_eq: \"6259a715-10d2-4127-ad64-d6d2ff401c6b\"},
       tag: {_eq: LATEST}}) {\nid\ntag\nmodelv2Id\ntemplateId\ncreated_at\ndescription\n}\n}",
       "variables": null, "operationName": null}'
     headers:
@@ -1398,26 +1436,26 @@ interactions:
       x-owner-id:
       - '3'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_checkpoint":[{"id":"37913fa0-f5df-4d38-94ba-4f2cbb1d5e77","tag":"LATEST","modelv2Id":"72440b88-d5c0-4e56-a261-2b40ea6adb95","templateId":"f1d5ded7-352d-4087-9b95-37c010b66bee","created_at":"2023-10-20T11:58:23.066137+00:00","description":""}]}}'
+      string: '{"data":{"meta_ai_checkpoint":[{"id":"2085bb51-e557-4c4e-aec6-bd76a804e5ec","tag":"LATEST","modelv2Id":"6259a715-10d2-4127-ad64-d6d2ff401c6b","templateId":"99f8e5ef-4813-41b1-915d-59d2414f6465","created_at":"2023-10-20T10:00:36.406794+00:00","description":""}]}}'
     headers:
       Content-Length:
       - '262'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:23 GMT
+      - Fri, 20 Oct 2023 10:00:35 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - 592eeb4b-cd5b-4f72-ba68-871a647c600b
+      - fb3f67f3-15fb-46a5-8608-425cfdb68794
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "query {\nmeta_ai_checkpoint_by_pk(id: \"37913fa0-f5df-4d38-94ba-4f2cbb1d5e77\")
+    body: '{"query": "query {\nmeta_ai_checkpoint_by_pk(id: \"2085bb51-e557-4c4e-aec6-bd76a804e5ec\")
       {\nid\ntag\nmodelv2Id\ntemplateId\ncreated_at\ndescription\nmetadata\nparentVersion\nsourceTrainingId\nupdated_at\nversion\nweightsPath\n}\n}",
       "variables": null, "operationName": null}'
     headers:
@@ -1432,26 +1470,26 @@ interactions:
       x-owner-id:
       - '3'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"meta_ai_checkpoint_by_pk":{"id":"37913fa0-f5df-4d38-94ba-4f2cbb1d5e77","tag":"LATEST","modelv2Id":"72440b88-d5c0-4e56-a261-2b40ea6adb95","templateId":"f1d5ded7-352d-4087-9b95-37c010b66bee","created_at":"2023-10-20T11:58:23.066137+00:00","description":"","metadata":{},"parentVersion":null,"sourceTrainingId":null,"updated_at":"2023-10-20T11:58:23.066137+00:00","version":null,"weightsPath":"s3://meta-ai-prediction/meta_ai_models/saved_models/9bb53def-5e46-4957-aff6-7f8e07d633f2"}}}'
+      string: '{"data":{"meta_ai_checkpoint_by_pk":{"id":"2085bb51-e557-4c4e-aec6-bd76a804e5ec","tag":"LATEST","modelv2Id":"6259a715-10d2-4127-ad64-d6d2ff401c6b","templateId":"99f8e5ef-4813-41b1-915d-59d2414f6465","created_at":"2023-10-20T10:00:36.406794+00:00","description":"","metadata":{},"parentVersion":null,"sourceTrainingId":null,"updated_at":"2023-10-20T10:00:36.406794+00:00","version":null,"weightsPath":"s3://meta-ai-prediction/meta_ai_models/saved_models/04e60b64-d068-4c1c-8946-ab1bc364c3ad"}}}'
     headers:
       Content-Length:
       - '493'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:23 GMT
+      - Fri, 20 Oct 2023 10:00:35 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - 829aa2ef-0098-4254-9d21-4c6f54e10ff7
+      - c22c7ecb-8181-4b0c-9ad7-96536acd134b
     status:
       code: 200
       message: OK
 - request:
-    body: '{"query": "mutation {\ndelete_meta_ai_template_by_pk(id: \"f1d5ded7-352d-4087-9b95-37c010b66bee\")
+    body: '{"query": "mutation {\ndelete_meta_ai_template_by_pk(id: \"99f8e5ef-4813-41b1-915d-59d2414f6465\")
       {\nid\n}\n}", "variables": null, "operationName": null}'
     headers:
       Accept:
@@ -1465,21 +1503,21 @@ interactions:
       x-owner-id:
       - '1'
     method: POST
-    uri: http://localhost:57004/v1/graphql
+    uri: http://localhost:51687/v1/graphql
   response:
     body:
-      string: '{"data":{"delete_meta_ai_template_by_pk":{"id":"f1d5ded7-352d-4087-9b95-37c010b66bee"}}}'
+      string: '{"data":{"delete_meta_ai_template_by_pk":{"id":"99f8e5ef-4813-41b1-915d-59d2414f6465"}}}'
     headers:
       Content-Length:
       - '88'
       Content-Type:
       - application/json; charset=utf-8
       Date:
-      - Fri, 20 Oct 2023 11:58:23 GMT
+      - Fri, 20 Oct 2023 10:00:35 GMT
       Server:
       - Warp/3.3.23
       x-request-id:
-      - b8e17e5e-4439-4d3b-9a9e-93d5e6b543f7
+      - 89bfa21a-df12-4f21-a370-c1cc450da929
     status:
       code: 200
       message: OK
