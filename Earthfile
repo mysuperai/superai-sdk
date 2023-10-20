@@ -165,6 +165,9 @@ ai-requirements:
     RUN pip install lxml==4.9.2
 
     COPY setup.py .
+    # We copy the version so circular dependency resolving works with the correct version of this package
+    # This will reduce caching though
+    COPY superai/version.py ./superai/version.py
 
     ARG AWS_ACCESS_KEY_ID=""
     ARG AWS_SECRET_ACCESS_KEY=""
