@@ -362,7 +362,9 @@ def deploy_ai(config_file, clean=True, update_weights=False):
     "--clean/--no-clean", "-cl/-ncl", help="Remove the local .AISave folder to perform a fresh deployment", default=True
 )
 @click.option("--redeploy/--no-clean", "-r/-nr", help="Redeploy the existing deployment", default=True)
-@click.option("--log/--no-log", "-l/-nl", help="Log the deployment, this blocks the executor", default=False)
+@click.option(
+    "--log/--no-log", "-l/-nl", "log_predictor", help="Log the deployment, this blocks the executor", default=False
+)
 @click.option("--skip-build/--no-skip-build", "-sb/-nsb", help="Skip building the docker image", default=False)
 @click.option(
     "--update-weights/--no-update-weights",

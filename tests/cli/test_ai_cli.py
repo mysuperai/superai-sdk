@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 from click.testing import CliRunner
 
 from superai import Client
+from superai.cli.ai import local_deploy_ai
 from superai.cli.ai_instance import (
     deploy,
     list_ai_instances,
@@ -172,3 +173,48 @@ def test_view_training_template(get_training_template_api):
     # Assert
     assert result.exit_code == 0
     get_training_template_api.assert_called_once_with(str(template_id), app_id)
+
+
+@patch("os.path.exists", return_value=True)
+@patch("shutil.rmtree")
+@patch("superai.meta_ai.ai.AI.from_yaml")
+@patch("json.dump")
+# @patch('open', mock_open())
+def test_local_deploy_ai(mock_dump, mock_from_yaml, mock_rmtree, mock_exists, tmp_path):
+    # Arrange
+    runner = CliRunner()
+    config_file = "some_config_file.yml"
+    # Create a config file at tmp_path
+    config_path = tmp_path / config_file
+    config_path.touch()
+    ai_object = Mock()
+    predictor_obj = Mock()
+
+    mock_from_yaml.return_value = ai_object
+    ai_object.local_image = "some_local_image"
+    ai_object.weights_path = "some_weights_path"
+    ai_object.cache_path.return_value = tmp_path / "cache"
+    # create directory for cache
+    ai_object.cache_path.return_value.mkdir()
+    ai_object.default_deployment_parameters = "some_deployment_parameters"
+
+    mock_predictor_class = "superai.meta_ai.deployed_predictors.LocalPredictor"
+    with patch(mock_predictor_class, return_value=predictor_obj) as mock_predictor:
+        # Act
+        result = runner.invoke(local_deploy_ai, ["--config-file", config_path])
+        print(result.exc_info)
+        print(result.output)
+        # Assert
+        assert result.exit_code == 0
+        mock_rmtree.assert_called_once()
+        mock_from_yaml.assert_called_once_with(config_path)
+        ai_object.build.assert_called_once_with(skip_build=False)
+        ai_object.save.assert_called_once_with(overwrite=True, create_checkpoint=False)
+        mock_predictor.assert_called_once_with(
+            orchestrator="LOCAL_DOCKER_K8S",
+            deploy_properties="some_deployment_parameters",
+            local_image_name="some_local_image",
+            weights_path="some_weights_path",
+        )
+        predictor_obj.deploy.assert_called_once_with(redeploy=True)
+        mock_dump.assert_called_once()
