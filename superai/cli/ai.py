@@ -370,7 +370,9 @@ def deploy_ai(config_file, clean=True, update_weights=False):
     help="Force updating the weights. Only respected if weights were uploaded before.",
     default=False,
 )
-def local_deploy_ai(config_file, clean=True, redeploy=True, log=False, skip_build=False, update_weights=False):
+def local_deploy_ai(
+    config_file, clean=True, redeploy=True, log_predictor=False, skip_build=False, update_weights=False
+):
     """Local Deploy an AI model for integration testing"""
     from superai.meta_ai import Orchestrator
     from superai.meta_ai.ai import AI
@@ -400,7 +402,7 @@ def local_deploy_ai(config_file, clean=True, redeploy=True, log=False, skip_buil
         click.echo(f"Storing predictor config in cache path {ai_object.cache_path() /PREDICTOR_CONFIG_JSON}")
         json.dump(predictor_dict, f)
 
-    if log:
+    if log_predictor:
         predictor_obj.log()
 
 
