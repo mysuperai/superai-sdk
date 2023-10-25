@@ -28,6 +28,7 @@ class JobsApiMixin(ABC):
         metadata: dict = None,
         worker: str = None,
         parked: bool = None,
+        tags: str = None,
     ) -> dict:
         """Submits jobs.
 
@@ -55,6 +56,8 @@ class JobsApiMixin(ABC):
             body_json["labeler"] = worker
         if parked is not None:
             body_json["pending"] = parked
+        if tags is not None:
+            body_json["tags"] = tags
 
         uri = f"apps/{app_id}/jobs"
         return self.request(uri, method="POST", body_params=body_json, required_api_key=True)
@@ -132,6 +135,7 @@ class JobsApiMixin(ABC):
         completed_start_date: datetime = None,
         completed_end_date: datetime = None,
         status_in: List[str] = None,
+        tags: str = None,
     ) -> dict:
         """Gets a paginated list of jobs (without job responses) given an application ID.
 
@@ -170,6 +174,8 @@ class JobsApiMixin(ABC):
             query_params["completedEndDate"] = completed_end_date.strftime("%Y-%m-%dT%H:%M:%SZ")
         if status_in is not None:
             query_params["statusIn"] = status_in
+        if tags is not None:
+            query_params["tags"] = tags
         return self.request(uri, method="GET", query_params=query_params, required_api_key=True)
 
     def download_jobs(
