@@ -123,6 +123,32 @@ class JobsApiMixin(ABC):
         uri = f"jobs/{job_id}/cancel"
         return self.request(uri, method="POST", required_api_key=True)
 
+    def delete_tags(
+        self,
+        app_id: str,
+        tags: str,
+        created_start_date: datetime = None,
+        batch_id: str = None,
+    ) -> dict:
+        """Deletes the tags from jobs given an application ID and tag. Can be filtered by batch_id.
+
+        Args:
+            app_id: Application ID.
+            tags: job tags.
+        Returns:
+            None
+        """
+        uri = f"apps/{app_id}/jobs/tags"
+        query_params = {}
+        if batch_id is not None:
+            query_params["batchId"] = batch_id
+        if created_start_date is not None:
+            query_params["createdStartDate"] = created_start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        body_json = {}
+        if tags is not None:
+            body_json["tags"] = tags
+        return self.request(uri, method="DELETE", query_params=query_params,body_params=body_json, required_api_key=True)
+        
     def list_jobs(
         self,
         app_id: str,
