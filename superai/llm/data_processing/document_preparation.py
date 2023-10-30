@@ -166,7 +166,7 @@ class DocumentToString:
         ocr_values.sort(
             key=lambda ocr_token: (
                 ocr_token["pageNumber"],
-                ocr_token["boundingBox"]["top"] // self.pixels_per_line,
+                (ocr_token["boundingBox"]["top"] + ocr_token["boundingBox"]["height"]) // self.pixels_per_line,
                 ocr_token["boundingBox"]["left"] // self.pixels_per_char,
             )
         )
@@ -182,7 +182,7 @@ class DocumentToString:
                 line_base += line_id + 1  # Pages are separated with a new line
                 current_page = page_number
 
-            line_id = token["boundingBox"]["top"] // self.pixels_per_line
+            line_id = (token["boundingBox"]["top"] + token["boundingBox"]["height"]) // self.pixels_per_line
             line_number = line_base + line_id
             line_dict.setdefault(line_number, []).append(token)
         return line_dict
@@ -316,7 +316,7 @@ def get_white_space_representation(ocr_values, pixels_per_line=10, pixels_per_ch
     ocr_values.sort(
         key=lambda ocr_token: (
             ocr_token["pageNumber"],
-            ocr_token["boundingBox"]["top"] // pixels_per_line,
+            (ocr_token["boundingBox"]["top"] + ocr_token["boundingBox"]["height"]) // pixels_per_line,
             ocr_token["boundingBox"]["left"] // pixels_per_char,
         )
     )
@@ -337,7 +337,7 @@ def get_white_space_representation(ocr_values, pixels_per_line=10, pixels_per_ch
             current_line = 0
 
         # Add newlines if necessary
-        lines_needed = max(1, token["boundingBox"]["top"] // pixels_per_line)
+        lines_needed = max(1, (token["boundingBox"]["top"] + token["boundingBox"]["height"]) // pixels_per_line)
         while current_line < lines_needed:
             page_tokens.append("\n")
             current_line += 1
@@ -415,7 +415,7 @@ def _insert_tables_into_whitespace_representation(
             # Replace lines where table should be located with formated table
             table_markdown = _get_table_markdown_representation(single_table).split("\n")
             page_representation = (
-                page_representation[: (table_boundaries[0] + offset)]
+                page_representation[: (table_boundaries[0] + offset + 1)]
                 + table_markdown
                 + page_representation[(table_boundaries[1] + offset) :]
             )

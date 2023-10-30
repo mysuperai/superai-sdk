@@ -105,9 +105,9 @@ def test_get_white_space_line_dict(invoice_ocr):
     line_dict = extractor.get_white_space_line_dict(invoice_ocr["__ocr_values__"])
 
     split_doc = serialized_doc[0].split("\n")
-    assert line_dict[int(split_doc[4][0])][0]["content"] in split_doc[4]
-    assert line_dict[int(split_doc[26][0:2])][3]["content"] in split_doc[26]
-    assert line_dict[int(split_doc[101][0:3])][0]["content"] in split_doc[101]
+    assert line_dict[int(split_doc[7][0])][0]["content"] in split_doc[7]
+    assert line_dict[int(split_doc[26][0:2])][1]["content"] in split_doc[26]
+    assert line_dict[int(split_doc[103][0:3])][0]["content"] in split_doc[103]
 
 
 def test_replace_checkbox_kv_pairs(form_ocr):
