@@ -62,6 +62,7 @@ REQUIRES = [
     "opentelemetry-instrumentation-fastapi>=0.40b0",
 ]
 
+
 AI_REQUIRES = [
     "docker>=5.0.0",
     "polyaxon>=1.14.3",
@@ -70,6 +71,11 @@ AI_REQUIRES = [
     "netifaces>=0.11.0",
     "jsonlines>=4.0.0",
     "superai-builder>=0.8.1",
+    "pydantic>=1.8.2,<2",
+]
+SUPERAI_COMMON_REQUIRES = [
+    "superai-dataclient~=0.1.0",
+    "superai-schema~=0.7",
     "pydantic>=1.8.2,<2",
 ]
 
@@ -84,10 +90,7 @@ BUILD_REQUIRES = [
 
 DP_REQUIRES = [
     "pyngrok>=6.0.0",
-    "superai-dataclient~=0.1.0",
-    "superai-schema~=0.7",
     "superai-transport>=1.0",
-    "pydantic>=1.8.2,<2",
 ]
 
 TEST_REQUIRES = [
@@ -159,12 +162,12 @@ setup(
     keywords=["super.AI API", "super.AI SDK"],
     install_requires=REQUIRES,
     extras_require={
-        "build": DP_REQUIRES + BUILD_REQUIRES,
-        "dp": DP_REQUIRES,
-        "ai": AI_REQUIRES + DP_REQUIRES,
-        "llm": LLM_REQUIRES + AI_REQUIRES + DP_REQUIRES,
-        "test": LLM_REQUIRES + TEST_REQUIRES + DP_REQUIRES + AI_REQUIRES,
-        "complete": BUILD_REQUIRES + DP_REQUIRES + AI_REQUIRES + LLM_REQUIRES + TEST_REQUIRES,
+        "build": DP_REQUIRES + BUILD_REQUIRES + SUPERAI_COMMON_REQUIRES,
+        "dp": DP_REQUIRES + SUPERAI_COMMON_REQUIRES,
+        "ai": AI_REQUIRES + SUPERAI_COMMON_REQUIRES,
+        "llm": LLM_REQUIRES + AI_REQUIRES + DP_REQUIRES + SUPERAI_COMMON_REQUIRES,
+        "test": LLM_REQUIRES + TEST_REQUIRES + DP_REQUIRES + AI_REQUIRES + SUPERAI_COMMON_REQUIRES,
+        "complete": BUILD_REQUIRES + DP_REQUIRES + AI_REQUIRES + LLM_REQUIRES + TEST_REQUIRES + SUPERAI_COMMON_REQUIRES,
     },
     packages=find_packages(),
     include_package_data=True,
