@@ -90,7 +90,7 @@ BUILD_REQUIRES = [
 
 DP_REQUIRES = [
     "pyngrok>=6.0.0",
-    "superai-transport>=1.0",
+    "superai-transport>=1.0.16",
 ]
 
 TEST_REQUIRES = [
