@@ -70,7 +70,7 @@ AI_REQUIRES = [
     # 4.21.0 broke the sagemaker imports, see https://github.com/protocolbuffers/protobuf/issues/10051
     "netifaces>=0.11.0",
     "jsonlines>=4.0.0",
-    "superai-builder>=0.8.1",
+    "superai-builder>=0.9.1",
     "pydantic>=1.8.2,<2",
 ]
 SUPERAI_COMMON_REQUIRES = [
@@ -103,7 +103,7 @@ TEST_REQUIRES = [
     "pytest-mock~=3.10.0",
     "pytest-vcr>=1.0.2",
     "pytest>=6.1.2",
-    "superai-builder>=0.6.2",
+    "superai-builder>=0.9.1",
     "tox>=2.9.1",
     "vcrpy>=4.1.1",
 ]
