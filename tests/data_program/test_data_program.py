@@ -182,6 +182,7 @@ def test_data_program_creation(mocker, set_qumes_active, handler):
     mocker.patch("superai.data_program.protocol.task.start_threading")
     mocker.patch("superai.data_program.protocol.task.serve_workflow")
     mocker.patch("superai.data_program.protocol.transport.subscribe_workflow")
+    mocker.patch("superai.data_program.DataProgram._validate_workflow_registration")
     dp.start_service(
         workflows=[
             WorkflowConfig("parse", is_default=True, is_gold=True),
