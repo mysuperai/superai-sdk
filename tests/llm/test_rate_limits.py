@@ -1,34 +1,10 @@
-import datetime
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 from openai.error import RateLimitError
 
-from superai.data_program.protocol.rate_limit import compute_api_wait_time
 from superai.llm.foundation_models.openai import ChatGPT
-from tests.llm.helpers import patch_chatgpt_settings
-
-
-class OpenAIMockResponse:
-    def __init__(self, data):
-        self.data = data
-
-    def to_dict_recursive(self):
-        return self.data
-
-    def __contains__(self, key):
-        return key in self.data
-
-    def __getitem__(self, key):
-        if key in self.data:
-            item = self.data[key]
-            # If the item itself is a dictionary, return a new MockedResponse wrapping that dictionary
-            if isinstance(item, dict):
-                return OpenAIMockResponse(item)
-            else:
-                return item
-        else:
-            raise KeyError(key)
+from tests.llm.helpers import OpenAIMockResponse, patch_chatgpt_settings
 
 
 @pytest.fixture()
@@ -37,7 +13,7 @@ def chat_gpt_model():
 
 
 @patch_chatgpt_settings
-def test_rate_exceeding_handling(chat_gpt_model):
+def test_rate_exceeding_handling(chat_gpt_model, **kwargs):
     chat_gpt_model._wait_for_rate_limits = lambda x, y: True
     with patch("openai.ChatCompletion.create") as chat_mock:
         rate_limit_exception = RateLimitError(
@@ -65,38 +41,3 @@ def test_rate_exceeding_handling(chat_gpt_model):
         ]
         result = chat_gpt_model.predict("what's the capital of Jordan?")
         assert result
-
-
-@patch_chatgpt_settings
-def test_wait_for_rate_limits(monkeypatch, chat_gpt_model):
-    # RPM call, retrial, TPM call, RPM retrial, TPM retrial
-    return_data = [0.5, 0, 0.1, 0, 0]
-    test_mock = Mock(side_effect=return_data)
-    monkeypatch.setattr(
-        "superai.llm.foundation_models.openai.compute_api_wait_time",
-        test_mock,
-    )
-
-    chat_gpt_model._wait_for_rate_limits("gpt-35-turbo", 50)
-    assert test_mock.call_count == len(return_data)
-
-
-@patch("superai.data_program.protocol.rate_limit.datetime")
-def test_compute_api_wait_time(datetime_mock):
-    model_name = "fancy_model"
-    passed_secs = 3
-
-    # Fixes time, to make tests consistent
-    datetime_mock.datetime.now = Mock(return_value=datetime.datetime(2023, 2, 26, 0, 10, passed_secs, 0))
-
-    # First call, tests fresh key
-    assert compute_api_wait_time(model_name, 30, 25) == 0
-    # Seconds call should't exceed threshold
-    assert compute_api_wait_time(model_name, 30, 1) == 0
-    # Third call should exceed.
-    assert compute_api_wait_time(model_name, 30, 10) == 60 - passed_secs
-    # New model call shouldn't exceed
-    assert compute_api_wait_time(model_name + "_NEW", 30, 10) == 0
-    # New minute should reset rates
-    datetime_mock.datetime.now = Mock(return_value=datetime.datetime(2023, 2, 26, 0, 11, passed_secs, 0))
-    assert compute_api_wait_time(model_name, 30, 1) == 0

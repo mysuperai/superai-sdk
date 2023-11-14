@@ -4,7 +4,24 @@ import tempfile
 
 import diskcache as dc
 
+from superai.log import logger
+
+log = logger.get_logger(__name__)
+
 cache = dc.Cache(os.path.join(tempfile.gettempdir(), "rate"))
+
+
+def set_wait_time(key: str, wait_time: int):
+    end_time = datetime.datetime.now() + datetime.timedelta(0, wait_time)
+    cache.set(key, end_time.timestamp(), wait_time + 60)
+
+
+def get_wait_time(key: str):
+    now = datetime.datetime.now()
+
+    wait_time = cache.get(key, 0)
+
+    return max(0, wait_time - now.timestamp())
 
 
 def compute_api_wait_time(entity: str, max_tpm: int, current_increase: int = 1):
