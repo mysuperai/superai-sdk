@@ -25,6 +25,30 @@ def return_mock(second_finish_reason):
     return helper
 
 
+def return_mock_for_token_limitation(finish_reason):
+    def helper(filtered_params):
+        if filtered_params.get("max_tokens", 0) < 5:
+            return {"choices": [{"finish_reason": finish_reason, "message": {"content": "restricted"}}]}, None, 0
+        else:
+            return {"choices": [{"finish_reason": "stop", "message": {"content": "relaxed"}}]}, None, 0
+
+    return helper
+
+
+@patch("superai.llm.foundation_models.openai.get_wait_time", return_value=0)
+@patch_chatgpt_settings
+def test_restrictive_token_limits(*args, **kwargs):
+    model = ChatGPT()
+    # The first call will limit to 1 token. We expect that in the second call the
+    # token limit is relaxed
+    model._openai_call = return_mock_for_token_limitation("length")
+    assert model.predict("test") == "relaxed"
+    # The first call will limit to 1 token. If we generate successfully we will not call
+    # again
+    model._openai_call = return_mock_for_token_limitation("stop")
+    assert model.predict("test") == "restricted"
+
+
 @patch("superai.llm.foundation_models.openai.get_wait_time", return_value=0)
 @patch_chatgpt_settings
 def test_stop_criterion(*args, **kwargs):
@@ -125,8 +149,9 @@ def test_run_frequency_penalties(chat_mock, *args, **kwargs):
     prediction = model.predict("smart question")
 
     assert prediction == "smart response"
-    # we have three different frequency penalties to try
-    assert len(chat_mock.mock_calls) == 3
+    # we have three different frequency penalties to try and one try because we run with
+    # a restricted max_tokens token limit.
+    assert len(chat_mock.mock_calls) == 4
 
 
 @patch("superai.data_program.protocol.rate_limit.datetime")

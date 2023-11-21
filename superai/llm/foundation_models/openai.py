@@ -172,6 +172,7 @@ class ChatGPT(FoundationModel):
         frequency_penalties = [None, 0.5, 1.0]
         cur_penalty_idx = 0
         latest_error = None
+        restricted_max_token = False
 
         all_models_params = settings.get("llm").get(self.openai_model, None)
         if not all_models_params:
@@ -181,17 +182,30 @@ class ChatGPT(FoundationModel):
         messages = self._input_to_messages(input)
         encoding = tiktoken.encoding_for_model(self.engine)
         token_count = len(encoding.encode(messages[0]["content"]))
-        # Make sure that the max token are limited to the amount of token that a
-        # remaining in the context length of the current model.
-        max_tokens = (self.token_limit - 50) - token_count
+
+        # We need to set the max_tokens parameter as tightly as possible. We assume that
+        # the number of generated tokens should not be more than the prompt.
+        remaining_token_space = (self.token_limit - 50) - token_count
+        max_tokens = remaining_token_space
+        if token_count < remaining_token_space:
+            logger.info(
+                f"Restricting max_tokens from {remaining_token_space} remaining token space to {token_count} token",
+                extra={"remaining_token_space": remaining_token_space, "token_count": token_count},
+            )
+            max_tokens = token_count
+            restricted_max_token = True
+
+        # We can further manually limit the number of tokens even more.
         if manual_token_limit is not None:
-            log.info(f"Manually token limit set to {manual_token_limit}")
+            log.info(
+                f"Manually token limit set to {manual_token_limit}", extra={"manual_token_limit": manual_token_limit}
+            )
             max_tokens = min(max_tokens, manual_token_limit)
 
         # There are six different variants how iteration of this circle can end:
-        #   1. successfull response -> return output
+        #   1. successful response -> return output
         #   2. Unrecoverable API error. Raise the error
-        #   3. Reconverable API error. Repeat max 5 times for each model
+        #   3. Recoverable API error. Repeat max 5 times for each model
         #   4. API returns RateLimitError -> notify rate manager and repeat
         #   5. Rate manager says to wait -> wait and repeat
         #   6. Response with finish_reason == length -> select next frequency penalty and repeat.
@@ -203,7 +217,7 @@ class ChatGPT(FoundationModel):
                 raise latest_error
 
             if wait_time > 0:
-                additional_sleep = random.uniform(1, 5)
+                additional_sleep = random.uniform(1, 2)
                 time.sleep(wait_time + additional_sleep)
                 logger.info(f"Best model {all_models_params[best_model_idx]['id']} is busy. Need to wait {wait_time}")
                 continue
@@ -254,12 +268,22 @@ class ChatGPT(FoundationModel):
             if "choices" not in response:
                 raise Exception("No choices in response")
 
-            # One failure mode is to run out of tokens. In most cases this is caused by
-            # generating infinite loops. In case the generation did not come to a natural
-            # stop we will not be able to parse the result. We will repeat the call with a
-            # presence penalty to decrease the chance constantly repeated tokens.
+            # One failure mode is to run out of tokens. Our max_token could have been
+            # set too strictly, or we are generating too much output
             finish_reason = response["choices"][0].get("finish_reason", "")
-            if finish_reason == "length" and cur_penalty_idx < len(frequency_penalties) - 1:
+            if finish_reason == "length" and restricted_max_token:
+                # In case we set the token limit to the prompt length, and we ran out of
+                # token, we will try again with the less restrictive token limit without
+                # setting a frequency penalty
+                logger.info(f"Hit restricted token limit. Rerunning with relaxed token limit")
+                max_tokens = min(remaining_token_space, manual_token_limit or remaining_token_space)
+                restricted_max_token = False
+                continue
+            elif finish_reason == "length" and cur_penalty_idx < len(frequency_penalties) - 1:
+                # In most cases running out og tokens is caused by generating infinite
+                # loops. In case the generation did not come to a natural stop we will
+                # not be able to parse the result. We will repeat the call with a
+                # presence penalty to decrease the chance constantly repeated tokens.
                 cur_penalty_idx += 1
                 continue
 
