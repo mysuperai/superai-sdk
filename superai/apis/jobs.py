@@ -188,7 +188,6 @@ class JobsApiMixin(ABC):
         status_in: List[str] = None,
         send_email: bool = None,
         with_history: bool = None,
-        #fernando
         batch_id: str = None,
         id_search: str = None,
     ) -> dict:
