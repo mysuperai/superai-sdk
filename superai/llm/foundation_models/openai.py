@@ -167,7 +167,6 @@ class ChatGPT(OpenAIFoundation):
             }
             log.info(json.dumps(azure_response))
         except RateLimitError as e:
-
             # Maxing out requests in order to block other openai callers
             # self._wait_for_rate_limits(self.engine, self.rpm[self.engine])
 
