@@ -129,6 +129,7 @@ class JobsApiMixin(ABC):
         tags: str,
         created_start_date: datetime = None,
         batch_id: str = None,
+        search_id: str = None,
     ) -> dict:
         """Deletes the tags from jobs given an application ID and tag. Can be filtered by batch_id.
 
@@ -142,6 +143,8 @@ class JobsApiMixin(ABC):
         query_params = {}
         if batch_id is not None:
             query_params["batchId"] = batch_id
+        if search_id is not None:
+            query_params["idSearch"] = search_id
         if created_start_date is not None:
             query_params["createdStartDate"] = created_start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
         body_json = {}
