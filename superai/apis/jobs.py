@@ -145,7 +145,7 @@ class JobsApiMixin(ABC):
         body_json = {}
         if tags is not None:
             body_json["tags"] = tags
-        return self.request(uri, method="PUT", query_params=query_params,body_params=body_json, required_api_key=True)
+        return self.request(uri, method="PUT", query_params=query_params, body_params=body_json, required_api_key=True)
 
     def list_jobs(
         self,
