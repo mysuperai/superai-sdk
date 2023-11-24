@@ -160,6 +160,7 @@ class JobsApiMixin(ABC):
         completed_end_date: datetime = None,
         status_in: List[str] = None,
         tags: str = None,
+        correct: str = None,
     ) -> dict:
         """Gets a paginated list of jobs (without job responses) given an application ID.
 
@@ -200,6 +201,8 @@ class JobsApiMixin(ABC):
             query_params["statusIn"] = status_in
         if tags is not None:
             query_params["tags"] = tags
+        if correct is not None:
+            query_params["correct"] = correct
         return self.request(uri, method="GET", query_params=query_params, required_api_key=True)
 
     def download_jobs(
