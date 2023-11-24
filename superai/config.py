@@ -203,7 +203,7 @@ def init_config(
 
     dot_env_file = os.path.join(root_dir, ".env")
     if not os.path.exists(dot_env_file) and not os.getenv(__env_switcher):
-        env_in_order = ["prod", "sandbox", "stg", "dev", "testing"]
+        env_in_order = ["prod", "dev", "testing"]
         envs = list_env_configs()
         for e in env_in_order:
             if e in envs:
@@ -242,15 +242,8 @@ validators = [
         "CACHE_SIZE_IN_BYTES",
         must_exist=True,
     ),
-    # validate a value is eq in specific env
-    Validator("NAME", eq="test", env="testing"),
-    Validator("NAME", eq="dev", env="dev"),
-    Validator("NAME", eq="local", env="local"),
-    Validator("NAME", eq="sandbox", env="sandbox"),
-    Validator("NAME", eq="prod", env="prod"),
     Validator("SCHEMA_PORT", gt=0, lt=65535, is_type_of=int, default=8002),
 ]
-
 settings = Dynaconf(
     envvar_prefix="SUPERAI",
     env_switcher=__env_switcher,

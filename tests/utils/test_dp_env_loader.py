@@ -16,22 +16,22 @@ def secrets_client(mocker):
         yield boto3.client("secretsmanager")
 
 
-def test_retrieve_secret(secrets_client, mocker):
+def test_retrieve_secret(secrets_client, mocker, tmp_path):
     secret_value = {"foo": "bar", "baz": "qux"}
     secret_name = "dataprograms-env-test-secret"
     secrets_client.create_secret(Name=secret_name, SecretString=json.dumps(secret_value))
     boto3 = mocker.patch("superai.utils.dp_env_loader.boto3", autospec=True)
     boto3.client.return_value = secrets_client
-    secret = _retrieve_secret("test")
+    secret = _retrieve_secret("test", tmp_path)
     assert secret == secret_value
 
 
-def test_retrieve_secret_error(secrets_client, mocker):
+def test_retrieve_secret_error(secrets_client, mocker, tmp_path):
     boto3 = mocker.patch("superai.utils.dp_env_loader.boto3", autospec=True)
     boto3.client.return_value = secrets_client
 
     with pytest.raises(Exception):
-        _retrieve_secret("test2")
+        _retrieve_secret("test2", tmp_path)
 
 
 def test_transform_key():
