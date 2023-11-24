@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+
 from superai.log import logger
 
 log = logger.get_logger(__name__)
