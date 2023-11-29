@@ -8,7 +8,7 @@ class OpenAIMockResponse:
     def __init__(self, data):
         self.data = data
 
-    def to_dict_recursive(self):
+    def dict(self):
         return self.data
 
     def __contains__(self, key):

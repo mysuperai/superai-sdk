@@ -1,30 +1,30 @@
+import datetime
 import json
+import os
 import random
+import tempfile
 import time
 from itertools import count
 from operator import itemgetter
-from typing import Optional, TypedDict, Union
+from typing import List, Optional, TypedDict, Union
 
 import boto3
-import openai
+import diskcache as dc
 import tiktoken
-from openai.error import (
+from openai import (
     APIConnectionError,
     APIError,
-    OpenAIError,
+    AzureOpenAI,
+    InternalServerError,
     RateLimitError,
-    ServiceUnavailableError,
     Timeout,
-    TryAgain,
 )
 
 from superai.config import settings
-from superai.data_program.protocol.rate_limit import get_wait_time, set_wait_time
 from superai.llm.configuration import Configuration
 from superai.llm.data_types.message import ChatMessage
 from superai.llm.foundation_models.base import FoundationModel
 from superai.log import logger
-from superai.utils import retry
 
 config = Configuration()
 
@@ -86,24 +86,6 @@ def add_missing_information(llm_key, llm_config_values):
     return llm_config_values
 
 
-class OpenAIFoundation(FoundationModel):
-    user: str = None
-    api_key: str = config.open_ai_api_key
-
-    def initialize_openai(self):
-        openai.api_type = config.openai_api_type
-        openai.api_base = config.openai_api_base
-        openai.api_version = config.openai_api_version
-        openai.api_key = self.api_key
-
-    def verify_api_key(self, api_key):
-        try:
-            openai.api_key = api_key
-            openai.Model.list()
-        except Exception as e:
-            raise Exception("Invalid API key. Error: " + str(e))
-
-
 class FoundationModelParams(TypedDict):
     id: str
     completion_model_engine: str
@@ -122,10 +104,41 @@ MAX_ERRORS = 5
 RECOVERABLE_DOWNSTREAM_ERRORS = [
     APIConnectionError,
     APIError,
-    ServiceUnavailableError,
     Timeout,
-    TryAgain,
+    InternalServerError,
 ]
+
+# Cache to save wait times for model endpoints.
+cache = dc.Cache(os.path.join(tempfile.gettempdir(), "rate"))
+
+
+class AzureOpenAIModelEndpoint:
+    """
+    Model Endpoint of an Azure OpenAI Model Deployment.
+
+    Captures meta-information for each endpoint. In case of waiting times due to rate
+    limitation will provide accounting mechanism for this as well.
+
+    """
+
+    id: str
+    client: AzureOpenAI
+    priority: int
+    model_errors: int = 0
+
+    def __init__(self, id: str, priority: int, client: AzureOpenAI):
+        self.id = id
+        self.priority = priority
+        self.client = client
+
+    def set_wait_time(self, wait_time: int):
+        end_time = datetime.datetime.now() + datetime.timedelta(0, wait_time)
+        cache.set(self.id, end_time.timestamp(), wait_time + 60)
+
+    def get_wait_time(self) -> int:
+        now = datetime.datetime.now()
+        wait_time = cache.get(self.id, 0)
+        return max(0, wait_time - now.timestamp())
 
 
 class ChatGPT(FoundationModel):
@@ -152,6 +165,23 @@ class ChatGPT(FoundationModel):
     presence_penalty: float = None
     frequency_penalty: float = None
     logit_bias: dict = None
+    # Lazy load endpoints with first prediction
+    model_endpoints: List[AzureOpenAIModelEndpoint] = []
+
+    def _init_endpoints(self):
+        all_models_params = settings.get("llm").get(self.openai_model, None)
+        if not all_models_params:
+            raise Exception(f"Unknown OpenAI model: {self.openai_model}")
+        for model_params in all_models_params:
+            azure_openai_client = AzureOpenAI(
+                api_version=model_params.api_version,
+                api_key=model_params.api_key,
+                azure_endpoint=model_params.api_base,
+            )
+            endpoint = AzureOpenAIModelEndpoint(
+                id=model_params.id, priority=model_params.priority, client=azure_openai_client
+            )
+            self.model_endpoints.append(endpoint)
 
     @property
     def engine(self):
@@ -174,10 +204,14 @@ class ChatGPT(FoundationModel):
         latest_error = None
         restricted_max_token = False
 
-        all_models_params = settings.get("llm").get(self.openai_model, None)
-        if not all_models_params:
-            raise Exception(f"Unknown OpenAI model: {self.openai_model}")
-        model_errors = [0] * len(all_models_params)
+        # We lazy load the model endpoints because the credentials might not be
+        # available at creation of this object. We assume that they are loaded once the
+        # first prediction is called.
+        if len(self.model_endpoints) == 0:
+            self._init_endpoints()
+
+        for endpoint in self.model_endpoints:
+            endpoint.model_errors = 0
 
         messages = self._input_to_messages(input)
         encoding = tiktoken.encoding_for_model(self.engine)
@@ -211,7 +245,7 @@ class ChatGPT(FoundationModel):
         #   6. Response with finish_reason == length -> select next frequency penalty and repeat.
         #      If no penalties left, return latest response
         while True:
-            best_model_idx, wait_time = self._select_most_available_model(all_models_params, model_errors)
+            best_model_idx, wait_time = self._select_most_available_model()
 
             if best_model_idx is None:
                 raise latest_error
@@ -219,18 +253,11 @@ class ChatGPT(FoundationModel):
             if wait_time > 0:
                 additional_sleep = random.uniform(1, 2)
                 time.sleep(wait_time + additional_sleep)
-                logger.info(f"Best model {all_models_params[best_model_idx]['id']} is busy. Need to wait {wait_time}")
+                logger.info(f"Best model {self.model_endpoints[best_model_idx].id} is busy. Need to wait {wait_time}")
                 continue
 
-            model_params = all_models_params[best_model_idx]
-
             params = {
-                "engine": model_params.completion_model_engine if model_params.api_type == "azure" else None,
-                "model": model_params.completion_model_engine if model_params.api_type == "open_ai" else None,
-                "api_key": model_params.api_key,
-                "api_type": model_params.api_type,
-                "api_base": model_params.api_base,
-                "api_version": model_params.api_version,
+                "model": self.engine,
                 "n": self.n,
                 "messages": messages,
                 "temperature": self.temperature,
@@ -239,7 +266,6 @@ class ChatGPT(FoundationModel):
                 "stream": self.stream,
                 "logprobs": self.logprobs,
                 "presence_penalty": self.presence_penalty,
-                "frequency_penalty": self.frequency_penalty,
                 "logit_bias": self.logit_bias,
                 "user": self.user,
                 "frequency_penalty": frequency_penalties[cur_penalty_idx],
@@ -252,16 +278,16 @@ class ChatGPT(FoundationModel):
             filtered_params["max_tokens"] = max_tokens
             log.info(f"Max generation token set to {filtered_params['max_tokens']}")
 
-            response, error, sleep_time = self._openai_call(filtered_params)
+            response, error, sleep_time = self._openai_call(filtered_params, best_model_idx)
             latest_error = error
 
             if sleep_time > 0:
-                set_wait_time(model_params["id"], sleep_time)
+                self.model_endpoints[best_model_idx].set_wait_time(sleep_time)
                 continue
 
             if error:
                 if type(error) in RECOVERABLE_DOWNSTREAM_ERRORS:
-                    model_errors[best_model_idx] += 1
+                    self.model_endpoints[best_model_idx].model_errors += 1
                     continue
                 raise error
 
@@ -290,27 +316,25 @@ class ChatGPT(FoundationModel):
             output = response["choices"][0]["message"]["content"]
             return output
 
-    def _openai_call(self, openai_params: dict):
+    def _openai_call(self, openai_params: dict, best_model_idx: int):
         start_time = time.time()
         error = None
         sleep_time = 0
         response = None
         try:
-            response = openai.ChatCompletion.create(**openai_params)
+            response = self.model_endpoints[best_model_idx].client.chat.completions.create(**openai_params)
             azure_response = {
                 "azure_openai_response": {
                     "elapsed": round(time.time() - start_time, 2),
-                    "response": response.to_dict_recursive(),
+                    "response": response.dict(),
                     "openai_params": openai_params,
+                    "endpoint": self.model_endpoints[best_model_idx].client.base_url,
                 }
             }
             log.info("Azure OpenAI call successful", extra=azure_response)
         except RateLimitError as e:
             # Maxing out requests in order to block other openai callers
-            # self._wait_for_rate_limits(self.openai_model, self.rpm[self.openai_model])
-
-            # additional_sleep = random.uniform(min_additional_sleep, max_additional_sleep)
-            headers = e.headers
+            headers = e.response.headers
 
             sleep_time = 30.0
             if retry_after := headers.get("Retry-After", None):
@@ -326,8 +350,8 @@ class ChatGPT(FoundationModel):
             azure_response = {
                 "azure_openai_response": {
                     "elapsed": round(time.time() - start_time, 2),
-                    "error": e.error,
-                    "headers": e.headers,
+                    "error": "RateLimitError",
+                    "headers": e.response.headers,
                     "action": "sleep",
                     "duration": sleep_time,
                     "openai_params": openai_params,
@@ -336,8 +360,19 @@ class ChatGPT(FoundationModel):
             log.warning("Azure OpenAI call cause RateLimitError", extra=azure_response)
 
             error = e
+        except InternalServerError as e:
+            azure_response = {
+                "azure_openai_response": {
+                    "elapsed": round(time.time() - start_time, 2),
+                    "error": "InternalServerError",
+                    "action": "retrying",
+                    "openai_params": openai_params,
+                }
+            }
+            log.warning(f"Azure OpenAI call caused InternalServerError", extra=azure_response)
+            error = e
 
-        except (APIConnectionError, APIError, ServiceUnavailableError, Timeout, TryAgain) as e:
+        except (APIConnectionError, APIError) as e:
             azure_response = {
                 "azure_openai_response": {
                     "elapsed": round(time.time() - start_time, 2),
@@ -350,20 +385,15 @@ class ChatGPT(FoundationModel):
             log.warning(f"Azure OpenAI call caused {e.error}", extra=azure_response)
             error = e
 
-        except OpenAIError as e:
-            azure_response = {
-                "azure_openai_response": {
-                    "elapsed": round(time.time() - start_time, 2),
-                    "error": e.error,
-                    "headers": e.headers,
-                    "action": "stop",
-                }
-            }
-            error = e
-
         except Exception as e:
             log.exception(f"Exception in the openai call that wasn't an OpenAiError: {e}")
             error = e
+
+        if response is not None:
+            response = response.dict()
+        else:
+            response = {}
+
         return response, error, sleep_time
 
     def _input_to_messages(self, input: Union[ChatMessage, str, list]):
@@ -388,7 +418,7 @@ class ChatGPT(FoundationModel):
             f"Invalid input type {type(input)}: must be ChatMessage, str, dict or list of ChatMessage, str, or dict"
         )
 
-    def _select_most_available_model(self, all_models_params: list[FoundationModelParams], model_errors: list[int]):
+    def _select_most_available_model(self):
         """Selects one of foundation models. Selection criteria are the following:
         1. Smallest wait time
         2. Least number of previous recoverable errors
@@ -396,8 +426,9 @@ class ChatGPT(FoundationModel):
         Models that reached MAX_ERRORS are excluded from selection
         Returns: (best_model_idx, wait_time). If no model can be selected, returns (None, 0)
         """
-        wait_times = [get_wait_time(model["id"]) for model in all_models_params]
-        priorities = map(itemgetter("priority"), all_models_params)
+        wait_times = [endpoint.get_wait_time() for endpoint in self.model_endpoints]
+        priorities = [endpoint.priority for endpoint in self.model_endpoints]
+        model_errors = [endpoint.model_errors for endpoint in self.model_endpoints]
 
         valid_items = list(
             filter(lambda item: item[2] < MAX_ERRORS, zip(count(), wait_times, model_errors, priorities))
@@ -408,48 +439,6 @@ class ChatGPT(FoundationModel):
 
         best_model_idx, best_wait_time, _, _ = min(valid_items, key=itemgetter(1, 2, 3))
         return (best_model_idx, best_wait_time)
-
-    def check_api_key(self, api_key):
-        self.verify_api_key(api_key)
-
-
-class OpenAIEmbedding(OpenAIFoundation):
-    engine: str = config.embedding_model_engine
-    user: str = None
-    token_limit: int = 8191 if engine == "gpt-4" else 4096
-
-    @retry
-    def predict(self, input):
-        self.initialize_openai()
-
-        if isinstance(input, str):
-            input = [input]
-
-        params = {
-            "engine": self.engine if config.openai_api_type == "azure" else None,
-            "model": self.engine if config.openai_api_type == "open_ai" else None,
-            "input": input,
-            "user": self.user,
-        }
-
-        # filter out None values
-        filtered_params = {k: v for k, v in params.items() if v is not None}
-
-        log.debug(f"OpenAIEmbedding params: {filtered_params}")
-        response = openai.Embedding.create(**filtered_params)
-
-        if "data" in response:
-            output = response["data"][0]["embedding"]
-
-            # Try to parse the output as JSON
-            try:
-                output_json = json.loads(json.dumps(output).replace("'", '"'))
-                return output_json
-            except json.JSONDecodeError:
-                # If the output is not valid JSON, return the original output string
-                return output
-        else:
-            raise Exception("No data in response")
 
     def check_api_key(self, api_key):
         self.verify_api_key(api_key)

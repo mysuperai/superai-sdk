@@ -1,16 +1,16 @@
 import datetime
 from unittest.mock import Mock, patch
 
-from openai.error import RateLimitError, ServiceUnavailableError
+import httpx
+from openai import InternalServerError, RateLimitError
 from pytest import raises
 
-from superai.data_program.protocol.rate_limit import cache
-from superai.llm.foundation_models.openai import MAX_ERRORS, ChatGPT
+from superai.llm.foundation_models.openai import MAX_ERRORS, ChatGPT, cache
 from tests.llm.helpers import OpenAIMockResponse, patch_chatgpt_settings
 
 
 def return_mock(second_finish_reason):
-    def helper(filtered_params):
+    def helper(filtered_params, best_model_idx):
         if filtered_params.get("frequency_penalty", 0) == 1.0:
             return {"choices": [{"finish_reason": "stop", "message": {"content": "penalty 1"}}]}, None, 0
         elif filtered_params.get("frequency_penalty", 0) == 0.5:
@@ -26,7 +26,7 @@ def return_mock(second_finish_reason):
 
 
 def return_mock_for_token_limitation(finish_reason):
-    def helper(filtered_params):
+    def helper(filtered_params, best_model_idx):
         if filtered_params.get("max_tokens", 0) < 5:
             return {"choices": [{"finish_reason": finish_reason, "message": {"content": "restricted"}}]}, None, 0
         else:
@@ -35,7 +35,7 @@ def return_mock_for_token_limitation(finish_reason):
     return helper
 
 
-@patch("superai.llm.foundation_models.openai.get_wait_time", return_value=0)
+@patch("superai.llm.foundation_models.openai.AzureOpenAIModelEndpoint.get_wait_time", return_value=0)
 @patch_chatgpt_settings
 def test_restrictive_token_limits(*args, **kwargs):
     model = ChatGPT()
@@ -49,7 +49,7 @@ def test_restrictive_token_limits(*args, **kwargs):
     assert model.predict("test") == "restricted"
 
 
-@patch("superai.llm.foundation_models.openai.get_wait_time", return_value=0)
+@patch("superai.llm.foundation_models.openai.AzureOpenAIModelEndpoint.get_wait_time", return_value=0)
 @patch_chatgpt_settings
 def test_stop_criterion(*args, **kwargs):
     model = ChatGPT()
@@ -59,74 +59,83 @@ def test_stop_criterion(*args, **kwargs):
     assert model.predict("test") == "penalty 0.5"
 
 
-@patch("superai.llm.foundation_models.openai.get_wait_time", return_value=0)
+@patch("superai.llm.foundation_models.openai.AzureOpenAIModelEndpoint.get_wait_time", return_value=0)
 @patch_chatgpt_settings
 def test_select_model_priority(*args, **kwargs):
-    with patch("openai.ChatCompletion.create") as chat_mock:
-        chat_mock.return_value = OpenAIMockResponse(
-            {"choices": [{"finish_reason": "length", "message": {"content": "smart response"}}]}
-        )
+    with patch("superai.llm.foundation_models.openai.ChatGPT._openai_call") as chat_mock:
+        response = {"choices": [{"finish_reason": "stop", "message": {"content": "smart response"}}]}
+        chat_mock.return_value = response, None, 0
 
         model = ChatGPT()
         model.predict("smart question")
-        assert chat_mock.call_args.kwargs["api_base"] == "https://superai-openai-dev-eu2.openai.azure.com/"
+        model_id = str(model.model_endpoints[chat_mock.call_args_list[0].args[1]].id)
+        assert model_id == "mock2"
 
 
-@patch("superai.llm.foundation_models.openai.get_wait_time")
+@patch("superai.llm.foundation_models.openai.AzureOpenAIModelEndpoint.get_wait_time")
 @patch("time.sleep")
-@patch("openai.ChatCompletion.create")
+@patch("superai.llm.foundation_models.openai.ChatGPT._openai_call")
 @patch_chatgpt_settings
 def test_select_model_wait_time(chat_mock, sleep_mock, get_wait_time_mock, **kwargs):
-    def get_time_mock(entity, *argc, **kwargs):
-        return 60 if "mock2" in entity else 0
-
-    get_wait_time_mock.side_effect = get_time_mock
-    chat_mock.return_value = OpenAIMockResponse(
-        {"choices": [{"finish_reason": "stop", "message": {"content": "smart response"}}]}
-    )
+    get_wait_time_mock.side_effect = [0, 60]
+    response = {"choices": [{"finish_reason": "stop", "message": {"content": "smart response"}}]}
+    chat_mock.return_value = response, None, 0
     model = ChatGPT()
     model.predict("smart question")
 
     # first model is called because of the priority model is overloaded
-    assert chat_mock.call_args.kwargs["api_base"] == "https://superai-openai-dev-eu1.openai.azure.com/"
+    model_id = str(model.model_endpoints[chat_mock.call_args_list[0].args[1]].id)
+    assert model_id == "mock1"
     sleep_mock.assert_not_called()
 
 
-@patch("superai.llm.foundation_models.openai.get_wait_time", return_value=0)
+@patch("superai.llm.foundation_models.openai.AzureOpenAIModelEndpoint.get_wait_time", return_value=0)
 @patch("time.sleep")
-@patch("openai.ChatCompletion.create")
+# @patch("openai.resources.chat.completions.Completions.create")
+@patch("superai.llm.foundation_models.openai.ChatGPT._openai_call")
 @patch_chatgpt_settings
 def test_select_model_using_errors(chat_mock, *args, **kwargs):
+    response = Mock(spec=httpx.Response)
+    response.status_code = 502
+    error = InternalServerError(message="IE", body=None, response=response)
     chat_mock.side_effect = [
-        ServiceUnavailableError(),
-        OpenAIMockResponse({"choices": [{"finish_reason": "stop", "message": {"content": "smart response"}}]}),
+        (None, error, 0),
+        (
+            OpenAIMockResponse({"choices": [{"finish_reason": "stop", "message": {"content": "smart response"}}]}),
+            None,
+            0,
+        ),
     ]
     model = ChatGPT()
     model.predict("smart question")
 
     # start with the second model because of priority
-    assert chat_mock.mock_calls[0].kwargs["api_base"] == "https://superai-openai-dev-eu2.openai.azure.com/"
+    model_id = str(model.model_endpoints[chat_mock.call_args_list[0].args[1]].id)
+    assert model_id == "mock2"
 
     # after the first error switch to the first model
-    assert chat_mock.mock_calls[1].kwargs["api_base"] == "https://superai-openai-dev-eu1.openai.azure.com/"
+    model_id = str(model.model_endpoints[chat_mock.call_args_list[1].args[1]].id)
+    assert model_id == "mock1"
 
 
-@patch("superai.llm.foundation_models.openai.get_wait_time", return_value=0)
+@patch("superai.llm.foundation_models.openai.AzureOpenAIModelEndpoint.get_wait_time", return_value=0)
 @patch("time.sleep")
-@patch("openai.ChatCompletion.create")
+@patch("openai.resources.chat.completions.Completions.create")
 @patch_chatgpt_settings
 def test_exit_after_max_recoverable_error_tries(chat_mock, *args, **kwargs):
-    chat_mock.side_effect = ServiceUnavailableError()
+    response = Mock(spec=httpx.Response)
+    response.status_code = 502
+    chat_mock.side_effect = InternalServerError(message="IE", body=None, response=response)
     model = ChatGPT()
-    with raises(ServiceUnavailableError):
+    with raises(InternalServerError):
         model.predict("smart question")
 
     assert len(chat_mock.mock_calls) == 2 * MAX_ERRORS
 
 
-@patch("superai.llm.foundation_models.openai.get_wait_time", return_value=0)
+@patch("superai.llm.foundation_models.openai.AzureOpenAIModelEndpoint.get_wait_time", return_value=0)
 @patch("time.sleep")
-@patch("openai.ChatCompletion.create")
+@patch("openai.resources.chat.completions.Completions.create")
 @patch_chatgpt_settings
 def test_exit_after_first_unknown_error(chat_mock, *args, **kwargs):
     chat_mock.side_effect = ValueError()
@@ -137,9 +146,9 @@ def test_exit_after_first_unknown_error(chat_mock, *args, **kwargs):
     assert len(chat_mock.mock_calls) == 1
 
 
-@patch("superai.llm.foundation_models.openai.get_wait_time", return_value=0)
+@patch("superai.llm.foundation_models.openai.AzureOpenAIModelEndpoint.get_wait_time", return_value=0)
 @patch("time.sleep")
-@patch("openai.ChatCompletion.create")
+@patch("openai.resources.chat.completions.Completions.create")
 @patch_chatgpt_settings
 def test_run_frequency_penalties(chat_mock, *args, **kwargs):
     chat_mock.return_value = OpenAIMockResponse(
@@ -154,9 +163,9 @@ def test_run_frequency_penalties(chat_mock, *args, **kwargs):
     assert len(chat_mock.mock_calls) == 4
 
 
-@patch("superai.data_program.protocol.rate_limit.datetime")
+@patch("superai.llm.foundation_models.openai.datetime")
 @patch("superai.llm.foundation_models.openai.time")
-@patch("openai.ChatCompletion.create")
+@patch("openai.resources.chat.completions.Completions.create")
 @patch_chatgpt_settings
 def test_wait_time_from_api(chat_mock, time_mock, datetime_mock, **kwargs):
     cache.clear()
@@ -169,7 +178,8 @@ def test_wait_time_from_api(chat_mock, time_mock, datetime_mock, **kwargs):
         now = datetime_mock.datetime.now()
         datetime_mock.datetime.now = Mock(return_value=datetime.datetime(2023, 2, 26, 0, now.minute + 1, 0, 0))
 
-    rate_limit_exception = RateLimitError()
+    response = httpx.Response(status_code=428, request=Mock())
+    rate_limit_exception = RateLimitError(message="Ratelimit Error", body=None, response=response)
     rate_limit_exception.headers = {
         "x-ratelimit-reset-requests": "30s",
     }

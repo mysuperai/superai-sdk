@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from functools import wraps
 
 import tiktoken
-from openai.error import RateLimitError
+from openai import RateLimitError
 from pydantic import BaseModel, Extra
 from requests.exceptions import ConnectionError
 from tiktoken.model import MODEL_TO_ENCODING

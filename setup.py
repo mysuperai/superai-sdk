@@ -106,12 +106,13 @@ TEST_REQUIRES = [
     "superai-builder>=0.9.1",
     "tox>=2.9.1",
     "vcrpy>=4.1.1",
+    "httpx~=0.25.1",
 ]
 
 LLM_REQUIRES = [
     "tabulate~=0.9.0",
     "tiktoken~=0.4.0",
-    "openai~=0.27.2",
+    "openai~=1.3.5",
     "shapely>=2.0.2",
 ]
 
