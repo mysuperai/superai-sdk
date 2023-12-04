@@ -231,3 +231,23 @@ def test_load_aws_secrets(boto_session_mock):
     myopenai.settings = {}
     myopenai.load_params_from_aws_secrets()
     assert myopenai.settings["llm"]["chatgpt"] == [{}]
+
+
+@patch("openai.resources.chat.completions.Completions.create")
+@patch_chatgpt_settings
+def test_lower_generation_limit(chat_mock, **kwargs):
+    chat_mock.return_value = OpenAIMockResponse(
+        {"choices": [{"finish_reason": "stop", "message": {"content": "smart response"}}]}
+    )
+    # Test if restriction worked
+    m = ChatGPT(openai_model="gpt-4-1106-preview")
+    m.predict("Test")
+    assert chat_mock.call_args[1]["max_tokens"] == 1
+
+    # Test if max generation tokens worked
+    m.predict(" ".join(80000 * ["Test"]))
+    assert chat_mock.call_args[1]["max_tokens"] < 6000
+
+    # Test if restriction to context length works
+    m.predict(" ".join(126000 * ["Test"]))
+    assert chat_mock.call_args[1]["max_tokens"] < 4000

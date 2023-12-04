@@ -59,7 +59,23 @@ def patch_chatgpt_settings(func):
                         "embedding_model_engine": "text-embedding-ada-002",
                     },
                 ],
-            }
+                "gpt-4-1106-preview": [
+                    {
+                        "id": "mock3",
+                        "priority": 2,
+                        "rpm": 100,
+                        "tpm": 1000,
+                        "token_limit": 128000,
+                        "max_generation_tokens": 4096,
+                        "api_type": "azure",
+                        "api_base": "https://superai-openai-dev-eu1.openai.azure.com/",
+                        "api_version": "2023-03-15-preview",
+                        "api_key": "no_key",
+                        "completion_model_engine": "gpt-4-1106-preview",
+                        "embedding_model_engine": "text-embedding-ada-002",
+                    }
+                ],
+            },
         }
     )
 

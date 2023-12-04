@@ -157,7 +157,6 @@ class ChatGPT(FoundationModel):
     user: str = None
     openai_model: str = "gpt-35-turbo"
     temperature: float = 0
-    max_tokens: int = None
     top_p: int = None
     n: int = None
     stream: bool = None
@@ -192,11 +191,18 @@ class ChatGPT(FoundationModel):
         return model_params[0].completion_model_engine
 
     @property
-    def token_limit(self):
+    def token_limit(self) -> int:
         all_models_params = settings.get("llm").get(self.openai_model, None)
         if not all_models_params:
             raise Exception(f"Unknown OpenAI model: {self.openai_model}")
         return all_models_params[0]["token_limit"]
+
+    @property
+    def max_generation_tokens(self) -> Optional[int]:
+        all_models_params = settings.get("llm").get(self.openai_model, None)
+        if not all_models_params:
+            raise Exception(f"Unknown OpenAI model: {self.openai_model}")
+        return all_models_params[0].get("max_generation_tokens", None)
 
     def predict(self, input: Union[ChatMessage, str, list], manual_token_limit: Optional[int] = None):
         frequency_penalties = [None, 0.5, 1.0]
@@ -220,7 +226,13 @@ class ChatGPT(FoundationModel):
         # We need to set the max_tokens parameter as tightly as possible. We assume that
         # the number of generated tokens should not be more than the prompt.
         remaining_token_space = (self.token_limit - 50) - token_count
+
+        # Some models have a more restrictive generation token limit. We should not
+        # generate more token
+        if self.max_generation_tokens:
+            remaining_token_space = min(remaining_token_space, self.max_generation_tokens)
         max_tokens = remaining_token_space
+
         if token_count < remaining_token_space:
             logger.info(
                 f"Restricting max_tokens from {remaining_token_space} remaining token space to {token_count} token",
@@ -261,7 +273,6 @@ class ChatGPT(FoundationModel):
                 "n": self.n,
                 "messages": messages,
                 "temperature": self.temperature,
-                "max_tokens": self.max_tokens,
                 "top_p": self.top_p,
                 "stream": self.stream,
                 "logprobs": self.logprobs,
