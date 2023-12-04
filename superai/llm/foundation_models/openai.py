@@ -19,11 +19,13 @@ from openai import (
     RateLimitError,
     Timeout,
 )
+from openai.types.chat import ChatCompletion
 
 from superai.config import settings
 from superai.llm.configuration import Configuration
 from superai.llm.data_types.message import ChatMessage
 from superai.llm.foundation_models.base import FoundationModel
+from superai.llm.foundation_models.llm_cache_manager import check_cache, store_in_cache
 from superai.log import logger
 
 config = Configuration()
@@ -332,8 +334,20 @@ class ChatGPT(FoundationModel):
         error = None
         sleep_time = 0
         response = None
+        cache_paramas = {
+            "api_version": self.model_endpoints[best_model_idx].client._api_version,
+            "class_name": self.__class__.__name__,
+        }
+        cache_paramas.update(openai_params)
+
+        cache_response = check_cache(cache_paramas)
+        if cache_response:
+            response = ChatCompletion(**cache_response)
+            return response, None, 0
+
         try:
             response = self.model_endpoints[best_model_idx].client.chat.completions.create(**openai_params)
+            store_in_cache(cache_paramas, response.dict())
             azure_response = {
                 "azure_openai_response": {
                     "elapsed": round(time.time() - start_time, 2),
