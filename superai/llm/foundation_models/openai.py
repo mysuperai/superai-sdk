@@ -166,6 +166,7 @@ class ChatGPT(FoundationModel):
     presence_penalty: float = None
     frequency_penalty: float = None
     logit_bias: dict = None
+    response_format: dict = None
     # Lazy load endpoints with first prediction
     model_endpoints: List[AzureOpenAIModelEndpoint] = []
 
@@ -281,6 +282,7 @@ class ChatGPT(FoundationModel):
                 "presence_penalty": self.presence_penalty,
                 "logit_bias": self.logit_bias,
                 "user": self.user,
+                "response_format": self.response_format,
                 "frequency_penalty": frequency_penalties[cur_penalty_idx],
             }
 
