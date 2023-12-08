@@ -122,6 +122,30 @@ class JobsApiMixin(ABC):
 
         uri = f"jobs/{job_id}/cancel"
         return self.request(uri, method="POST", required_api_key=True)
+    
+    def add_tags(
+        self,
+        app_id: str,
+        tags: str,
+        search_id: str,
+    ) -> dict:
+        """Add tags to job given an application ID and search_id.
+
+        Args:
+            app_id: Application ID.
+            tags: job tags.
+            search_id: job_id
+        Returns:
+            None
+        """
+        uri = f"apps/{app_id}/jobs/tags"
+        query_params = {}
+        if search_id is not None:
+            query_params["idSearch"] = search_id
+        body_json = {}
+        if tags is not None:
+            body_json["tags"] = tags
+        return self.request(uri, method="PUT", query_params=query_params, body_params=body_json, required_api_key=True)
 
     def delete_tags(
         self,
