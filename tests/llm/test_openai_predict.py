@@ -163,6 +163,23 @@ def test_run_frequency_penalties(chat_mock, *args, **kwargs):
     assert len(chat_mock.mock_calls) == 4
 
 
+@patch("superai.llm.foundation_models.openai.AzureOpenAIModelEndpoint.get_wait_time", return_value=0)
+@patch("time.sleep")
+@patch("openai.resources.chat.completions.Completions.create")
+@patch_chatgpt_settings
+def test_run_no_retry_length(chat_mock, *args, **kwargs):
+    chat_mock.return_value = OpenAIMockResponse(
+        {"choices": [{"finish_reason": "length", "message": {"content": "smart response"}}]}
+    )
+    model = ChatGPT()
+    prediction = model.predict("smart question", retry_on_length=False)
+
+    assert prediction == "smart response"
+    # In this case we only want to retry if we artificially lowered the maximum token
+    # limit
+    assert len(chat_mock.mock_calls) == 2
+
+
 @patch("superai.llm.foundation_models.openai.datetime")
 @patch("superai.llm.foundation_models.openai.time")
 @patch("openai.resources.chat.completions.Completions.create")

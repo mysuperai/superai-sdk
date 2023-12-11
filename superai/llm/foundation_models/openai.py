@@ -207,11 +207,31 @@ class ChatGPT(FoundationModel):
             raise Exception(f"Unknown OpenAI model: {self.openai_model}")
         return all_models_params[0].get("max_generation_tokens", None)
 
-    def predict(self, input: Union[ChatMessage, str, list], manual_token_limit: Optional[int] = None):
+    def predict(
+        self,
+        input: Union[ChatMessage, str, list],
+        manual_token_limit: Optional[int] = None,
+        retry_on_length: bool = True,
+    ):
+        """
+        Generates a prediction based on the given input using the best available model
+        endpoint.
+
+        This method handles various error scenarios, including API errors and rate
+        limiting, by implementing a retry mechanism. It also adjusts token limits
+        based on input length and optional manual limits.
+
+        :param input: The compiled prompt for the model.
+        :param manual_token_limit: An optional manual limit for the number of tokens to
+        generate. If not specified, the limit is determined automatically based on model
+        token limits.
+        :param retry_on_length: If set to True, the function retries generation
+        when the finish reason is 'length' due to reaching token limits.
+        :return: The generated response from the model.
+        """
         frequency_penalties = [None, 0.5, 1.0]
         cur_penalty_idx = 0
         latest_error = None
-        restricted_max_token = False
 
         # We lazy load the model endpoints because the credentials might not be
         # available at creation of this object. We assume that they are loaded once the
@@ -223,33 +243,7 @@ class ChatGPT(FoundationModel):
             endpoint.model_errors = 0
 
         messages = self._input_to_messages(input)
-        encoding = tiktoken.encoding_for_model(self.engine)
-        token_count = len(encoding.encode(messages[0]["content"]))
-
-        # We need to set the max_tokens parameter as tightly as possible. We assume that
-        # the number of generated tokens should not be more than the prompt.
-        remaining_token_space = (self.token_limit - 50) - token_count
-
-        # Some models have a more restrictive generation token limit. We should not
-        # generate more token
-        if self.max_generation_tokens:
-            remaining_token_space = min(remaining_token_space, self.max_generation_tokens)
-        max_tokens = remaining_token_space
-
-        if token_count < remaining_token_space:
-            logger.info(
-                f"Restricting max_tokens from {remaining_token_space} remaining token space to {token_count} token",
-                extra={"remaining_token_space": remaining_token_space, "token_count": token_count},
-            )
-            max_tokens = token_count
-            restricted_max_token = True
-
-        # We can further manually limit the number of tokens even more.
-        if manual_token_limit is not None:
-            log.info(
-                f"Manually token limit set to {manual_token_limit}", extra={"manual_token_limit": manual_token_limit}
-            )
-            max_tokens = min(max_tokens, manual_token_limit)
+        max_tokens, remaining_token_space, restricted_max_token = self.compute_max_tokens(manual_token_limit, messages)
 
         # There are six different variants how iteration of this circle can end:
         #   1. successful response -> return output
@@ -320,16 +314,66 @@ class ChatGPT(FoundationModel):
                 max_tokens = min(remaining_token_space, manual_token_limit or remaining_token_space)
                 restricted_max_token = False
                 continue
-            elif finish_reason == "length" and cur_penalty_idx < len(frequency_penalties) - 1:
-                # In most cases running out og tokens is caused by generating infinite
+            elif finish_reason == "length" and cur_penalty_idx < len(frequency_penalties) - 1 and retry_on_length:
+                # In most cases running out of tokens is caused by generating infinite
                 # loops. In case the generation did not come to a natural stop we will
                 # not be able to parse the result. We will repeat the call with a
                 # presence penalty to decrease the chance constantly repeated tokens.
                 cur_penalty_idx += 1
                 continue
 
+            if finish_reason == "length":
+                logger.info("Final extraction finished with reason length")
+
             output = response["choices"][0]["message"]["content"]
             return output
+
+    def compute_max_tokens(self, manual_token_limit: Optional[int], messages) -> (int, int, bool):
+        """Calculates the maximum token count for model generation, considering the
+        input message length, a manual token limit, and the model's inherent token
+        generation constraints.
+
+        This method first determines the token count based on the input messages. It
+        then adjusts this count to adhere to the model's maximum token generation limit,
+        if applicable. Additionally, it accounts for any manually specified token limit.
+        The maximum tokens will be set tightly
+        The method also flags whether the max token count was restricted more tightly
+        to
+
+        :param manual_token_limit: An optional integer representing a manual limit on
+        the number of tokens.
+        :param messages: A list of message dictionaries, with each message containing
+        content to encode.
+        :return: A tuple containing the calculated maximum number of tokens, the
+        remaining token space after accounting for input length, and a boolean
+        indicating if the max token count has been restricted based on the input
+        message length.
+        """
+        restricted_max_token = False
+        encoding = tiktoken.encoding_for_model(self.engine)
+        token_count = len(encoding.encode(messages[0]["content"]))
+        # We need to set the max_tokens parameter as tightly as possible. We assume that
+        # the number of generated tokens should not be more than the prompt.
+        remaining_token_space = (self.token_limit - 50) - token_count
+        # Some models have a more restrictive generation token limit. We should not
+        # generate more token
+        if self.max_generation_tokens:
+            remaining_token_space = min(remaining_token_space, self.max_generation_tokens)
+        max_tokens = remaining_token_space
+        if token_count < remaining_token_space:
+            logger.info(
+                f"Restricting max_tokens from {remaining_token_space} remaining token space to {token_count} token",
+                extra={"remaining_token_space": remaining_token_space, "token_count": token_count},
+            )
+            max_tokens = token_count
+            restricted_max_token = True
+        # We can further manually limit the number of tokens even more.
+        if manual_token_limit is not None:
+            log.info(
+                f"Manually token limit set to {manual_token_limit}", extra={"manual_token_limit": manual_token_limit}
+            )
+            max_tokens = min(max_tokens, manual_token_limit)
+        return max_tokens, remaining_token_space, restricted_max_token
 
     def _openai_call(self, openai_params: dict, best_model_idx: int):
         start_time = time.time()
