@@ -19,7 +19,6 @@ from openai import (
     RateLimitError,
     Timeout,
 )
-from openai.types.chat import ChatCompletion
 
 from superai.config import settings
 from superai.llm.configuration import Configuration
@@ -388,8 +387,7 @@ class ChatGPT(FoundationModel):
 
         cache_response = check_cache(cache_paramas)
         if cache_response:
-            response = ChatCompletion(**cache_response)
-            return response, None, 0
+            return cache_response, None, 0
 
         try:
             response = self.model_endpoints[best_model_idx].client.chat.completions.create(**openai_params)
