@@ -419,7 +419,7 @@ class AiDeploymentParameters(BaseModel):
 
     def dict_for_db(self) -> dict:
         """Method wrapping pydantics dict() method to only contain set fields."""
-        return self.dict(exclude_unset=True, by_alias=True, exclude_defaults=True)
+        return self.dict(exclude_unset=True, by_alias=True, exclude_defaults=False)
 
     def json_for_db(self) -> str:
         """Method dumping dict_for_db() method to JSON."""
