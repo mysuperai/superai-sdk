@@ -102,6 +102,7 @@ TEST_REQUIRES = [
     "pytest-env>=0.6.2",
     "pytest-mock~=3.10.0",
     "pytest-vcr>=1.0.2",
+    "pytest-httpserver>=1.0.8",
     "pytest>=6.1.2",
     "superai-builder>=0.9.1",
     "tox>=2.9.1",

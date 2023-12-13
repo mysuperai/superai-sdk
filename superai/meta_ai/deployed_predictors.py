@@ -78,6 +78,8 @@ class DeployedPredictor(metaclass=ABCMeta):
 
 
 class LocalPredictor(DeployedPredictor):
+    ENDPOINT_SUFFIX = "api/v1.0/predictions"
+
     def __init__(self, *args, port=9000, remove=True, rest_workers=1, grpc_workers=0, **kwargs):
         """_summary_
 
@@ -162,13 +164,16 @@ class LocalPredictor(DeployedPredictor):
             )
             self.container = None
 
+    def _get_endpoint(self):
+        return f"http://{self.ip_address}:{self.port}/{self.ENDPOINT_SUFFIX}"
+
     def predict(self, input, mime="application/json"):
         if self.container is None:
             self.container: Container = self.client.containers.get(self.container_name)
         container_state = self.container.attrs["State"]
         assert container_state["Status"] == "running", "Container is not running"
 
-        url = f"http://{self.ip_address}:{self.port}/api/v1.0/predictions"
+        url = self._get_endpoint()
 
         headers = {"Content-Type": mime}
         if mime.endswith("json"):
@@ -184,6 +189,38 @@ class LocalPredictor(DeployedPredictor):
             return TaskPredictionInstance.validate_prediction(res.json())
         message = f"Error, received error code {res.status_code}: {res.text}"
         log.error(message)
+
+    def ping(self) -> bool:
+        """
+        Check if the exposed port is live.
+
+        Returns
+        -------
+        bool
+            True if the port is live, False otherwise.
+        """
+        try:
+            response = requests.post(self._get_endpoint(), timeout=3)
+            # 400 is returned if the server is running since the model complains about missing payload
+            return response.status_code == 400
+        except requests.RequestException:
+            return False
+
+    def wait_until_ready(self, timeout=30) -> bool:
+        """
+        Wait until the exposed port is live.
+
+        Returns
+        -------
+        bool
+            True if the port is live, False otherwise.
+        """
+        import time
+
+        start_time = time.time()
+        while not self.ping() and time.time() - start_time < timeout:
+            time.sleep(1)
+        return self.ping()
 
     def log(self):
         if self.container is None:

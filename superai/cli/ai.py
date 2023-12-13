@@ -2,7 +2,6 @@ import json
 import os
 import pathlib
 import shutil
-import time
 from typing import Optional, Union
 from urllib.parse import urlparse
 
@@ -624,10 +623,7 @@ def predictor_test(
 ):
     """Deploy and test a predictor from config file"""
     from superai.meta_ai.ai import AI
-    from superai.meta_ai.deployed_predictors import DeployedPredictor
-
-    log.info(f"Waiting for predictor to be ready, {wait_seconds} seconds")
-    time.sleep(wait_seconds)
+    from superai.meta_ai.deployed_predictors import DeployedPredictor, LocalPredictor
 
     ai_object = AI.from_yaml(config_file)
     ai_object.save(overwrite=True)
@@ -638,7 +634,13 @@ def predictor_test(
     with open(config_path, "r") as predictor_config:
         predictor_dictionary = json.load(predictor_config)
         log.info(f"Loading predictor config: {predictor_dictionary}")
-    predictor: DeployedPredictor = DeployedPredictor.from_dict(predictor_dictionary, client)
+    predictor: LocalPredictor = DeployedPredictor.from_dict(predictor_dictionary, client)
+    log.info(f"Waiting for predictor to be ready, {wait_seconds} seconds")
+    is_ready = predictor.wait_until_ready(timeout=wait_seconds)
+    if not is_ready:
+        raise click.ClickException(f"Predictor was not ready after {wait_seconds} seconds")
+    log.info("Predictor is ready")
+
     if predict_input is not None:
         predict_input = json.loads(predict_input)
         predicted_output = predictor.predict(predict_input)
@@ -674,6 +676,32 @@ def predictor_test(
             expected_output = json.load(output_file_stream)
             assert predicted_output == expected_output, expected_message
             assert predicted_output.dict() == expected_output, expected_message
+
+
+@ai_group.command("predictor-ping", help="Ping the predictor in context")
+@click.option(
+    "--config-file",
+    "-c",
+    help="Points to the config file",
+    type=click.Path(exists=True, readable=True, dir_okay=True, path_type=pathlib.Path),
+)
+@pass_client
+def predictor_ping(client, config_file):
+    """Ping the predictor in context"""
+    from superai.meta_ai.ai import AI
+    from superai.meta_ai.deployed_predictors import DeployedPredictor, LocalPredictor
+
+    ai_object = AI.from_yaml(config_file)
+    config_path = ai_object.cache_path() / PREDICTOR_CONFIG_JSON
+    if os.path.exists(config_path):
+        with open(config_path, "r") as predictor_config:
+            predictor_dictionary = json.load(predictor_config)
+        predictor: LocalPredictor = DeployedPredictor.from_dict(predictor_dictionary)
+        is_alive = predictor.ping()
+        # Return exit code 0 if ping is successful
+        exit(0 if is_alive else 1)
+    else:
+        raise click.ClickException(f"Predictor config did not exist at {config_path}")
 
 
 @ai_group.command("predictor-teardown", help="Teardown the predictor in context")
