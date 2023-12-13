@@ -7,6 +7,7 @@ import traceback
 from abc import ABCMeta, abstractmethod
 from typing import List, Optional, Union
 
+import structlog
 from opentelemetry.trace import SpanKind
 
 from superai.log import get_logger
@@ -72,6 +73,7 @@ class BaseAI(metaclass=ABCMeta):
                 data: Input data to the model
                 meta: Metadata about the input data, used in the backend transport and for observability
             """
+            structlog.contextvars.clear_contextvars()
             if isinstance(inputs, dict) and "data" in inputs and "meta" in inputs:
                 meta = inputs["meta"]
                 inputs = inputs["data"]
@@ -85,6 +87,7 @@ class BaseAI(metaclass=ABCMeta):
                 if "tags" in meta:
                     # Convert Protobuf dictionary to python dictionary
                     tags = _parse_prediction_tags(meta["tags"])
+                    structlog.contextvars.bind_contextvars(**tags)
                     log.info(f"Received tags={tags}")
                     span, span_context = _extract_and_activate_span(tags)
                     if span:
