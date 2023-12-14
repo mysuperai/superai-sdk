@@ -72,10 +72,10 @@ class Client(
         method: str = "GET",
         query_params: dict = None,
         body_params: dict = None,
-        header_params: Optional[dict] = None,
         required_api_key: bool = False,
         required_auth_token: bool = False,
         required_id_token: bool = False,
+        header_params: Optional[dict] = None,
     ) -> Optional[dict]:
         headers = header_params or {}
         if required_api_key:
