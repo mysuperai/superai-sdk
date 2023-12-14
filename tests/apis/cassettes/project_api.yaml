@@ -3,7 +3,7 @@ interactions:
     body: null
     headers:
       Accept:
-      - '*/*'
+      - 'application/json'
       Connection:
       - keep-alive
     method: GET
@@ -48,7 +48,7 @@ interactions:
     body: null
     headers:
       Accept:
-      - '*/*'
+      - 'application/json'
       Connection:
       - keep-alive
     method: GET
