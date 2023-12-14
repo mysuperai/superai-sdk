@@ -122,7 +122,7 @@ class JobsApiMixin(ABC):
 
         uri = f"jobs/{job_id}/cancel"
         return self.request(uri, method="POST", required_api_key=True)
-    
+
     def add_tags(
         self,
         app_id: str,
