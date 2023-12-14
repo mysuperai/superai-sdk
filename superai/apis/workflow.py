@@ -8,7 +8,7 @@ from superai.log import logdecorator
 
 class WorkflowApiMixin(ABC):
     @abstractmethod
-    def request(self, uri, method, body_params=None, query_params=None, required_api_key=False):
+    def request(self, uri, method, body_params=None, query_params=None, required_api_key=False, header_params=None):
         pass
 
     @logdecorator.log_on_start(
@@ -72,6 +72,7 @@ class WorkflowApiMixin(ABC):
             method="GET",
             query_params=query_params,
             body_params=body_params,
+            header_params=header_params,
             required_api_key=True,
         )
 
@@ -173,6 +174,7 @@ class WorkflowApiMixin(ABC):
             method="GET",
             query_params=query_params,
             body_params=body_params,
+            header_params=header_params,
             required_api_key=True,
         )
 
@@ -255,6 +257,7 @@ class WorkflowApiMixin(ABC):
             method="PUT",
             query_params=query_params,
             body_params=body_params,
+            header_params=header_params,
             required_api_key=True,
             required_auth_token=True,
         )

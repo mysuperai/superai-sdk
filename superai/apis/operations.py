@@ -7,7 +7,7 @@ log = logger.get_logger(__name__)
 
 class OperationsApiMixin(ABC):
     @abstractmethod
-    def request(self, uri, method, body_params=None, query_params=None, required_api_key=False):
+    def request(self, uri, method, body_params=None, query_params=None, required_api_key=False, header_params=None):
         pass
 
     def get_operation_download_info(

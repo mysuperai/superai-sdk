@@ -75,8 +75,9 @@ class Client(
         required_api_key: bool = False,
         required_auth_token: bool = False,
         required_id_token: bool = False,
+        header_params: Optional[dict] = None,
     ) -> Optional[dict]:
-        headers = {}
+        headers = header_params or {}
         if required_api_key:
             if not self.api_key:
                 logger.warning("API key is required, but not present")

@@ -10,7 +10,7 @@ class DataApiMixin(ABC):
     _resource = "data"
 
     @abstractmethod
-    def request(self, uri, method, body_params=None, query_params=None, required_api_key=False):
+    def request(self, uri, method, body_params=None, query_params=None, required_api_key=False, header_params=None):
         pass
 
     @property
