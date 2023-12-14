@@ -9,7 +9,7 @@ from superai.log import logdecorator
 
 class DataProgramApiMixin(WorkflowApiMixin):
     @abstractmethod
-    def request(self, uri, method, body_params=None, query_params=None, required_api_key=False):
+    def request(self, uri, method, body_params=None, header_params=None, query_params=None, required_api_key=False):
         pass
 
     @logdecorator.log_on_start(

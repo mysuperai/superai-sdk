@@ -16,7 +16,7 @@ log = logger.get_logger(__name__)
 
 class JobsApiMixin(ABC):
     @abstractmethod
-    def request(self, uri, method, body_params=None, query_params=None, required_api_key=False):
+    def request(self, uri, method, body_params=None, header_params=None, query_params=None, required_api_key=False):
         pass
 
     def create_jobs(
