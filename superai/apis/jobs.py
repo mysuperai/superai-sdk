@@ -191,6 +191,7 @@ class JobsApiMixin(ABC):
         completed_end_date: datetime = None,
         status_in: List[str] = None,
         tags: str = None,
+        correct: str = None,
     ) -> dict:
         """Gets a paginated list of jobs (without job responses) given an application ID.
 
@@ -231,6 +232,8 @@ class JobsApiMixin(ABC):
             query_params["statusIn"] = status_in
         if tags is not None:
             query_params["tags"] = tags
+        if correct is not None:
+            query_params["correct"] = correct
         return self.request(uri, method="GET", query_params=query_params, required_api_key=True)
 
     def download_jobs(
@@ -243,6 +246,8 @@ class JobsApiMixin(ABC):
         status_in: List[str] = None,
         send_email: bool = None,
         with_history: bool = None,
+        batch_id: str = None,
+        id_search: str = None,
     ) -> dict:
         """
         Trigger processing of jobs responses that are sent to customer email (default) once is finished.
@@ -276,6 +281,10 @@ class JobsApiMixin(ABC):
             query_params["sendEmail"] = send_email
         if with_history is not None:
             query_params["withHistory"] = with_history
+        if batch_id is not None:
+            query_params["batchId"] = batch_id
+        if id_search is not None:
+            query_params["idSearch"] = id_search
         return self.request(uri, method="POST", query_params=query_params, required_api_key=True)
 
     def get_all_jobs(
