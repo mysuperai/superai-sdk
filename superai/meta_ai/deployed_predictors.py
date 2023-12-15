@@ -141,6 +141,8 @@ class LocalPredictor(DeployedPredictor):
 
             envs["GRPC_WORKERS"] = self.grpc_workers
             envs["GUNICORN_WORKERS"] = self.rest_workers
+            envs["AWS_ACCESS_KEY_ID"] = os.environ.get("AWS_ACCESS_KEY_ID", "")
+            envs["AWS_SECRET_ACCESS_KEY"] = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
 
             if self.deploy_properties.envs:
                 envs.update(self.deploy_properties.envs)
