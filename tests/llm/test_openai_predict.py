@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 
 import httpx
 from openai import InternalServerError, RateLimitError
+from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from pytest import raises
 
 from superai.llm.foundation_models.openai import MAX_ERRORS, ChatGPT, cache
@@ -10,7 +11,7 @@ from tests.llm.helpers import OpenAIMockResponse, patch_chatgpt_settings
 
 
 def return_mock(second_finish_reason):
-    def helper(filtered_params, best_model_idx):
+    def helper(filtered_params, best_model_idx, stream):
         if filtered_params.get("frequency_penalty", 0) == 1.0:
             return {"choices": [{"finish_reason": "stop", "message": {"content": "penalty 1"}}]}, None, 0
         elif filtered_params.get("frequency_penalty", 0) == 0.5:
@@ -26,7 +27,7 @@ def return_mock(second_finish_reason):
 
 
 def return_mock_for_token_limitation(finish_reason):
-    def helper(filtered_params, best_model_idx):
+    def helper(filtered_params, best_model_idx, stream):
         if filtered_params.get("max_tokens", 0) < 5:
             return {"choices": [{"finish_reason": finish_reason, "message": {"content": "restricted"}}]}, None, 0
         else:
@@ -155,7 +156,7 @@ def test_run_frequency_penalties(chat_mock, *args, **kwargs):
         {"choices": [{"finish_reason": "length", "message": {"content": "smart response"}}]}
     )
     model = ChatGPT()
-    prediction = model.predict("smart question")
+    prediction = model.predict("smart question", stream=False)
 
     assert prediction == "smart response"
     # we have three different frequency penalties to try and one try because we run with
@@ -268,3 +269,28 @@ def test_lower_generation_limit(chat_mock, **kwargs):
     # Test if restriction to context length works
     m.predict(" ".join(126000 * ["Test"]))
     assert chat_mock.call_args[1]["max_tokens"] < 4000
+
+
+@patch("openai.resources.chat.completions.Completions.create")
+@patch_chatgpt_settings
+def test_call_streaming_api(chat_mock, **kwargs):
+    chat_mock.return_value = [
+        ChatCompletionChunk(
+            choices=[{"index": 1, "delta": {"content": "smart"}}],
+            model="gpt-4",
+            created=1233,
+            id="test",
+            object="chat.completion.chunk",
+        ),
+        ChatCompletionChunk(
+            choices=[{"index": 1, "finish_reason": "stop", "delta": {"content": " choice"}}],
+            model="gpt-4",
+            created=1233,
+            id="test",
+            object="chat.completion.chunk",
+        ),
+    ]
+
+    m = ChatGPT(openai_model="gpt-4-1106-preview")
+    r = m.predict("Test", stream=True)
+    assert r == "smart choice"

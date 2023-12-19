@@ -19,6 +19,8 @@ from openai import (
     RateLimitError,
     Timeout,
 )
+from openai.types.chat import ChatCompletion, ChatCompletionMessage
+from openai.types.chat.chat_completion import Choice
 
 from superai.config import settings
 from superai.llm.configuration import Configuration
@@ -178,6 +180,7 @@ class ChatGPT(FoundationModel):
                 api_version=model_params.api_version,
                 api_key=model_params.api_key,
                 azure_endpoint=model_params.api_base,
+                max_retries=1,  # We should not take more than 20 min
             )
             endpoint = AzureOpenAIModelEndpoint(
                 id=model_params.id, priority=model_params.priority, client=azure_openai_client
@@ -211,6 +214,7 @@ class ChatGPT(FoundationModel):
         input: Union[ChatMessage, str, list],
         manual_token_limit: Optional[int] = None,
         retry_on_length: bool = True,
+        stream: bool = False,
     ):
         """
         Generates a prediction based on the given input using the best available model
@@ -281,12 +285,16 @@ class ChatGPT(FoundationModel):
 
             # Filter out None values
             filtered_params = {k: v for k, v in params.items() if v is not None}
+            # GPT-4 Turbo supports seed setting. As it is currently 18-12-23 the only
+            # model to support this we hard code it to the model.
+            if self.engine == "gpt-4-1106-preview":
+                params["seed"] = 42
 
             log.debug(f"ChatGPT params: {filtered_params}")
             filtered_params["max_tokens"] = max_tokens
             log.info(f"Max generation token set to {filtered_params['max_tokens']}")
 
-            response, error, sleep_time = self._openai_call(filtered_params, best_model_idx)
+            response, error, sleep_time = self._openai_call(filtered_params, best_model_idx, stream)
             latest_error = error
 
             if sleep_time > 0:
@@ -374,7 +382,7 @@ class ChatGPT(FoundationModel):
             max_tokens = min(max_tokens, manual_token_limit)
         return max_tokens, remaining_token_space, restricted_max_token
 
-    def _openai_call(self, openai_params: dict, best_model_idx: int):
+    def _openai_call(self, openai_params: dict, best_model_idx: int, stream: bool = False):
         start_time = time.time()
         error = None
         sleep_time = 0
@@ -387,10 +395,14 @@ class ChatGPT(FoundationModel):
 
         cache_response = check_cache(cache_paramas)
         if cache_response:
-            return cache_response, None, 0
+            response = ChatCompletion(**cache_response)
+            return response, None, 0
 
         try:
-            response = self.model_endpoints[best_model_idx].client.chat.completions.create(**openai_params)
+            if stream:
+                response = self._call_streaming_api(self.model_endpoints[best_model_idx], openai_params)
+            else:
+                response = self.model_endpoints[best_model_idx].client.chat.completions.create(**openai_params)
             store_in_cache(cache_paramas, response.dict())
             azure_response = {
                 "azure_openai_response": {
@@ -464,6 +476,51 @@ class ChatGPT(FoundationModel):
             response = {}
 
         return response, error, sleep_time
+
+    def _call_streaming_api(self, endpoint: AzureOpenAIModelEndpoint, openai_params: dict) -> ChatCompletion:
+        """Calls the streaming variant of the chat completion API. The results then are
+        collected and transformed into the response format of the non-streaming variant
+        """
+        encoding = tiktoken.encoding_for_model(self.engine)
+        prompt_tokens = len(encoding.encode(openai_params["messages"][0]["content"]))
+
+        stream = endpoint.client.chat.completions.create(**openai_params, stream=True)
+        response_tokens = []
+        final_chunk = None
+        for chunk in stream:
+            response_tokens.append(chunk.choices[0].delta.content or "")
+            final_chunk = chunk
+        logger.info("Completed using streaming API")
+
+        response = self.convert_to_chat_completion_response(final_chunk, response_tokens, prompt_tokens)
+        return response
+
+    def convert_to_chat_completion_response(
+        self, final_chunk, response_tokens: List[str], prompt_tokens: int
+    ) -> ChatCompletion:
+        """Converts a streaming ChatCompletion into a regular one. Using information
+        from the last chunk.
+        """
+        response = "".join(response_tokens)
+        encoding = tiktoken.encoding_for_model(self.engine)
+        completion_tokens = len(encoding.encode(response))
+
+        obj = {k: v for k, v in final_chunk.dict().items() if k not in ["choices", "object"]}
+        obj["usage"] = {
+            "completion_tokens": completion_tokens,
+            "prompt_tokens": prompt_tokens,
+            "total_tokens": completion_tokens + prompt_tokens,
+        }
+        obj["object"] = "chat.completion"
+        obj["choices"] = [
+            Choice(
+                index=0,
+                message=ChatCompletionMessage(role="assistant", content=response),
+                finish_reason=final_chunk.choices[0].finish_reason or "length",
+            )
+        ]
+        response = ChatCompletion(**obj)
+        return response
 
     def _input_to_messages(self, input: Union[ChatMessage, str, list]):
         if isinstance(input, ChatMessage):
