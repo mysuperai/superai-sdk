@@ -488,8 +488,9 @@ class ChatGPT(FoundationModel):
         response_tokens = []
         final_chunk = None
         for chunk in stream:
-            response_tokens.append(chunk.choices[0].delta.content or "")
-            final_chunk = chunk
+            if len(chunk.choices) > 0:
+                response_tokens.append(chunk.choices[0].delta.content or "")
+                final_chunk = chunk
         logger.info("Completed using streaming API")
 
         response = self.convert_to_chat_completion_response(final_chunk, response_tokens, prompt_tokens)
@@ -512,11 +513,13 @@ class ChatGPT(FoundationModel):
             "total_tokens": completion_tokens + prompt_tokens,
         }
         obj["object"] = "chat.completion"
+
+        final_chunk_finish_reason = final_chunk.choices[0].finish_reason if len(final_chunk.choices) > 0 else None
         obj["choices"] = [
             Choice(
                 index=0,
                 message=ChatCompletionMessage(role="assistant", content=response),
-                finish_reason=final_chunk.choices[0].finish_reason or "length",
+                finish_reason=final_chunk_finish_reason or "length",
             )
         ]
         response = ChatCompletion(**obj)
