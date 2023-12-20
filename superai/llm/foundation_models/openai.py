@@ -514,7 +514,7 @@ class ChatGPT(FoundationModel):
         }
         obj["object"] = "chat.completion"
 
-        final_chunk_finish_reason = final_chunk.choices[0].finish_reason if len(final_chunk.choices) > 0 else None
+        final_chunk_finish_reason = None if final_chunk is None else final_chunk.choices[0].finish_reason
         obj["choices"] = [
             Choice(
                 index=0,
