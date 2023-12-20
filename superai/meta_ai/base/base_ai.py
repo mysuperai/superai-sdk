@@ -7,6 +7,7 @@ import traceback
 from abc import ABCMeta, abstractmethod
 from typing import List, Optional, Union
 
+import sentry_sdk
 import structlog
 from opentelemetry.trace import SpanKind
 
@@ -87,7 +88,11 @@ class BaseAI(metaclass=ABCMeta):
                 if "tags" in meta:
                     # Convert Protobuf dictionary to python dictionary
                     tags = _parse_prediction_tags(meta["tags"])
+                    # Add tags to the logger context
                     structlog.contextvars.bind_contextvars(**tags)
+                    # Add tags to sentry context
+                    for k, v in tags.items():
+                        sentry_sdk.set_tag(k, v)
                     log.info(f"Received tags={tags}")
                     span, span_context = _extract_and_activate_span(tags)
                     if span:
