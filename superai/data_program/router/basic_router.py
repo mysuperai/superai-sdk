@@ -84,7 +84,7 @@ class BasicRouter(Router):
 
             if job_type == "BOT_INIT":
                 return send_workflow_job(
-                    workflow=self.default_wf.name,
+                    workflow=self.default_wf,
                     input=inp,
                     params=params,
                     job_type=job_type,
@@ -92,7 +92,12 @@ class BasicRouter(Router):
                     super_task_params=super_task_params,
                 )
 
-            elif job_type in ("DEFAULT", "ONBOARDING", "COLLABORATOR"):
+            elif job_type in (
+                "DEFAULT",
+                "ONBOARDING",
+                "COLLABORATOR",
+                "MEASURER",
+            ):
                 # Get selected method workflow
                 selected_workflow = self.client.get_project(uuid=app_id).get("selectedWorkflow")
                 if selected_workflow:
@@ -110,7 +115,7 @@ class BasicRouter(Router):
                 else:
                     logging.warning(f"No selected workflow for app {app_id}. " "Falling back to dataprogram default.")
                     return send_workflow_job(
-                        workflow=self.default_wf_name,
+                        workflow=self.default_wf,
                         input=inp,
                         params=params,
                         job_type=job_type,
@@ -121,7 +126,7 @@ class BasicRouter(Router):
             elif job_type == "CALIBRATION":
                 # Send job to gold method
                 job_response = send_workflow_job(
-                    workflow=self.gold_wf_name,
+                    workflow=self.gold_wf,
                     input=inp,
                     params=params,
                     job_type=job_type,
