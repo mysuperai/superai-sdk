@@ -395,8 +395,7 @@ class ChatGPT(FoundationModel):
 
         cache_response = check_cache(cache_paramas)
         if cache_response:
-            response = ChatCompletion(**cache_response)
-            return response, None, 0
+            return cache_response, None, 0
 
         try:
             if stream:
