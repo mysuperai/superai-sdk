@@ -1,5 +1,6 @@
+import re
 from abc import ABC, abstractmethod
-from typing import BinaryIO, Generator, List
+from typing import BinaryIO, Generator, List, Optional
 
 import requests
 
@@ -8,6 +9,8 @@ from superai.exceptions import SuperAIStorageError
 
 class DataApiMixin(ABC):
     _resource = "data"
+
+    data_regex = re.compile(r"data:\/\/(?P<ownerId>\d+)\/(?P<path>.*)")
 
     @abstractmethod
     def request(self, uri, method, body_params=None, query_params=None, required_api_key=False):
@@ -96,35 +99,60 @@ class DataApiMixin(ABC):
             yield from paginated_data["content"]
             page = page + 1
 
-    def get_signed_url(self, path: str, seconds_ttl: int = 600) -> dict:
+    def _put_file(self, url: str, file: BinaryIO, mime_type: str) -> int:
+        """Uploads a file to a given URL.
+        Mainly used for uploading files to S3 signed URLs.
+
+        Args:
+            url: URL to upload file to.
+            file: Binary file value.
+            mime_type: Type of file.
+        """
+        try:
+            resp = requests.put(url, data=file.read(), headers={"Content-Type": mime_type})
+            if resp.status_code in [200, 201]:
+                return resp.status_code
+            else:
+                raise SuperAIStorageError(f"File {str(file)} couldn't be uploaded to super.AI Storage")
+        except Exception as e:
+            raise SuperAIStorageError(f"File {str(file)} couldn't be uploaded to super.AI Storage, Error: {str(e)}")
+
+    def get_signed_url(self, path: str, seconds_ttl: int = 600, collaborator_task_id: Optional[int] = None) -> dict:
         """Gets signed URL for a dataset given its path.
 
         Args:
             path: Dataset's path e.g., `"data://.."`.
             seconds_ttl: Time to live for signed URL. Maximum is 7 days.
+            collaborator_task_id: Collaborator task ID. Allows access to data in the context of a Collaborator/Ai task.
 
         Returns:
-            Dictionary in the form {
-                        ownerId": int # The data owner.
-                      "path": str # The data path.
-                       "signedUrl": str # Signed URL.
+            Dictionary in the form
+                    {
+                        "ownerId": int # The data owner.
+                        "path": str # The data path.
+                        "signedUrl": str # Signed URL.
                    }
         """
         uri = f"{self.resource}/url"
         return self.request(
-            uri, method="GET", query_params={"path": path, "secondsTtl": seconds_ttl}, required_api_key=True
+            uri,
+            method="GET",
+            query_params={"path": path, "secondsTtl": seconds_ttl, "collabTaskId": collaborator_task_id},
+            required_api_key=True,
         )
 
-    def download_data(self, path: str, timeout: int = 5):
+    def download_data(self, path: str, timeout: int = 5, collaborator_task_id: Optional[int] = None):
         """Downloads data given a `"data://..."` or URL path.
 
         Args:
-        path: Dataset's path.
+            path: Dataset's path.
+            timeout: Timeout for download.
+            collaborator_task_id: Collaborator task ID. Allows access to data in the context of a Collaborator/Ai task.
 
         Returns:
             URL content.
         """
-        signed_url = self.get_signed_url(path)
+        signed_url = self.get_signed_url(path, collaborator_task_id=collaborator_task_id)
         res = requests.get(signed_url.get("signedUrl"), timeout=timeout)
 
         if res.status_code == 200:
@@ -161,17 +189,59 @@ class DataApiMixin(ABC):
             query_params={"path": path, "description": description, "mimeType": mime_type, "uploadUrl": True},
             required_api_key=True,
         )
-        try:
-            resp = requests.put(dataset.pop("uploadUrl"), data=file.read(), headers={"Content-Type": mime_type})
-            if resp.status_code in [200, 201]:
-                return dataset
-            else:
-                raise SuperAIStorageError(
-                    f'File {str(file)} referenced by dataset {dataset["path"]} couldn\'t be uploaded to super.AI '
-                    f"Storage"
-                )
-        except Exception as e:
-            raise SuperAIStorageError(
-                f'File {str(file)} referenced by dataset {dataset["path"]} couldn\'t be uploaded to super.AI Storage '
-                f"Error: {str(e)}"
-            )
+        code = self._put_file(dataset.pop("uploadUrl"), file, mime_type)
+        if code:
+            return dataset
+
+    def upload_ai_task_data(
+        self,
+        ai_task_id: int,
+        file: BinaryIO,
+        path: Optional[str] = None,
+        description: Optional[str] = None,
+        mime_type: Optional[str] = None,
+    ) -> dict:
+        """Uploads a file in the context of an AI Task.
+        The AI task has to exist and be in the `IN_PROGRESS` state.
+
+        Args:
+            ai_task_id: AI Task ID. Task needs to be in the `IN_PROGRESS` state.
+            file: Binary File value.
+            path: Path/filename of file. When not provided, a random filename will be generated.
+            description: Description of file.
+            mime_type: Type of file.
+
+        Returns:
+            Information about the uploaded file, e.g. the `path`.
+
+        """
+        dataset = self.request(
+            f"{self.resource}/aitask/{ai_task_id}",
+            method="POST",
+            query_params={"path": path, "description": description, "mimeType": mime_type, "uploadUrl": True},
+            required_api_key=True,
+        )
+        code = self._put_file(dataset.pop("uploadUrl"), file, mime_type)
+        if code:
+            return dataset
+
+    def download_ai_task_data(self, ai_task_id: int, path: str, timeout: int = 5):
+        """
+        Downloads data in the context of an AI Task.
+        Used by the AI models to retrieve input data.
+        This function only works for AI tasks in the `IN_PROGRESS` state and for data that is contained in the AI task.
+
+        Args:
+            ai_task_id: AI Task ID.
+            path: Dataset's path. It should be in the form data://<ownerId>/<path>
+            timeout: Timeout for download.
+
+        Returns:
+
+        """
+        # Check if path is a data path
+        match = self.data_regex.match(path)
+        if not match:
+            raise ValueError(f"Path {path} is not a valid data path. It should be in the form data://<ownerId>/<path>")
+
+        return self.download_data(path, timeout=timeout, collaborator_task_id=ai_task_id)
