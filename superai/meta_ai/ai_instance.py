@@ -317,7 +317,7 @@ class AIInstance:
 
         return predictor_obj
 
-    def predict(self, input_data: dict, params: dict = None, wait_time_seconds=180) -> List[TaskPredictionInstance]:
+    def predict(self, input_data: dict, params: dict = None, wait_time_seconds=180) -> TaskPredictionInstance:
         """Predict with remote predictor.
 
         Args:

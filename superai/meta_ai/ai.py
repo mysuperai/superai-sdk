@@ -197,6 +197,7 @@ class AI:
     visibility: Optional[str] = attr.field(default="PRIVATE", validator=attr.validators.in_(["PRIVATE", "PUBLIC"]))
     owner_id: Optional[str] = None
     organization_id: Optional[str] = None
+    metadata: Optional[dict] = attr.field(default={}, repr=False)
     _model_save_path: Optional[str] = None
     _created_at: Optional[datetime] = None
     _updated_at: Optional[datetime] = None
@@ -226,6 +227,11 @@ class AI:
         from superai import Client
 
         self._client: Client = Client.from_credentials()
+
+        # Store the AI version in the metadata which gets saved in the database within the save() function
+        from . import BaseAI
+
+        self.metadata["base_ai_version"] = BaseAI.VERSION
 
     def to_dict(self, only_db_fields=False, not_null=False):
         """Converts the object to a json string."""
@@ -370,16 +376,14 @@ class AI:
             self.id = self._client.list_ai(name=self.name, version=self.version)[0]["id"]
         return self.id
 
-    def predict(self, inputs: Union[TaskInput, List[dict]]) -> List[TaskPredictionInstance]:
+    def predict(self, inputs: Union[TaskInput, List[dict]]) -> TaskPredictionInstance:
         """Predicts from model_class and ensures that predict method adheres to schema in ai_definition.
 
         Args:
             inputs
 
         Returns:
-            List of TaskPredictions
-            Each TaskPredictionInstance corresponds to a single prediction instance.
-            Models can output multiple instances per input.
+           One TaskPrediction
         """
         self._init_model_class(load_weights=True)
 
@@ -394,7 +398,7 @@ class AI:
         output = self._model_class_instance.predict(inputs)
         return TaskPredictionInstance.validate_prediction(output)
 
-    def predict_batch(self, inputs: Union[List[List[dict]], TaskBatchInput]) -> List[List[TaskPredictionInstance]]:
+    def predict_batch(self, inputs: Union[List[List[dict]], TaskBatchInput]) -> List[TaskPredictionInstance]:
         """Predicts a batch of inputs from model_class and ensures that predict method adheres to schema in
         ai_definition.
 
@@ -402,9 +406,8 @@ class AI:
             inputs
 
         Returns:
-            Batch of lists of TaskPredictions
-            Each TaskPredictionInstance corresponds to a single prediction instance.
-            For each input in the batch we expect a list of prediction instances.
+            List of TaskPredictionInstances
+            For each input in the batch we expect one prediction instance.
 
         """
         self._init_model_class(load_weights=True)

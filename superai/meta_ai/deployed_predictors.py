@@ -4,7 +4,7 @@ import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
-from typing import TYPE_CHECKING, List, Optional, TypeVar
+from typing import TYPE_CHECKING, Optional, TypeVar
 
 import docker  # type: ignore
 import requests
@@ -401,7 +401,7 @@ class RemotePredictor(DeployedPredictor):
                 existing_deployment = list_deployments[0]
         return existing_deployment
 
-    def predict(self, input, wait_time_seconds=180, **kwargs) -> List[TaskPredictionInstance]:
+    def predict(self, input, wait_time_seconds=180, **kwargs) -> TaskPredictionInstance:
         if self.client.check_endpoint_is_available(self.id):
             input_data, parameters = input.get("data", {}), input.get("parameters", {})
             return self.client.predict_from_endpoint(

@@ -220,10 +220,10 @@ def load_and_predict(
     task_input = dataset.X_train
     if len(task_input) > 1:
         result = ai_object.predict_batch(task_input)
-        scores = [instance["score"] for p in result for instance in p]
+        scores = [p["score"] for p in result]
     else:
         result = ai_object.predict(task_input[0])
-        scores = [instance["score"] for instance in result]
+        scores = [result["score"]]
     predict_score = np.mean(scores)
     log.info(f"Prediction score: {predict_score}")
     if metrics_output_dir:

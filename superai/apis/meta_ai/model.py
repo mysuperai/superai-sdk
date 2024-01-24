@@ -431,7 +431,7 @@ class DeploymentApiMixin(AiApiBase):
         input_data: dict = None,
         parameters: dict = None,
         timeout: int = 180,
-    ) -> List[TaskPredictionInstance]:
+    ) -> TaskPredictionInstance:
         """Predict with endpoint using input data and custom parameters.
         Endpoint is identified either by specific deployment_id or inferred using the model_id.
 
@@ -466,7 +466,7 @@ class DeploymentApiMixin(AiApiBase):
         return [
             TaskPredictionInstance(prediction=instance.output, score=instance.score)
             for instance in prediction.instances
-        ]
+        ][0]
 
     def predict_from_endpoint_async(
         self,

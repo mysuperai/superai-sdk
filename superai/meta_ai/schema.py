@@ -213,18 +213,19 @@ class TaskPredictionInstance(BaseModel):
                 )
 
     @classmethod
-    def validate_prediction(cls, prediction) -> Union[List["TaskPredictionInstance"], "TaskPredictionInstance", Any]:
-        if isinstance(prediction, list):
-            return [cls.parse_obj(x) for x in prediction]
+    def validate_prediction(cls, prediction) -> Union["TaskPredictionInstance", Any]:
+        if isinstance(prediction, list) and len(prediction) > 0:
+            # Backwards compatible with old code, which returns list of dicts
+            # TODO: remove this when all code is updated
+            return cls.parse_obj(prediction[0])
         elif isinstance(prediction, dict):
-            log.warning("model_class.predict returned a dict. We expect a list of TaskPredictionInstance.")
             return cls.parse_obj(prediction)
         elif prediction is None:
             return cls.parse_obj(prediction)
         else:
-            log.warning("model_class.predict returned a non-standard object. Expecting List[TaskPredictionInstance].")
+            log.warning("model_class.predict returned a non-standard object. Expecting TaskPredictionInstance.")
             return prediction
 
     @classmethod
-    def validate_prediction_batch(cls, batch) -> List[List["TaskPredictionInstance"]]:
-        return [[cls.parse_obj(instance) for instance in prediction] for prediction in batch]
+    def validate_prediction_batch(cls, batch) -> List["TaskPredictionInstance"]:
+        return [cls.parse_obj(prediction) for prediction in batch]

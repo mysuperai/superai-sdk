@@ -3,6 +3,7 @@ import inspect
 import os
 import threading
 from pathlib import Path
+from typing import Optional
 
 from superai.config import settings
 from superai.data_program.hatchery import BuildConfig, RuntimeConfig, run
@@ -25,7 +26,7 @@ class DataProgramBase:
     ):
         self._router = router
         self._add_basic_workflow = add_basic_workflow
-        self._caller_info = self.__caller_info()
+        self._caller_info = self.__caller_info() or {}
         self._threadLocal = threading.local()
 
     @property
@@ -77,7 +78,7 @@ class DataProgramBase:
         atexit.register(DataProgramBase.run_thread, self)
         log.info("[DataProgramBase._deploy] - Thread registered to run join before the data program closes")
 
-    def __caller_info(self):
+    def __caller_info(self) -> Optional[dict]:
         index = -1
         frm = inspect.stack()[index]
         # Filters PyCharm frames to support debugging mode. TODO: Filter also libraries like pytest
@@ -85,11 +86,12 @@ class DataProgramBase:
             index = index - 1
             frm = inspect.stack()[index]
         mod = inspect.getmodule(frm[0])
-        dirname = os.path.dirname(mod.__file__) or os.path.abspath(os.path.curdir)
-        file_name = os.path.basename(mod.__file__)
-        return {
-            "dir": dirname,
-            "file_name": file_name,
-            "filepath": Path(dirname) / file_name,
-            "object": mod,
-        }
+        if mod and hasattr(mod, "__file__"):
+            dirname = os.path.dirname(mod.__file__)
+            file_name = os.path.basename(mod.__file__)
+            return {
+                "dir": dirname,
+                "file_name": file_name,
+                "filepath": Path(dirname) / file_name,
+                "object": mod,
+            }

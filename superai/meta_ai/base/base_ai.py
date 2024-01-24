@@ -1,22 +1,28 @@
 from __future__ import annotations
 
-import json
 import os
 import sys
 import traceback
 from abc import ABCMeta, abstractmethod
-from typing import List, Optional, Union
+from typing import Any, BinaryIO, List, Optional, Union
 
-import sentry_sdk
 import structlog
 from opentelemetry.trace import SpanKind
 
+from superai.client import Client
 from superai.log import get_logger
+from superai.meta_ai.base.data_manager import (
+    DataManager,
+    PredictionInput,
+    PredictionOutput,
+    PredictionOutputReferenced,
+)
+from superai.meta_ai.base.tags import PredictionTags, _handle_tags, _unpack_meta
 from superai.meta_ai.base.utils import pull_weights
 from superai.meta_ai.parameters import Config, HyperParameterSpec, ModelParameters
 from superai.meta_ai.schema import Schema, SchemaParameters, TaskInput, TrainerOutput
 from superai.meta_ai.tracking import SuperTracker
-from superai.utils.opentelemetry import _extract_and_activate_span, tracer
+from superai.utils.opentelemetry import tracer
 from superai.utils.sentry_helper import init
 
 init()
@@ -31,16 +37,31 @@ class BaseAI(metaclass=ABCMeta):
     artifact dependencies.
     """
 
+    VERSION = "0.1"  # Used for compatibility checks
+
     def __init__(
         self,
         input_schema: Optional[Schema] = None,
         output_schema: Optional[Schema] = None,
         configuration: Optional[Config] = None,
+        enable_auto_resolve_data: bool = True,
         **kwargs,
     ):
+        """
+
+        Args:
+            input_schema: Schema for the input data
+            output_schema: Schema for the output data
+            configuration
+            enable_auto_resolve_data: If True, the model will automatically resolve data:// references in the payloads.
+                This imitates the old behaviour of the prediction flow.
+                Ideally, the model should only resolve data references when it needs to, so it can be disabled here.
+            **kwargs:
+        """
         self.input_schema = input_schema
         self.output_schema = output_schema
         self.configuration = configuration
+        self.enable_auto_resolve_data = enable_auto_resolve_data
         self.initialized = False
         self.model = None
         self.logger_dir = kwargs.get("log_dir")
@@ -52,6 +73,7 @@ class BaseAI(metaclass=ABCMeta):
         # Seldon default weights loading path in the container. You can override this by passing MNT_PATH in the
         # environment file or CRD
         self.default_seldon_load_path = os.environ.get("MNT_PATH", "/mnt/models")
+        self.client: Client = Client.from_credentials()
 
     def __init_subclass__(cls, **kwargs):
         cls.predict = cls._wrapped_prediction(cls.predict)
@@ -68,48 +90,46 @@ class BaseAI(metaclass=ABCMeta):
 
         """
 
-        def __inner__(self, inputs: dict, meta: dict = None):
+        def __inner__(self, payload: dict, meta: dict = None):
             """
             Args:
                 data: Input data to the model
                 meta: Metadata about the input data, used in the backend transport and for observability
             """
             structlog.contextvars.clear_contextvars()
-            if isinstance(inputs, dict) and "data" in inputs and "meta" in inputs:
-                meta = inputs["meta"]
-                inputs = inputs["data"]
-            elif meta is None:
-                log.warning(f"Received inputs without meta header. Type of inputs: {type(inputs)}")
-
-            span, span_context, tags = None, None, None
-            if meta:
-                if "puid" in meta:
-                    log.info(f"Received prediction request for prediction_uuid={meta['puid']}")
-                if "tags" in meta:
-                    # Convert Protobuf dictionary to python dictionary
-                    tags = _parse_prediction_tags(meta["tags"])
-                    # Add tags to the logger context
-                    structlog.contextvars.bind_contextvars(**tags)
-                    # Add tags to sentry context
-                    for k, v in tags.items():
-                        sentry_sdk.set_tag(k, v)
-                    log.info(f"Received tags={tags}")
-                    span, span_context = _extract_and_activate_span(tags)
-                    if span:
-                        # Add superai attributes to the span
-                        tags.pop("traceparent", None)
-
-            # Main function
+            payload, meta = _unpack_meta(payload, meta)
+            span, span_context, tags = _handle_tags(meta)
             exception = None
-            json_dict = None
+            prediction_result = None
+            manager: Optional[DataManager] = None
+
+            # Resolve data:// references into signed URLs which can be accessed by the model
+            if tags is not None and tags.task_id is not None:
+                manager = DataManager(tags.task_id, client=self.client)
+                payload = manager.preprocess_input(payload, self.enable_auto_resolve_data)
+
             try:
                 with tracer.start_as_current_span("predict_function", kind=SpanKind.CONSUMER, context=span_context):
                     if span and tags:
                         # Attach attributes in child span
-                        span.set_attributes(tags)
-                    prediction_result = pred_func(self, inputs)
-                json_string = json.dumps(prediction_result)
-                json_dict = json.loads(json_string)
+                        span.set_attributes(tags.dict())
+
+                    # Check if pred_func takes tags as an argument
+                    if "tags" in pred_func.__code__.co_varnames:
+                        prediction_result = pred_func(self, payload, tags)
+                    else:
+                        prediction_result = pred_func(self, payload)
+
+                    if isinstance(prediction_result, list):
+                        log.warning(
+                            "Deprecated: Returning list from predict function. Please return a dictionary. Only first element will be returned."
+                        )
+                        prediction_result = prediction_result[0]
+
+                    prediction_result = (
+                        manager.postprocess_output(prediction_result, tags) if manager else prediction_result
+                    )
+
             except Exception:
                 if meta:
                     # Catch exceptions and return them in the response
@@ -129,10 +149,10 @@ class BaseAI(metaclass=ABCMeta):
                     return dict(exception=exception, meta=meta)
                 else:
                     # Return the prediction in the response as `data`
-                    return dict(data=json_dict, meta=meta)
+                    return dict(data=prediction_result, meta=meta)
             else:
                 # Backwards compatibility
-                return json_dict
+                return prediction_result
 
         return __inner__
 
@@ -227,7 +247,9 @@ class BaseAI(metaclass=ABCMeta):
         return inference_output
 
     @abstractmethod
-    def predict(self, inputs: Union[TaskInput, List[dict]], context=None):
+    def predict(
+        self, inputs: PredictionInput, context: Any = None, tags: Optional[PredictionTags] = None
+    ) -> Union[PredictionOutput, PredictionOutputReferenced]:
         """Generate model predictions.
 
         Enforces the input schema first before calling the model implementation with the sanitized input.
@@ -238,12 +260,13 @@ class BaseAI(metaclass=ABCMeta):
         Args:
             inputs: Model input
             context: Support for seldon predict calls
+            tags: Prediction tags
 
         Returns
-            Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
+            Model prediction as dict
         """
 
-    def predict_batch(self, input_batch: List[Union[TaskInput, List[dict]]], context=None):
+    def predict_batch(self, input_batch: List[Union[TaskInput, List[dict]]], context=None) -> List[dict]:
         """Generate model predictions for a batch of inputs.
         Can be overridden to support more efficient batch predictions inside the model.
 
@@ -256,6 +279,33 @@ class BaseAI(metaclass=ABCMeta):
         """
         log.warning("predict_batch() is not implemented. Falling back to loop predict method.")
         return [self.predict(input, context) for input in input_batch]
+
+    def upload_file(
+        self,
+        task_id: int,
+        file: BinaryIO,
+        mime_type: Optional[str] = None,
+        filename: Optional[str] = None,
+        path_prefix: Optional[str] = None,
+    ) -> str:
+        """Uses super.AI API to upload a file to the data storage.
+
+        Args:
+            task_id: Task id of the task to which the file is to be uploaded.
+            file: File content to be uploaded.
+            mime_type: Mime type of the file.
+            filename: Name of the file.
+            path_prefix: Path prefix to be added to the file. Filename is mandatory when this option is used.
+
+        Returns:
+            Path of the uploaded file (e.g. data://123/{path_prefix}/{filename})
+        """
+        if path_prefix:
+            if not filename:
+                raise ValueError("Filename must be provided when path_prefix is provided")
+            filename = os.path.join(path_prefix, filename)
+
+        return self.client.upload_ai_task_data(task_id, file, mime_type=mime_type, path=filename)["path"]
 
     @abstractmethod
     def train(
@@ -384,8 +434,3 @@ def add_default_tracking(training_method):
             raise ValueError("One of the metrics should be available")
 
     return inner
-
-
-def _parse_prediction_tags(tags: dict) -> dict:
-    """Maps protobuf compatible dictionary used in Seldon tags to normal dictionary"""
-    return {k: v["string_value"] for k, v in tags.items()}
