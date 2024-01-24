@@ -18,14 +18,14 @@ log = get_logger(__name__)
 class PredictionTags:
     """Tags which are passed to the model during prediction."""
 
-    prediction_id: str
-    retries: int
-    deployment_id: str
-    app_id: str
-    model_id: str
-    task_id: Optional[int]
-    job_id: Optional[int]
-    traceparent: Optional[str]
+    prediction_id: Optional[str] = None
+    retries: Optional[int] = None
+    deployment_id: Optional[str] = None
+    app_id: Optional[str] = None
+    model_id: Optional[str] = None
+    task_id: Optional[int] = None
+    job_id: Optional[int] = None
+    traceparent: Optional[str] = None
     raw_tags: Optional[dict] = None
 
     def dict(self):
