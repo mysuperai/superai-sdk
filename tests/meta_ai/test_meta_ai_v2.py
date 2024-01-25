@@ -226,6 +226,11 @@ def test_ai_name_override(local_ai: AI, tmp_path):
     ai = AI.from_yaml(tmp_path, add_name_prefix="test2")
     assert ai.name == "test2-" + local_ai.name
 
+    # Check that we don't add the prefix twice, since we load the ai from the yaml file multiple times internally
+    ai.to_yaml(tmp_path)
+    ai = AI.from_yaml(tmp_path, add_name_prefix="test2")
+    assert ai.name == "test2-" + local_ai.name
+
 
 def test_ai_predict(local_ai: AI):
     """Test that we can predict using the ai"""

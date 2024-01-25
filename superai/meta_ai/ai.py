@@ -681,8 +681,10 @@ class AI:
         yaml_dict = cls._remove_patch_from_version(yaml_dict)
 
         if add_name_prefix:
-            logger.info(f"Adding name prefix {add_name_prefix} to AI name")
-            yaml_dict["name"] = f"{add_name_prefix}-{yaml_dict['name']}"
+            prefix = f"{add_name_prefix}-"
+            if not yaml_dict["name"].startswith(prefix):
+                logger.info(f"Adding name prefix {add_name_prefix} to AI name")
+                yaml_dict["name"] = f"{prefix}{yaml_dict['name']}"
 
         return AI.from_dict(yaml_dict)
 
