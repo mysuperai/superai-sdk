@@ -646,9 +646,23 @@ class AI:
 
     @classmethod
     def from_yaml(
-        cls, yaml_file: Union[Path, str], pull_db_data=False, override_weights_path: Optional[str] = None
+        cls,
+        yaml_file: Union[Path, str],
+        pull_db_data=False,
+        override_weights_path: Optional[str] = None,
+        add_name_prefix: Optional[str] = None,
     ) -> AI:
-        """Create an AI_Template instance from a yaml file"""
+        """Create an AI_Template instance from a yaml file
+        Args:
+            yaml_file: Path to the yaml file
+            pull_db_data: If True, will pull the latest data from the database.
+            override_weights_path: If provided, will override the weights path in the yaml file.
+            add_name_prefix: If provided, will add the prefix to the name in the yaml file.
+                This is can be used for CI testing in isolated namespaces.
+                Also, the name prefix can be provided via the environment variable AI_NAME_PREFIX.
+        """
+        add_name_prefix = add_name_prefix or os.environ.get("AI_NAME_PREFIX")
+
         with open(yaml_file, "r") as f:
             yaml_dict = yaml.safe_load(f)
 
@@ -665,6 +679,11 @@ class AI:
             yaml_dict["weights_path"] = override_weights_path
 
         yaml_dict = cls._remove_patch_from_version(yaml_dict)
+
+        if add_name_prefix:
+            logger.info(f"Adding name prefix {add_name_prefix} to AI name")
+            yaml_dict["name"] = f"{add_name_prefix}-{yaml_dict['name']}"
+
         return AI.from_dict(yaml_dict)
 
     from typing import Optional

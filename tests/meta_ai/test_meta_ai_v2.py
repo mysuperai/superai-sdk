@@ -199,6 +199,34 @@ def test_ai_to_yaml(local_ai: AI, tmp_path):
     assert ai.model_class_path == local_ai.model_class_path
 
 
+def test_ai_name_override(local_ai: AI, tmp_path):
+    """In CI pipeline we want to add a prefix to the name of the AI for isolation."""
+    tmp_path = tmp_path / "ai.yaml"
+    local_ai.to_yaml(tmp_path)
+    # set AI_NAME_PREFIX env variable to 'test'
+    os.environ["AI_NAME_PREFIX"] = "test"
+    try:
+        ai = AI.from_yaml(tmp_path)
+        assert ai.name == "test-" + local_ai.name
+    except:
+        raise
+    finally:
+        os.environ.pop("AI_NAME_PREFIX")
+
+    # set AI_NAME_PREFIX env variable to ''
+    os.environ["AI_NAME_PREFIX"] = ""
+    try:
+        ai = AI.from_yaml(tmp_path)
+        assert ai.name == local_ai.name
+    except:
+        raise
+    finally:
+        os.environ.pop("AI_NAME_PREFIX")
+
+    ai = AI.from_yaml(tmp_path, add_name_prefix="test2")
+    assert ai.name == "test2-" + local_ai.name
+
+
 def test_ai_predict(local_ai: AI):
     """Test that we can predict using the ai"""
     prediction = local_ai.predict({"input": "test"})
