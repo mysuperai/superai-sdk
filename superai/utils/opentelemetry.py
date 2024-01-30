@@ -23,12 +23,19 @@ async def instrumented_lifespan(app: FastAPI):
     Is used to make OTLP compatible with forking model of FastAPI server (e.g. uvicorn)."""
     init_otlp()
     yield
+    disable_otlp()
 
 
 def init_otlp():
     """Initializes the OpenTelemetry SDK with the OTLP exporter."""
     RequestsInstrumentor().instrument()
     BotocoreInstrumentor().instrument()
+
+
+def disable_otlp():
+    """Disables the OpenTelemetry SDK."""
+    RequestsInstrumentor().uninstrument()
+    BotocoreInstrumentor().uninstrument()
 
 
 def add_fastapi_instrumentation(app: FastAPI):

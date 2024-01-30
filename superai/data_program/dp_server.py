@@ -135,7 +135,7 @@ class DPServer:
         else:
             yield
 
-    def run(self):
+    def define_app(self) -> fastapi.FastAPI:
         app = fastapi.FastAPI(lifespan=instrumented_lifespan)
         cls = self.params.__class__
 
@@ -248,6 +248,10 @@ class DPServer:
         def health():
             return "OK"
 
+        return app
+
+    def run(self):
+        app = self.define_app()
         needs_tunnel = not (os.environ.get("ECS") or self.force_no_tunnel)
 
         with self.ngrok_contextmanager(needs_tunnel=needs_tunnel):
