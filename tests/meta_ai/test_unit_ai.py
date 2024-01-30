@@ -10,7 +10,7 @@ import pytest
 from docker import DockerClient
 from docker.api import APIClient
 from docker.models.images import Image
-from moto import mock_s3
+from moto import mock_aws
 
 from superai import settings
 from superai.meta_ai import AI, Orchestrator
@@ -37,7 +37,7 @@ def aws_credentials(monkeypatch):
 
 @pytest.fixture(scope="function")
 def s3(aws_credentials):
-    with mock_s3():
+    with mock_aws():
         yield boto3.client("s3", region_name="us-east-1")
 
 

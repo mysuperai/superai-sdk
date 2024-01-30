@@ -5,7 +5,7 @@ from unittest import mock
 
 import boto3
 import pytest
-from moto import mock_ecr, mock_s3, mock_sts
+from moto import mock_aws
 from superai_builder.docker import client
 
 import superai
@@ -95,14 +95,14 @@ def tmp_path():
 @pytest.fixture(scope="module")
 def s3(aws_credentials):
     """Mocked S3 client for moto."""
-    with mock_s3():
+    with mock_aws():
         yield boto3.client("s3")
 
 
 @pytest.fixture(scope="module")
 def ecr(aws_credentials, module_mocker):
     """Mocked ECR client for moto, disabled ECR login."""
-    with mock_ecr():
+    with mock_aws():
         # Disable unused ecr login
         module_mocker.patch("superai.meta_ai.ai_helper.aws_ecr_login", return_value=0)
         yield boto3.client("ecr")
@@ -111,7 +111,7 @@ def ecr(aws_credentials, module_mocker):
 @pytest.fixture(scope="module")
 def sts(aws_credentials):
     """Mocked STS client for moto, hooks into SSO token logic."""
-    with mock_sts():
+    with mock_aws():
         yield boto3.client("sts")
 
 

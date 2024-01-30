@@ -4,7 +4,7 @@ from typing import Dict
 
 import boto3
 import pytest
-from moto import mock_s3
+from moto import mock_aws
 
 from superai.meta_ai import AILoader
 from superai.meta_ai.ai_uri import AiURI
@@ -40,7 +40,7 @@ def test_parse_model_uri_invalid(uri: str) -> None:
         AiURI.parse(uri)
 
 
-@mock_s3
+@mock_aws
 @pytest.mark.parametrize("download_folder", [True, False])
 def test_download_s3_weights(download_folder, tmp_path):
     # Specify the region

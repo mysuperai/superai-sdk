@@ -3,7 +3,7 @@ import os
 
 import boto3
 import pytest
-from moto import mock_secretsmanager
+from moto import mock_aws
 
 from superai.utils.dp_env_loader import _retrieve_secret, transform_key
 
@@ -12,7 +12,7 @@ from superai.utils.dp_env_loader import _retrieve_secret, transform_key
 def secrets_client(mocker):
     # set env variable using mocker
     mocker.patch.dict(os.environ, {"AWS_DEFAULT_REGION": "eu-west-1"})
-    with mock_secretsmanager():
+    with mock_aws():
         yield boto3.client("secretsmanager")
 
 

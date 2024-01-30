@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 
 import boto3
 import pytest
-from moto import mock_s3
+from moto import mock_aws
 
 from superai import settings
 from superai.meta_ai import AI, BaseAI
@@ -40,7 +40,7 @@ def aws_credentials(monkeypatch):
 
 @pytest.fixture(scope="function")
 def s3(aws_credentials):
-    with mock_s3():
+    with mock_aws():
         yield boto3.client("s3", region_name="us-east-1")
 
 

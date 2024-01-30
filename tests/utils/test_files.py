@@ -1,7 +1,7 @@
 import os
 
 import boto3
-from moto import mock_s3
+from moto import mock_aws
 
 from superai.utils.files import pull_s3_folder, s3_download_file
 
@@ -11,7 +11,7 @@ s3_key = "test-file"
 local_destination = "/tmp/test-file"
 
 
-@mock_s3
+@mock_aws
 def test_s3_download_file(tmp_path, caplog):
     # Create the mock S3 bucket and file
     s3 = boto3.client("s3", region_name="us-west-2")
@@ -33,7 +33,7 @@ def test_s3_download_file(tmp_path, caplog):
     assert expected_log_message in caplog.text
 
 
-@mock_s3
+@mock_aws
 def test_pull_s3_folder(tmp_path):
     # Create the mock S3 bucket and folder with files
     s3 = boto3.client("s3", region_name="us-west-2")

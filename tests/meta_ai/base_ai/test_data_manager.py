@@ -51,6 +51,33 @@ def test_sign_all_urls_json_error(data_manager):
 
 
 def test_resolve_ref(data_manager):
+    payload = {"key": "value"}
+    data_manager.client.download_data.return_value = payload
+    result = data_manager.download_payload(
+        {
+            "data": {"input": {"ref": "data://123/test"}, "output": {"ref": "data://123/test"}},
+            "upload_url": "http://123",
+        }
+    )
+    assert result == {
+        "data": {"input": payload, "output": payload},
+        "upload_url": "http://123",
+        "parameters": {"output_schema": payload},
+    }
+
+
+def test_preprocess_input(data_manager):
+    # preprocessor should handle case where input subkey and output subkey contain `ref` and should resolve them, too.
     data_manager.client.download_data.return_value = {"key": "value"}
-    result = data_manager.download_payload({"data": {"ref": "data://123/test"}, "upload_url": "http://123"})
-    assert result == {"data": {"key": "value"}, "upload_url": "http://123", "parameters": {"output_schema": None}}
+    result = data_manager.preprocess_input(
+        {
+            "data": {"input": {"ref": "data://123/test"}, "output": {"ref": "data://123/test"}},
+            "upload_url": "http://123",
+        },
+        auto_resolve_data=True,
+    )
+    assert result == {
+        "data": {"input": {"key": "value"}, "output": {"key": "value"}},
+        "upload_url": "http://123",
+        "parameters": {"output_schema": {"key": "value"}},
+    }
