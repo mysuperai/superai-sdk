@@ -78,25 +78,22 @@ class DataManager:
     def download_payload(self, payload: PredictionInput) -> PredictionInput:
         """Downloads data payload when only ref is provided."""
         data = payload.get("data", {})
-        input_data = data.get("input")
-        output_data = data.get("output")
+        input_data = data.get("input", {})
+        output_data = data.get("output", {})
 
-        if "input" in data and "ref" in data["input"]:
-            input_data = self.client.download_data(
-                path=payload["data"]["input"]["ref"], collaborator_task_id=self.task_id
-            )
-        if "output" in data and "ref" in data["output"]:
-            output_data = self.client.download_data(
-                path=payload["data"]["output"]["ref"], collaborator_task_id=self.task_id
-            )
+        input_ref = input_data.get("ref") if input_data else None
+        output_ref = output_data.get("ref") if output_data else None
+
+        if input_ref:
+            input_data = self.client.download_data(path=input_ref, collaborator_task_id=self.task_id)
+        if output_ref:
+            output_data = self.client.download_data(path=output_ref, collaborator_task_id=self.task_id)
 
         payload["data"] = data
-        if input_data is not None:
-            payload["data"]["input"] = input_data
-        if output_data is not None:
-            payload["data"]["output"] = output_data
+        if input_ref:
+            # Override complete data for backwards compatibility
+            payload["data"] = input_data
 
-        # Backwards compatibility
         payload["parameters"] = {"output_schema": output_data}
 
         return payload

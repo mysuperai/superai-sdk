@@ -60,7 +60,7 @@ def test_resolve_ref(data_manager):
         }
     )
     assert result == {
-        "data": {"input": payload, "output": payload},
+        "data": payload,
         "upload_url": "http://123",
         "parameters": {"output_schema": payload},
     }
@@ -77,7 +77,7 @@ def test_preprocess_input(data_manager):
         auto_resolve_data=True,
     )
     assert result == {
-        "data": {"input": {"key": "value"}, "output": {"key": "value"}},
+        "data": {"key": "value"},
         "upload_url": "http://123",
         "parameters": {"output_schema": {"key": "value"}},
     }
