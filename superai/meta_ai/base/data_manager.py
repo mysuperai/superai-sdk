@@ -63,7 +63,7 @@ class DataManager:
                 upload_response = self.client.upload_ai_task_data(
                     ai_task_id=tags.task_id, file=json_bytes_file, mime_type="application/json"
                 )
-                upload_path = upload_response["path"]
+                upload_path = upload_response["dataUrl"]
                 prediction = PredictionRef(ref=upload_path)
                 output = PredictionOutputReferenced(prediction=prediction, score=output.get("score"))
             except Exception as e:

@@ -298,14 +298,14 @@ class BaseAI(metaclass=ABCMeta):
             path_prefix: Path prefix to be added to the file. Filename is mandatory when this option is used.
 
         Returns:
-            Path of the uploaded file (e.g. data://123/{path_prefix}/{filename})
+            DataURI of the uploaded file (e.g. data://123/{path_prefix}/{filename})
         """
         if path_prefix:
             if not filename:
                 raise ValueError("Filename must be provided when path_prefix is provided")
             filename = os.path.join(path_prefix, filename)
 
-        return self.client.upload_ai_task_data(task_id, file, mime_type=mime_type, path=filename)["path"]
+        return self.client.upload_ai_task_data(task_id, file, mime_type=mime_type, path=filename)["dataUrl"]
 
     @abstractmethod
     def train(

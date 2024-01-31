@@ -212,7 +212,7 @@ class DataApiMixin(ABC):
             mime_type: Type of file.
 
         Returns:
-            Information about the uploaded file, e.g. the `path`.
+            Information about the uploaded file, e.g. the `path` or 'dataUrl'.
 
         """
         dataset = self.request(

@@ -260,7 +260,8 @@ class TestBaseAI:
             # Mock upload function
             test_ai.client.upload_ai_task_data = Mock()
             test_ai.client.upload_ai_task_data.return_value = {
-                "path": "data://123/test_path",
+                "path": "test_path",
+                "dataUrl": "data://123/test_path",
             }
             # Call the wrapped prediction function
             result = test_ai.predict(inputs)
@@ -348,7 +349,7 @@ class TestBaseAI:
     def test_upload_file(self):
         test_ai = self.TestAI()
         upload_mock = test_ai.client.upload_ai_task_data = Mock()
-        upload_mock.return_value = {"path": "data://123/test_path"}
+        upload_mock.return_value = {"path": "test_path", "dataUrl": "data://123/test_path"}
         result = test_ai.upload_file(444, "test_content")
         assert result == "data://123/test_path"
         assert upload_mock.called
