@@ -28,6 +28,7 @@ from superai.data_program.types import (
     PostProcessContext,
     PostProcessRequestModel,
     SchemaServerResponse,
+    SuperTaskGraphRequestModel,
 )
 from superai.data_program.utils import _call_handler
 from superai.data_program.workflow import WorkflowConfig
@@ -98,13 +99,10 @@ class DPServer:
         self.metrics_dict = {metric.name: metric for metric in handler_output.metrics}
 
         # FIXME: This assertion assumes that we only have one task template which has the same metrics as the global metrics list
-        # for task_template in handler_output.templates:
-        #     assert (
-        #         task_template.metrics == self.metrics_dict.keys()
-        #     ), "The metric names in task template should be a same as in metrics"
         self.task_templates_dict = {task_template.name: task_template for task_template in handler_output.templates}
         self.dp_server_port = port
         self.client = Client(api_key=load_api_key(), auth_token=load_auth_token(), id_token=load_id_token())
+        self.super_tasks_graph_fn = handler_output.super_tasks_graph_fn
 
     @retry(Exception, tries=5, delay=0.5, backoff=1)
     def get_reverse_proxy_endpoint(self) -> str:
@@ -243,6 +241,18 @@ class DPServer:
             except Exception as e:
                 log.exception(e)
                 raise HTTPException(status_code=422, detail=str(e))
+
+        @app.post("/super_tasks-graph", response_model=Dict[str, List])
+        def retrieve_graph(payload: SuperTaskGraphRequestModel) -> Union[Optional[Dict[str, List]], HTTPException]:
+            print(payload)
+            app_params = payload.app_params["params"]
+            super_task_params = payload.super_task_params
+
+            if not app_params or not super_task_params:
+                # can't comput graph
+                return HTTPException(status_code=422, detail="Missing app params or supertask params")
+
+            return self.super_tasks_graph_fn(super_task_params, app_params)
 
         @app.get("/health")
         def health():

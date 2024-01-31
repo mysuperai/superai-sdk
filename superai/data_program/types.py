@@ -1,5 +1,5 @@
 import json
-from typing import Callable, Generic, List, Optional, Tuple, Type, TypeVar
+from typing import Callable, Dict, Generic, List, Optional, Tuple, Type, TypeVar
 
 from attr import define
 from pydantic import Extra, Field, root_validator
@@ -7,6 +7,7 @@ from superai_schema.types import BaseModel
 from typing_extensions import Protocol
 
 from superai.data_program.task.types import (
+    DPSuperTaskConfigs,
     DPSuperTasks,
     Input,
     Metric,
@@ -33,6 +34,11 @@ class PostProcessRequestModel(BaseModel):
     response: dict
     app_uuid: Optional[str]
     app_params: Optional[dict]
+
+
+class SuperTaskGraphRequestModel(BaseModel):
+    app_params: dict
+    super_task_params: dict
 
 
 class MethodResponse(BaseModel):
@@ -71,6 +77,7 @@ class HandlerOutput(BaseModel):
     metrics: Optional[List[Metric]] = Field([], min_items=1)
     super_tasks: Optional[DPSuperTasks] = Field([])
     post_processing: Optional[bool]
+    super_tasks_graph_fn: Optional[Callable[[DPSuperTaskConfigs, Output], Dict[str, list]]]
 
     class Config:
         arbitrary_types_allowed = True

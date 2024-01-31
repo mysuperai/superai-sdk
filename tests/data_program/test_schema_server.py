@@ -5,8 +5,20 @@ from superai_schema.types import BaseModel, Field, UiWidget
 
 from superai.data_program import Metric
 from superai.data_program.dp_server import DPServer
-from superai.data_program.types import HandlerOutput, PostProcessContext
+from superai.data_program.types import (
+    HandlerOutput,
+    PostProcessContext,
+    SuperTaskGraphRequestModel,
+)
 from superai.data_program.workflow import WorkflowConfig
+
+sample_graph = {
+    "nodes": [
+        {"id": "start", "active": True, "reason": ""},
+        {"id": "end", "active": True, "reason": ""},
+    ],
+    "edges": [{"source": "start", "target": "end", "weight": 1}],
+}
 
 
 @pytest.fixture(scope="module")
@@ -39,6 +51,9 @@ def dp_server():
         def post_process_job(job_output: JobOutput, context: PostProcessContext) -> str:
             return "processed"
 
+        def supertask_graph_fn(super_task_config, app_params):
+            return sample_graph
+
         return HandlerOutput(
             input_model=JobInput,
             output_model=JobOutput,
@@ -46,6 +61,7 @@ def dp_server():
             post_process_fn=post_process_job,
             templates=[],
             metrics=[Metric(name="f1_score", metric_fn=metric_func)],
+            super_tasks_graph_fn=supertask_graph_fn,
         )
 
     yield DPServer(
@@ -134,3 +150,18 @@ def test_post_process(test_client):
     }
     response = test_client.post("/post-process", json=data)
     assert response.json() == "processed"
+
+
+def test_supertask_graph_error(test_client):
+    resp = test_client.post("/super_tasks-graph", params={})
+    assert resp.status_code == 422  # missing params
+
+
+def test_supertask_graph(test_client):
+    r = SuperTaskGraphRequestModel(
+        app_params={"params": {"choices": ["Dog", "Cat", "UMA"]}},
+        super_task_params={"fancy_supertask_mock": "parameters"},
+    )
+    resp = test_client.post("/super_tasks-graph", json=r.dict())
+    assert resp.status_code == 200
+    assert resp.json() == sample_graph
