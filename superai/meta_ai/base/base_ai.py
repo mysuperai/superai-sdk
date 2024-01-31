@@ -116,7 +116,7 @@ class BaseAI(metaclass=ABCMeta):
 
                     # Check if pred_func takes tags as an argument
                     if "tags" in pred_func.__code__.co_varnames:
-                        prediction_result = pred_func(self, payload, tags)
+                        prediction_result = pred_func(self, payload, tags=tags)
                     else:
                         prediction_result = pred_func(self, payload)
 
