@@ -233,15 +233,17 @@ class DataApiMixin(ABC):
         if code:
             return dataset
 
-    def download_ai_task_data(self, ai_task_id: int, path: str, timeout: int = 5) -> requests.Response:
+    def download_ai_task_data(
+        self, ai_task_id: Optional[int] = None, path: Optional[str] = None, timeout: Optional[int] = 5
+    ) -> requests.Response:
         """
         Downloads data in the context of an AI Task.
         Used by the AI models to retrieve input data.
         This function only works for AI tasks in the `IN_PROGRESS` state and for data that is contained in the AI task.
 
         Args:
-            ai_task_id: AI Task ID.
             path: Dataset's path. It should be in the form data://<ownerId>/<path>
+            ai_task_id: (Optional) Task ID, is necessary when accessing data in the context of a Collaborator/Ai task.
             timeout: Timeout for download.
 
         Returns:

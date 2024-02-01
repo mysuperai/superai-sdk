@@ -6,6 +6,7 @@ import traceback
 from abc import ABCMeta, abstractmethod
 from typing import Any, BinaryIO, List, Optional, Union
 
+import requests
 import structlog
 from opentelemetry.trace import SpanKind
 
@@ -22,6 +23,7 @@ from superai.meta_ai.base.utils import pull_weights
 from superai.meta_ai.parameters import Config, HyperParameterSpec, ModelParameters
 from superai.meta_ai.schema import Schema, SchemaParameters, TaskInput, TrainerOutput
 from superai.meta_ai.tracking import SuperTracker
+from superai.utils.decorators import retry
 from superai.utils.opentelemetry import tracer
 from superai.utils.sentry_helper import init
 
@@ -309,6 +311,23 @@ class BaseAI(metaclass=ABCMeta):
             filename = os.path.join(path_prefix, filename)
 
         return self.client.upload_ai_task_data(task_id, file, mime_type=mime_type, path=filename)["dataUrl"]
+
+    @retry((Exception), tries=3)
+    def download_file(
+        self,
+        url: Optional[str] = None,
+        uri: Optional[str] = None,
+        task_id: Optional[int] = None,
+        timeout: Optional[int] = 20,
+    ) -> requests.Response:
+        """Supports downloading files from global URLs or internal data:// URIs."""
+        if url and uri:
+            raise ValueError("Only one of url or uri should be provided")
+
+        if url:
+            return requests.get(url, allow_redirects=True, timeout=timeout)
+        elif uri:
+            return self.client.download_ai_task_data(ai_task_id=task_id, path=uri, timeout=timeout)
 
     @abstractmethod
     def train(

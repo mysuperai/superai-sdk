@@ -361,6 +361,31 @@ class TestBaseAI:
             # path prefix given without filename
             test_ai.upload_file(444, "test_content", path_prefix="bounding_boxes")
 
+    def test_download_file_path(self):
+        test_ai = self.TestAI()
+        download_mock = test_ai.client.download_ai_task_data = Mock()
+        download_mock.return_value = Mock()
+        result = test_ai.download_file(uri="data://123/test_path")
+        assert result == download_mock.return_value
+
+        # try with task id and timeout
+        result = test_ai.download_file(uri="data://123/test_path", task_id=444, timeout=10)
+        assert result == download_mock.return_value
+
+        # try with both url and uri present
+        with pytest.raises(ValueError):
+            test_ai.download_file(
+                uri="data://123/test_path", url="https://filesamples.com/samples/code/json/sample1.json"
+            )
+
+    @patch("superai.meta_ai.base.base_ai.requests.get")
+    def test_download_file_url(self, mock_get):
+        test_ai = self.TestAI()
+        mock_get.return_value = Mock()
+        result = test_ai.download_file(url="https://filesamples.com/samples/code/json/sample1.json")
+        assert result == mock_get.return_value
+        assert mock_get.called
+
 
 def test_s3_path_ai(clean, bucket, s3) -> AI:
     model_path = Path(__file__).parent / "fixtures" / "model"
