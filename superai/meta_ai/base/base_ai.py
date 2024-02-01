@@ -45,6 +45,7 @@ class BaseAI(metaclass=ABCMeta):
         output_schema: Optional[Schema] = None,
         configuration: Optional[Config] = None,
         enable_auto_resolve_data: bool = True,
+        disable_data_manager: bool = False,
         **kwargs,
     ):
         """
@@ -56,12 +57,14 @@ class BaseAI(metaclass=ABCMeta):
             enable_auto_resolve_data: If True, the model will automatically resolve data:// references in the payloads.
                 This imitates the old behaviour of the prediction flow.
                 Ideally, the model should only resolve data references when it needs to, so it can be disabled here.
+            disable_data_manager: If True, the model will not use the data manager to resolve data:// references and not upload results to the data storage.
             **kwargs:
         """
         self.input_schema = input_schema
         self.output_schema = output_schema
         self.configuration = configuration
         self.enable_auto_resolve_data = enable_auto_resolve_data
+        self.disable_data_manager = disable_data_manager
         self.initialized = False
         self.model = None
         self.logger_dir = kwargs.get("log_dir")
@@ -90,7 +93,7 @@ class BaseAI(metaclass=ABCMeta):
 
         """
 
-        def __inner__(self, payload: dict, meta: dict = None):
+        def __inner__(self, payload: dict, meta: dict = None, tags: Optional[PredictionTags] = None):
             """
             Args:
                 data: Input data to the model
@@ -98,13 +101,13 @@ class BaseAI(metaclass=ABCMeta):
             """
             structlog.contextvars.clear_contextvars()
             payload, meta = _unpack_meta(payload, meta)
-            span, span_context, tags = _handle_tags(meta)
+            span, span_context, tags = _handle_tags(meta, tags)
             exception = None
             prediction_result = None
             manager: Optional[DataManager] = None
 
             # Resolve data:// references into signed URLs which can be accessed by the model
-            if tags is not None and tags.task_id is not None:
+            if not self.disable_data_manager and tags is not None and tags.task_id is not None:
                 manager = DataManager(tags.task_id, client=self.client)
                 payload = manager.preprocess_input(payload, self.enable_auto_resolve_data)
 

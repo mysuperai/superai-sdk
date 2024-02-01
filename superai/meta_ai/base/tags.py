@@ -6,7 +6,7 @@ from typing import Optional, Tuple
 import sentry_sdk
 import structlog
 from attr import define
-from opentelemetry.trace import Span, SpanContext
+from opentelemetry.trace import Context, Span
 from superai_logging import get_logger
 
 from superai.utils.opentelemetry import _extract_and_activate_span
@@ -59,7 +59,9 @@ def _unpack_meta(inputs: dict, meta: Optional[dict] = None) -> Tuple[dict, Optio
     return inputs, meta
 
 
-def _handle_tags(meta: Optional[dict] = None) -> Tuple[Optional[Span], Optional[SpanContext], Optional[PredictionTags]]:
+def _handle_tags(
+    meta: Optional[dict] = None, tags: Optional[PredictionTags] = None
+) -> Tuple[Optional[Span], Optional[Context], Optional[PredictionTags]]:
     """Handles tags from meta header and returns span, span_context and tags.
 
     Args:
@@ -69,7 +71,7 @@ def _handle_tags(meta: Optional[dict] = None) -> Tuple[Optional[Span], Optional[
         - Sets tags in the sentry context
         - Extracts span and span_context from the traceparent header
     """
-    span, span_context, tags = None, None, None
+    span, span_context = None, None
     if meta:
         if "puid" in meta:
             log.info(f"Received prediction request for prediction_uuid={meta['puid']}")
