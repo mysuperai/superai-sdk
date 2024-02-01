@@ -9,6 +9,7 @@ from superai.data_program.protocol.task import (
     wait_tasks_AND,
     wait_tasks_OR,
 )
+from superai.data_program.task.workers import IdempotentWorker
 from superai.log import logger
 from superai.utils.opentelemetry import tracer
 
@@ -127,6 +128,14 @@ class TaskRouter(BaseRouter):
             task_handler = TaskHandler(task_input, task_output, worker, index)
             task_handler.submit_task()
             tasks[index] = task_handler
+
+        if not tasks:
+            # We mimic one idempotent worker, since we still want the input as the output of the SuperTask
+            active_mocked_worker = IdempotentWorker(name="Idempotent", active=True)
+            task_handler = TaskHandler(task_input, task_output, active_mocked_worker, 0)
+            task_handler.submit_task()
+            tasks[0] = task_handler
+
         # Semantically the function would be better suited for the reduce, however
         # due to the fact that the router is extended, we don't want child classes
         # being responsable to handle the retrials.

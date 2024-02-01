@@ -272,3 +272,19 @@ def test_supertask_editable():
         editable=False,
     )
     assert params.editable is False
+
+
+def test_one_task_on_all_workers_inactive():
+    params = SuperTaskConfig(
+        workers=[
+            IdempotentWorker(active=False),
+            CollaboratorWorker(active=False, on_timeout=OnTimeout(action=OnTimeoutAction.retry, max_retries=2)),
+        ],
+        strategy=TaskStrategy.FIRST_COMPLETED,
+    )
+
+    router = TaskRouter(task_config=params)
+    futures = router.map(task_input=sample_input, task_output=sample_output)
+    assert futures
+    assert len(futures.done) == 1
+    assert len(futures.not_done) == 0
