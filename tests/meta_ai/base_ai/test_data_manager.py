@@ -1,5 +1,5 @@
 import json
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -52,7 +52,9 @@ def test_sign_all_urls_json_error(data_manager):
 
 def test_resolve_ref(data_manager):
     payload = {"key": "value"}
-    data_manager.client.download_data.return_value = payload
+    response = Mock()
+    response.json.return_value = payload
+    data_manager.client.download_data.return_value = response
     result = data_manager.download_payload(
         {
             "data": {"input": {"ref": "data://123/test"}, "output": {"ref": "data://123/test"}},
@@ -68,7 +70,9 @@ def test_resolve_ref(data_manager):
 
 def test_preprocess_input(data_manager):
     # preprocessor should handle case where input subkey and output subkey contain `ref` and should resolve them, too.
-    data_manager.client.download_data.return_value = {"key": "value"}
+    response = Mock()
+    response.json.return_value = {"key": "value"}
+    data_manager.client.download_data.return_value = response
     result = data_manager.preprocess_input(
         {
             "data": {"input": {"ref": "data://123/test"}, "output": {"ref": "data://123/test"}},

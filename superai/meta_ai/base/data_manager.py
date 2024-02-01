@@ -85,9 +85,9 @@ class DataManager:
         output_ref = output_data.get("ref") if output_data else None
 
         if input_ref:
-            input_data = self.client.download_data(path=input_ref, collaborator_task_id=self.task_id)
+            input_data = self.client.download_data(path=input_ref, collaborator_task_id=self.task_id).json()
         if output_ref:
-            output_data = self.client.download_data(path=output_ref, collaborator_task_id=self.task_id)
+            output_data = self.client.download_data(path=output_ref, collaborator_task_id=self.task_id).json()
 
         payload["data"] = data
         if input_ref:

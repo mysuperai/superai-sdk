@@ -45,7 +45,7 @@ def download_content(url: str, client: Client = None, timeout: int = 10):
     """
     if url.startswith("data://"):
         client = client or Client(api_key=load_api_key())
-        return client.download_data(url, timeout=timeout)
+        return client.download_data(url, timeout=timeout).json()
 
     res = requests.get(url, timeout=timeout)
     if res.status_code == 200:

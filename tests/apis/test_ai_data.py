@@ -54,7 +54,7 @@ def test_download_ai_task_data(client: Client, mocker):
     get_mock.return_value.status_code = 200
     get_mock.return_value.json.return_value = {"test": True}
 
-    file_content = client.download_ai_task_data(ai_task_id=558513, path="data://1005/ai-task/558513/test.json")
+    file_content = client.download_ai_task_data(ai_task_id=558513, path="data://1005/ai-task/558513/test.json").json()
     assert file_content == {"test": True}
     assert file_content
     assert request_mock.called
@@ -63,3 +63,13 @@ def test_download_ai_task_data(client: Client, mocker):
     # Test with wrong path
     with pytest.raises(ValueError):
         client.download_ai_task_data(ai_task_id=1, path="default/test2.csv")
+
+    # Test bytes return value
+    get_mock.return_value.content = b"test"
+    file_content = client.download_ai_task_data(ai_task_id=558513, path="data://1005/ai-task/558513/test.json").content
+    assert file_content == b"test"
+
+    # Test string return value
+    get_mock.return_value.text = "test"
+    file_content = client.download_ai_task_data(ai_task_id=558513, path="data://1005/ai-task/558513/test.json").text
+    assert file_content == "test"

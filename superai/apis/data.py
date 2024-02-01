@@ -141,7 +141,9 @@ class DataApiMixin(ABC):
             required_api_key=True,
         )
 
-    def download_data(self, path: str, timeout: int = 5, collaborator_task_id: Optional[int] = None):
+    def download_data(
+        self, path: str, timeout: int = 5, collaborator_task_id: Optional[int] = None
+    ) -> requests.Response:
         """Downloads data given a `"data://..."` or URL path.
 
         Args:
@@ -150,13 +152,19 @@ class DataApiMixin(ABC):
             collaborator_task_id: Collaborator task ID. Allows access to data in the context of a Collaborator/Ai task.
 
         Returns:
-            URL content.
+            Response object. Can be used to get the content as bytes or json.
+                Example:
+                    res = download_data("data://<ownerId>/<path>")
+                    res.content # bytes
+                    res.json() # json
+                    res.text # string
         """
+
         signed_url = self.get_signed_url(path, collaborator_task_id=collaborator_task_id)
         res = requests.get(signed_url.get("signedUrl"), timeout=timeout)
 
         if res.status_code == 200:
-            return res.json()
+            return res
         else:
             raise SuperAIStorageError(res.reason)
 
@@ -225,7 +233,7 @@ class DataApiMixin(ABC):
         if code:
             return dataset
 
-    def download_ai_task_data(self, ai_task_id: int, path: str, timeout: int = 5):
+    def download_ai_task_data(self, ai_task_id: int, path: str, timeout: int = 5) -> requests.Response:
         """
         Downloads data in the context of an AI Task.
         Used by the AI models to retrieve input data.
@@ -237,6 +245,12 @@ class DataApiMixin(ABC):
             timeout: Timeout for download.
 
         Returns:
+            Response object. Can be used to get the content as bytes or json.
+                Example:
+                    res = download_data("data://<ownerId>/<path>")
+                    res.content
+                    res.json()
+                    res.text
 
         """
         # Check if path is a data path
