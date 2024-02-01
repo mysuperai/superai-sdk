@@ -35,7 +35,7 @@ __all__ = [
     "AiApiMixin",
     "TasksApiMixin",
     "SuperTaskApiMixin",
-    "OperationsApiMixin",
+    "OperationsApiMixin"
 ]
 
 
@@ -49,7 +49,7 @@ class Client(
     AiApiMixin,
     TasksApiMixin,
     SuperTaskApiMixin,
-    OperationsApiMixin,
+    OperationsApiMixin
 ):
     def __init__(self, api_key: str = None, auth_token: str = None, id_token: str = None, base_url: str = None):
         super(Client, self).__init__()
