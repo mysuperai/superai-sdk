@@ -90,6 +90,6 @@ def _handle_tags(
             if span:
                 tags.traceparent = None
             log.info(f"Received tags={tags}")
-        else:
-            tags = PredictionTags()
+
+    tags = tags or PredictionTags()
     return span, span_context, tags
