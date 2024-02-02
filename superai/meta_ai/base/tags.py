@@ -61,7 +61,7 @@ def _unpack_meta(inputs: dict, meta: Optional[dict] = None) -> Tuple[dict, Optio
 
 def _handle_tags(
     meta: Optional[dict] = None, tags: Optional[PredictionTags] = None
-) -> Tuple[Optional[Span], Optional[Context], Optional[PredictionTags]]:
+) -> Tuple[Optional[Span], Optional[Context], PredictionTags]:
     """Handles tags from meta header and returns span, span_context and tags.
 
     Args:
@@ -90,4 +90,6 @@ def _handle_tags(
             if span:
                 tags.traceparent = None
             log.info(f"Received tags={tags}")
+        else:
+            tags = PredictionTags()
     return span, span_context, tags
