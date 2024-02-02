@@ -5,6 +5,7 @@ import sys
 import traceback
 from abc import ABCMeta, abstractmethod
 from typing import Any, BinaryIO, List, Optional, Union
+from urllib.parse import urlparse
 
 import requests
 import structlog
@@ -316,18 +317,19 @@ class BaseAI(metaclass=ABCMeta):
     def download_file(
         self,
         url: Optional[str] = None,
-        uri: Optional[str] = None,
         task_id: Optional[int] = None,
         timeout: Optional[int] = 20,
     ) -> requests.Response:
-        """Supports downloading files from global URLs or internal data:// URIs."""
-        if url and uri:
-            raise ValueError("Only one of url or uri should be provided")
+        """Supports downloading files from global URLs (http(s)) or internal data:// URIs."""
+        # Parse url for scheme
+        scheme = urlparse(url).scheme
 
-        if url:
+        if scheme == "data":
+            return self.client.download_ai_task_data(ai_task_id=task_id, path=url, timeout=timeout)
+        elif scheme in ["http", "https"]:
             return requests.get(url, allow_redirects=True, timeout=timeout)
-        elif uri:
-            return self.client.download_ai_task_data(ai_task_id=task_id, path=uri, timeout=timeout)
+        else:
+            raise ValueError(f"Unsupported scheme: {scheme}")
 
     @abstractmethod
     def train(
