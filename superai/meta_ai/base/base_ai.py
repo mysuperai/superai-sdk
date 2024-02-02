@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 import traceback
 from abc import ABCMeta, abstractmethod
 from typing import Any, BinaryIO, List, Optional, Union
@@ -286,6 +287,8 @@ class BaseAI(metaclass=ABCMeta):
         log.warning("predict_batch() is not implemented. Falling back to loop predict method.")
         return [self.predict(input, context) for input in input_batch]
 
+    @retry((Exception), tries=3)
+    @tracer.start_as_current_span(name="upload_file")
     def upload_file(
         self,
         task_id: int,
@@ -314,6 +317,7 @@ class BaseAI(metaclass=ABCMeta):
         return self.client.upload_ai_task_data(task_id, file, mime_type=mime_type, path=filename)["dataUrl"]
 
     @retry((Exception), tries=3)
+    @tracer.start_as_current_span(name="download_file")
     def download_file(
         self,
         url: Optional[str] = None,
@@ -321,15 +325,20 @@ class BaseAI(metaclass=ABCMeta):
         timeout: Optional[int] = 20,
     ) -> requests.Response:
         """Supports downloading files from global URLs (http(s)) or internal data:// URIs."""
+        log.info(f"Downloading file from {url=} with {task_id=} and {timeout=}")
+        now = time.time()
         # Parse url for scheme
         scheme = urlparse(url).scheme
 
         if scheme == "data":
-            return self.client.download_ai_task_data(ai_task_id=task_id, path=url, timeout=timeout)
+            res = self.client.download_ai_task_data(ai_task_id=task_id, path=url, timeout=timeout)
         elif scheme in ["http", "https"]:
-            return requests.get(url, allow_redirects=True, timeout=timeout)
+            res = requests.get(url, allow_redirects=True, timeout=timeout)
         else:
             raise ValueError(f"Unsupported scheme: {scheme}")
+
+        log.info(f"Downloading file from {url=} took {time.time() - now} seconds")
+        return res
 
     @abstractmethod
     def train(

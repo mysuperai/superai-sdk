@@ -79,7 +79,8 @@ class DataManager:
         """Downloads data payload when only ref is provided."""
         data = payload.get("data", {})
         input_data = data.get("input", {})
-        output_data = data.get("output", {})
+        # Get output data from lecacy location or new location
+        output_data = payload.get("parameters", {}).get("output_schema") or data.get("output", {})
 
         input_ref = input_data.get("ref") if input_data else None
         output_ref = output_data.get("ref") if output_data else None
