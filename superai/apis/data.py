@@ -161,7 +161,7 @@ class DataApiMixin(ABC):
         """
 
         signed_url = self.get_signed_url(path, collaborator_task_id=collaborator_task_id)
-        res = requests.get(signed_url.get("signedUrl"), timeout=timeout)
+        res = requests.get(signed_url.get("signedUrl"), timeout=timeout, headers={"Accept-Encoding": "gzip"})
 
         if res.status_code == 200:
             return res

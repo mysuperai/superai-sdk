@@ -333,7 +333,7 @@ class BaseAI(metaclass=ABCMeta):
         if scheme == "data":
             res = self.client.download_ai_task_data(ai_task_id=task_id, path=url, timeout=timeout)
         elif scheme in ["http", "https"]:
-            res = requests.get(url, allow_redirects=True, timeout=timeout)
+            res = requests.get(url, allow_redirects=True, timeout=timeout, headers={"Accept-Encoding": "gzip"})
         else:
             raise ValueError(f"Unsupported scheme: {scheme}")
 
