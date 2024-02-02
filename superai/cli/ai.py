@@ -583,6 +583,8 @@ def build_ai(config_file, clean=True):
 
     ai_object.build()
     print(f"Built AI: {ai_object}")
+    # Return image name
+    click.echo(ai_object.local_image)
 
 
 @ai_group.command("predictor-test", help="Test the predictor created from the deploy command")
