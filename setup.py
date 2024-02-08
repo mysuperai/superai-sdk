@@ -47,7 +47,7 @@ REQUIRES = [
     "pandas>=1.2.5",
     "pip>=19.1",
     "pycognito>=2022.12.0",
-    "pydantic<2.0.0",
+    "pydantic<2.6.2",
     "pyyaml>=3.13",
     "requests>=2.22",
     "rich>=10.1",
@@ -71,12 +71,12 @@ AI_REQUIRES = [
     "netifaces>=0.11.0",
     "jsonlines>=4.0.0",
     "superai-builder>=0.9.1",
-    "pydantic>=1.8.2,<2",
+    "pydantic>=2.6.1,<3",
 ]
 SUPERAI_COMMON_REQUIRES = [
     "superai-dataclient~=0.1.0",
     "superai-schema~=0.7",
-    "pydantic>=1.8.2,<2",
+    "pydantic>=2.6.1,<3",
 ]
 
 BUILD_REQUIRES = [
@@ -138,7 +138,7 @@ LLM_REQUIRES_EXTRA = [
     "orjson",
     "pdf2image~=1.16.3",
     "pinecone-client",
-    "pydantic>=1.8.2,<2",
+    "pydantic>=2.6.1,<3",
     "pytesseract",
     "python-dotenv",
     "reportlab",
