@@ -8,6 +8,7 @@ from superai.apis.data_program import DataProgramApiMixin
 from superai.apis.ground_truth import GroundTruthApiMixin
 from superai.apis.jobs import JobsApiMixin
 from superai.apis.meta_ai import AiApiMixin
+from superai.apis.operations import OperationsApiMixin
 from superai.apis.project import ProjectApiMixin
 from superai.apis.super_task import SuperTaskApiMixin
 from superai.apis.tasks import TasksApiMixin
@@ -34,6 +35,7 @@ __all__ = [
     "AiApiMixin",
     "TasksApiMixin",
     "SuperTaskApiMixin",
+    "OperationsApiMixin"
 ]
 
 
@@ -47,6 +49,7 @@ class Client(
     AiApiMixin,
     TasksApiMixin,
     SuperTaskApiMixin,
+    OperationsApiMixin
 ):
     def __init__(self, api_key: str = None, auth_token: str = None, id_token: str = None, base_url: str = None):
         super(Client, self).__init__()
