@@ -8,7 +8,7 @@ import subprocess
 import sys
 import tarfile
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
 import boto3
 import numpy as np
@@ -20,19 +20,24 @@ from rich.prompt import Confirm
 from rich.text import Text
 from superai_builder.docker.client import get_docker_client
 
-from superai import config, settings
+from superai import Client, config, settings
 from superai.log import logger
 from superai.meta_ai.dataset import Dataset
 from superai.meta_ai.exceptions import (
     AIException,
     ExpiredTokenException,
+    ModelAlreadyExistsError,
     ModelDeploymentError,
 )
 
 PREDICTION_METRICS_JSON = "metrics.json"
 ECR_MODEL_ROOT_PREFIX = "models"
+SUPERAI_OWNER_ID = 1
 
 log = logger.get_logger(__name__)
+
+if TYPE_CHECKING:
+    from .ai_instance import AIInstance
 
 
 def list_models(
@@ -76,7 +81,10 @@ def get_user_model_class(model_name, save_location, subfolder: Union[str, Path] 
     location = Path(save_location)
     path_dir = location / subfolder
     ai_module_path_str = str(path_dir.absolute())
+    # Add path to sys.path
     sys.path.append(ai_module_path_str)
+    # Add parent folder to path
+    sys.path.append(str(path_dir.parent.absolute()))
     parts = model_name.rsplit(".", 1)
     if len(parts) == 1:
         logger.info(f"Importing {model_name} from {subfolder} (Absolute path: {path_dir})")
@@ -212,10 +220,10 @@ def load_and_predict(
     task_input = dataset.X_train
     if len(task_input) > 1:
         result = ai_object.predict_batch(task_input)
-        scores = [instance["score"] for p in result for instance in p]
+        scores = [p["score"] for p in result]
     else:
         result = ai_object.predict(task_input[0])
-        scores = [instance["score"] for instance in result]
+        scores = [result["score"]]
     predict_score = np.mean(scores)
     log.info(f"Prediction score: {predict_score}")
     if metrics_output_dir:
@@ -503,6 +511,54 @@ def get_public_superai_instance(name: str, version: str, client=None) -> Optiona
 
     from superai import Client
 
-    SUPERAI_OWNER_ID = 1
     client = client or Client.from_credentials()
-    return client.get_ai_instance_by_template_version(name, version, SUPERAI_OWNER_ID, visibility="PUBLIC")
+    return client.get_ai_instance_by_template_version(
+        name,
+        version,
+        SUPERAI_OWNER_ID,
+        visibility="PUBLIC",
+    )
+
+
+def instantiate_superai(
+    ai_name: Optional[str] = None,
+    ai_version: Optional[str] = None,
+    new_instance_name: Optional[str] = None,
+    ai_uuid: Optional[str] = None,
+) -> "AIInstance":
+    """Instantiate a new AI instance from a public Super.AI.
+
+    Args:
+    ai_name: name of the existing AI template
+    new_instance_name: name of the new AI instance
+    ai_uuid: UUID of the existing AI template
+
+    Returns:
+    AIInstance object
+    """
+    # Either ai_name or ai_uuid must be provided
+    if not ai_name and not ai_uuid:
+        raise AIException("Either ai_name or ai_uuid must be provided")
+    if ai_name:
+        client = Client.from_credentials()
+        owner_id = client._get_user_id()
+        assert owner_id, "Failed to get owner id"
+        existing_instances = client.list_ai(owner_id=owner_id, name=ai_name)
+        if existing_instances:
+            raise ModelAlreadyExistsError(
+                f"AI instance with name {ai_name} already exists for this namespace session. Please choose a different name."
+            )
+        from superai.meta_ai.ai_uri import AiURI
+
+        ai_identifier = AiURI(owner_name="superai", model_name=ai_name, version=ai_version)
+    else:
+        ai_identifier = ai_uuid
+    from superai.meta_ai import AI
+
+    ai = AI.load_essential(str(ai_identifier))
+
+    instance = ai.create_instance(name=new_instance_name, visibility="PRIVATE")
+    if not instance:
+        return AIException(f"Failed to create instance for {ai_name}")
+
+    return instance

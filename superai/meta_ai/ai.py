@@ -6,11 +6,12 @@ import re
 import tempfile
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Union
 
 import attr
 import attrs.validators
 import boto3  # type: ignore
+import botocore.exceptions
 import yaml
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import ValidationError
@@ -168,7 +169,7 @@ class AI:
     """
 
     name: str = attr.field(validator=_ai_name_validator)
-    model_class: str
+    model_class: Optional[str] = None
     description: Optional[str] = None
     configuration: Optional[Config] = None
     version: Optional[str] = attr.field(default=DEFAULT_VERSION, validator=_ai_version_validator)
@@ -194,6 +195,9 @@ class AI:
     default_image: Optional[str] = None
     default_checkpoint: Optional[str] = None
     visibility: Optional[str] = attr.field(default="PRIVATE", validator=attr.validators.in_(["PRIVATE", "PUBLIC"]))
+    owner_id: Optional[str] = None
+    organization_id: Optional[str] = None
+    metadata: Optional[dict] = attr.field(default={}, repr=False)
     _model_save_path: Optional[str] = None
     _created_at: Optional[datetime] = None
     _updated_at: Optional[datetime] = None
@@ -223,6 +227,11 @@ class AI:
         from superai import Client
 
         self._client: Client = Client.from_credentials()
+
+        # Store the AI version in the metadata which gets saved in the database within the save() function
+        from . import BaseAI
+
+        self.metadata["base_ai_version"] = BaseAI.VERSION
 
     def to_dict(self, only_db_fields=False, not_null=False):
         """Converts the object to a json string."""
@@ -266,9 +275,23 @@ class AI:
                 Will reload the model class even if it was already loaded before.
 
         """
+        if not self.model_class:
+            raise AIException(
+                "Model class (model_class) not specified."
+                "Model class is the name of the class that inherits from BaseAI."
+                "If you are loading an existing AI, use `AI.load()` instead."
+                "AI.load_essential() can be used to load an AI without any local functionality."
+            )
         if self._model_class_instance is None or force_reload:
+            class_path = Path(self.model_class_path)
+            if class_path.is_absolute():
+                log.warning(
+                    "Model class path is absolute. Ensure that the path is given relative to the AI config location."
+                )
+                class_path = class_path.relative_to(self._location)
+
             model_class_template = get_user_model_class(
-                model_name=self.model_class, save_location=self.model_class_path
+                model_name=self.model_class, save_location=self._location / class_path
             )
             self._model_class_instance: BaseAI = model_class_template(
                 input_schema=self.input_schema,
@@ -296,13 +319,27 @@ class AI:
             pull_db_data: If True, will pull the latest data from the database.
 
         Returns:
-            An instance of the `AI_Template` class.
+            An instance of the `AI` class.
 
         Raises:
             ValueError: If the path is not valid.
         """
         weights_path = Path(weights_path) if weights_path else None
-        return AILoader.load_ai(path, weights_path, pull_db_data=pull_db_data)
+
+        try:
+            return AILoader.load_ai(path, weights_path, pull_db_data=pull_db_data)
+        except botocore.exceptions.NoCredentialsError:
+            # Handle NoCredentialsError here
+            # You can log the error or raise a custom exception
+            raise SuperAIAWSException("AWS credentials are missing or invalid. Unable to load AI from S3.")
+
+    @classmethod
+    def load_essential(
+        cls,
+        identifier: str,
+    ):
+        """Loads an AI from the database without any local functionality."""
+        return AILoader.load_essential(identifier)
 
     def cache_path(self) -> Path:
         """Static cache path for storing the deployed predictor configuration"""
@@ -336,19 +373,17 @@ class AI:
         except GraphQlException as e:
             if "Uniqueness violation" not in str(e):
                 raise e
-            self.id = self._client.list_ai_by_name_version(self.name, self.version)[0]["id"]
+            self.id = self._client.list_ai(name=self.name, version=self.version)[0]["id"]
         return self.id
 
-    def predict(self, inputs: Union[TaskInput, List[dict]]) -> List[TaskPredictionInstance]:
+    def predict(self, inputs: Union[TaskInput, List[dict]]) -> TaskPredictionInstance:
         """Predicts from model_class and ensures that predict method adheres to schema in ai_definition.
 
         Args:
             inputs
 
         Returns:
-            List of TaskPredictions
-            Each TaskPredictionInstance corresponds to a single prediction instance.
-            Models can output multiple instances per input.
+           One TaskPrediction
         """
         self._init_model_class(load_weights=True)
 
@@ -363,7 +398,7 @@ class AI:
         output = self._model_class_instance.predict(inputs)
         return TaskPredictionInstance.validate_prediction(output)
 
-    def predict_batch(self, inputs: Union[List[List[dict]], TaskBatchInput]) -> List[List[TaskPredictionInstance]]:
+    def predict_batch(self, inputs: Union[List[List[dict]], TaskBatchInput]) -> List[TaskPredictionInstance]:
         """Predicts a batch of inputs from model_class and ensures that predict method adheres to schema in
         ai_definition.
 
@@ -371,9 +406,8 @@ class AI:
             inputs
 
         Returns:
-            Batch of lists of TaskPredictions
-            Each TaskPredictionInstance corresponds to a single prediction instance.
-            For each input in the batch we expect a list of prediction instances.
+            List of TaskPredictionInstances
+            For each input in the batch we expect one prediction instance.
 
         """
         self._init_model_class(load_weights=True)
@@ -495,7 +529,7 @@ class AI:
         """Load the id from the database if it exists."""
         if not self.id:
             with contextlib.suppress(GraphQlException, IndexError):
-                potential_ais = self._client.list_ai_by_name_version(self.name, self.version)
+                potential_ais = self._client.list_ai(name=self.name, version=self.version)
                 if len(potential_ais) > 1:
                     raise AIException(
                         f"Multiple AIs found with name {self.name} and version {self.version}. "
@@ -594,6 +628,7 @@ class AI:
         from superai.meta_ai.ai_trainer import AITrainer
 
         trainer = AITrainer(self)
+        os.environ["IS_TRAINING"] = "True"
         return trainer.train(
             model_save_path=model_save_path,
             training_data=training_data,
@@ -610,8 +645,24 @@ class AI:
         )
 
     @classmethod
-    def from_yaml(cls, yaml_file: Union[Path, str], pull_db_data=False) -> AI:
-        """Create an AI_Template instance from a yaml file"""
+    def from_yaml(
+        cls,
+        yaml_file: Union[Path, str],
+        pull_db_data=False,
+        override_weights_path: Optional[str] = None,
+        add_name_prefix: Optional[str] = None,
+    ) -> AI:
+        """Create an AI_Template instance from a yaml file
+        Args:
+            yaml_file: Path to the yaml file
+            pull_db_data: If True, will pull the latest data from the database.
+            override_weights_path: If provided, will override the weights path in the yaml file.
+            add_name_prefix: If provided, will add the prefix to the name in the yaml file.
+                This is can be used for CI testing in isolated namespaces.
+                Also, the name prefix can be provided via the environment variable AI_NAME_PREFIX.
+        """
+        add_name_prefix = add_name_prefix or os.environ.get("AI_NAME_PREFIX")
+
         with open(yaml_file, "r") as f:
             yaml_dict = yaml.safe_load(f)
 
@@ -623,8 +674,34 @@ class AI:
         if pull_db_data and ai_id:
             db_dict = AILoader._get_ai_dict_by_id(ai_id)
             yaml_dict.update(db_dict)
+
+        if override_weights_path:
+            yaml_dict["weights_path"] = override_weights_path
+
         yaml_dict = cls._remove_patch_from_version(yaml_dict)
+
+        if add_name_prefix:
+            prefix = f"{add_name_prefix}-"
+            if not yaml_dict["name"].startswith(prefix):
+                logger.info(f"Adding name prefix {add_name_prefix} to AI name")
+                yaml_dict["name"] = f"{prefix}{yaml_dict['name']}"
+
         return AI.from_dict(yaml_dict)
+
+    from typing import Optional
+
+    @classmethod
+    def from_db(cls, ai_id: Optional[str] = None, ai_uri: Optional[str] = None) -> "AI":
+        if ai_id is None and ai_uri is None:
+            raise ValueError("Either 'ai_id' or 'ai_uri' must be provided.")
+
+        db_dict = None
+        if ai_id:
+            db_dict = AILoader._get_ai_dict_by_id(ai_id)
+
+        # Add logic for `ai_uri` if needed
+
+        return AI.from_dict(db_dict)
 
     @staticmethod
     def _remove_patch_from_version(yaml_input: Dict) -> Dict:

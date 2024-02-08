@@ -11,6 +11,12 @@ class ModelNotFoundError(AIException):
         super(ModelNotFoundError, self).__init__(f"super.AI Model Not Found Error: {self.message}")
 
 
+class DockerImageNotFoundError(AIException):
+    def __init__(self, message: str):
+        self.message = message
+        super(DockerImageNotFoundError, self).__init__(f"Docker Image Not Found Error: {self.message}")
+
+
 class ModelDeploymentError(AIException):
     def __init__(self, message: str):
         self.message = message

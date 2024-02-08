@@ -5,7 +5,7 @@ from unittest import mock
 
 import boto3
 import pytest
-from moto import mock_ecr, mock_s3, mock_sts
+from moto import mock_aws
 from superai_builder.docker import client
 
 import superai
@@ -16,6 +16,7 @@ from superai.meta_ai.ai_checkpoint import AICheckpoint
 from superai.meta_ai.ai_helper import get_public_superai_instance
 from superai.meta_ai.ai_instance import AIInstanceConfig, AIInstanceConfigFile
 from superai.meta_ai.ai_loader import TEMPLATE_SAVE_FILE_NAME
+from superai.meta_ai.base.base_ai import BaseAI
 from superai.meta_ai.exceptions import AIException
 from superai.meta_ai.schema import TaskPredictionInstance
 
@@ -94,14 +95,14 @@ def tmp_path():
 @pytest.fixture(scope="module")
 def s3(aws_credentials):
     """Mocked S3 client for moto."""
-    with mock_s3():
+    with mock_aws():
         yield boto3.client("s3")
 
 
 @pytest.fixture(scope="module")
 def ecr(aws_credentials, module_mocker):
     """Mocked ECR client for moto, disabled ECR login."""
-    with mock_ecr():
+    with mock_aws():
         # Disable unused ecr login
         module_mocker.patch("superai.meta_ai.ai_helper.aws_ecr_login", return_value=0)
         yield boto3.client("ecr")
@@ -110,7 +111,7 @@ def ecr(aws_credentials, module_mocker):
 @pytest.fixture(scope="module")
 def sts(aws_credentials):
     """Mocked STS client for moto, hooks into SSO token logic."""
-    with mock_sts():
+    with mock_aws():
         yield boto3.client("sts")
 
 
@@ -184,6 +185,7 @@ def test_ai_to_dict(local_ai: AI):
     assert ai.name == local_ai.name
     assert ai.model_class == local_ai.model_class
     assert ai.model_class_path == local_ai.model_class_path
+    assert ai.metadata["base_ai_version"] == BaseAI.VERSION
 
 
 def test_ai_to_yaml(local_ai: AI, tmp_path):
@@ -195,6 +197,39 @@ def test_ai_to_yaml(local_ai: AI, tmp_path):
     assert ai.name == local_ai.name
     assert ai.model_class == local_ai.model_class
     assert ai.model_class_path == local_ai.model_class_path
+
+
+def test_ai_name_override(local_ai: AI, tmp_path):
+    """In CI pipeline we want to add a prefix to the name of the AI for isolation."""
+    tmp_path = tmp_path / "ai.yaml"
+    local_ai.to_yaml(tmp_path)
+    # set AI_NAME_PREFIX env variable to 'test'
+    os.environ["AI_NAME_PREFIX"] = "test"
+    try:
+        ai = AI.from_yaml(tmp_path)
+        assert ai.name == "test-" + local_ai.name
+    except:
+        raise
+    finally:
+        os.environ.pop("AI_NAME_PREFIX")
+
+    # set AI_NAME_PREFIX env variable to ''
+    os.environ["AI_NAME_PREFIX"] = ""
+    try:
+        ai = AI.from_yaml(tmp_path)
+        assert ai.name == local_ai.name
+    except:
+        raise
+    finally:
+        os.environ.pop("AI_NAME_PREFIX")
+
+    ai = AI.from_yaml(tmp_path, add_name_prefix="test2")
+    assert ai.name == "test2-" + local_ai.name
+
+    # Check that we don't add the prefix twice, since we load the ai from the yaml file multiple times internally
+    ai.to_yaml(tmp_path)
+    ai = AI.from_yaml(tmp_path, add_name_prefix="test2")
+    assert ai.name == "test2-" + local_ai.name
 
 
 def test_ai_predict(local_ai: AI):
@@ -239,8 +274,6 @@ def test_save_model(local_ai: AI, tmp_path):
 
 @mock.patch("superai.meta_ai.image_builder.AiImageBuilder.build_image_superai_builder")
 def test_build_model(mocked_builder, local_ai: AI, tmp_path):
-    ai_uuid = local_ai.id
-    assert ai_uuid
     local_ai.build()
     assert mocked_builder.called
     assert local_ai._local_image
@@ -430,7 +463,7 @@ def test_remote_predict(module_mocker, pushed_ai):
         "superai.apis.meta_ai.model.DeploymentApiMixin.check_endpoint_is_available", return_value=True
     )
 
-    preds = [TaskPredictionInstance(prediction={"class": "cat"}, score=0.5)]
+    preds = TaskPredictionInstance(prediction={"class": "cat"}, score=0.5)
     predict_action = module_mocker.patch(
         "superai.apis.meta_ai.model.DeploymentApiMixin.predict_from_endpoint", return_value=preds
     )
@@ -441,8 +474,8 @@ def test_remote_predict(module_mocker, pushed_ai):
     assert predict_action.called
 
     assert response
-    assert response[0]["prediction"]
-    assert response[0]["score"]
+    assert response["prediction"]
+    assert response["score"]
 
 
 def test_train_on_app(ai_name, saved_ai, tmp_path):
@@ -468,9 +501,12 @@ def test_ai_instance_config(tmp_path):
     assert config_file2.instances[0].weights_path == "s3://test"
 
 
-def test_get_public_superai_instance(saved_ai):
+def test_get_public_superai_instance(saved_ai, mocker):
     ai_instance = saved_ai.create_instance(visibility="PUBLIC")
     assert ai_instance.id
+
+    # Imitate superai owner id with our own user id
+    mocker.patch("superai.meta_ai.ai_helper.SUPERAI_OWNER_ID", ai_instance.owner_id)
 
     assert get_public_superai_instance(name=ai_instance.name, version=saved_ai.version)
     assert not get_public_superai_instance(name=ai_instance.name, version="0.0.0")

@@ -1,12 +1,6 @@
-import contextlib
-import json
-import socket
-import time
-from multiprocessing import Process
 from typing import List
 
 import pytest
-import requests
 from superai_schema.types import BaseModel, Field, UiWidget
 
 from superai.data_program import Metric
@@ -14,12 +8,21 @@ from superai.data_program.dp_server import DPServer
 from superai.data_program.types import (
     HandlerOutput,
     PostProcessContext,
-    PostProcessRequestModel,
+    SuperTaskGraphRequestModel,
 )
 from superai.data_program.workflow import WorkflowConfig
 
+sample_graph = {
+    "nodes": [
+        {"id": "start", "active": True, "reason": ""},
+        {"id": "end", "active": True, "reason": ""},
+    ],
+    "edges": [{"source": "start", "target": "end", "weight": 1}],
+}
 
-def run_server():
+
+@pytest.fixture(scope="module")
+def dp_server():
     class Parameters(BaseModel):
         choices: List[str] = Field(uniqueItems=True)
 
@@ -48,6 +51,9 @@ def run_server():
         def post_process_job(job_output: JobOutput, context: PostProcessContext) -> str:
             return "processed"
 
+        def supertask_graph_fn(super_task_config, app_params):
+            return sample_graph
+
         return HandlerOutput(
             input_model=JobInput,
             output_model=JobOutput,
@@ -55,9 +61,10 @@ def run_server():
             post_process_fn=post_process_job,
             templates=[],
             metrics=[Metric(name="f1_score", metric_fn=metric_func)],
+            super_tasks_graph_fn=supertask_graph_fn,
         )
 
-    DPServer(
+    yield DPServer(
         params=Parameters(choices=["1", "2"]),
         handler_fn=handler,
         name="Test_Server",
@@ -66,147 +73,95 @@ def run_server():
         port=8002,
         log_level="critical",
         force_no_tunnel=True,
-    ).run()
-
-
-def local_port_open():
-    """Check if there is already a process listening on port 8002
-    We use this port for the DP server.
-    """
-    a_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    location = ("127.0.0.1", 8002)
-    result_of_check = a_socket.connect_ex(location)
-    return result_of_check == 0
-
-
-def server_ready(max_wait_secs=10) -> bool:
-    """
-    Wait until DP Server is ready
-    Saves a bit of time compared to a fixed sleep time.
-    """
-    start = time.time()
-    while time.time() - start < max_wait_secs:
-        with contextlib.suppress(requests.exceptions.ConnectionError):
-            resp = requests.get("http://127.0.0.1:8002/health")
-            if resp.status_code == 200:
-                return True
-        time.sleep(0.2)
-    return False
+    )
 
 
 @pytest.fixture(scope="module")
-def server():
-    if local_port_open():
-        raise RuntimeError("Port 8002 is already in use. Is another process running on that port?")
-    assert not server_ready()
+def test_client(dp_server):
+    # Defines fastapi testclient
+    from fastapi.testclient import TestClient
 
-    proc = Process(target=run_server, args=(), daemon=True)
-    proc.start()
-    server_ready(max_wait_secs=10)
-
-    yield
-
-    proc.terminate()
-    proc.join(timeout=5)
+    app = dp_server.define_app()
+    with TestClient(app) as client:
+        yield client
 
 
-def test_serve_schema_ok(server):
-    # assert server is not None
-    resp = requests.post("http://127.0.0.1:8002/schema", json={"params": {"choices": ["Dog", "Cat", "UMA"]}})
-    expected = json.loads(
-        """
-        {
-            "inputSchema": {
-               "title": "JobInput",
-               "type": "string"
-            },
-            "inputUiSchema": {"ui:help": "Enter the text to label"},
-            "outputSchema": {
-                "enum": ["Dog", "Cat", "UMA"],
-                "title": "JobOutput",
-                "type": "string"
-            },
-            "outputUiSchema": {"ui:widget": "radio"}
-        }
-        """
-    )
-    assert resp.json() == expected
+def test_serve_schema_ok(test_client):
+    data = {"params": {"choices": ["Dog", "Cat", "UMA"]}}
+    response = test_client.post("/schema", json=data)
+    expected = {
+        "inputSchema": {"title": "JobInput", "type": "string"},
+        "inputUiSchema": {"ui:help": "Enter the text to label"},
+        "outputSchema": {"enum": ["Dog", "Cat", "UMA"], "title": "JobOutput", "type": "string"},
+        "outputUiSchema": {"ui:widget": "radio"},
+    }
+    assert response.json() == expected
 
 
-def test_serve_schema_invalid(server):
-    expected = json.loads(
-        """
-        {"detail": "['Dog', 'Dog', 'UMA'] has non-unique elements"}
-        """
-    )
-    resp = requests.post("http://127.0.0.1:8002/schema", json={"params": {"choices": ["Dog", "Dog", "UMA"]}})
-    assert resp.json() == expected
+def test_serve_schema_invalid(test_client):
+    data = {"params": {"choices": ["Dog", "Dog", "UMA"]}}
+    response = test_client.post("/schema", json=data)
+    expected = {"detail": "['Dog', 'Dog', 'UMA'] has non-unique elements"}
+    assert response.json() == expected
 
 
-def test_metric_names(server):
-    expected = json.loads(
-        """
-       ["f1_score"]
-        """
-    )
-    resp = requests.get("http://127.0.0.1:8002/metrics")
-    assert resp.json() == expected
+def test_metric_names(test_client):
+    response = test_client.get("/metrics")
+    expected = ["f1_score"]
+    assert response.json() == expected
 
 
-def test_metric_calculate(server):
-    expected = json.loads(
-        """
-       {"f1_score": {
-            "value": 0.5
+def test_metric_calculate(test_client):
+    data = {
+        "truths": [
+            {
+                "url": "https://farm1.static.flickr.com/22/30133265_5d1a4d6b1e.jpg",
+                "annotations": [{"top": 126.49, "left": 56.55, "width": 367.56, "height": 209.82, "selection": "1"}],
             }
-        }
-        
-        """
-    )
-    resp = requests.post(
-        "http://127.0.0.1:8002/metrics/f1_score",
-        json={
-            "truths": [
-                {
-                    "url": "https://farm1.static.flickr.com/22/30133265_5d1a4d6b1e.jpg",
-                    "annotations": [
-                        {"top": 126.49, "left": 56.55, "width": 367.56, "height": 209.82, "selection": "1"}
-                    ],
-                }
-            ],
-            "preds": [
-                {
-                    "url": "https://farm1.static.flickr.com/22/30133265_5d1a4d6b1e.jpg",
-                    "annotations": [{"top": 26.49, "left": 51.55, "width": 234.56, "height": 21.82, "selection": "1"}],
-                }
-            ],
-        },
-    )
-    assert resp.json() == expected
+        ],
+        "preds": [
+            {
+                "url": "https://farm1.static.flickr.com/22/30133265_5d1a4d6b1e.jpg",
+                "annotations": [{"top": 26.49, "left": 51.55, "width": 234.56, "height": 21.82, "selection": "1"}],
+            }
+        ],
+    }
+    response = test_client.post("/metrics/f1_score", json=data)
+    expected = {"f1_score": {"value": 0.5}}
+    assert response.json() == expected
 
 
-def test_method_names(server):
-    expected = json.loads(
-        """
-        [
-            {"methodName": "Test_Server.top_heroes", "role": "normal"},
-            {"methodName": "Test_Server.crowd_managers", "role": "normal"},
-            {"methodName": "Test_Server.crowd_managers", "role": "gold"}
-        ]
-        """
-    )
-    resp = requests.get("http://127.0.0.1:8002/methods")
-
-    assert resp.json() == expected
+def test_method_names(test_client):
+    response = test_client.get("/methods")
+    expected = [
+        {"methodName": "Test_Server.top_heroes", "role": "normal"},
+        {"methodName": "Test_Server.crowd_managers", "role": "normal"},
+        {"methodName": "Test_Server.crowd_managers", "role": "gold"},
+    ]
+    assert response.json() == expected
 
 
-def test_post_process(server):
-    r = PostProcessRequestModel(
-        job_uuid="123",
-        response={"__root__": "1"},
-        app_uuid="123",
+def test_post_process(test_client):
+    data = {
+        "job_uuid": "123",
+        "response": {"__root__": "1"},
+        "app_uuid": "123",
+        "app_params": {"params": {"choices": ["Dog", "Cat", "UMA"]}},
+    }
+    response = test_client.post("/post-process", json=data)
+    assert response.json() == "processed"
+
+
+def test_supertask_graph_error(test_client):
+    resp = test_client.post("/super_tasks-graph", params={})
+    assert resp.status_code == 422  # missing params
+
+
+def test_supertask_graph(test_client):
+    r = SuperTaskGraphRequestModel(
         app_params={"params": {"choices": ["Dog", "Cat", "UMA"]}},
+        super_task_params={"fancy_supertask_mock": "parameters"},
     )
-    resp = requests.post("http://127.0.0.1:8002/post-process", json=r.dict())
-
-    assert resp.json() == "processed"
+    resp = test_client.post("/super_tasks-graph", json=r.dict())
+    assert resp.status_code == 200
+    assert resp.json() == sample_graph

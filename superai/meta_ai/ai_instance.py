@@ -13,7 +13,11 @@ from superai.meta_ai import AI
 from superai.meta_ai.ai_checkpoint import CheckpointTag
 from superai.meta_ai.ai_helper import _not_none_validator, confirm_action
 from superai.meta_ai.deployed_predictors import RemotePredictor
-from superai.meta_ai.exceptions import AIException, ModelNotFoundError
+from superai.meta_ai.exceptions import (
+    AIException,
+    DockerImageNotFoundError,
+    ModelNotFoundError,
+)
 from superai.meta_ai.orchestrators import Orchestrator
 from superai.meta_ai.parameters import AiDeploymentParameters, TrainingParameters
 from superai.meta_ai.schema import TaskPredictionInstance
@@ -54,7 +58,7 @@ class AIInstance:
         deployment_parameters: A dictionary representing the parameters used to deploy the AI instance.
         editor_id: A string representing the id of the user who edited the AI instance last.
         owner_id: A string representing the id of the user who owns the AI instance.
-        organisation_id: A string representing the id of the organization that owns the AI instance.
+        organization_id: A string representing the id of the organization that owns the AI instance.
 
     """
 
@@ -69,7 +73,7 @@ class AIInstance:
     deployment_parameters: dict = attr.field(default=None, repr=False)
     editor_id: str = attr.field(default=None)
     owner_id: int = attr.field(default=None)
-    organisation_id: int = attr.field(default=None)
+    organization_id: int = attr.field(default=None)
     ai_worker_id: str = attr.field(default=None)
     ai_worker_username: str = attr.field(default=None)
     visibility: Optional[str] = attr.field(default="PRIVATE", validator=attr.validators.in_(["PRIVATE", "PUBLIC"]))
@@ -95,6 +99,12 @@ class AIInstance:
         if not backend_data:
             raise ModelNotFoundError(f"AI instance with id {id} not found")
         return cls.from_dict(backend_data)
+
+    def reload(self):
+        """Reloads the AI instance from the backend."""
+        if self.id is None:
+            raise AIException("AI instance not saved. Please save the instance first.")
+        return self.load(self.id)
 
     def save(self):
         """Saves the AI instance to the backend
@@ -142,6 +152,9 @@ class AIInstance:
                 AICheckpoint(template_id=ai.id, weights_path=weights_path, ai_instance_id=instance.id).save()
         elif not existing_checkpoint or force_clone_checkpoint:
             instance._clone_template_checkpoint(ai)
+
+        # Reload the instance to get the latest data from backend
+        instance = instance.reload()
 
         return instance
 
@@ -284,10 +297,10 @@ class AIInstance:
         if redeploy and get_current_env() == "prod":
             confirm_action()
 
-        ai = AI.load(self.template_id)
+        ai = AI.load_essential(self.template_id)
 
         if not ai.image:
-            raise AIException(
+            raise DockerImageNotFoundError(
                 "AI has no Docker image stored. Try ai.build() and ai.push_image() on the AI object first."
             )
         orchestrator = Orchestrator(orchestrator)
@@ -304,7 +317,7 @@ class AIInstance:
 
         return predictor_obj
 
-    def predict(self, input_data: dict, params: dict = None, wait_time_seconds=180) -> List[TaskPredictionInstance]:
+    def predict(self, input_data: dict, params: dict = None, wait_time_seconds=180) -> TaskPredictionInstance:
         """Predict with remote predictor.
 
         Args:
@@ -345,6 +358,8 @@ class AIInstance:
         local_path: Optional[Union[str, Path]] = None,
         deployment_parameters: Optional[Union[dict, AiDeploymentParameters]] = None,
         training_parameters: Optional[TrainingParameters] = None,
+        skip_build: bool = True,
+        dataset_metadata: Optional["DatasetMetadata"] = None,
         **kwargs,
     ) -> dict:
         """Trains the AI instance (remotely).
@@ -361,13 +376,15 @@ class AIInstance:
         from superai.meta_ai import AI
         from superai.meta_ai.ai_trainer import AITrainer
 
-        ai = AI.load(self.template_id)
+        ai = AI.load_essential(self.template_id)
         trainer = AITrainer(ai, self)
         return trainer.training_deploy(
             app_id=app_id,
             training_data_dir=local_path,
             properties=deployment_parameters,
             training_parameters=training_parameters,
+            skip_build=skip_build,
+            dataset_metadata=dataset_metadata,
             **kwargs,
         )
 

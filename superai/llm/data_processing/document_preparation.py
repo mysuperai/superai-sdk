@@ -2,6 +2,13 @@ import logging
 from typing import Dict, List, Optional
 
 import tiktoken
+from tabulate import tabulate
+
+from superai.llm.data_processing.bbox_helper import (
+    create_page_rtrees,
+    extract_polygon,
+    intersect,
+)
 
 
 class DocumentToString:
@@ -76,15 +83,27 @@ class DocumentToString:
             else:
                 logging.info("No key value pairs were provided to be included into document serialization")
         if self.format_tables:
-            raise NotImplementedError("Table inclusion is not implemented")
+            if ocr_general_tables is not None:
+                ocr_values = _remove_table_token(ocr_values, ocr_general_tables)
+            else:
+                logging.info("No tables were provided to be included into document serialization")
 
         # Combine tokens into String representation
         if self.representation == "line":
             return get_line_based_representation(ocr_values)
         elif self.representation == "whitespace":
-            return get_white_space_representation(
+            document_representation = get_white_space_representation(
                 ocr_values, pixels_per_line=self.pixels_per_line, pixels_per_char=self.pixels_per_char
             )
+            if self.format_tables and ocr_general_tables is not None:
+                document_representation = _insert_tables_into_whitespace_representation(
+                    document_representation,
+                    ocr_general_tables,
+                    pixels_per_line=self.pixels_per_line,
+                    pixels_per_char=self.pixels_per_char,
+                )
+            return document_representation
+
         else:
             raise NotImplementedError(f"There is no document representation of type {self.representation}")
 
@@ -147,7 +166,7 @@ class DocumentToString:
         ocr_values.sort(
             key=lambda ocr_token: (
                 ocr_token["pageNumber"],
-                ocr_token["boundingBox"]["top"] // self.pixels_per_line,
+                (ocr_token["boundingBox"]["top"] + ocr_token["boundingBox"]["height"]) // self.pixels_per_line,
                 ocr_token["boundingBox"]["left"] // self.pixels_per_char,
             )
         )
@@ -163,7 +182,7 @@ class DocumentToString:
                 line_base += line_id + 1  # Pages are separated with a new line
                 current_page = page_number
 
-            line_id = token["boundingBox"]["top"] // self.pixels_per_line
+            line_id = (token["boundingBox"]["top"] + token["boundingBox"]["height"]) // self.pixels_per_line
             line_number = line_base + line_id
             line_dict.setdefault(line_number, []).append(token)
         return line_dict
@@ -202,28 +221,6 @@ def _deduplicate_boxes(kv_list):
     return keep
 
 
-def intersect(box1, box2):
-    """
-    Tests whether two bounding boxes intersect.
-    """
-    # Determine the coordinates of the bounding boxes
-    box1_top = box1["top"]
-    box1_bottom = box1["top"] + box1["height"]
-    box1_left = box1["left"]
-    box1_right = box1["left"] + box1["width"]
-
-    box2_top = box2["top"]
-    box2_bottom = box2["top"] + box2["height"]
-    box2_left = box2["left"]
-    box2_right = box2["left"] + box2["width"]
-
-    # Check for intersection
-    if box1_left < box2_right and box1_right > box2_left and box1_top < box2_bottom and box1_bottom > box2_top:
-        return True
-    else:
-        return False
-
-
 def filter_tokens_by_text_box(tokens, text_box, page_number):
     kept_tokens = []
     text_area = text_box["width"] * text_box["height"]
@@ -241,6 +238,31 @@ def filter_tokens_by_text_box(tokens, text_box, page_number):
         if not (token["pageNumber"] == page_number and token_area <= text_area and intersection >= 0.9 * token_area):
             kept_tokens.append(token)
     return kept_tokens
+
+
+def _remove_table_token(ocr_values: list, ocr_general_tables: dict) -> list:
+    """Remove all OCR tokens that are within a recognized table.
+
+    :param ocr_general_tables: List of all tables recognized by OCR
+    :param ocr_values: Unfiltered list of OCR token
+    :return: Filtered list of OCR token
+    """
+    # Build an r tree of all OCR token for each page
+    page_idxs, page_rtrees = create_page_rtrees(ocr_values)
+
+    # Get a list of all table bounding boxes
+    table_bboxes = [bbox for table in ocr_general_tables for bbox in table["boundingBoxes"]]
+
+    annotation_idxs = []
+    for table_bbox in table_bboxes:
+        # Get a polygon from shape of OCR Table
+        page_idx, annotation_poly = extract_polygon(table_bbox)
+        geom_idxs = page_rtrees[page_idx].query(annotation_poly, predicate="contains_properly")
+        annotation_idxs += [page_idxs[(page_idx, geom_idx)] for geom_idx in geom_idxs]
+
+    # Filter out those values which are within a OCR table
+    ocr_values = [token for i, token in enumerate(ocr_values) if i not in annotation_idxs]
+    return ocr_values
 
 
 def get_line_based_representation(ocr_outputs, tolerance=2):
@@ -294,7 +316,7 @@ def get_white_space_representation(ocr_values, pixels_per_line=10, pixels_per_ch
     ocr_values.sort(
         key=lambda ocr_token: (
             ocr_token["pageNumber"],
-            ocr_token["boundingBox"]["top"] // pixels_per_line,
+            (ocr_token["boundingBox"]["top"] + ocr_token["boundingBox"]["height"]) // pixels_per_line,
             ocr_token["boundingBox"]["left"] // pixels_per_char,
         )
     )
@@ -315,7 +337,7 @@ def get_white_space_representation(ocr_values, pixels_per_line=10, pixels_per_ch
             current_line = 0
 
         # Add newlines if necessary
-        lines_needed = max(1, token["boundingBox"]["top"] // pixels_per_line)
+        lines_needed = max(1, (token["boundingBox"]["top"] + token["boundingBox"]["height"]) // pixels_per_line)
         while current_line < lines_needed:
             page_tokens.append("\n")
             current_line += 1
@@ -330,3 +352,108 @@ def get_white_space_representation(ocr_values, pixels_per_line=10, pixels_per_ch
     doc_pages.append("".join(page_tokens))
 
     return doc_pages
+
+
+def _get_table_markdown_representation(table: dict) -> str:
+    """Convert table into markdown representation.
+    The first is assumed to be the header line. Col and row spans are ignored for now.
+    In those cases the content is assigned to the left most and top most cell
+    respectively
+
+    :param table: Table extracted from OCR
+    :return: String with table in markdown format
+    """
+    num_rows = max([cell["rowIndex"] for cell in table["content"]["cells"]])
+    num_columns = max([cell["columnIndex"] for cell in table["content"]["cells"]])
+
+    table_matrix = [["" for _ in range(num_columns)] for _ in range(num_rows)]
+    for cell in table["content"]["cells"]:
+        row_index = cell["rowIndex"] - 1
+        column_index = cell["columnIndex"] - 1
+        content = cell.get("content", "").strip()
+
+        table_matrix[row_index][column_index] = content
+    table_markdown = tabulate(table_matrix, tablefmt="github", headers="firstrow")
+    return table_markdown
+
+
+def _insert_tables_into_whitespace_representation(
+    document_representation: list, ocr_general_tables: list, pixels_per_line: int = 10, pixels_per_char: int = 4
+) -> list:
+    """Takes the whitespace representation and inserts tables in Markdown format.
+    The function inserts tables in markdown by replacing the correct white space in the
+    whitespace representation. An offset is kept for cases, in which the mumber of lines
+    the table would take in the whitespace representation does not match the table in
+    Markdown.
+
+    :param document_representation: Pagewise whitespace representation of the document.
+    :param ocr_general_tables: List of tables extracted by the OCR
+    :param pixels_per_line: Assumed average height of a character only relevant for
+    whitespace representation
+    :param pixels_per_char: Assumed average width of a character only relevant for
+    whitespace representation
+    :return: Pagewise whitespace representation of the document including markdown
+    formatted tables.
+    """
+    tables_per_page = _seperate_tables_by_pages(ocr_general_tables)
+    augmented_document_representation = []
+    for i, page_representation in enumerate(document_representation):
+        # We keep an offset parameter for cases in which tables are have more or less
+        # lines in the markdown representation compared to the number of lines they
+        # would occupy just based on their bounding box
+        offset = 0
+
+        page_representation = page_representation.split("\n")
+        for single_table in tables_per_page.get(i, []):
+            # Because the tables are split we can safely assume that there is only one
+            # boundingBox.
+            table_boundaries = _get_table_boundaries(
+                single_table["boundingBoxes"][0]["boundingBox"],
+                pixels_per_line=pixels_per_line,
+                pixels_per_char=pixels_per_char,
+            )
+            # Replace lines where table should be located with formated table
+            table_markdown = _get_table_markdown_representation(single_table).split("\n")
+            page_representation = (
+                page_representation[: (table_boundaries[0] + offset + 1)]
+                + table_markdown
+                + page_representation[(table_boundaries[1] + offset) :]
+            )
+            offset += len(table_markdown) - (table_boundaries[1] - table_boundaries[0])
+
+        augmented_document_representation.append("\n".join(page_representation))
+    return augmented_document_representation
+
+
+def _get_table_boundaries(table_bounding_box: dict, pixels_per_line: int = 10, pixels_per_char: int = 4) -> tuple:
+    """Find the boundaries of a table in terms of line number and character position.
+
+    :param table_bounding_box: Pixel-based bounding box
+    :param pixels_per_line: Assumed average height of a character only relevant for
+    whitespace representation
+    :param pixels_per_char: Assumed average width of a character only relevant for
+    whitespace representation
+    :return: Top and bottom boundaries in terms of line numbers, left and right border
+    in terms of column ids
+    """
+    first_line_id = table_bounding_box["top"] // pixels_per_line
+    last_line_id = (table_bounding_box["top"] + table_bounding_box["height"]) // pixels_per_line
+    first_column_id = table_bounding_box["left"] // pixels_per_char
+    last_column_id = (table_bounding_box["left"] + table_bounding_box["width"]) // pixels_per_char
+    return (first_line_id, last_line_id, first_column_id, last_column_id)
+
+
+def _seperate_tables_by_pages(tables: list) -> dict:
+    """
+
+    :param tables:
+    :return:
+    """
+    table_page = dict()
+    for table in tables:
+        pages = set([t["pageNumber"] - 1 for t in table["boundingBoxes"]])
+        for page in pages:
+            cells = [c for c in table["content"]["cells"] if c["pageNumber"] == page + 1]
+            bounding_boxes = [b for b in table["boundingBoxes"] if b["pageNumber"] == page + 1]
+            table_page.setdefault(page, []).append({"content": {"cells": cells}, "boundingBoxes": bounding_boxes})
+    return table_page

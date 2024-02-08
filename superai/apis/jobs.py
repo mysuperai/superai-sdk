@@ -400,7 +400,7 @@ class JobsApiMixin(ABC):
         last_operation_status = None
         start_poll_date = datetime.now()
         with console.status(f"Polling for operation [cyan]{operation_id}[/cyan]...") as status:
-            while not operation_completed or (datetime.now() - start_poll_date).seconds >= timeout:
+            while not operation_completed and (datetime.now() - start_poll_date).seconds < timeout:
                 operation = self.get_jobs_operation(app_id, operation_id)
                 operation_id, operation_status = operation["id"], operation["status"]
                 if operation_status != last_operation_status:

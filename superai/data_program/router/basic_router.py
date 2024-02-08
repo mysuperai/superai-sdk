@@ -8,6 +8,7 @@ import superai_schema.universal_schema.data_types as dt
 
 from superai import Client
 from superai.data_program.Exceptions import (
+    CancelledError,
     ChildJobExpired,
     ChildJobFailed,
     ChildJobInternalError,
@@ -83,7 +84,7 @@ class BasicRouter(Router):
 
             if job_type == "BOT_INIT":
                 return send_workflow_job(
-                    workflow=self.default_wf.name,
+                    workflow=self.default_wf,
                     input=inp,
                     params=params,
                     job_type=job_type,
@@ -91,7 +92,12 @@ class BasicRouter(Router):
                     super_task_params=super_task_params,
                 )
 
-            elif job_type in ("DEFAULT", "ONBOARDING", "COLLABORATOR"):
+            elif job_type in (
+                "DEFAULT",
+                "ONBOARDING",
+                "COLLABORATOR",
+                "MEASURER",
+            ):
                 # Get selected method workflow
                 selected_workflow = self.client.get_project(uuid=app_id).get("selectedWorkflow")
                 if selected_workflow:
@@ -109,7 +115,7 @@ class BasicRouter(Router):
                 else:
                     logging.warning(f"No selected workflow for app {app_id}. " "Falling back to dataprogram default.")
                     return send_workflow_job(
-                        workflow=self.default_wf_name,
+                        workflow=self.default_wf,
                         input=inp,
                         params=params,
                         job_type=job_type,
@@ -120,7 +126,7 @@ class BasicRouter(Router):
             elif job_type == "CALIBRATION":
                 # Send job to gold method
                 job_response = send_workflow_job(
-                    workflow=self.gold_wf_name,
+                    workflow=self.gold_wf,
                     input=inp,
                     params=params,
                     job_type=job_type,
@@ -141,11 +147,14 @@ class BasicRouter(Router):
             failure_message = f"{workflow} method did not complete for {job_type} job. Result {result}. Status {status}"
             if not status:
                 raise ChildJobInternalError(failure_message)
+
             if status == "FAILED":
                 raise ChildJobFailed(failure_message)
-            if status == "EXPIRED":
+            elif status == "EXPIRED":
                 raise ChildJobExpired(failure_message)
-            if status != "COMPLETED":
+            elif status == "CANCELED":
+                raise CancelledError(failure_message)
+            elif status == "COMPLETED":
+                return job.result().response(), job.result().data(), None
+            else:
                 raise ChildJobInternalError(failure_message)
-
-            return job.result().response(), job.result().data(), None

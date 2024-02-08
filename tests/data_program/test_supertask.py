@@ -9,11 +9,8 @@ from superai.data_program import CollaboratorWorker, CrowdWorker, IdempotentWork
 from superai.data_program.Exceptions import TaskExpiredMaxRetries
 
 # import superai
-from superai.data_program.task.super_task import (
-    SuperTaskWorkflow,
-    TaskHandler,
-    TaskRouter,
-)
+from superai.data_program.task.super_task import SuperTaskWorkflow
+from superai.data_program.task.task_router import TaskHandler, TaskRouter
 from superai.data_program.task.types import (
     SuperTaskConfig,
     SuperTaskModel,
@@ -140,6 +137,8 @@ class mock_task_result:
 def test_task_router(monkeypatch):
     test_future = Future()
     monkeypatch.setattr("superai.data_program.task.basic.Task._create_task_future", lambda *args, **kwargs: test_future)
+    result = mock_task_result(completed_future)
+    test_future.set_result(result)
 
     params = SuperTaskConfig(workers=[CollaboratorWorker(), BotWorker()], strategy=TaskStrategy.FIRST_COMPLETED)
 
@@ -147,9 +146,6 @@ def test_task_router(monkeypatch):
     assert router
     futures = router.map(task_input=sample_input, task_output=sample_output)
     assert futures
-
-    result = mock_task_result(completed_future)
-    test_future.set_result(result)
 
     selected = router.reduce(futures)
     assert selected == test_future.result()["values"]
@@ -171,9 +167,9 @@ def test_super_task_workflow(monkeypatch, mocker):
     test_future.set_result(result)
 
     # Mock task router functions already tested above
-    monkeypatch.setattr("superai.data_program.task.super_task.TaskRouter.map", lambda *args, **kwargs: [test_future])
+    monkeypatch.setattr("superai.data_program.task.task_router.TaskRouter.map", lambda *args, **kwargs: [test_future])
     monkeypatch.setattr(
-        "superai.data_program.task.super_task.TaskRouter.reduce",
+        "superai.data_program.task.task_router.TaskRouter.reduce",
         lambda *args, **kwargs: dict(formData=dict(annotation="test")),
     )
 
@@ -186,6 +182,8 @@ def test_super_task_workflow(monkeypatch, mocker):
 def test_supertask_timeout_task_fail(monkeypatch):
     test_future = Future()
     monkeypatch.setattr("superai.data_program.task.basic.Task._create_task_future", lambda *args, **kwargs: test_future)
+    result = mock_task_result(expired_future)
+    test_future.set_result(result)
 
     params = SuperTaskConfig(
         workers=[
@@ -196,19 +194,19 @@ def test_supertask_timeout_task_fail(monkeypatch):
     )
 
     router = TaskRouter(task_config=params)
-    futures = router.map(task_input=sample_input, task_output=sample_output)
-    result = mock_task_result(expired_future)
-    test_future.set_result(result)
 
     with pytest.raises(TaskExpiredMaxRetries):
-        router.reduce(futures)
+        router.map(task_input=sample_input, task_output=sample_output)
 
 
 def test_supertask_timeout_task_expire(monkeypatch):
     test_future = Future()
     monkeypatch.setattr("superai.data_program.task.basic.Task._create_task_future", lambda *args, **kwargs: test_future)
+    result = mock_task_result(expired_future)
+    test_future.set_result(result)
+
     # Patch the backoff to speed up testing
-    monkeypatch.setattr("superai.data_program.task.super_task.randint", Mock(side_effect=[1, 1]))
+    monkeypatch.setattr("superai.data_program.task.task_router.randint", Mock(side_effect=[1, 1]))
 
     params = SuperTaskConfig(
         workers=[
@@ -219,26 +217,27 @@ def test_supertask_timeout_task_expire(monkeypatch):
     )
 
     router = TaskRouter(task_config=params)
-    futures = router.map(task_input=sample_input, task_output=sample_output)
-    result = mock_task_result(expired_future)
-    test_future.set_result(result)
 
     # Should raise at the second retry since the result is always mocked as EXPIRED
     with pytest.raises(TaskExpiredMaxRetries):
-        router.reduce(futures)
+        router.map(task_input=sample_input, task_output=sample_output)
 
 
 def test_supertask_timeout_task_successful(monkeypatch):
     timeout_test_future = Future()
     successful_future = Future()
     return_data = [timeout_test_future, timeout_test_future, successful_future]
+    timeout_result = mock_task_result(expired_future)
+    working_result = mock_task_result(completed_future)
+    timeout_test_future.set_result(timeout_result)
+    successful_future.set_result(working_result)
     test_mock = Mock(side_effect=return_data)
     monkeypatch.setattr(
         "superai.data_program.task.basic.Task._create_task_future",
         test_mock,
     )
     # Patch the backoff to speed up testing
-    monkeypatch.setattr("superai.data_program.task.super_task.randint", Mock(side_effect=[1, 1, 1]))
+    monkeypatch.setattr("superai.data_program.task.task_router.randint", Mock(side_effect=[1, 1, 1]))
 
     params = SuperTaskConfig(
         workers=[
@@ -248,13 +247,8 @@ def test_supertask_timeout_task_successful(monkeypatch):
     )
 
     router = TaskRouter(task_config=params)
-    futures = router.map(task_input=sample_input, task_output=sample_output)
-    timeout_result = mock_task_result(expired_future)
-    working_result = mock_task_result(completed_future)
-    timeout_test_future.set_result(timeout_result)
-    successful_future.set_result(working_result)
-
     # Should not raise since the third call has a completed future
+    futures = router.map(task_input=sample_input, task_output=sample_output)
     router.reduce(futures)
     assert test_mock.call_count == len(return_data)
 
@@ -278,3 +272,19 @@ def test_supertask_editable():
         editable=False,
     )
     assert params.editable is False
+
+
+def test_one_task_on_all_workers_inactive():
+    params = SuperTaskConfig(
+        workers=[
+            IdempotentWorker(active=False),
+            CollaboratorWorker(active=False, on_timeout=OnTimeout(action=OnTimeoutAction.retry, max_retries=2)),
+        ],
+        strategy=TaskStrategy.FIRST_COMPLETED,
+    )
+
+    router = TaskRouter(task_config=params)
+    futures = router.map(task_input=sample_input, task_output=sample_output)
+    assert futures
+    assert len(futures.done) == 1
+    assert len(futures.not_done) == 0

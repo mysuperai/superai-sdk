@@ -30,3 +30,12 @@ profile = "black"
 # https://github.com/pypa/setuptools/issues/3499
 requires = ["setuptools>=58,<63"]
 build-backend = "setuptools.build_meta"
+
+[tool.coverage.run]
+source = ["superai"]
+
+[tool.pytest.ini_options]
+addopts = "--cov --cov-report=lcov:lcov.info --cov-report=term"
+
+[tool.pytest.ini_options.env]
+ENV_FOR_SUPERAI="testing"

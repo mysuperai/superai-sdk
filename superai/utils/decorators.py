@@ -26,7 +26,7 @@ def retry(exceptions, tries=5, delay=1, backoff=2, logger=logging):
                 except exceptions as e:
                     msg = f"{e}, Retrying {f} in {mdelay} seconds... {mtries} tries left"
                     if logger:
-                        logger.warning(msg)
+                        logger.exception(msg)
                     else:
                         print(msg)
                     time.sleep(mdelay)

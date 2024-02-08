@@ -8,6 +8,7 @@ import tarfile
 import tempfile
 import uuid
 from copy import deepcopy
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional, Union
 from urllib.parse import urlparse
@@ -95,6 +96,30 @@ class AILoader:
             raise ValueError("Invalid path, please ensure the path exists")
 
     @classmethod
+    def load_essential(cls, identifier: Union[Path, str]) -> AI:
+        """Loads only the AI database data, skipping S3 downloads.
+
+        Args:
+            identifier: The path or ID of the AI model.
+
+        Returns:
+            An AI object with only database data loaded.
+
+        Raises:
+            ValueError: If the identifier is not valid.
+        """
+        identifier_string = str(identifier)
+        if identifier_string.startswith(AI_URI_PREFIX):
+            ai_dict = cls._get_ai_by_uri(identifier_string)
+        elif _is_uuid(identifier_string):
+            ai_dict = cls._get_ai_dict_by_id(identifier_string)
+        else:
+            raise ValueError("Invalid identifier, please ensure it's either a URI or UUID")
+        from superai.meta_ai.ai import AI
+
+        return AI.from_dict(ai_dict)
+
+    @classmethod
     def _get_ai_by_uri(cls, raw_uri: str) -> dict:
         """Find the AI model in the backend via API via its URI and return its S3 save path.
 
@@ -108,23 +133,43 @@ class AILoader:
         uri = AiURI.parse(raw_uri)
         from superai import Client
 
-        client = Client.from_credentials()
+        if uri.owner_name and uri.owner_name != "superai":
+            # TODO: Resolve the namespace to an ID ( owner / organization )
+            raise NotImplementedError(
+                "Namespace resolution is not implemented yet. We only support loading ai://superai/... URIs"
+            )
+
+        client = Client.from_credentials(organization_name=uri.owner_name)
         if uri.version:
-            ai_list = client.list_ai_by_name_version(name=uri.model_name, version=uri.version, verbose=True)
+            ai_list = client.list_ai(name=uri.model_name, version=uri.version, verbose=True, to_json=True)
         else:
-            ai_list = client.list_ai_by_name(name=uri.model_name, verbose=True)
+            ai_list = client.list_ai(name=uri.model_name, verbose=True, to_json=True)
 
         if len(ai_list) == 0:
             raise ValueError(f"AI for URI {uri} not found. Make sure you have access to load.")
         elif len(ai_list) > 1:
             # Fallback to the latest version
             # Iterate over the list and find the one with the latest creation date
-            ai_list.sort(key=lambda x: x.created_at, reverse=True)
+            log.warning(f"Multiple AIs found for URI {uri}. Loading the latest version.")
+            ai_list = cls.sort_ai_by_timestamp(ai_list)
 
             # TODO: add check for owner name so that we can infer if the caller wants the user or organization model
             # e.g.  if client.get_current_user() == ai.owner_name
 
         return ai_list[0]
+
+    @staticmethod
+    def sort_ai_by_timestamp(ai_list: list, date_format: str = "%Y-%m-%dT%H:%M:%S.%f%z") -> list:
+        """Sort a list of AI dictionaries by the 'created_at' field.
+
+        Args:
+            ai_list: List of AI dictionaries.
+            date_format: The format of the 'created_at' field.
+
+        Returns:
+            The sorted list of AI dictionaries.
+        """
+        return sorted(ai_list, key=lambda x: datetime.strptime(x["created_at"], date_format), reverse=True)
 
     @classmethod
     def _get_ai_dict_by_id(cls, ai_id: str) -> dict:
@@ -235,7 +280,7 @@ class AILoader:
         save_file = load_path / TEMPLATE_SAVE_FILE_NAME
         from superai.meta_ai.ai import AI
 
-        loaded_ai = AI.from_yaml(save_file, pull_db_data=pull_db_data)
+        loaded_ai = AI.from_yaml(save_file, pull_db_data=pull_db_data, override_weights_path=weights_path)
         loaded_ai._location = load_path
         log.info(f"Loaded model {loaded_ai}")
         cls._load_weights(weights_path, str(download_folder))

@@ -11,3 +11,21 @@ Though not necessary, we recommend that certain conventions are followed so the 
 - A test folder with one or multiple files in JSON format. These test inputs will be used to test your model during CI/CD execution. You can run these tests locally by running `superai ai predictor-test` after running `superai ai local-deploy`. Add `--log` to `superai ai local-deploy` to follow your model logs during testing.
 - Though not necessary, please consider adding a `README.md` explaining briefly the purpose of your AI model with some links for further reading and a `LICENSE` file if your model is to be made public.
 - Code linting checks can be specified with a `.pre-commit-config.yaml` file. To ensure the CI/CD pipeline runs for your AI model repo copy a `Jenkinsfile` from one existing model repo into the project root directory.
+
+
+### Installing Custom Dependencies
+
+Sometimes, PIP or Conda packages may not suffice due to system-level dependencies. To address this:
+
+- Create a bash script named `setup.sh` in your AI model repository's root directory.
+- This script will execute at the end of the build process, post PIP and Conda installations.
+- Specify the script path in your config file as shown below:
+
+```yaml
+artifacts:
+    run: setup.sh
+```
+
+##  AI Cookbook
+
+Check out the [AI Cookbook](./cookbook.md) for common use cases and examples.

@@ -326,6 +326,7 @@ class AiDeploymentParameters(BaseModel):
     target_average_utilization: Optional[float] = Field(
         0.5, gt=0, description="Target average CPU utilization", alias="targetAverageUtilization"
     )
+    cpu_limit: Optional[float] = Field(None, gt=0, description="Limit CPU usage of AI model", alias="cpuLimit")
     gpu_target_average_utilization: Optional[float] = Field(
         None, description="[Not implemented] Target average utilization for gpu", alias="gpuTargetAverageUtilization"
     )
@@ -358,7 +359,7 @@ class AiDeploymentParameters(BaseModel):
     model_timeout_seconds: Optional[int] = Field(
         20,
         gt=0,
-        le=900,
+        le=1800,
         description="""The expected time of the model to complete one average prediction.
         Will be used to cancel waiting for overwhelmed models to complete."
         The upper bound is a hard limit given by backend constraints.
@@ -406,9 +407,19 @@ class AiDeploymentParameters(BaseModel):
                 raise ValueError("gpuMemoryRequirement can only be set when enableCuda is True")
         return values
 
+    @root_validator
+    def validate_cpu_options(cls, values):
+        "Ensure that the limit is greater than the request"
+        target_average_utilization = values.get("targetAverageUtilization")
+        target_average_utilization_limit = values.get("targetAverageUtilizationLimit")
+        if target_average_utilization is not None and target_average_utilization_limit is not None:
+            if target_average_utilization_limit < target_average_utilization:
+                raise ValueError("targetAverageUtilizationLimit must be greater than targetAverageUtilization")
+        return values
+
     def dict_for_db(self) -> dict:
         """Method wrapping pydantics dict() method to only contain set fields."""
-        return self.dict(exclude_unset=True, by_alias=True, exclude_defaults=True)
+        return self.dict(exclude_unset=True, by_alias=True, exclude_defaults=False)
 
     def json_for_db(self) -> str:
         """Method dumping dict_for_db() method to JSON."""
@@ -426,11 +437,16 @@ class AiDeploymentParameters(BaseModel):
             deployment_parameters = AiDeploymentParameters()
         return deployment_parameters
 
-    def merge(self, other: AiDeploymentParameters):
-        """Merge two DeploymentParameters objects."""
-        for k, v in other.dict().items():
-            if k in self.dict():
-                self.dict()[k] = v
+    def merge(self, other: "AiDeploymentParameters") -> "AiDeploymentParameters":
+        """Merge deployment parameters with precedence to other."""
+        for field_name, field_value in other.dict().items():
+            if field_value is not None:
+                if isinstance(field_value, dict):
+                    original_value = getattr(self, field_name) or {}
+                    original_value.update(field_value)
+                    setattr(self, field_name, original_value)
+                else:
+                    setattr(self, field_name, field_value)
         return self
 
     @classmethod
@@ -458,11 +474,8 @@ class AiDeploymentParameters(BaseModel):
                 "enable_cuda is deprecated and will be removed in future versions. Use `properties` instead."
             )
             properties.enable_cuda = enable_cuda
+
         # Merge properties with deployment parameters from AI template with precedence to properties
         if isinstance(template_parameters, dict):
             template_parameters = cls.parse_obj(template_parameters)
-
-        template_deployment_parameters = template_parameters.dict_for_db()
-        template_deployment_parameters.update(properties.dict_for_db())
-        deployment_parameters = cls.parse_obj(template_deployment_parameters)
-        return deployment_parameters
+        return template_parameters.merge(properties)

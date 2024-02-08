@@ -4,8 +4,10 @@ import json
 import os
 import sys
 import threading
+import time
 from typing import Callable, Dict, List, Optional, Union
 
+import botocore
 from attr import asdict
 from pydantic import ValidationError
 from superai_schema.generators import dynamic_generator
@@ -217,7 +219,11 @@ class DataProgram(DataProgramBase):
             )
             service = DataProgram.ServiceType.DATAPROGRAM
 
-        service = DataProgram.ServiceType(service)
+        try:
+            service = DataProgram.ServiceType(service)
+        except ValueError:
+            raise ValueError(f"{service} is invalid service. Pick one of {[s.value for s in DataProgram.ServiceType]}")
+
         if service == DataProgram.ServiceType.DATAPROGRAM:
             if settings.backend != "qumes":
                 # TODO: Support other backends
@@ -242,7 +248,12 @@ class DataProgram(DataProgramBase):
 
             if wait:
                 log.info("Starting transport threads and waiting for them to finish... Cancel with Ctrl+C")
-            start_threading(join=wait)
+            try:
+                start_threading(join=wait)
+            except KeyboardInterrupt:
+                log.info("Stopping DataProgram...")
+                time.sleep(1)
+                os._exit(0)
 
         elif service == DataProgram.ServiceType.SCHEMA:
             dp_server_port = settings.schema_port
@@ -295,10 +306,12 @@ class DataProgram(DataProgramBase):
         threads = [self._dp_thread, self._dp_schema_server_thread]
         if wait:
             try:
-                for thread in threads:
-                    thread.join()
+                while True:
+                    for thread in threads:
+                        thread.join(timeout=1)
             except KeyboardInterrupt:
                 log.info("Stopping DataProgram...")
+                time.sleep(1)
                 sys.exit(0)
 
     def schema_server_reachable(self):
@@ -330,89 +343,6 @@ class DataProgram(DataProgramBase):
             return True
         except requests.exceptions.ConnectionError:
             return False
-
-    @staticmethod
-    def run(
-        *,
-        default_params: Parameters,
-        handler: Handler[Parameters],
-        workflows: List[WorkflowConfig],
-        metadata: dict = None,
-        auto_generate_metadata: bool = True,
-        name: Optional[str] = None,
-        service: Optional[Union[ServiceType, str]] = None,
-    ):
-        """
-        [DEPRECATED]
-
-        The method starts a data program in qumes mode. This method is deprecated and will be removed in a future
-        release.
-
-        Please use the following method to replicate the methodology
-        ```python
-        dp = DataProgram.create(default_params, handler, metadata, auto_generate_metadata)
-        dp.start_service(default_params, handler, workflows, metadata, auto_generate_metadata)
-        ```
-        """
-        log.warning("DataProgram.run method has been deprecated. Please use DataProgram.create with DataProgram.start")
-        # TODO: Fix: start the DP without legacy dependencies
-        from canotic.hatchery import hatchery_config
-        from canotic.qumes_transport import start_threads
-
-        _validate_necessary_workflows(workflows)
-
-        # Setting the SERVICE env variable indicates that we are running the Data Program as a service
-        service = os.getenv("SERVICE") or service
-
-        name = name or os.getenv("WF_PREFIX")
-        if name is None:
-            raise Exception("Environment variable 'WF_PREFIX' is missing or `name` is not set.")
-
-        if service is None:
-            raise Exception(
-                """Environment variable 'SERVICE' is missing or `service` not passed.
-If you are running data program with 'canotic deploy' command,
-make sure to pass `--serve-schema` in order to opt-in schema server."""
-            )
-
-        if hatchery_config.get_transport_backend_config() != "qumes":
-            raise Exception("Non Qumes transport is not supported by this API.")
-
-        service = DataProgram.ServiceType(service)
-        if service == DataProgram.ServiceType.DATAPROGRAM:
-            log.info("Starting data_program service...")
-
-            log.info("Setting CANOTIC_AGENT=1 and IN_AGENT=YES")
-            os.environ["CANOTIC_AGENT"] = "1"
-            os.environ["IN_AGENT"] = "YES"
-
-            training_dataprogram = os.getenv("TRAINING_DATAPROGRAM")
-            is_training = training_dataprogram is not None and training_dataprogram != name
-            dp = DataProgram(
-                name=name,
-                default_params=default_params,
-                handler=handler,
-                add_basic_workflow=False,
-                metadata=metadata,
-                auto_generate_metadata=auto_generate_metadata,
-                dataprogram=training_dataprogram if is_training else None,
-            )
-
-            dp.check_workflow_deletion(workflows)
-            for workflow_config in workflows:
-                dp._add_workflow_by_config(workflow_config)
-
-            dp.__init_router()
-            start_threads()
-
-        elif service == DataProgram.ServiceType.SCHEMA:
-            dp_server_port = settings.schema_port
-            log.info(f"Starting schema service on port {dp_server_port}...")
-            DPServer(
-                default_params, handler, name=name, workflows=workflows, template_name="", port=dp_server_port
-            ).run()
-        else:
-            raise Exception(f"{service} is invalid service. 'data_program' or 'schema' is available.")
 
     @property
     def gold_workflow(self) -> str:
@@ -926,16 +856,21 @@ make sure to pass `--serve-schema` in order to opt-in schema server."""
 
     def _validate_workflow_registration(self, workflows):
         """Check that all workflows in the DP are registered in the transport layer"""
-        try:
-            import superai_transport.transport.transport as qumes
 
+        try:
+            # import global variable _qumes from superai_transport
+            import superai_transport.transport.transport
+
+            qumes = superai_transport.transport.transport._qumes
             expected_workflows = len(workflows) + 1 + len(self._super_task_models)  # +1 for the basic router
+            log.info(f"Workflows registered in transport layer: {list(qumes._workflow_functions.keys())}")
             assert expected_workflows == len(
                 qumes._workflow_functions
             ), f"Expected {expected_workflows} workflows, but found {len(qumes._workflow_functions)}. "
-            log.info(f"Workflows registered in transport layer: {qumes._workflow_functions.keys()}")
-        except ImportError:
-            log.warning("Could not import superai_transport, skipping workflow validation")
+        except ImportError as e:
+            log.warning(f"Could not import superai_transport, skipping workflow validation, error: {e}")
+        except botocore.exceptions.NoCredentialsError:
+            log.warning("Could not validate workflows, missing AWS credentials")
 
 
 def _validate_necessary_workflows(workflows):

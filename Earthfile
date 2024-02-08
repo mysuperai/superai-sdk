@@ -68,6 +68,9 @@ runtime-pip:
     WORKDIR /app
 
     COPY setup.py .
+    # We copy the version so circular dependency resolving works with the correct version of this package
+    # This will reduce caching though
+    COPY superai/version.py ./superai/version.py
 
     # AWS Credentials defaulting to empty string if aws secret is provided
     # Placing the following args in the PIP_INSTALL command does not work as the ARG command should be within a stage, not a command
@@ -162,6 +165,9 @@ ai-requirements:
     RUN pip install lxml==4.9.2
 
     COPY setup.py .
+    # We copy the version so circular dependency resolving works with the correct version of this package
+    # This will reduce caching though
+    COPY superai/version.py ./superai/version.py
 
     ARG AWS_ACCESS_KEY_ID=""
     ARG AWS_SECRET_ACCESS_KEY=""

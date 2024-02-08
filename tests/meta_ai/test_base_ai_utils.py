@@ -4,14 +4,14 @@ import tarfile
 
 import boto3
 import pytest
-from moto import mock_s3
+from moto import mock_aws
 
 from superai.meta_ai.base.utils import pull_weights
 
 
 @pytest.fixture
 def s3_setup():
-    with mock_s3():
+    with mock_aws():
         boto3.client("s3", region_name="us-west-2").create_bucket(
             Bucket="test-bucket", CreateBucketConfiguration={"LocationConstraint": "us-west-2"}
         )

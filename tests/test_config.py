@@ -183,7 +183,6 @@ def test_list_envs_ignores(capsys):
     captured = capsys.readouterr()
     assert "- default" not in captured.out
     assert "- testing" not in captured.out
-    assert "- sandbox" in captured.out
     assert "- prod" in captured.out
 
 

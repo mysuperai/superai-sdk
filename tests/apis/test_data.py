@@ -59,20 +59,20 @@ def test_get_signed_url(client: Client):
 
 
 def test_download_data_with_relative_path(client: Client):
-    downloaded = client.download_data(path="default/test1.json")
+    downloaded = client.download_data(path="default/test1.json").json()
     expected = {"test1": True}
     assert downloaded == expected
 
 
 def test_download_data_with_full_path(client: Client):
-    downloaded = client.download_data(path="data://2341234132513251/default/test1.json")
+    downloaded = client.download_data(path="data://2341234132513251/default/test1.json").json()
     expected = {"test1": True}
     assert downloaded == expected
 
 
 def test_download_data_public(client: Client):
     with pytest.raises(Exception) as excinfo:
-        client.download_data(path="https://filesamples.com/samples/code/json/sample1.json")
+        client.download_data(path="https://filesamples.com/samples/code/json/sample1.json").json()
     assert "Forbidden" in str(excinfo.value)
 
 

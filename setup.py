@@ -37,7 +37,7 @@ REQUIRES = [
     "click>=7.0",
     "diskcache>=5.4.0",
     "dynaconf>=3.1.12",
-    "fastapi>=0.70.0",
+    "fastapi>=0.70.0, <0.104.0",  # 0.104 contains typing-extensions 4.8 which is not compat. with tensorflow 2.13.0
     "futures-then>=0.1.1",
     "genson>=1.2.2",
     "jinja2>=2.11.2",
@@ -47,6 +47,7 @@ REQUIRES = [
     "pandas>=1.2.5",
     "pip>=19.1",
     "pycognito>=2022.12.0",
+    "pydantic<2.0.0",
     "pyyaml>=3.13",
     "requests>=2.22",
     "rich>=10.1",
@@ -54,11 +55,13 @@ REQUIRES = [
     "sentry-sdk>=0.19.4",
     "sgqlc[websocket]>=16.2",
     "uvicorn>=0.15.0",
+    "superai_logging>=0.1.0",
     "opentelemetry-distro[otlp]>=0.40b0",
     "opentelemetry-instrumentation-botocore>=0.40b0",
     "opentelemetry-instrumentation-requests>=0.40b0",
     "opentelemetry-instrumentation-fastapi>=0.40b0",
 ]
+
 
 AI_REQUIRES = [
     "docker>=5.0.0",
@@ -66,12 +69,14 @@ AI_REQUIRES = [
     "protobuf>=3.20.1, <4",
     # 4.21.0 broke the sagemaker imports, see https://github.com/protocolbuffers/protobuf/issues/10051
     "netifaces>=0.11.0",
-    "superai-builder>=0.8.1",
+    "jsonlines>=4.0.0",
+    "superai-builder>=0.9.1",
     "pydantic>=1.8.2,<2",
 ]
-
-AI_EXPERIMENTAL_REQUIRES = [
-    "sagemaker>=1.64",
+SUPERAI_COMMON_REQUIRES = [
+    "superai-dataclient~=0.1.0",
+    "superai-schema~=0.7",
+    "pydantic>=1.8.2,<2",
 ]
 
 BUILD_REQUIRES = [
@@ -85,30 +90,31 @@ BUILD_REQUIRES = [
 
 DP_REQUIRES = [
     "pyngrok>=6.0.0",
-    "superai-dataclient~=0.1.0",
-    "superai-schema~=0.7",
-    "pydantic>=1.8.2,<2",
+    "superai-transport>=1.0.16",
 ]
 
 TEST_REQUIRES = [
     "coverage>=5.3",
     "deepdiff>=4.0.7",
     "dictdiffer>=0.9.0",
-    "moto>=3.1.12",
+    "moto>=5",
     "pytest-cov>=2.10.1",
     "pytest-env>=0.6.2",
-    "pytest-mock~=3.10.0",
+    "pytest-mock~=3.12.0",
     "pytest-vcr>=1.0.2",
-    "pytest>=6.1.2",
-    "superai-builder>=0.6.2",
+    "pytest-httpserver>=1.0.8",
+    "pytest>=6.1.2,<8",  # v8 breaks one mock assertion in test_ai.py(test_wrapped_prediction_tag)
+    "superai-builder>=0.9.1",
     "tox>=2.9.1",
     "vcrpy>=4.1.1",
+    "httpx~=0.25.1",
 ]
 
 LLM_REQUIRES = [
     "tabulate~=0.9.0",
     "tiktoken~=0.4.0",
-    "openai~=0.27.2",
+    "openai~=1.6.1",
+    "shapely>=2.0.2",
 ]
 
 LLM_REQUIRES_EXTRA = [
@@ -121,13 +127,13 @@ LLM_REQUIRES_EXTRA = [
     "duckduckgo-search",
     "evaluate",
     "faker",
-    "flake8==6.0.0",
+    "flake8==6.1.0",
     "google-api-python-client",
     "google-search-results",
     "jiwer",
     "jupyter",
     "langchain~=0.0.130",
-    "numpy~=1.24.2",
+    "numpy~=1.26.2",
     "openpyxl",
     "orjson",
     "pdf2image~=1.16.3",
@@ -158,17 +164,12 @@ setup(
     keywords=["super.AI API", "super.AI SDK"],
     install_requires=REQUIRES,
     extras_require={
-        "build": DP_REQUIRES + BUILD_REQUIRES,
-        "dp": DP_REQUIRES,
-        "ai": AI_REQUIRES + DP_REQUIRES,
-        "llm": LLM_REQUIRES + AI_REQUIRES + AI_EXPERIMENTAL_REQUIRES + DP_REQUIRES,
-        "test": LLM_REQUIRES + TEST_REQUIRES + DP_REQUIRES + AI_REQUIRES + AI_EXPERIMENTAL_REQUIRES,
-        "complete": BUILD_REQUIRES
-        + DP_REQUIRES
-        + AI_REQUIRES
-        + AI_EXPERIMENTAL_REQUIRES
-        + LLM_REQUIRES
-        + TEST_REQUIRES,
+        "build": DP_REQUIRES + BUILD_REQUIRES + SUPERAI_COMMON_REQUIRES,
+        "dp": DP_REQUIRES + SUPERAI_COMMON_REQUIRES,
+        "ai": AI_REQUIRES + SUPERAI_COMMON_REQUIRES,
+        "llm": LLM_REQUIRES + AI_REQUIRES + DP_REQUIRES + SUPERAI_COMMON_REQUIRES,
+        "test": LLM_REQUIRES + TEST_REQUIRES + DP_REQUIRES + AI_REQUIRES + SUPERAI_COMMON_REQUIRES,
+        "complete": BUILD_REQUIRES + DP_REQUIRES + AI_REQUIRES + LLM_REQUIRES + TEST_REQUIRES + SUPERAI_COMMON_REQUIRES,
     },
     packages=find_packages(),
     include_package_data=True,

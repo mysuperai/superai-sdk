@@ -6,7 +6,6 @@ from sgqlc.operation import Operation
 from superai.log import logger
 
 from .base import AiApiBase
-from .session import MetaAISession
 
 log = logger.get_logger(__name__)
 
@@ -30,7 +29,6 @@ class ProjectAiApiMixin(AiApiBase):
     _resource = "project_ai"
 
     def get_models(self, app_id: str, assignment: str = None, active=None):
-        sess = MetaAISession(app_id=app_id)
         op = Operation(query_root)
         check = meta_ai_app_bool_exp(
             active=Boolean_comparison_exp(_eq=active),
@@ -42,7 +40,7 @@ class ProjectAiApiMixin(AiApiBase):
         models = app_assignments.model
         models.id()
         models.name()
-        data = sess.perform_op(op)
+        data = self.ai_session.perform_op(op, app_id=app_id)
         try:
             return (op + data).meta_ai_app
         except AttributeError:
@@ -56,7 +54,6 @@ class ProjectAiApiMixin(AiApiBase):
         threshold: float = None,
         instance_id: str = None,
     ):
-        sess = MetaAISession(app_id=app_id)
         op = Operation(mutation_root)
         if not instance_id:
             raise ValueError("AI instance_id must be provided")
@@ -75,7 +72,7 @@ class ProjectAiApiMixin(AiApiBase):
         op.insert_meta_ai_app_one(object=insert_input, on_conflict=conflict_handler).__fields__(
             "id", "assigned", "active", "instance_id"
         )
-        data = sess.perform_op(op)
+        data = self.ai_session.perform_op(op, app_id=app_id)
         print(data)
         return (op + data).insert_meta_ai_app_one
 
@@ -90,7 +87,6 @@ class ProjectAiApiMixin(AiApiBase):
 
         Return the number of rows affected.
         """
-        sess = MetaAISession(app_id=app_id)
         op = Operation(mutation_root)
 
         if not instance_id:
@@ -103,27 +99,25 @@ class ProjectAiApiMixin(AiApiBase):
             check.instance_id = uuid_comparison_exp(_eq=instance_id)
 
         op.delete_meta_ai_app(where=check).__fields__("affected_rows")
-        data = sess.perform_op(op)
+        data = self.ai_session.perform_op(op, app_id=app_id)
         return (op + data).delete_meta_ai_app.affected_rows
 
     def list_prediction_instances(self, app_id: str, prediction_id: str):
-        sess = MetaAISession(app_id=app_id)
         op = Operation(query_root)
         instance = op.meta_ai_prediction_by_pk(id=prediction_id).instances.id()
-        data = sess.perform_op(op)
+        data = self.ai_session.perform_op(op, app_id=app_id)
         try:
             return (op + data).meta_ai_prediction_by_pk.instances
         except AttributeError:
             log.info(f"No prediction instances found for prediction_id:{prediction_id}.")
 
     def view_prediction_instance(self, app_id: str, prediction_id: str, instance_id):
-        sess = MetaAISession(app_id=app_id)
         op = Operation(query_root)
         instance = op.meta_ai_instance_by_pk(id=instance_id, prediction_id=prediction_id)
         instance.id()
         instance.score()
         instance.output()
-        data = sess.perform_op(op)
+        data = self.ai_session.perform_op(op, app_id=app_id)
         try:
             output = (op + data).meta_ai_instance_by_pk
             return output
@@ -140,10 +134,9 @@ class ProjectAiApiMixin(AiApiBase):
         Returns:
 
         """
-        sess = MetaAISession(app_id=app_id)
         op = Operation(query_root)
         op.meta_ai_prediction_by_pk(id=prediction_id).__fields__("id", "state")
-        data = sess.perform_op(op)
+        data = self.ai_session.perform_op(op, app_id=app_id)
         try:
             return (op + data).meta_ai_prediction_by_pk
         except AttributeError:
@@ -157,7 +150,6 @@ class ProjectAiApiMixin(AiApiBase):
         checkpoint_id,
         assignment: meta_ai_assignment_enum = "PRELABEL",
     ):
-        sess = MetaAISession(app_id=app_id)
         if type(model_output) is list and len(model_output) > 1:
             log.info("Multiple instances in model output.")
         else:
@@ -166,7 +158,7 @@ class ProjectAiApiMixin(AiApiBase):
         input_args = {"app_id": app_id, "checkpoint_id": checkpoint_id, "type": assignment, "job_id": job_id}
         insert_input = meta_ai_prediction_insert_input(input_args)
         op.insert_meta_ai_prediction_one(object=insert_input).__fields__("id")
-        data = sess.perform_op(op)
+        data = self.ai_session.perform_op(op, app_id=app_id)
         prediction_id = (op + data).insert_meta_ai_prediction_one.id
 
         for i, instance in enumerate(model_output):
@@ -182,7 +174,7 @@ class ProjectAiApiMixin(AiApiBase):
             input_args["id"] = i
             insert_input = meta_ai_instance_insert_input(input_args)
             op.insert_meta_ai_instance_one(object=insert_input).__fields__("id")
-            data = sess.perform_op(op)
+            data = self.ai_session.perform_op(op, app_id=app_id)
             instance_id = (op + data).insert_meta_ai_instance_one.id
             log.debug(
                 f"Inserted output instance {instance_id} for checkpoint {checkpoint_id} under prediction_id {prediction_id}."
@@ -191,10 +183,9 @@ class ProjectAiApiMixin(AiApiBase):
         return prediction_id
 
     def delete_prelabel(self, app_id, id):
-        sess = MetaAISession(app_id=app_id)
         op = Operation(mutation_root)
         op.delete_meta_ai_prediction_by_pk(id=id).id()
-        data = sess.perform_op(op)
+        data = self.ai_session.perform_op(op, app_id=app_id)
         return (op + data).delete_meta_ai_prediction_by_pk.id
 
     def request_prediction_of_job(
@@ -210,10 +201,9 @@ class ProjectAiApiMixin(AiApiBase):
         Returns:
             str
         """
-        sess = MetaAISession(app_id=app_id)
         opq = Operation(query_root)
         opq.request_prediction_of_job(app_id=app_id, job_id=job_id, assignment=assignment).predictions.id()
-        data = sess.perform_op(opq)
+        data = self.ai_session(opq, app_id=app_id)
         res = (opq + data).request_prediction_of_job
         if len(res) == 0:
             raise Exception(f"No predictions could be requested. Does the job {job_id} exist?")
@@ -239,9 +229,8 @@ class ProjectAiApiMixin(AiApiBase):
         Returns:
             Accessible URL of file
         """
-        sess = MetaAISession()
         opq = Operation(query_root)
         opq.resolve_data_ref(prediction_id=prediction_id, instance_id=instance_id, data_ref=reference).url()
-        data = sess.perform_op(opq)
+        data = self.ai_session(opq)
         res = (opq + data).resolve_data_ref
         return res.url

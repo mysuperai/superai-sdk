@@ -3,7 +3,8 @@ from typing import Optional
 
 import pytest
 
-from superai import AiApiMixin, settings
+from superai import settings
+from superai.apis.meta_ai import MetaAiApiMixin
 
 """
 New shared ai_client fixture module
@@ -25,6 +26,7 @@ def vcr(vcr):
         "User-Agent",
         "Authorization",
         "X-Amz-Security-Token",
+        "Accept-Encoding",
     ]
     vcr.decode_compressed_response = True
     return vcr
@@ -79,7 +81,7 @@ def ai_client(local_endpoint, monkeysession, vcr):
         monkeysession.setattr(settings, "meta_ai_base", base_url)
 
     with vcr.use_cassette("client.yaml"):
-        yield AiApiMixin()
+        yield MetaAiApiMixin()
 
 
 def pytest_addoption(parser):

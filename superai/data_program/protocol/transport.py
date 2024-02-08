@@ -1091,37 +1091,6 @@ def send_report(status):
         writeln_to_pipe_and_flush(message_for_agent.to_json)
 
 
-def run_model_predict(predict_func, port=8080, context=None):
-    _in_pipe = io.open("/tmp/canotic.in." + os.environ["CANOTIC_PREDICT"], "r", encoding="utf-8")
-    _out_pipe = io.open("/tmp/canotic.out." + os.environ["CANOTIC_PREDICT"], "w", encoding="utf-8")
-
-    line = _in_pipe.readline()
-    while len(line) != 0:
-        line = line.rstrip("\n")
-        request = json.loads(line)
-        if "type" not in request:
-            raise ValueError("Message \`type\` is missing in request")
-
-        if request["type"] != "PREDICT":
-            raise ValueError("Only message \`type\` 'PREDICT' is expected in serve_predict mode")
-
-        if "sequence" not in request:
-            raise ValueError("'sequence' expected in inbound message")
-
-        sequence = request["sequence"]
-
-        response = predict_func(request["input"], context)
-
-        params = {"type": "PREDICTION", "sequence": sequence, "response": response}
-
-        message_for_agent = message(params)
-
-        with _pipe_lock:
-            writeln_to_pipe_and_flush(message_for_agent.to_json)
-
-        line = _in_pipe.readline()
-
-
 def subscribe_workflow(function, prefix, suffix, schema=None, workflow_type: Optional[WorkflowType] = None, **kwargs):
     """Subscribes a workflow.
     TODO: Add workflow_type support for websocket
@@ -1144,11 +1113,6 @@ def subscribe_workflow(function, prefix, suffix, schema=None, workflow_type: Opt
 
     with _pipe_lock:
         writeln_to_pipe_and_flush(message_for_agent.to_json)
-
-
-@terminate_guard
-def attach_bill(amount):
-    _context.bill = amount
 
 
 @terminate_guard

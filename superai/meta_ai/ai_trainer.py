@@ -8,6 +8,7 @@ from superai.config import get_ai_bucket
 from superai.log import get_logger
 from superai.meta_ai import AI, AIInstance, TrainingOrchestrator
 from superai.meta_ai.ai_helper import ecr_full_name, upload_dir
+from superai.meta_ai.dataset import DatasetMetadata
 from superai.meta_ai.parameters import (
     AiDeploymentParameters,
     HyperParameterSpec,
@@ -94,11 +95,10 @@ class AITrainer:
         skip_build: bool = False,
         properties: Optional[Union[dict, AiDeploymentParameters]] = None,
         training_parameters: Optional[TrainingParameters] = None,
-        use_internal: bool = False,
         enable_cuda: bool = False,
         app_id: Optional[str] = None,
         task_name: Optional[str] = None,
-        metadata: dict = None,
+        dataset_metadata: Optional[DatasetMetadata] = None,
         **kwargs,
     ):
         """Here we need to create a docker container with superai-sdk installed. Then we will create a run script
@@ -119,29 +119,28 @@ class AITrainer:
             envs: Pass custom environment variables to the deployment. Should be a dictionary like
                   {"LOG_LEVEL": "DEBUG", "OTHER": "VARIABLE"}
             download_base: Always download the base image to get the latest version from ECR
-            use_internal: Use internal development base image. Only accessible for super.AI developers.
         """
         if training_data_dir is None and app_id is None:
             raise ValueError("Either app_id or training_data_dir is required")
         if training_data_dir is not None and app_id is not None:
             raise ValueError("Only one of app_id or training_data_dir is allowed")
-        if app_id is not None and task_name is None:
-            raise ValueError("task_name is required when app_id is provided")
 
         # TODO: add method which works with local training
         orchestrator = TrainingOrchestrator.AWS_EKS
         kwargs.pop("orchestrator", None)
 
         properties = properties or {}
-        metadata = metadata or {}
+        dataset_metadata = dataset_metadata or DatasetMetadata()
+
         deployment_parameters = AiDeploymentParameters.merge_deployment_parameters(
             self.ai.default_deployment_parameters, properties, enable_cuda
         )
-
-        # Build image and merge all parameters
-        loaded_parameters = self._prepare_training(
-            orchestrator, deployment_parameters, training_parameters, skip_build, use_internal, **kwargs
-        )
+        loaded_parameters = {}
+        if not skip_build:
+            # Build image and merge all parameters
+            loaded_parameters = self._prepare_training(
+                orchestrator, deployment_parameters, training_parameters, skip_build, **kwargs
+            )
 
         # Create a training template
         template_id = self._get_or_create_training_entry(
@@ -153,6 +152,7 @@ class AITrainer:
         )
 
         source_checkpoint_id = self.ai_instance.get_checkpoint().id  # TODO: Allow passing of checkpoint id
+        log.info(f"Using source checkpoint {source_checkpoint_id} for training")
 
         if training_data_dir is not None:
             log.info(f"Using local training data from {training_data_dir}")
@@ -172,18 +172,16 @@ class AITrainer:
                 ai_instance_id=self.ai_instance.id,
                 task_name=task_name,
                 training_template_id=template_id,
+                checkpoint_id=source_checkpoint_id,
                 current_properties=loaded_parameters,
-                metadata=metadata,
+                dataset_metadata=dataset_metadata.dict(exclude_none=True, exclude_unset=True),
             )
-
         # Start the training in the backend
         instance = self.ai._client.update_training_instance(instance_id, app_id, state="STARTING")
         log.info(f"Created training instance : {instance}. Will be started in the backend")
         return instance
 
-    def _prepare_training(
-        self, orchestrator, deployment_parameters, training_parameters, skip_build, use_internal, **kwargs
-    ) -> dict:
+    def _prepare_training(self, orchestrator, deployment_parameters, training_parameters, skip_build, **kwargs) -> dict:
         """Prepares image and parameters for training
 
         1. Builds the model if not skipped
@@ -196,7 +194,6 @@ class AITrainer:
             deployment_parameters: Deployment parameters, e.g. hardware requirements
             training_parameters: Training parameters
             skip_build: Skip building
-            use_internal: Use internal development base image. Only accessible for super.AI developers.
             **kwargs: Additional kwargs for the image builder
 
         Returns:
@@ -228,7 +225,6 @@ class AITrainer:
                 loaded_parameters = json.loads(loaded_parameters)
 
         # Merge parameters with deployment parameters
-        # TODO: correctly load parameters in backend
         loaded_parameters[DEPLOYMENT_PARAMETERS_SUBKEY] = deployment_parameters.dict_for_db()
         if deployment_parameters.enable_cuda:
             # Legacy path to enable GPU training
@@ -281,7 +277,7 @@ class AITrainer:
         properties = properties or {}
 
         # Check if a training template entry already exists
-        existing_templates = self.ai._client.get_training_templates(ai_instance_id=ai_instance_id, app_id=app_id)
+        existing_templates = self.ai._client.list_training_templates(ai_instance_id=ai_instance_id, app_id=app_id)
         if existing_templates:
             template_id = existing_templates[0].id
             log.info(f"Found existing training template with ID {template_id}")

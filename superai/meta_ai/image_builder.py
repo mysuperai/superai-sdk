@@ -190,7 +190,7 @@ class AiImageBuilder:
             raise ValueError(f"Invalid python version {python_version}, should be like '3.10'")
 
         default_image = f"python:{python_version}-slim-buster"
-        gpu_image = "nvidia/cuda:12.2.0-runtime-ubuntu22.04"
+        gpu_image = "nvidia/cuda:11.8.0-runtime-ubuntu22.04"
 
         return user_base_image or (gpu_image if deployment_parameters.enable_cuda else default_image)
 

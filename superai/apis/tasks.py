@@ -123,7 +123,7 @@ class TasksApiMixin(ABC):
         )["operationId"]
         operation_completed = False
         start_poll_date = datetime.now()
-        while not operation_completed or (datetime.now() - start_poll_date).seconds >= timeout:
+        while not operation_completed and (datetime.now() - start_poll_date).seconds < timeout:
             operation = self.get_tasks_operation(app_id, operation_id)
             log.info(f"Poll result: Operation {operation['id']} in status: {operation['status']}")
             if operation["status"] == "COMPLETED":

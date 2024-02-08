@@ -418,6 +418,7 @@ class meta_ai_deployment_select_column(sgqlc.types.Enum):
         "metadata",
         "min_instances",
         "modelId",
+        "organizationId",
         "ownerId",
         "properties",
         "purpose",
@@ -438,7 +439,17 @@ class meta_ai_deployment_status_constraint(sgqlc.types.Enum):
 
 class meta_ai_deployment_status_enum(sgqlc.types.Enum):
     __schema__ = meta_ai_graphql_schema
-    __choices__ = ("FAILED", "FINISHED", "MAINTENANCE", "OFFLINE", "ONLINE", "PAUSED", "STARTING", "UNKNOWN")
+    __choices__ = (
+        "FAILED",
+        "FINISHED",
+        "MAINTENANCE",
+        "OFFLINE",
+        "ONLINE",
+        "PAUSED",
+        "STARTING",
+        "UNKNOWN",
+        "UPDATING",
+    )
 
 
 class meta_ai_deployment_status_select_column(sgqlc.types.Enum):
@@ -490,6 +501,7 @@ class meta_ai_deployment_update_column(sgqlc.types.Enum):
         "metadata",
         "min_instances",
         "modelId",
+        "organizationId",
         "ownerId",
         "properties",
         "purpose",
@@ -681,6 +693,7 @@ class meta_ai_modelv2_select_column(sgqlc.types.Enum):
         "metadata",
         "name",
         "organisationId",
+        "organizationId",
         "ownerId",
         "servedBy",
         "templateId",
@@ -703,6 +716,7 @@ class meta_ai_modelv2_update_column(sgqlc.types.Enum):
         "metadata",
         "name",
         "organisationId",
+        "organizationId",
         "ownerId",
         "servedBy",
         "templateId",
@@ -834,7 +848,7 @@ class meta_ai_template_select_column(sgqlc.types.Enum):
         "metadata",
         "modelSavePath",
         "name",
-        "organisationId",
+        "organizationId",
         "outputSchema",
         "ownerId",
         "trainable",
@@ -859,7 +873,7 @@ class meta_ai_template_update_column(sgqlc.types.Enum):
         "metadata",
         "modelSavePath",
         "name",
-        "organisationId",
+        "organizationId",
         "outputSchema",
         "ownerId",
         "trainable",
@@ -1199,12 +1213,21 @@ class String_comparison_exp(sgqlc.types.Input):
 
 class TrainingParameters(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("app_id", "current_properties", "metadata", "model_id", "task_name", "training_template_id")
+    __field_names__ = (
+        "app_id",
+        "checkpoint_id",
+        "current_properties",
+        "metadata",
+        "model_id",
+        "task_name",
+        "training_template_id",
+    )
     app_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="app_id")
+    checkpoint_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="checkpoint_id")
     current_properties = sgqlc.types.Field(json, graphql_name="current_properties")
     metadata = sgqlc.types.Field(json, graphql_name="metadata")
     model_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="model_id")
-    task_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="task_name")
+    task_name = sgqlc.types.Field(String, graphql_name="task_name")
     training_template_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="training_template_id")
 
 
@@ -1394,7 +1417,6 @@ class meta_ai_app_bool_exp(sgqlc.types.Input):
         "instance_id",
         "jobs",
         "jobs_aggregate",
-        "model",
         "model_id",
         "predictions",
         "predictions_aggregate",
@@ -1416,7 +1438,6 @@ class meta_ai_app_bool_exp(sgqlc.types.Input):
     instance_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="instanceId")
     jobs = sgqlc.types.Field("turbine_job_bool_exp", graphql_name="jobs")
     jobs_aggregate = sgqlc.types.Field("turbine_job_aggregate_bool_exp", graphql_name="jobs_aggregate")
-    model = sgqlc.types.Field("meta_ai_model_bool_exp", graphql_name="model")
     model_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="modelId")
     predictions = sgqlc.types.Field("meta_ai_prediction_bool_exp", graphql_name="predictions")
     predictions_aggregate = sgqlc.types.Field(
@@ -1531,7 +1552,6 @@ class meta_ai_app_insert_input(sgqlc.types.Input):
         "instance",
         "instance_id",
         "jobs",
-        "model",
         "model_id",
         "predictions",
         "row_id",
@@ -1547,7 +1567,6 @@ class meta_ai_app_insert_input(sgqlc.types.Input):
     instance = sgqlc.types.Field("meta_ai_modelv2_obj_rel_insert_input", graphql_name="instance")
     instance_id = sgqlc.types.Field(uuid, graphql_name="instanceId")
     jobs = sgqlc.types.Field("turbine_job_arr_rel_insert_input", graphql_name="jobs")
-    model = sgqlc.types.Field("meta_ai_model_obj_rel_insert_input", graphql_name="model")
     model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
     predictions = sgqlc.types.Field("meta_ai_prediction_arr_rel_insert_input", graphql_name="predictions")
     row_id = sgqlc.types.Field(Int, graphql_name="rowId")
@@ -1607,7 +1626,6 @@ class meta_ai_app_order_by(sgqlc.types.Input):
         "instance",
         "instance_id",
         "jobs_aggregate",
-        "model",
         "model_id",
         "predictions_aggregate",
         "row_id",
@@ -1623,7 +1641,6 @@ class meta_ai_app_order_by(sgqlc.types.Input):
     instance = sgqlc.types.Field("meta_ai_modelv2_order_by", graphql_name="instance")
     instance_id = sgqlc.types.Field(order_by, graphql_name="instanceId")
     jobs_aggregate = sgqlc.types.Field("turbine_job_aggregate_order_by", graphql_name="jobs_aggregate")
-    model = sgqlc.types.Field("meta_ai_model_order_by", graphql_name="model")
     model_id = sgqlc.types.Field(order_by, graphql_name="modelId")
     predictions_aggregate = sgqlc.types.Field(
         "meta_ai_prediction_aggregate_order_by", graphql_name="predictions_aggregate"
@@ -2199,6 +2216,7 @@ class meta_ai_checkpoint_bool_exp(sgqlc.types.Input):
         "model_id",
         "modelv2",
         "modelv2_id",
+        "parent",
         "parent_version",
         "predictions",
         "predictions_aggregate",
@@ -2226,10 +2244,11 @@ class meta_ai_checkpoint_bool_exp(sgqlc.types.Input):
     format = sgqlc.types.Field("meta_ai_checkpoint_format_enum_comparison_exp", graphql_name="format")
     id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="id")
     metadata = sgqlc.types.Field(jsonb_comparison_exp, graphql_name="metadata")
-    model = sgqlc.types.Field("meta_ai_model_bool_exp", graphql_name="model")
+    model = sgqlc.types.Field("meta_ai_modelv2_bool_exp", graphql_name="model")
     model_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="modelId")
     modelv2 = sgqlc.types.Field("meta_ai_modelv2_bool_exp", graphql_name="modelv2")
     modelv2_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="modelv2Id")
+    parent = sgqlc.types.Field("meta_ai_checkpoint_bool_exp", graphql_name="parent")
     parent_version = sgqlc.types.Field("uuid_comparison_exp", graphql_name="parentVersion")
     predictions = sgqlc.types.Field("meta_ai_prediction_bool_exp", graphql_name="predictions")
     predictions_aggregate = sgqlc.types.Field(
@@ -2369,6 +2388,7 @@ class meta_ai_checkpoint_insert_input(sgqlc.types.Input):
         "model_id",
         "modelv2",
         "modelv2_id",
+        "parent",
         "parent_version",
         "predictions",
         "source_training_id",
@@ -2387,10 +2407,11 @@ class meta_ai_checkpoint_insert_input(sgqlc.types.Input):
     format = sgqlc.types.Field(meta_ai_checkpoint_format_enum, graphql_name="format")
     id = sgqlc.types.Field(uuid, graphql_name="id")
     metadata = sgqlc.types.Field(jsonb, graphql_name="metadata")
-    model = sgqlc.types.Field("meta_ai_model_obj_rel_insert_input", graphql_name="model")
+    model = sgqlc.types.Field("meta_ai_modelv2_obj_rel_insert_input", graphql_name="model")
     model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
     modelv2 = sgqlc.types.Field("meta_ai_modelv2_obj_rel_insert_input", graphql_name="modelv2")
     modelv2_id = sgqlc.types.Field(uuid, graphql_name="modelv2Id")
+    parent = sgqlc.types.Field("meta_ai_checkpoint_obj_rel_insert_input", graphql_name="parent")
     parent_version = sgqlc.types.Field(uuid, graphql_name="parentVersion")
     predictions = sgqlc.types.Field("meta_ai_prediction_arr_rel_insert_input", graphql_name="predictions")
     source_training_id = sgqlc.types.Field(uuid, graphql_name="sourceTrainingId")
@@ -2493,6 +2514,7 @@ class meta_ai_checkpoint_order_by(sgqlc.types.Input):
         "model_id",
         "modelv2",
         "modelv2_id",
+        "parent",
         "parent_version",
         "predictions_aggregate",
         "source_training_id",
@@ -2511,10 +2533,11 @@ class meta_ai_checkpoint_order_by(sgqlc.types.Input):
     format = sgqlc.types.Field(order_by, graphql_name="format")
     id = sgqlc.types.Field(order_by, graphql_name="id")
     metadata = sgqlc.types.Field(order_by, graphql_name="metadata")
-    model = sgqlc.types.Field("meta_ai_model_order_by", graphql_name="model")
+    model = sgqlc.types.Field("meta_ai_modelv2_order_by", graphql_name="model")
     model_id = sgqlc.types.Field(order_by, graphql_name="modelId")
     modelv2 = sgqlc.types.Field("meta_ai_modelv2_order_by", graphql_name="modelv2")
     modelv2_id = sgqlc.types.Field(order_by, graphql_name="modelv2Id")
+    parent = sgqlc.types.Field("meta_ai_checkpoint_order_by", graphql_name="parent")
     parent_version = sgqlc.types.Field(order_by, graphql_name="parentVersion")
     predictions_aggregate = sgqlc.types.Field(
         "meta_ai_prediction_aggregate_order_by", graphql_name="predictions_aggregate"
@@ -4056,9 +4079,10 @@ class meta_ai_deployment_arr_rel_insert_input(sgqlc.types.Input):
 
 class meta_ai_deployment_avg_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("current_log_id", "min_instances", "owner_id", "scale_in_timeout")
+    __field_names__ = ("current_log_id", "min_instances", "organization_id", "owner_id", "scale_in_timeout")
     current_log_id = sgqlc.types.Field(order_by, graphql_name="current_log_id")
     min_instances = sgqlc.types.Field(order_by, graphql_name="min_instances")
+    organization_id = sgqlc.types.Field(order_by, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
     scale_in_timeout = sgqlc.types.Field(order_by, graphql_name="scale_in_timeout")
 
@@ -4082,6 +4106,7 @@ class meta_ai_deployment_bool_exp(sgqlc.types.Input):
         "model_id",
         "modelv2",
         "modelv2s",
+        "organization_id",
         "owner_id",
         "properties",
         "purpose",
@@ -4115,6 +4140,7 @@ class meta_ai_deployment_bool_exp(sgqlc.types.Input):
     model_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="modelId")
     modelv2 = sgqlc.types.Field("meta_ai_model_bool_exp", graphql_name="modelv2")
     modelv2s = sgqlc.types.Field("meta_ai_modelv2_bool_exp", graphql_name="modelv2s")
+    organization_id = sgqlc.types.Field(bigint_comparison_exp, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(bigint_comparison_exp, graphql_name="ownerId")
     properties = sgqlc.types.Field(jsonb_comparison_exp, graphql_name="properties")
     purpose = sgqlc.types.Field("meta_ai_deployment_purpose_enum_comparison_exp", graphql_name="purpose")
@@ -4150,9 +4176,10 @@ class meta_ai_deployment_delete_key_input(sgqlc.types.Input):
 
 class meta_ai_deployment_inc_input(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("current_log_id", "min_instances", "owner_id", "scale_in_timeout")
+    __field_names__ = ("current_log_id", "min_instances", "organization_id", "owner_id", "scale_in_timeout")
     current_log_id = sgqlc.types.Field(Int, graphql_name="current_log_id")
     min_instances = sgqlc.types.Field(Int, graphql_name="min_instances")
+    organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
     scale_in_timeout = sgqlc.types.Field(Int, graphql_name="scale_in_timeout")
 
@@ -4172,6 +4199,7 @@ class meta_ai_deployment_insert_input(sgqlc.types.Input):
         "model_id",
         "modelv2",
         "modelv2s",
+        "organization_id",
         "owner_id",
         "properties",
         "purpose",
@@ -4195,6 +4223,7 @@ class meta_ai_deployment_insert_input(sgqlc.types.Input):
     model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
     modelv2 = sgqlc.types.Field("meta_ai_model_obj_rel_insert_input", graphql_name="modelv2")
     modelv2s = sgqlc.types.Field("meta_ai_modelv2_obj_rel_insert_input", graphql_name="modelv2s")
+    organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
     properties = sgqlc.types.Field(jsonb, graphql_name="properties")
     purpose = sgqlc.types.Field(meta_ai_deployment_purpose_enum, graphql_name="purpose")
@@ -4441,6 +4470,7 @@ class meta_ai_deployment_max_order_by(sgqlc.types.Input):
         "id",
         "min_instances",
         "model_id",
+        "organization_id",
         "owner_id",
         "scale_in_timeout",
         "state_timestamp",
@@ -4454,6 +4484,7 @@ class meta_ai_deployment_max_order_by(sgqlc.types.Input):
     id = sgqlc.types.Field(order_by, graphql_name="id")
     min_instances = sgqlc.types.Field(order_by, graphql_name="min_instances")
     model_id = sgqlc.types.Field(order_by, graphql_name="modelId")
+    organization_id = sgqlc.types.Field(order_by, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
     scale_in_timeout = sgqlc.types.Field(order_by, graphql_name="scale_in_timeout")
     state_timestamp = sgqlc.types.Field(order_by, graphql_name="state_timestamp")
@@ -4471,6 +4502,7 @@ class meta_ai_deployment_min_order_by(sgqlc.types.Input):
         "id",
         "min_instances",
         "model_id",
+        "organization_id",
         "owner_id",
         "scale_in_timeout",
         "state_timestamp",
@@ -4484,6 +4516,7 @@ class meta_ai_deployment_min_order_by(sgqlc.types.Input):
     id = sgqlc.types.Field(order_by, graphql_name="id")
     min_instances = sgqlc.types.Field(order_by, graphql_name="min_instances")
     model_id = sgqlc.types.Field(order_by, graphql_name="modelId")
+    organization_id = sgqlc.types.Field(order_by, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
     scale_in_timeout = sgqlc.types.Field(order_by, graphql_name="scale_in_timeout")
     state_timestamp = sgqlc.types.Field(order_by, graphql_name="state_timestamp")
@@ -4524,6 +4557,7 @@ class meta_ai_deployment_order_by(sgqlc.types.Input):
         "model_id",
         "modelv2",
         "modelv2s",
+        "organization_id",
         "owner_id",
         "properties",
         "purpose",
@@ -4549,6 +4583,7 @@ class meta_ai_deployment_order_by(sgqlc.types.Input):
     model_id = sgqlc.types.Field(order_by, graphql_name="modelId")
     modelv2 = sgqlc.types.Field("meta_ai_model_order_by", graphql_name="modelv2")
     modelv2s = sgqlc.types.Field("meta_ai_modelv2_order_by", graphql_name="modelv2s")
+    organization_id = sgqlc.types.Field(order_by, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
     properties = sgqlc.types.Field(order_by, graphql_name="properties")
     purpose = sgqlc.types.Field(order_by, graphql_name="purpose")
@@ -4679,6 +4714,7 @@ class meta_ai_deployment_set_input(sgqlc.types.Input):
         "metadata",
         "min_instances",
         "model_id",
+        "organization_id",
         "owner_id",
         "properties",
         "purpose",
@@ -4698,6 +4734,7 @@ class meta_ai_deployment_set_input(sgqlc.types.Input):
     metadata = sgqlc.types.Field(jsonb, graphql_name="metadata")
     min_instances = sgqlc.types.Field(Int, graphql_name="min_instances")
     model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
+    organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
     properties = sgqlc.types.Field(jsonb, graphql_name="properties")
     purpose = sgqlc.types.Field(meta_ai_deployment_purpose_enum, graphql_name="purpose")
@@ -4827,27 +4864,30 @@ class meta_ai_deployment_status_updates(sgqlc.types.Input):
 
 class meta_ai_deployment_stddev_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("current_log_id", "min_instances", "owner_id", "scale_in_timeout")
+    __field_names__ = ("current_log_id", "min_instances", "organization_id", "owner_id", "scale_in_timeout")
     current_log_id = sgqlc.types.Field(order_by, graphql_name="current_log_id")
     min_instances = sgqlc.types.Field(order_by, graphql_name="min_instances")
+    organization_id = sgqlc.types.Field(order_by, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
     scale_in_timeout = sgqlc.types.Field(order_by, graphql_name="scale_in_timeout")
 
 
 class meta_ai_deployment_stddev_pop_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("current_log_id", "min_instances", "owner_id", "scale_in_timeout")
+    __field_names__ = ("current_log_id", "min_instances", "organization_id", "owner_id", "scale_in_timeout")
     current_log_id = sgqlc.types.Field(order_by, graphql_name="current_log_id")
     min_instances = sgqlc.types.Field(order_by, graphql_name="min_instances")
+    organization_id = sgqlc.types.Field(order_by, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
     scale_in_timeout = sgqlc.types.Field(order_by, graphql_name="scale_in_timeout")
 
 
 class meta_ai_deployment_stddev_samp_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("current_log_id", "min_instances", "owner_id", "scale_in_timeout")
+    __field_names__ = ("current_log_id", "min_instances", "organization_id", "owner_id", "scale_in_timeout")
     current_log_id = sgqlc.types.Field(order_by, graphql_name="current_log_id")
     min_instances = sgqlc.types.Field(order_by, graphql_name="min_instances")
+    organization_id = sgqlc.types.Field(order_by, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
     scale_in_timeout = sgqlc.types.Field(order_by, graphql_name="scale_in_timeout")
 
@@ -4872,6 +4912,7 @@ class meta_ai_deployment_stream_cursor_value_input(sgqlc.types.Input):
         "metadata",
         "min_instances",
         "model_id",
+        "organization_id",
         "owner_id",
         "properties",
         "purpose",
@@ -4891,6 +4932,7 @@ class meta_ai_deployment_stream_cursor_value_input(sgqlc.types.Input):
     metadata = sgqlc.types.Field(jsonb, graphql_name="metadata")
     min_instances = sgqlc.types.Field(Int, graphql_name="min_instances")
     model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
+    organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
     properties = sgqlc.types.Field(jsonb, graphql_name="properties")
     purpose = sgqlc.types.Field(meta_ai_deployment_purpose_enum, graphql_name="purpose")
@@ -4905,9 +4947,10 @@ class meta_ai_deployment_stream_cursor_value_input(sgqlc.types.Input):
 
 class meta_ai_deployment_sum_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("current_log_id", "min_instances", "owner_id", "scale_in_timeout")
+    __field_names__ = ("current_log_id", "min_instances", "organization_id", "owner_id", "scale_in_timeout")
     current_log_id = sgqlc.types.Field(order_by, graphql_name="current_log_id")
     min_instances = sgqlc.types.Field(order_by, graphql_name="min_instances")
+    organization_id = sgqlc.types.Field(order_by, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
     scale_in_timeout = sgqlc.types.Field(order_by, graphql_name="scale_in_timeout")
 
@@ -5017,27 +5060,30 @@ class meta_ai_deployment_updates(sgqlc.types.Input):
 
 class meta_ai_deployment_var_pop_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("current_log_id", "min_instances", "owner_id", "scale_in_timeout")
+    __field_names__ = ("current_log_id", "min_instances", "organization_id", "owner_id", "scale_in_timeout")
     current_log_id = sgqlc.types.Field(order_by, graphql_name="current_log_id")
     min_instances = sgqlc.types.Field(order_by, graphql_name="min_instances")
+    organization_id = sgqlc.types.Field(order_by, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
     scale_in_timeout = sgqlc.types.Field(order_by, graphql_name="scale_in_timeout")
 
 
 class meta_ai_deployment_var_samp_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("current_log_id", "min_instances", "owner_id", "scale_in_timeout")
+    __field_names__ = ("current_log_id", "min_instances", "organization_id", "owner_id", "scale_in_timeout")
     current_log_id = sgqlc.types.Field(order_by, graphql_name="current_log_id")
     min_instances = sgqlc.types.Field(order_by, graphql_name="min_instances")
+    organization_id = sgqlc.types.Field(order_by, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
     scale_in_timeout = sgqlc.types.Field(order_by, graphql_name="scale_in_timeout")
 
 
 class meta_ai_deployment_variance_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("current_log_id", "min_instances", "owner_id", "scale_in_timeout")
+    __field_names__ = ("current_log_id", "min_instances", "organization_id", "owner_id", "scale_in_timeout")
     current_log_id = sgqlc.types.Field(order_by, graphql_name="current_log_id")
     min_instances = sgqlc.types.Field(order_by, graphql_name="min_instances")
+    organization_id = sgqlc.types.Field(order_by, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
     scale_in_timeout = sgqlc.types.Field(order_by, graphql_name="scale_in_timeout")
 
@@ -6277,10 +6323,11 @@ class meta_ai_modelv2_arr_rel_insert_input(sgqlc.types.Input):
 
 class meta_ai_modelv2_avg_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "owner_id")
+    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "organization_id", "owner_id")
     ai_worker_id = sgqlc.types.Field(order_by, graphql_name="aiWorkerId")
     editor_id = sgqlc.types.Field(order_by, graphql_name="editorId")
     organisation_id = sgqlc.types.Field(order_by, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(order_by, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
 
 
@@ -6294,6 +6341,7 @@ class meta_ai_modelv2_bool_exp(sgqlc.types.Input):
         "ai_worker_username",
         "apps",
         "apps_aggregate",
+        "checkpoint",
         "checkpoint_tag",
         "checkpoint_tag_relation",
         "checkpoints",
@@ -6307,7 +6355,10 @@ class meta_ai_modelv2_bool_exp(sgqlc.types.Input):
         "metadata",
         "name",
         "organisation_id",
+        "organization_id",
         "owner_id",
+        "predictions",
+        "predictions_aggregate",
         "served_by",
         "template",
         "template_id",
@@ -6321,6 +6372,7 @@ class meta_ai_modelv2_bool_exp(sgqlc.types.Input):
     ai_worker_username = sgqlc.types.Field(String_comparison_exp, graphql_name="aiWorkerUsername")
     apps = sgqlc.types.Field(meta_ai_app_bool_exp, graphql_name="apps")
     apps_aggregate = sgqlc.types.Field(meta_ai_app_aggregate_bool_exp, graphql_name="apps_aggregate")
+    checkpoint = sgqlc.types.Field(meta_ai_checkpoint_bool_exp, graphql_name="checkpoint")
     checkpoint_tag = sgqlc.types.Field(String_comparison_exp, graphql_name="checkpointTag")
     checkpoint_tag_relation = sgqlc.types.Field(meta_ai_checkpoint_tag_bool_exp, graphql_name="checkpointTagRelation")
     checkpoints = sgqlc.types.Field(meta_ai_checkpoint_bool_exp, graphql_name="checkpoints")
@@ -6336,7 +6388,12 @@ class meta_ai_modelv2_bool_exp(sgqlc.types.Input):
     metadata = sgqlc.types.Field(jsonb_comparison_exp, graphql_name="metadata")
     name = sgqlc.types.Field(String_comparison_exp, graphql_name="name")
     organisation_id = sgqlc.types.Field(bigint_comparison_exp, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(bigint_comparison_exp, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(bigint_comparison_exp, graphql_name="ownerId")
+    predictions = sgqlc.types.Field("meta_ai_prediction_bool_exp", graphql_name="predictions")
+    predictions_aggregate = sgqlc.types.Field(
+        "meta_ai_prediction_aggregate_bool_exp", graphql_name="predictions_aggregate"
+    )
     served_by = sgqlc.types.Field("uuid_comparison_exp", graphql_name="servedBy")
     template = sgqlc.types.Field("meta_ai_template_bool_exp", graphql_name="template")
     template_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="templateId")
@@ -6369,10 +6426,11 @@ class meta_ai_modelv2_delete_key_input(sgqlc.types.Input):
 
 class meta_ai_modelv2_inc_input(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "owner_id")
+    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "organization_id", "owner_id")
     ai_worker_id = sgqlc.types.Field(Int, graphql_name="aiWorkerId")
     editor_id = sgqlc.types.Field(bigint, graphql_name="editorId")
     organisation_id = sgqlc.types.Field(bigint, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
 
 
@@ -6382,6 +6440,7 @@ class meta_ai_modelv2_insert_input(sgqlc.types.Input):
         "ai_worker_id",
         "ai_worker_username",
         "apps",
+        "checkpoint",
         "checkpoint_tag",
         "checkpoint_tag_relation",
         "checkpoints",
@@ -6394,7 +6453,9 @@ class meta_ai_modelv2_insert_input(sgqlc.types.Input):
         "metadata",
         "name",
         "organisation_id",
+        "organization_id",
         "owner_id",
+        "predictions",
         "served_by",
         "template",
         "template_id",
@@ -6404,6 +6465,7 @@ class meta_ai_modelv2_insert_input(sgqlc.types.Input):
     ai_worker_id = sgqlc.types.Field(Int, graphql_name="aiWorkerId")
     ai_worker_username = sgqlc.types.Field(String, graphql_name="aiWorkerUsername")
     apps = sgqlc.types.Field(meta_ai_app_arr_rel_insert_input, graphql_name="apps")
+    checkpoint = sgqlc.types.Field(meta_ai_checkpoint_obj_rel_insert_input, graphql_name="checkpoint")
     checkpoint_tag = sgqlc.types.Field(String, graphql_name="checkpointTag")
     checkpoint_tag_relation = sgqlc.types.Field(
         meta_ai_checkpoint_tag_obj_rel_insert_input, graphql_name="checkpointTagRelation"
@@ -6418,7 +6480,9 @@ class meta_ai_modelv2_insert_input(sgqlc.types.Input):
     metadata = sgqlc.types.Field(jsonb, graphql_name="metadata")
     name = sgqlc.types.Field(String, graphql_name="name")
     organisation_id = sgqlc.types.Field(bigint, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
+    predictions = sgqlc.types.Field("meta_ai_prediction_arr_rel_insert_input", graphql_name="predictions")
     served_by = sgqlc.types.Field(uuid, graphql_name="servedBy")
     template = sgqlc.types.Field("meta_ai_template_obj_rel_insert_input", graphql_name="template")
     template_id = sgqlc.types.Field(uuid, graphql_name="templateId")
@@ -6438,6 +6502,7 @@ class meta_ai_modelv2_max_order_by(sgqlc.types.Input):
         "id",
         "name",
         "organisation_id",
+        "organization_id",
         "owner_id",
         "served_by",
         "template_id",
@@ -6452,6 +6517,7 @@ class meta_ai_modelv2_max_order_by(sgqlc.types.Input):
     id = sgqlc.types.Field(order_by, graphql_name="id")
     name = sgqlc.types.Field(order_by, graphql_name="name")
     organisation_id = sgqlc.types.Field(order_by, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(order_by, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
     served_by = sgqlc.types.Field(order_by, graphql_name="servedBy")
     template_id = sgqlc.types.Field(order_by, graphql_name="templateId")
@@ -6470,6 +6536,7 @@ class meta_ai_modelv2_min_order_by(sgqlc.types.Input):
         "id",
         "name",
         "organisation_id",
+        "organization_id",
         "owner_id",
         "served_by",
         "template_id",
@@ -6484,6 +6551,7 @@ class meta_ai_modelv2_min_order_by(sgqlc.types.Input):
     id = sgqlc.types.Field(order_by, graphql_name="id")
     name = sgqlc.types.Field(order_by, graphql_name="name")
     organisation_id = sgqlc.types.Field(order_by, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(order_by, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
     served_by = sgqlc.types.Field(order_by, graphql_name="servedBy")
     template_id = sgqlc.types.Field(order_by, graphql_name="templateId")
@@ -6514,6 +6582,7 @@ class meta_ai_modelv2_order_by(sgqlc.types.Input):
         "ai_worker_id",
         "ai_worker_username",
         "apps_aggregate",
+        "checkpoint",
         "checkpoint_tag",
         "checkpoint_tag_relation",
         "checkpoints_aggregate",
@@ -6526,7 +6595,9 @@ class meta_ai_modelv2_order_by(sgqlc.types.Input):
         "metadata",
         "name",
         "organisation_id",
+        "organization_id",
         "owner_id",
+        "predictions_aggregate",
         "served_by",
         "template",
         "template_id",
@@ -6536,6 +6607,7 @@ class meta_ai_modelv2_order_by(sgqlc.types.Input):
     ai_worker_id = sgqlc.types.Field(order_by, graphql_name="aiWorkerId")
     ai_worker_username = sgqlc.types.Field(order_by, graphql_name="aiWorkerUsername")
     apps_aggregate = sgqlc.types.Field(meta_ai_app_aggregate_order_by, graphql_name="apps_aggregate")
+    checkpoint = sgqlc.types.Field(meta_ai_checkpoint_order_by, graphql_name="checkpoint")
     checkpoint_tag = sgqlc.types.Field(order_by, graphql_name="checkpointTag")
     checkpoint_tag_relation = sgqlc.types.Field(meta_ai_checkpoint_tag_order_by, graphql_name="checkpointTagRelation")
     checkpoints_aggregate = sgqlc.types.Field(
@@ -6550,7 +6622,11 @@ class meta_ai_modelv2_order_by(sgqlc.types.Input):
     metadata = sgqlc.types.Field(order_by, graphql_name="metadata")
     name = sgqlc.types.Field(order_by, graphql_name="name")
     organisation_id = sgqlc.types.Field(order_by, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(order_by, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
+    predictions_aggregate = sgqlc.types.Field(
+        "meta_ai_prediction_aggregate_order_by", graphql_name="predictions_aggregate"
+    )
     served_by = sgqlc.types.Field(order_by, graphql_name="servedBy")
     template = sgqlc.types.Field("meta_ai_template_order_by", graphql_name="template")
     template_id = sgqlc.types.Field(order_by, graphql_name="templateId")
@@ -6585,6 +6661,7 @@ class meta_ai_modelv2_set_input(sgqlc.types.Input):
         "metadata",
         "name",
         "organisation_id",
+        "organization_id",
         "owner_id",
         "served_by",
         "template_id",
@@ -6602,6 +6679,7 @@ class meta_ai_modelv2_set_input(sgqlc.types.Input):
     metadata = sgqlc.types.Field(jsonb, graphql_name="metadata")
     name = sgqlc.types.Field(String, graphql_name="name")
     organisation_id = sgqlc.types.Field(bigint, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
     served_by = sgqlc.types.Field(uuid, graphql_name="servedBy")
     template_id = sgqlc.types.Field(uuid, graphql_name="templateId")
@@ -6611,28 +6689,31 @@ class meta_ai_modelv2_set_input(sgqlc.types.Input):
 
 class meta_ai_modelv2_stddev_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "owner_id")
+    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "organization_id", "owner_id")
     ai_worker_id = sgqlc.types.Field(order_by, graphql_name="aiWorkerId")
     editor_id = sgqlc.types.Field(order_by, graphql_name="editorId")
     organisation_id = sgqlc.types.Field(order_by, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(order_by, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
 
 
 class meta_ai_modelv2_stddev_pop_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "owner_id")
+    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "organization_id", "owner_id")
     ai_worker_id = sgqlc.types.Field(order_by, graphql_name="aiWorkerId")
     editor_id = sgqlc.types.Field(order_by, graphql_name="editorId")
     organisation_id = sgqlc.types.Field(order_by, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(order_by, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
 
 
 class meta_ai_modelv2_stddev_samp_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "owner_id")
+    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "organization_id", "owner_id")
     ai_worker_id = sgqlc.types.Field(order_by, graphql_name="aiWorkerId")
     editor_id = sgqlc.types.Field(order_by, graphql_name="editorId")
     organisation_id = sgqlc.types.Field(order_by, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(order_by, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
 
 
@@ -6659,6 +6740,7 @@ class meta_ai_modelv2_stream_cursor_value_input(sgqlc.types.Input):
         "metadata",
         "name",
         "organisation_id",
+        "organization_id",
         "owner_id",
         "served_by",
         "template_id",
@@ -6676,6 +6758,7 @@ class meta_ai_modelv2_stream_cursor_value_input(sgqlc.types.Input):
     metadata = sgqlc.types.Field(jsonb, graphql_name="metadata")
     name = sgqlc.types.Field(String, graphql_name="name")
     organisation_id = sgqlc.types.Field(bigint, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
     served_by = sgqlc.types.Field(uuid, graphql_name="servedBy")
     template_id = sgqlc.types.Field(uuid, graphql_name="templateId")
@@ -6685,10 +6768,11 @@ class meta_ai_modelv2_stream_cursor_value_input(sgqlc.types.Input):
 
 class meta_ai_modelv2_sum_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "owner_id")
+    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "organization_id", "owner_id")
     ai_worker_id = sgqlc.types.Field(order_by, graphql_name="aiWorkerId")
     editor_id = sgqlc.types.Field(order_by, graphql_name="editorId")
     organisation_id = sgqlc.types.Field(order_by, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(order_by, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
 
 
@@ -6707,28 +6791,31 @@ class meta_ai_modelv2_updates(sgqlc.types.Input):
 
 class meta_ai_modelv2_var_pop_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "owner_id")
+    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "organization_id", "owner_id")
     ai_worker_id = sgqlc.types.Field(order_by, graphql_name="aiWorkerId")
     editor_id = sgqlc.types.Field(order_by, graphql_name="editorId")
     organisation_id = sgqlc.types.Field(order_by, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(order_by, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
 
 
 class meta_ai_modelv2_var_samp_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "owner_id")
+    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "organization_id", "owner_id")
     ai_worker_id = sgqlc.types.Field(order_by, graphql_name="aiWorkerId")
     editor_id = sgqlc.types.Field(order_by, graphql_name="editorId")
     organisation_id = sgqlc.types.Field(order_by, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(order_by, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
 
 
 class meta_ai_modelv2_variance_order_by(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "owner_id")
+    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "organization_id", "owner_id")
     ai_worker_id = sgqlc.types.Field(order_by, graphql_name="aiWorkerId")
     editor_id = sgqlc.types.Field(order_by, graphql_name="editorId")
     organisation_id = sgqlc.types.Field(order_by, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(order_by, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
 
 
@@ -7658,7 +7745,7 @@ class meta_ai_template_bool_exp(sgqlc.types.Input):
         "modelv2s",
         "modelv2s_aggregate",
         "name",
-        "organisation_id",
+        "organization_id",
         "output_schema",
         "owner_id",
         "trainable",
@@ -7686,7 +7773,7 @@ class meta_ai_template_bool_exp(sgqlc.types.Input):
     modelv2s = sgqlc.types.Field(meta_ai_modelv2_bool_exp, graphql_name="modelv2s")
     modelv2s_aggregate = sgqlc.types.Field(meta_ai_modelv2_aggregate_bool_exp, graphql_name="modelv2s_aggregate")
     name = sgqlc.types.Field(String_comparison_exp, graphql_name="name")
-    organisation_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(bigint_comparison_exp, graphql_name="organizationId")
     output_schema = sgqlc.types.Field(jsonb_comparison_exp, graphql_name="outputSchema")
     owner_id = sgqlc.types.Field(bigint_comparison_exp, graphql_name="ownerId")
     trainable = sgqlc.types.Field(Boolean_comparison_exp, graphql_name="trainable")
@@ -7749,8 +7836,9 @@ class meta_ai_template_delete_key_input(sgqlc.types.Input):
 
 class meta_ai_template_inc_input(sgqlc.types.Input):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = "editor_id", "owner_id"
+    __field_names__ = "editor_id", "organization_id", "owner_id"
     editor_id = sgqlc.types.Field(bigint, graphql_name="editorId")
+    organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
 
 
@@ -7771,7 +7859,7 @@ class meta_ai_template_insert_input(sgqlc.types.Input):
         "model_save_path",
         "modelv2s",
         "name",
-        "organisation_id",
+        "organization_id",
         "output_schema",
         "owner_id",
         "trainable",
@@ -7793,7 +7881,7 @@ class meta_ai_template_insert_input(sgqlc.types.Input):
     model_save_path = sgqlc.types.Field(String, graphql_name="modelSavePath")
     modelv2s = sgqlc.types.Field(meta_ai_modelv2_arr_rel_insert_input, graphql_name="modelv2s")
     name = sgqlc.types.Field(String, graphql_name="name")
-    organisation_id = sgqlc.types.Field(uuid, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     output_schema = sgqlc.types.Field(jsonb, graphql_name="outputSchema")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
     trainable = sgqlc.types.Field(Boolean, graphql_name="trainable")
@@ -7837,7 +7925,7 @@ class meta_ai_template_order_by(sgqlc.types.Input):
         "model_save_path",
         "modelv2s_aggregate",
         "name",
-        "organisation_id",
+        "organization_id",
         "output_schema",
         "owner_id",
         "trainable",
@@ -7859,7 +7947,7 @@ class meta_ai_template_order_by(sgqlc.types.Input):
     model_save_path = sgqlc.types.Field(order_by, graphql_name="modelSavePath")
     modelv2s_aggregate = sgqlc.types.Field(meta_ai_modelv2_aggregate_order_by, graphql_name="modelv2s_aggregate")
     name = sgqlc.types.Field(order_by, graphql_name="name")
-    organisation_id = sgqlc.types.Field(order_by, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(order_by, graphql_name="organizationId")
     output_schema = sgqlc.types.Field(order_by, graphql_name="outputSchema")
     owner_id = sgqlc.types.Field(order_by, graphql_name="ownerId")
     trainable = sgqlc.types.Field(order_by, graphql_name="trainable")
@@ -7905,7 +7993,7 @@ class meta_ai_template_set_input(sgqlc.types.Input):
         "metadata",
         "model_save_path",
         "name",
-        "organisation_id",
+        "organization_id",
         "output_schema",
         "owner_id",
         "trainable",
@@ -7925,7 +8013,7 @@ class meta_ai_template_set_input(sgqlc.types.Input):
     metadata = sgqlc.types.Field(jsonb, graphql_name="metadata")
     model_save_path = sgqlc.types.Field(String, graphql_name="modelSavePath")
     name = sgqlc.types.Field(String, graphql_name="name")
-    organisation_id = sgqlc.types.Field(uuid, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     output_schema = sgqlc.types.Field(jsonb, graphql_name="outputSchema")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
     trainable = sgqlc.types.Field(Boolean, graphql_name="trainable")
@@ -7958,7 +8046,7 @@ class meta_ai_template_stream_cursor_value_input(sgqlc.types.Input):
         "metadata",
         "model_save_path",
         "name",
-        "organisation_id",
+        "organization_id",
         "output_schema",
         "owner_id",
         "trainable",
@@ -7978,7 +8066,7 @@ class meta_ai_template_stream_cursor_value_input(sgqlc.types.Input):
     metadata = sgqlc.types.Field(jsonb, graphql_name="metadata")
     model_save_path = sgqlc.types.Field(String, graphql_name="modelSavePath")
     name = sgqlc.types.Field(String, graphql_name="name")
-    organisation_id = sgqlc.types.Field(uuid, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     output_schema = sgqlc.types.Field(jsonb, graphql_name="outputSchema")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
     trainable = sgqlc.types.Field(Boolean, graphql_name="trainable")
@@ -8088,7 +8176,7 @@ class meta_ai_training_instance_bool_exp(sgqlc.types.Input):
     metrics_aggregate = sgqlc.types.Field(
         "meta_ai_training_metric_aggregate_bool_exp", graphql_name="metrics_aggregate"
     )
-    model = sgqlc.types.Field(meta_ai_model_bool_exp, graphql_name="model")
+    model = sgqlc.types.Field(meta_ai_modelv2_bool_exp, graphql_name="model")
     model_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="modelId")
     modelv2_id = sgqlc.types.Field("uuid_comparison_exp", graphql_name="modelv2Id")
     output_model = sgqlc.types.Field(meta_ai_model_bool_exp, graphql_name="output_model")
@@ -8154,7 +8242,7 @@ class meta_ai_training_instance_insert_input(sgqlc.types.Input):
     deployment_id = sgqlc.types.Field(uuid, graphql_name="deployment_id")
     id = sgqlc.types.Field(uuid, graphql_name="id")
     metrics = sgqlc.types.Field("meta_ai_training_metric_arr_rel_insert_input", graphql_name="metrics")
-    model = sgqlc.types.Field(meta_ai_model_obj_rel_insert_input, graphql_name="model")
+    model = sgqlc.types.Field(meta_ai_modelv2_obj_rel_insert_input, graphql_name="model")
     model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
     modelv2_id = sgqlc.types.Field(uuid, graphql_name="modelv2Id")
     output_model = sgqlc.types.Field(meta_ai_model_obj_rel_insert_input, graphql_name="output_model")
@@ -8276,7 +8364,7 @@ class meta_ai_training_instance_order_by(sgqlc.types.Input):
     metrics_aggregate = sgqlc.types.Field(
         "meta_ai_training_metric_aggregate_order_by", graphql_name="metrics_aggregate"
     )
-    model = sgqlc.types.Field(meta_ai_model_order_by, graphql_name="model")
+    model = sgqlc.types.Field(meta_ai_modelv2_order_by, graphql_name="model")
     model_id = sgqlc.types.Field(order_by, graphql_name="modelId")
     modelv2_id = sgqlc.types.Field(order_by, graphql_name="modelv2Id")
     output_model = sgqlc.types.Field(meta_ai_model_order_by, graphql_name="output_model")
@@ -9985,7 +10073,6 @@ class meta_ai_app(sgqlc.types.Type):
         "instance_id",
         "jobs",
         "jobs_aggregate",
-        "model",
         "model_id",
         "predictions",
         "predictions_aggregate",
@@ -10056,7 +10143,6 @@ class meta_ai_app(sgqlc.types.Type):
             )
         ),
     )
-    model = sgqlc.types.Field("meta_ai_model", graphql_name="model")
     model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
     predictions = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("meta_ai_prediction"))),
@@ -10628,6 +10714,7 @@ class meta_ai_checkpoint(sgqlc.types.Type):
         "model_id",
         "modelv2",
         "modelv2_id",
+        "parent",
         "parent_version",
         "predictions",
         "predictions_aggregate",
@@ -10704,10 +10791,11 @@ class meta_ai_checkpoint(sgqlc.types.Type):
         graphql_name="metadata",
         args=sgqlc.types.ArgDict((("path", sgqlc.types.Arg(String, graphql_name="path", default=None)),)),
     )
-    model = sgqlc.types.Field("meta_ai_model", graphql_name="model")
+    model = sgqlc.types.Field("meta_ai_modelv2", graphql_name="model")
     model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
     modelv2 = sgqlc.types.Field("meta_ai_modelv2", graphql_name="modelv2")
     modelv2_id = sgqlc.types.Field(uuid, graphql_name="modelv2Id")
+    parent = sgqlc.types.Field("meta_ai_checkpoint", graphql_name="parent")
     parent_version = sgqlc.types.Field(uuid, graphql_name="parentVersion")
     predictions = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("meta_ai_prediction"))),
@@ -11995,6 +12083,7 @@ class meta_ai_deployment(sgqlc.types.Type):
         "model_id",
         "modelv2",
         "modelv2s",
+        "organization_id",
         "owner_id",
         "properties",
         "purpose",
@@ -12075,6 +12164,7 @@ class meta_ai_deployment(sgqlc.types.Type):
     model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
     modelv2 = sgqlc.types.Field("meta_ai_model", graphql_name="modelv2")
     modelv2s = sgqlc.types.Field("meta_ai_modelv2", graphql_name="modelv2s")
+    organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
     properties = sgqlc.types.Field(
         jsonb,
@@ -12146,9 +12236,10 @@ class meta_ai_deployment_aggregate_fields(sgqlc.types.Type):
 
 class meta_ai_deployment_avg_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("current_log_id", "min_instances", "owner_id", "scale_in_timeout")
+    __field_names__ = ("current_log_id", "min_instances", "organization_id", "owner_id", "scale_in_timeout")
     current_log_id = sgqlc.types.Field(Float, graphql_name="current_log_id")
     min_instances = sgqlc.types.Field(Float, graphql_name="min_instances")
+    organization_id = sgqlc.types.Field(Float, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(Float, graphql_name="ownerId")
     scale_in_timeout = sgqlc.types.Field(Float, graphql_name="scale_in_timeout")
 
@@ -12302,6 +12393,7 @@ class meta_ai_deployment_max_fields(sgqlc.types.Type):
         "id",
         "min_instances",
         "model_id",
+        "organization_id",
         "owner_id",
         "scale_in_timeout",
         "state_timestamp",
@@ -12315,6 +12407,7 @@ class meta_ai_deployment_max_fields(sgqlc.types.Type):
     id = sgqlc.types.Field(uuid, graphql_name="id")
     min_instances = sgqlc.types.Field(Int, graphql_name="min_instances")
     model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
+    organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
     scale_in_timeout = sgqlc.types.Field(Int, graphql_name="scale_in_timeout")
     state_timestamp = sgqlc.types.Field(timestamptz, graphql_name="state_timestamp")
@@ -12332,6 +12425,7 @@ class meta_ai_deployment_min_fields(sgqlc.types.Type):
         "id",
         "min_instances",
         "model_id",
+        "organization_id",
         "owner_id",
         "scale_in_timeout",
         "state_timestamp",
@@ -12345,6 +12439,7 @@ class meta_ai_deployment_min_fields(sgqlc.types.Type):
     id = sgqlc.types.Field(uuid, graphql_name="id")
     min_instances = sgqlc.types.Field(Int, graphql_name="min_instances")
     model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
+    organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
     scale_in_timeout = sgqlc.types.Field(Int, graphql_name="scale_in_timeout")
     state_timestamp = sgqlc.types.Field(timestamptz, graphql_name="state_timestamp")
@@ -12654,36 +12749,40 @@ class meta_ai_deployment_status_mutation_response(sgqlc.types.Type):
 
 class meta_ai_deployment_stddev_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("current_log_id", "min_instances", "owner_id", "scale_in_timeout")
+    __field_names__ = ("current_log_id", "min_instances", "organization_id", "owner_id", "scale_in_timeout")
     current_log_id = sgqlc.types.Field(Float, graphql_name="current_log_id")
     min_instances = sgqlc.types.Field(Float, graphql_name="min_instances")
+    organization_id = sgqlc.types.Field(Float, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(Float, graphql_name="ownerId")
     scale_in_timeout = sgqlc.types.Field(Float, graphql_name="scale_in_timeout")
 
 
 class meta_ai_deployment_stddev_pop_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("current_log_id", "min_instances", "owner_id", "scale_in_timeout")
+    __field_names__ = ("current_log_id", "min_instances", "organization_id", "owner_id", "scale_in_timeout")
     current_log_id = sgqlc.types.Field(Float, graphql_name="current_log_id")
     min_instances = sgqlc.types.Field(Float, graphql_name="min_instances")
+    organization_id = sgqlc.types.Field(Float, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(Float, graphql_name="ownerId")
     scale_in_timeout = sgqlc.types.Field(Float, graphql_name="scale_in_timeout")
 
 
 class meta_ai_deployment_stddev_samp_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("current_log_id", "min_instances", "owner_id", "scale_in_timeout")
+    __field_names__ = ("current_log_id", "min_instances", "organization_id", "owner_id", "scale_in_timeout")
     current_log_id = sgqlc.types.Field(Float, graphql_name="current_log_id")
     min_instances = sgqlc.types.Field(Float, graphql_name="min_instances")
+    organization_id = sgqlc.types.Field(Float, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(Float, graphql_name="ownerId")
     scale_in_timeout = sgqlc.types.Field(Float, graphql_name="scale_in_timeout")
 
 
 class meta_ai_deployment_sum_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("current_log_id", "min_instances", "owner_id", "scale_in_timeout")
+    __field_names__ = ("current_log_id", "min_instances", "organization_id", "owner_id", "scale_in_timeout")
     current_log_id = sgqlc.types.Field(Int, graphql_name="current_log_id")
     min_instances = sgqlc.types.Field(Int, graphql_name="min_instances")
+    organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
     scale_in_timeout = sgqlc.types.Field(Int, graphql_name="scale_in_timeout")
 
@@ -12805,27 +12904,30 @@ class meta_ai_deployment_type_mutation_response(sgqlc.types.Type):
 
 class meta_ai_deployment_var_pop_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("current_log_id", "min_instances", "owner_id", "scale_in_timeout")
+    __field_names__ = ("current_log_id", "min_instances", "organization_id", "owner_id", "scale_in_timeout")
     current_log_id = sgqlc.types.Field(Float, graphql_name="current_log_id")
     min_instances = sgqlc.types.Field(Float, graphql_name="min_instances")
+    organization_id = sgqlc.types.Field(Float, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(Float, graphql_name="ownerId")
     scale_in_timeout = sgqlc.types.Field(Float, graphql_name="scale_in_timeout")
 
 
 class meta_ai_deployment_var_samp_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("current_log_id", "min_instances", "owner_id", "scale_in_timeout")
+    __field_names__ = ("current_log_id", "min_instances", "organization_id", "owner_id", "scale_in_timeout")
     current_log_id = sgqlc.types.Field(Float, graphql_name="current_log_id")
     min_instances = sgqlc.types.Field(Float, graphql_name="min_instances")
+    organization_id = sgqlc.types.Field(Float, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(Float, graphql_name="ownerId")
     scale_in_timeout = sgqlc.types.Field(Float, graphql_name="scale_in_timeout")
 
 
 class meta_ai_deployment_variance_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("current_log_id", "min_instances", "owner_id", "scale_in_timeout")
+    __field_names__ = ("current_log_id", "min_instances", "organization_id", "owner_id", "scale_in_timeout")
     current_log_id = sgqlc.types.Field(Float, graphql_name="current_log_id")
     min_instances = sgqlc.types.Field(Float, graphql_name="min_instances")
+    organization_id = sgqlc.types.Field(Float, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(Float, graphql_name="ownerId")
     scale_in_timeout = sgqlc.types.Field(Float, graphql_name="scale_in_timeout")
 
@@ -13453,6 +13555,7 @@ class meta_ai_modelv2(sgqlc.types.Type):
         "ai_worker_username",
         "apps",
         "apps_aggregate",
+        "checkpoint",
         "checkpoint_tag",
         "checkpoint_tag_relation",
         "checkpoints",
@@ -13466,7 +13569,10 @@ class meta_ai_modelv2(sgqlc.types.Type):
         "metadata",
         "name",
         "organisation_id",
+        "organization_id",
         "owner_id",
+        "predictions",
+        "predictions_aggregate",
         "served_by",
         "template",
         "template_id",
@@ -13529,6 +13635,7 @@ class meta_ai_modelv2(sgqlc.types.Type):
             )
         ),
     )
+    checkpoint = sgqlc.types.Field(meta_ai_checkpoint, graphql_name="checkpoint")
     checkpoint_tag = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="checkpointTag")
     checkpoint_tag_relation = sgqlc.types.Field(meta_ai_checkpoint_tag, graphql_name="checkpointTagRelation")
     checkpoints = sgqlc.types.Field(
@@ -13602,7 +13709,62 @@ class meta_ai_modelv2(sgqlc.types.Type):
     )
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
     organisation_id = sgqlc.types.Field(bigint, graphql_name="organisationId")
-    owner_id = sgqlc.types.Field(sgqlc.types.non_null(bigint), graphql_name="ownerId")
+    organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
+    owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
+    predictions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("meta_ai_prediction"))),
+        graphql_name="predictions",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "distinct_on",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_prediction_select_column)),
+                        graphql_name="distinct_on",
+                        default=None,
+                    ),
+                ),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                (
+                    "order_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_prediction_order_by)),
+                        graphql_name="order_by",
+                        default=None,
+                    ),
+                ),
+                ("where", sgqlc.types.Arg(meta_ai_prediction_bool_exp, graphql_name="where", default=None)),
+            )
+        ),
+    )
+    predictions_aggregate = sgqlc.types.Field(
+        sgqlc.types.non_null("meta_ai_prediction_aggregate"),
+        graphql_name="predictions_aggregate",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "distinct_on",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_prediction_select_column)),
+                        graphql_name="distinct_on",
+                        default=None,
+                    ),
+                ),
+                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
+                ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
+                (
+                    "order_by",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(meta_ai_prediction_order_by)),
+                        graphql_name="order_by",
+                        default=None,
+                    ),
+                ),
+                ("where", sgqlc.types.Arg(meta_ai_prediction_bool_exp, graphql_name="where", default=None)),
+            )
+        ),
+    )
     served_by = sgqlc.types.Field(uuid, graphql_name="servedBy")
     template = sgqlc.types.Field(sgqlc.types.non_null("meta_ai_template"), graphql_name="template")
     template_id = sgqlc.types.Field(sgqlc.types.non_null(uuid), graphql_name="templateId")
@@ -13665,10 +13827,11 @@ class meta_ai_modelv2_aggregate_fields(sgqlc.types.Type):
 
 class meta_ai_modelv2_avg_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "owner_id")
+    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "organization_id", "owner_id")
     ai_worker_id = sgqlc.types.Field(Float, graphql_name="aiWorkerId")
     editor_id = sgqlc.types.Field(Float, graphql_name="editorId")
     organisation_id = sgqlc.types.Field(Float, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(Float, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(Float, graphql_name="ownerId")
 
 
@@ -13684,6 +13847,7 @@ class meta_ai_modelv2_max_fields(sgqlc.types.Type):
         "id",
         "name",
         "organisation_id",
+        "organization_id",
         "owner_id",
         "served_by",
         "template_id",
@@ -13698,6 +13862,7 @@ class meta_ai_modelv2_max_fields(sgqlc.types.Type):
     id = sgqlc.types.Field(uuid, graphql_name="id")
     name = sgqlc.types.Field(String, graphql_name="name")
     organisation_id = sgqlc.types.Field(bigint, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
     served_by = sgqlc.types.Field(uuid, graphql_name="servedBy")
     template_id = sgqlc.types.Field(uuid, graphql_name="templateId")
@@ -13716,6 +13881,7 @@ class meta_ai_modelv2_min_fields(sgqlc.types.Type):
         "id",
         "name",
         "organisation_id",
+        "organization_id",
         "owner_id",
         "served_by",
         "template_id",
@@ -13730,6 +13896,7 @@ class meta_ai_modelv2_min_fields(sgqlc.types.Type):
     id = sgqlc.types.Field(uuid, graphql_name="id")
     name = sgqlc.types.Field(String, graphql_name="name")
     organisation_id = sgqlc.types.Field(bigint, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
     served_by = sgqlc.types.Field(uuid, graphql_name="servedBy")
     template_id = sgqlc.types.Field(uuid, graphql_name="templateId")
@@ -13747,64 +13914,71 @@ class meta_ai_modelv2_mutation_response(sgqlc.types.Type):
 
 class meta_ai_modelv2_stddev_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "owner_id")
+    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "organization_id", "owner_id")
     ai_worker_id = sgqlc.types.Field(Float, graphql_name="aiWorkerId")
     editor_id = sgqlc.types.Field(Float, graphql_name="editorId")
     organisation_id = sgqlc.types.Field(Float, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(Float, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(Float, graphql_name="ownerId")
 
 
 class meta_ai_modelv2_stddev_pop_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "owner_id")
+    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "organization_id", "owner_id")
     ai_worker_id = sgqlc.types.Field(Float, graphql_name="aiWorkerId")
     editor_id = sgqlc.types.Field(Float, graphql_name="editorId")
     organisation_id = sgqlc.types.Field(Float, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(Float, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(Float, graphql_name="ownerId")
 
 
 class meta_ai_modelv2_stddev_samp_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "owner_id")
+    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "organization_id", "owner_id")
     ai_worker_id = sgqlc.types.Field(Float, graphql_name="aiWorkerId")
     editor_id = sgqlc.types.Field(Float, graphql_name="editorId")
     organisation_id = sgqlc.types.Field(Float, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(Float, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(Float, graphql_name="ownerId")
 
 
 class meta_ai_modelv2_sum_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "owner_id")
+    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "organization_id", "owner_id")
     ai_worker_id = sgqlc.types.Field(Int, graphql_name="aiWorkerId")
     editor_id = sgqlc.types.Field(bigint, graphql_name="editorId")
     organisation_id = sgqlc.types.Field(bigint, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
 
 
 class meta_ai_modelv2_var_pop_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "owner_id")
+    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "organization_id", "owner_id")
     ai_worker_id = sgqlc.types.Field(Float, graphql_name="aiWorkerId")
     editor_id = sgqlc.types.Field(Float, graphql_name="editorId")
     organisation_id = sgqlc.types.Field(Float, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(Float, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(Float, graphql_name="ownerId")
 
 
 class meta_ai_modelv2_var_samp_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "owner_id")
+    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "organization_id", "owner_id")
     ai_worker_id = sgqlc.types.Field(Float, graphql_name="aiWorkerId")
     editor_id = sgqlc.types.Field(Float, graphql_name="editorId")
     organisation_id = sgqlc.types.Field(Float, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(Float, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(Float, graphql_name="ownerId")
 
 
 class meta_ai_modelv2_variance_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "owner_id")
+    __field_names__ = ("ai_worker_id", "editor_id", "organisation_id", "organization_id", "owner_id")
     ai_worker_id = sgqlc.types.Field(Float, graphql_name="aiWorkerId")
     editor_id = sgqlc.types.Field(Float, graphql_name="editorId")
     organisation_id = sgqlc.types.Field(Float, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(Float, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(Float, graphql_name="ownerId")
 
 
@@ -14581,7 +14755,7 @@ class meta_ai_template(sgqlc.types.Type):
         "modelv2s",
         "modelv2s_aggregate",
         "name",
-        "organisation_id",
+        "organization_id",
         "output_schema",
         "owner_id",
         "trainable",
@@ -14672,13 +14846,13 @@ class meta_ai_template(sgqlc.types.Type):
         ),
     )
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
-    organisation_id = sgqlc.types.Field(uuid, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     output_schema = sgqlc.types.Field(
         jsonb,
         graphql_name="outputSchema",
         args=sgqlc.types.ArgDict((("path", sgqlc.types.Arg(String, graphql_name="path", default=None)),)),
     )
-    owner_id = sgqlc.types.Field(sgqlc.types.non_null(bigint), graphql_name="ownerId")
+    owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
     trainable = sgqlc.types.Field(Boolean, graphql_name="trainable")
     updated_at = sgqlc.types.Field(sgqlc.types.non_null(timestamptz), graphql_name="updated_at")
     version = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="version")
@@ -14740,8 +14914,9 @@ class meta_ai_template_aggregate_fields(sgqlc.types.Type):
 
 class meta_ai_template_avg_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = "editor_id", "owner_id"
+    __field_names__ = "editor_id", "organization_id", "owner_id"
     editor_id = sgqlc.types.Field(Float, graphql_name="editorId")
+    organization_id = sgqlc.types.Field(Float, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(Float, graphql_name="ownerId")
 
 
@@ -14756,7 +14931,7 @@ class meta_ai_template_max_fields(sgqlc.types.Type):
         "image",
         "model_save_path",
         "name",
-        "organisation_id",
+        "organization_id",
         "owner_id",
         "updated_at",
         "version",
@@ -14769,7 +14944,7 @@ class meta_ai_template_max_fields(sgqlc.types.Type):
     image = sgqlc.types.Field(String, graphql_name="image")
     model_save_path = sgqlc.types.Field(String, graphql_name="modelSavePath")
     name = sgqlc.types.Field(String, graphql_name="name")
-    organisation_id = sgqlc.types.Field(uuid, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
     updated_at = sgqlc.types.Field(timestamptz, graphql_name="updated_at")
     version = sgqlc.types.Field(String, graphql_name="version")
@@ -14786,7 +14961,7 @@ class meta_ai_template_min_fields(sgqlc.types.Type):
         "image",
         "model_save_path",
         "name",
-        "organisation_id",
+        "organization_id",
         "owner_id",
         "updated_at",
         "version",
@@ -14799,7 +14974,7 @@ class meta_ai_template_min_fields(sgqlc.types.Type):
     image = sgqlc.types.Field(String, graphql_name="image")
     model_save_path = sgqlc.types.Field(String, graphql_name="modelSavePath")
     name = sgqlc.types.Field(String, graphql_name="name")
-    organisation_id = sgqlc.types.Field(uuid, graphql_name="organisationId")
+    organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
     updated_at = sgqlc.types.Field(timestamptz, graphql_name="updated_at")
     version = sgqlc.types.Field(String, graphql_name="version")
@@ -14816,50 +14991,57 @@ class meta_ai_template_mutation_response(sgqlc.types.Type):
 
 class meta_ai_template_stddev_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = "editor_id", "owner_id"
+    __field_names__ = "editor_id", "organization_id", "owner_id"
     editor_id = sgqlc.types.Field(Float, graphql_name="editorId")
+    organization_id = sgqlc.types.Field(Float, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(Float, graphql_name="ownerId")
 
 
 class meta_ai_template_stddev_pop_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = "editor_id", "owner_id"
+    __field_names__ = "editor_id", "organization_id", "owner_id"
     editor_id = sgqlc.types.Field(Float, graphql_name="editorId")
+    organization_id = sgqlc.types.Field(Float, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(Float, graphql_name="ownerId")
 
 
 class meta_ai_template_stddev_samp_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = "editor_id", "owner_id"
+    __field_names__ = "editor_id", "organization_id", "owner_id"
     editor_id = sgqlc.types.Field(Float, graphql_name="editorId")
+    organization_id = sgqlc.types.Field(Float, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(Float, graphql_name="ownerId")
 
 
 class meta_ai_template_sum_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = "editor_id", "owner_id"
+    __field_names__ = "editor_id", "organization_id", "owner_id"
     editor_id = sgqlc.types.Field(bigint, graphql_name="editorId")
+    organization_id = sgqlc.types.Field(bigint, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(bigint, graphql_name="ownerId")
 
 
 class meta_ai_template_var_pop_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = "editor_id", "owner_id"
+    __field_names__ = "editor_id", "organization_id", "owner_id"
     editor_id = sgqlc.types.Field(Float, graphql_name="editorId")
+    organization_id = sgqlc.types.Field(Float, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(Float, graphql_name="ownerId")
 
 
 class meta_ai_template_var_samp_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = "editor_id", "owner_id"
+    __field_names__ = "editor_id", "organization_id", "owner_id"
     editor_id = sgqlc.types.Field(Float, graphql_name="editorId")
+    organization_id = sgqlc.types.Field(Float, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(Float, graphql_name="ownerId")
 
 
 class meta_ai_template_variance_fields(sgqlc.types.Type):
     __schema__ = meta_ai_graphql_schema
-    __field_names__ = "editor_id", "owner_id"
+    __field_names__ = "editor_id", "organization_id", "owner_id"
     editor_id = sgqlc.types.Field(Float, graphql_name="editorId")
+    organization_id = sgqlc.types.Field(Float, graphql_name="organizationId")
     owner_id = sgqlc.types.Field(Float, graphql_name="ownerId")
 
 
@@ -14954,7 +15136,7 @@ class meta_ai_training_instance(sgqlc.types.Type):
             )
         ),
     )
-    model = sgqlc.types.Field(meta_ai_model, graphql_name="model")
+    model = sgqlc.types.Field(meta_ai_modelv2, graphql_name="model")
     model_id = sgqlc.types.Field(uuid, graphql_name="modelId")
     modelv2_id = sgqlc.types.Field(uuid, graphql_name="modelv2Id")
     output_model = sgqlc.types.Field(meta_ai_model, graphql_name="output_model")

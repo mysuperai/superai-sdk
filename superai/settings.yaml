@@ -95,27 +95,6 @@ testing:
     api_key: "FAKE_API_KEY"
   cache_size_in_bytes: 100000
 
-sandbox:
-  name: "sandbox"
-  cognito:
-    client_id: "2569ain8phd454q0lmos9rppdb"
-    region: "us-east-1"
-    userpool_id: "us-east-1_DN7c2e5gq"
-  dependency_version: "sandbox"
-  log:
-    level: 20 #INFO=20, DEBUG=10
-    console: true
-  suffix: "-sandbox"
-
-stg:
-  name: "stg"
-  dependency_version: "stg"
-  base_url: "https://api-staging.super.ai/v1"
-  log:
-    level: 20 #INFO=20, DEBUG=10
-    console: true
-  suffix: "-stg"
-
 prod:
   name: "prod"
   cognito:

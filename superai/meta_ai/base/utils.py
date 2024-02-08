@@ -1,6 +1,11 @@
+import io
 import os
 import tarfile
+from pathlib import Path
+from typing import Dict, List, Union
 from urllib.parse import urlparse
+
+import jsonlines
 
 from superai.log import get_logger
 from superai.utils.files import pull_s3_folder, s3_download_file
@@ -39,3 +44,26 @@ def pull_weights(weights_uri: str, output_path: str) -> str:
         pull_s3_folder(weights_uri, output_path)
     log.info(f"Successfully downloaded weights folder to path `{output_path}`")
     return output_path
+
+
+def load_job_dataset(filepath: Union[str, Path]) -> Dict[str, List[Dict]]:
+    """
+    Convert a Gzipped Tar file back to arrays.
+    Args:
+        filepath (str): Path to the Gzipped Tar file.
+    Returns:
+        dict: Dictionary containing arrays.
+            E.g. {'training':x, 'testing':y,'validation':z}
+    """
+    filepath = Path(filepath)
+    if filepath.suffixes != [".tar", ".gz"]:
+        raise ValueError("File must be a Gzipped Tar file.")
+    arrays = {}
+    with tarfile.open(filepath, mode="r:gz") as tar:
+        for member in tar.getmembers():
+            f = tar.extractfile(member)
+            if f is not None:
+                with jsonlines.Reader(io.TextIOWrapper(io.BufferedReader(f))) as reader:
+                    arrays[member.name.split(".")[0]] = [row for row in reader]
+
+    return arrays

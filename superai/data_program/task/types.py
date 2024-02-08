@@ -1,4 +1,5 @@
 import enum
+from abc import ABC, abstractmethod
 from typing import Callable, Dict, Generic, List, Optional, Type, TypeVar, Union
 
 from pydantic import Extra, Field, validator
@@ -93,7 +94,11 @@ class TaskStrategy(str, enum.Enum):
     PRIORITY = "PRIORITY"
 
 
-class SuperTaskParameters(BaseModel):
+class BaseSuperTaskParameters(BaseModel):
+    strategy: Optional[str] = Field(TaskStrategy.FIRST_COMPLETED)
+
+
+class SuperTaskParameters(BaseSuperTaskParameters):
     """Parameter model for one super task.
     Contains additional paramaters to control the SuperTask execution, excluding worker parameters.
     E.g. the task combination strategy.
@@ -106,7 +111,7 @@ class SuperTaskParameters(BaseModel):
 class SuperTaskWorkers(BaseModel):
     """Contains the model for the allowed workers for a SuperTask.
     Currently only contains a list of workers.
-    Is necessary to create a correct JSONSchema.
+    It is necessary to create a correct JSONSchema.
     """
 
     __root__: List[Union[CrowdWorker, AIWorker, BotWorker, CollaboratorWorker, IdempotentWorker]]
@@ -129,14 +134,24 @@ class SuperTaskConfig(BaseModel):
     """
 
     workers: SuperTaskWorkers
-    params: SuperTaskParameters = Field(SuperTaskParameters())
+    params: BaseSuperTaskParameters = Field(BaseSuperTaskParameters())
     editable: Optional[bool] = Field(default=None)
 
-    def get_workers_schema(self) -> dict:
+    def get_workers_schema(self) -> Optional[dict]:
         """Method to get the JSONSchema for the workers.
         Direct access to the workers is not possible, because the workers are wrapped in a list.
         """
         return self.__fields__["workers"].type_.schema()
+
+
+class BaseRouter(ABC):
+    @abstractmethod
+    def map(self):
+        pass
+
+    @abstractmethod
+    def reduce(self):
+        pass
 
 
 class SuperTaskModel(BaseModel):
@@ -152,6 +167,7 @@ class SuperTaskModel(BaseModel):
     name: str
     config: SuperTaskConfig
     template: TaskTemplate
+    router: Optional[type[BaseRouter]]
 
     class Config:
         extra = Extra.forbid
@@ -167,6 +183,7 @@ class SuperTaskModel(BaseModel):
             SuperTaskConfig,
             "DPSuperTaskConfigs",
         ],
+        router: Type[BaseRouter] = None,
     ) -> "SuperTaskModel":
         """Create a super task model from a name, input and output type and default params.
         Args:
@@ -196,6 +213,7 @@ class SuperTaskModel(BaseModel):
             name=name,
             template=template,
             config=config,
+            router=router,
         )
 
 
@@ -241,11 +259,13 @@ class DPSuperTaskConfigs(BaseModel):
             dp_name: The name of the Data Program.
         """
         """Turbines schema is a bit different from the SDK schema"""
-        super_task_params_list = [SuperTaskSchemaResponse.parse_obj(stp) for stp in response]
-        super_task_params_dict = {
-            stp.super_task_workflow.split(f"{dp_name}.")[1]: SuperTaskConfig.parse_obj(stp)
-            for stp in super_task_params_list
-        }
+
+        super_task_params_dict = {}
+        for super_task_param in response:
+            response_stp = SuperTaskSchemaResponse.parse_obj(super_task_param)
+            super_task_params_dict[response_stp.super_task_workflow.split(f"{dp_name}.")[1]] = SuperTaskConfig(
+                workers=response_stp.workers, params=response_stp.parameters
+            )
         return cls.parse_obj(super_task_params_dict)
 
 
@@ -286,9 +306,9 @@ class SuperTaskSchemaResponse(BaseModel):
 
     super_task_workflow: str
     workers: SuperTaskWorkers
-    parameters: SuperTaskParameters
-    workers_schema: dict
-    parameters_schema: dict
+    parameters: BaseSuperTaskParameters
+    workers_schema: Optional[dict]
+    parameters_schema: Optional[dict]
 
 
 class MetricRequestModel(BaseModel):

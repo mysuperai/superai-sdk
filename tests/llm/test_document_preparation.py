@@ -24,6 +24,13 @@ def form_ocr():
     return form_ocr
 
 
+@pytest.fixture
+def table_ocr():
+    with open(Path(__file__).parent.joinpath("ocr_outputs/table_ocr_output.json"), "r") as f:
+        table_ocr = json.load(f)
+    return table_ocr
+
+
 def test_whitespace_extractor(invoice_ocr):
     extractor = DocumentToString(False, False, "whitespace", None, 4000)
     serialized_doc = extractor.get_document_representation(invoice_ocr["__ocr_values__"], None, None)
@@ -68,6 +75,15 @@ def test_whitespace_extractor_kv(form_ocr):
     assert len(serialized_doc[0]) > 0
 
 
+def test_whitespace_extractor_table(table_ocr):
+    extractor = DocumentToString(False, True, "whitespace", None, 4000)
+    serialized_doc = extractor.get_document_representation(
+        table_ocr["__ocr_values__"], None, table_ocr["__general_tables__"]
+    )
+    assert serialized_doc[0].count("Table") == 2
+    assert len(serialized_doc) == 1
+
+
 def test_document_batching(form_ocr):
     extractor = DocumentToString(True, False, "line", None, 100)
     serialized_doc = extractor.get_document_representation(form_ocr["__ocr_values__"], form_ocr["__key_values__"], None)
@@ -89,9 +105,9 @@ def test_get_white_space_line_dict(invoice_ocr):
     line_dict = extractor.get_white_space_line_dict(invoice_ocr["__ocr_values__"])
 
     split_doc = serialized_doc[0].split("\n")
-    assert line_dict[int(split_doc[4][0])][0]["content"] in split_doc[4]
-    assert line_dict[int(split_doc[26][0:2])][3]["content"] in split_doc[26]
-    assert line_dict[int(split_doc[101][0:3])][0]["content"] in split_doc[101]
+    assert line_dict[int(split_doc[7][0])][0]["content"] in split_doc[7]
+    assert line_dict[int(split_doc[26][0:2])][1]["content"] in split_doc[26]
+    assert line_dict[int(split_doc[103][0:3])][0]["content"] in split_doc[103]
 
 
 def test_replace_checkbox_kv_pairs(form_ocr):

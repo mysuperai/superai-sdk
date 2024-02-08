@@ -60,12 +60,12 @@ def test_output_formatter(template_api_mixin, template):
 
 # Test for get_all_templates method
 def test_get_all_templates(template_api_mixin, template):
-    template_api_mixin.sess = MagicMock()
-    template_api_mixin.sess.perform_op.return_value = {"data": {"meta_ai_template": []}}
+    template_api_mixin.ai_session = MagicMock()
+    template_api_mixin.ai_session.perform_op.return_value = {"data": {"meta_ai_template": []}}
     result = template_api_mixin.list_ai(to_json=False, verbose=False)
     assert result == []
 
-    template_api_mixin.sess.perform_op.return_value = {
+    template_api_mixin.ai_session.perform_op.return_value = {
         "data": {"meta_ai_template": [template.to_dict(only_db_fields=True, not_null=True)]}
     }
     result = template_api_mixin.list_ai(to_json=True, verbose=True)
@@ -74,8 +74,8 @@ def test_get_all_templates(template_api_mixin, template):
 
 # Test for get_template method
 def test_get_template(template_api_mixin, template):
-    template_api_mixin.sess = MagicMock()
-    template_api_mixin.sess.perform_op.return_value = {
+    template_api_mixin.ai_session = MagicMock()
+    template_api_mixin.ai_session.perform_op.return_value = {
         "data": {"meta_ai_template_by_pk": template.to_dict(only_db_fields=True, not_null=True)}
     }
     result = template_api_mixin.get_ai(template_id="1", to_json=True)
@@ -84,36 +84,36 @@ def test_get_template(template_api_mixin, template):
 
 # Test for get_template_by_name method
 def test_get_template_by_name(template_api_mixin, template):
-    template_api_mixin.sess = MagicMock()
-    template_api_mixin.sess.perform_op.return_value = {
+    template_api_mixin.ai_session = MagicMock()
+    template_api_mixin.ai_session.perform_op.return_value = {
         "data": {"meta_ai_template": [template.to_dict(only_db_fields=True, not_null=True)]}
     }
-    result = template_api_mixin.list_ai_by_name(name="test_template", to_json=True, verbose=True)
+    result = template_api_mixin.list_ai(name="test_template", to_json=True, verbose=True)
     assert isinstance(result[0], dict)
 
 
 # Test for get_template_by_name_version method
 def test_get_template_by_name_version(template_api_mixin, template):
-    template_api_mixin.sess = MagicMock()
-    template_api_mixin.sess.perform_op.return_value = {
+    template_api_mixin.ai_session = MagicMock()
+    template_api_mixin.ai_session.perform_op.return_value = {
         "data": {"meta_ai_template": [template.to_dict(only_db_fields=True, not_null=True)]}
     }
-    result = template_api_mixin.list_ai_by_name_version(name="test_template", version="1.0", to_json=True, verbose=True)
+    result = template_api_mixin.list_ai(name="test_template", version="1.0", to_json=True, verbose=True)
     assert isinstance(result[0], dict)
 
 
 # Test for add_template method
 def test_add_template(template_api_mixin, template):
-    template_api_mixin.sess = MagicMock()
-    template_api_mixin.sess.perform_op.return_value = {"data": {"insert_meta_ai_template_one": {"id": "1"}}}
+    template_api_mixin.ai_session = MagicMock()
+    template_api_mixin.ai_session.perform_op.return_value = {"data": {"insert_meta_ai_template_one": {"id": "1"}}}
     result = template_api_mixin.create_ai(template)
     assert result == "1"
 
 
 # Test for update_template method
 def test_update_template(template_api_mixin, template):
-    template_api_mixin.sess = MagicMock()
-    template_api_mixin.sess.perform_op.return_value = {"data": {"update_meta_ai_template_by_pk": {"id": "1"}}}
+    template_api_mixin.ai_session = MagicMock()
+    template_api_mixin.ai_session.perform_op.return_value = {"data": {"update_meta_ai_template_by_pk": {"id": "1"}}}
     template.id = "1"
     result = template_api_mixin.update_ai(template.id, name="test_template", version="1.0")
     assert result == "1"
@@ -121,7 +121,7 @@ def test_update_template(template_api_mixin, template):
 
 # Test for delete_template method
 def test_delete_template(template_api_mixin):
-    template_api_mixin.sess = MagicMock()
-    template_api_mixin.sess.perform_op.return_value = {"data": {"delete_meta_ai_template_by_pk": {"id": "1"}}}
+    template_api_mixin.ai_session = MagicMock()
+    template_api_mixin.ai_session.perform_op.return_value = {"data": {"delete_meta_ai_template_by_pk": {"id": "1"}}}
     result = template_api_mixin.delete_ai(template_id="1")
     assert result == "1"

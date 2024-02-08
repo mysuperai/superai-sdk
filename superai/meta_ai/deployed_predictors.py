@@ -4,7 +4,7 @@ import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
-from typing import TYPE_CHECKING, List, Optional, TypeVar
+from typing import TYPE_CHECKING, Optional, TypeVar
 
 import docker  # type: ignore
 import requests
@@ -78,6 +78,8 @@ class DeployedPredictor(metaclass=ABCMeta):
 
 
 class LocalPredictor(DeployedPredictor):
+    ENDPOINT_SUFFIX = "api/v1.0/predictions"
+
     def __init__(self, *args, port=9000, remove=True, rest_workers=1, grpc_workers=0, **kwargs):
         """_summary_
 
@@ -112,7 +114,7 @@ class LocalPredictor(DeployedPredictor):
         self.grpc_workers = grpc_workers
         self.rest_workers = rest_workers
 
-        if "s3://" in self.weights_path:
+        if self.weights_path and "s3://" in self.weights_path:
             from superai.meta_ai import AILoader
 
             self.weights_path = AILoader._load_weights(self.weights_path)
@@ -139,6 +141,8 @@ class LocalPredictor(DeployedPredictor):
 
             envs["GRPC_WORKERS"] = self.grpc_workers
             envs["GUNICORN_WORKERS"] = self.rest_workers
+            envs["AWS_ACCESS_KEY_ID"] = os.environ.get("AWS_ACCESS_KEY_ID", "")
+            envs["AWS_SECRET_ACCESS_KEY"] = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
 
             if self.deploy_properties.envs:
                 envs.update(self.deploy_properties.envs)
@@ -162,13 +166,16 @@ class LocalPredictor(DeployedPredictor):
             )
             self.container = None
 
+    def _get_endpoint(self):
+        return f"http://{self.ip_address}:{self.port}/{self.ENDPOINT_SUFFIX}"
+
     def predict(self, input, mime="application/json"):
         if self.container is None:
             self.container: Container = self.client.containers.get(self.container_name)
         container_state = self.container.attrs["State"]
         assert container_state["Status"] == "running", "Container is not running"
 
-        url = f"http://{self.ip_address}:{self.port}/api/v1.0/predictions"
+        url = self._get_endpoint()
 
         headers = {"Content-Type": mime}
         if mime.endswith("json"):
@@ -184,6 +191,38 @@ class LocalPredictor(DeployedPredictor):
             return TaskPredictionInstance.validate_prediction(res.json())
         message = f"Error, received error code {res.status_code}: {res.text}"
         log.error(message)
+
+    def ping(self) -> bool:
+        """
+        Check if the exposed port is live.
+
+        Returns
+        -------
+        bool
+            True if the port is live, False otherwise.
+        """
+        try:
+            response = requests.post(self._get_endpoint(), timeout=3)
+            # 400 is returned if the server is running since the model complains about missing payload
+            return response.status_code == 400
+        except requests.RequestException:
+            return False
+
+    def wait_until_ready(self, timeout=30) -> bool:
+        """
+        Wait until the exposed port is live.
+
+        Returns
+        -------
+        bool
+            True if the port is live, False otherwise.
+        """
+        import time
+
+        start_time = time.time()
+        while not self.ping() and time.time() - start_time < timeout:
+            time.sleep(1)
+        return self.ping()
 
     def log(self):
         if self.container is None:
@@ -314,7 +353,11 @@ class RemotePredictor(DeployedPredictor):
                         f"Deployment type changed. Previous {current_type}, now: {self.orchestrator.value}. Will shutdown current deployment and create new."
                     )
                     create_new = True
-                self.terminate(wait_seconds=3)
+                    # Only terminate when deployment type differs
+                    self.terminate(wait_seconds=15)
+                else:
+                    # If the type is identical we can just use the seamless update feature
+                    create_new = False
         else:
             create_new = True
 
@@ -325,9 +368,11 @@ class RemotePredictor(DeployedPredictor):
 
         # Update deployment properties and AI instance
         c.set_deployment_properties(deployment_id=self.id, properties=self.deploy_properties.dict_for_db())
+        if create_new:
+            finished = c.set_deployment_status(deployment_id=self.id, target_status="ONLINE", timeout=wait_time_seconds)
+        else:
+            finished = c.update_deployment(deployment_id=self.id, timeout=wait_time_seconds)
 
-        # Set deployment status to ONLINE and fetch deployment details
-        finished = c.set_deployment_status(deployment_id=self.id, target_status="ONLINE", timeout=wait_time_seconds)
         deployment = c.get_deployment(self.id)
         if not finished:
             log.warning(f"Deployment is getting ready in the background: {deployment}")
@@ -356,7 +401,7 @@ class RemotePredictor(DeployedPredictor):
                 existing_deployment = list_deployments[0]
         return existing_deployment
 
-    def predict(self, input, wait_time_seconds=180, **kwargs) -> List[TaskPredictionInstance]:
+    def predict(self, input, wait_time_seconds=180, **kwargs) -> TaskPredictionInstance:
         if self.client.check_endpoint_is_available(self.id):
             input_data, parameters = input.get("data", {}), input.get("parameters", {})
             return self.client.predict_from_endpoint(
