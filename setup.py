@@ -66,7 +66,7 @@ REQUIRES = [
 AI_REQUIRES = [
     "docker>=5.0.0",
     "polyaxon>=1.14.3",
-    "protobuf>=3.20.1, <4",
+    "protobuf>=4.25.2, <5",
     # 4.21.0 broke the sagemaker imports, see https://github.com/protocolbuffers/protobuf/issues/10051
     "netifaces>=0.11.0",
     "jsonlines>=4.0.0",
