@@ -16,7 +16,7 @@ log = logger.get_logger(__name__)
 
 class JobsApiMixin(ABC):
     @abstractmethod
-    def request(self, uri, method, body_params=None, query_params=None, required_api_key=False):
+    def request(self, uri, method, body_params=None, query_params=None, required_api_key=False, header_params=None):
         pass
 
     def create_jobs(
@@ -28,6 +28,7 @@ class JobsApiMixin(ABC):
         metadata: dict = None,
         worker: str = None,
         parked: bool = None,
+        tags: str = None,
     ) -> dict:
         """Submits jobs.
 
@@ -55,6 +56,8 @@ class JobsApiMixin(ABC):
             body_json["labeler"] = worker
         if parked is not None:
             body_json["pending"] = parked
+        if tags is not None:
+            body_json["tags"] = tags
 
         uri = f"apps/{app_id}/jobs"
         return self.request(uri, method="POST", body_params=body_json, required_api_key=True)
@@ -120,6 +123,61 @@ class JobsApiMixin(ABC):
         uri = f"jobs/{job_id}/cancel"
         return self.request(uri, method="POST", required_api_key=True)
 
+    def add_tags(
+        self,
+        app_id: str,
+        tags: str,
+        search_id: str,
+    ) -> dict:
+        """Add tags to job given an application ID and search_id.
+
+        Args:
+            app_id: Application ID.
+            tags: job tags.
+            search_id: job_id
+        Returns:
+            None
+        """
+        uri = f"apps/{app_id}/jobs/tags"
+        query_params = {}
+        if search_id is not None:
+            query_params["idSearch"] = search_id
+        body_json = {}
+        if tags is not None:
+            body_json["tags"] = tags
+        return self.request(uri, method="PUT", query_params=query_params, body_params=body_json, required_api_key=True)
+
+    def delete_tags(
+        self,
+        app_id: str,
+        tags: str,
+        created_start_date: datetime = None,
+        batch_id: str = None,
+        search_id: str = None,
+    ) -> dict:
+        """Deletes the tags from jobs given an application ID and tag. Can be filtered by batch_id.
+
+        Args:
+            app_id: Application ID.
+            tags: job tags.
+        Returns:
+            None
+        """
+        uri = f"apps/{app_id}/jobs/tags"
+        query_params = {}
+        if batch_id is not None:
+            query_params["batchId"] = batch_id
+        if search_id is not None:
+            query_params["idSearch"] = search_id
+        if created_start_date is not None:
+            query_params["createdStartDate"] = created_start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        body_json = {}
+        if tags is not None:
+            body_json["tags"] = tags
+        return self.request(
+            uri, method="DELETE", query_params=query_params, body_params=body_json, required_api_key=True
+        )
+
     def list_jobs(
         self,
         app_id: str,
@@ -132,6 +190,8 @@ class JobsApiMixin(ABC):
         completed_start_date: datetime = None,
         completed_end_date: datetime = None,
         status_in: List[str] = None,
+        tags: str = None,
+        correct: str = None,
     ) -> dict:
         """Gets a paginated list of jobs (without job responses) given an application ID.
 
@@ -170,6 +230,10 @@ class JobsApiMixin(ABC):
             query_params["completedEndDate"] = completed_end_date.strftime("%Y-%m-%dT%H:%M:%SZ")
         if status_in is not None:
             query_params["statusIn"] = status_in
+        if tags is not None:
+            query_params["tags"] = tags
+        if correct is not None:
+            query_params["correct"] = correct
         return self.request(uri, method="GET", query_params=query_params, required_api_key=True)
 
     def download_jobs(
@@ -182,6 +246,8 @@ class JobsApiMixin(ABC):
         status_in: List[str] = None,
         send_email: bool = None,
         with_history: bool = None,
+        batch_id: str = None,
+        id_search: str = None,
     ) -> dict:
         """
         Trigger processing of jobs responses that are sent to customer email (default) once is finished.
@@ -215,6 +281,10 @@ class JobsApiMixin(ABC):
             query_params["sendEmail"] = send_email
         if with_history is not None:
             query_params["withHistory"] = with_history
+        if batch_id is not None:
+            query_params["batchId"] = batch_id
+        if id_search is not None:
+            query_params["idSearch"] = id_search
         return self.request(uri, method="POST", query_params=query_params, required_api_key=True)
 
     def get_all_jobs(

@@ -4,7 +4,7 @@ from typing import Generator
 
 class GroundTruthApiMixin(ABC):
     @abstractmethod
-    def request(self, uri, method, body_params=None, query_params=None, required_api_key=False):
+    def request(self, uri, method, body_params=None, query_params=None, required_api_key=False, header_params=None):
         pass
 
     def create_ground_truth(
