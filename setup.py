@@ -113,7 +113,7 @@ TEST_REQUIRES = [
 LLM_REQUIRES = [
     "tabulate~=0.9.0",
     "tiktoken~=0.4.0",
-    "openai~=1.6.1",
+    "openai~=1.11.1",
     "shapely>=2.0.2",
 ]
 
