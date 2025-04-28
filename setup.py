@@ -127,7 +127,7 @@ LLM_REQUIRES_EXTRA = [
     "jiwer",
     "jupyter",
     "langchain~=0.0.130",
-    "numpy~=1.24.2",
+    "numpy~=1.26.4",
     "openpyxl",
     "orjson",
     "pdf2image~=1.16.3",
