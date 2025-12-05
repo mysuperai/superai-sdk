@@ -130,7 +130,7 @@ LLM_REQUIRES_EXTRA = [
     "numpy~=1.24.2",
     "openpyxl",
     "orjson",
-    "pdf2image~=1.16.3",
+    "pdf2image~=1.17.0",
     "pinecone-client",
     "pydantic>=1.8.2,<2",
     "pytesseract",
