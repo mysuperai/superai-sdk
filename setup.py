@@ -126,7 +126,7 @@ LLM_REQUIRES_EXTRA = [
     "google-search-results",
     "jiwer",
     "jupyter",
-    "langchain~=0.0.130",
+    "langchain~=1.3.15",
     "numpy~=1.24.2",
     "openpyxl",
     "orjson",
