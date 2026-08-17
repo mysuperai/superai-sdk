@@ -107,7 +107,7 @@ TEST_REQUIRES = [
 
 LLM_REQUIRES = [
     "tabulate~=0.9.0",
-    "tiktoken~=0.4.0",
+    "tiktoken~=0.13.0",
     "openai~=0.27.2",
 ]
 
@@ -140,7 +140,7 @@ LLM_REQUIRES_EXTRA = [
     "soundfile",
     "tabulate~=0.9.0",
     "textract-trp~=0.1.3",
-    "tiktoken~=0.4.0",
+    "tiktoken~=0.13.0",
     "tweepy",
     "watchdog==3.0.0",
     "webdriver-manager",
